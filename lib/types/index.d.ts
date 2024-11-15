@@ -156,8 +156,9 @@ export interface TransactionHistoryItem {
 export interface UseTokenBalanceProps {
   tokenAddress: Address;
   chainId: number;
-  accountAddress: Address;
+  address: Address;
   decimals: number;
+  setBalance?: (balance: string) => void;
 }
 
 export interface BalanceDisplayProps {
@@ -214,7 +215,7 @@ export type CurrencyAddresses = Record<
 export interface LinkUiFormProps {
   tokenAmount: number;
   handleValueChange: (usdAmount: number, tokenAmount: number) => void;
-  availableTokens: Record<string, string>;
+  availableTokens: Token[];
   setSelectedToken: Dispatch<SetStateAction<string>>;
   chainId: number | undefined;
   handleCreateLinkClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
@@ -235,6 +236,7 @@ export interface CurrencyDisplayerProps {
   availableTokens: Token[];
   onTokenSelect: (token: Token) => void;
   currentNetwork: number;
+  tokenAmount?: number;
 }
 
 export interface AbstractTransaction {
@@ -271,4 +273,25 @@ export interface FramedQRCodeProps {
 export interface WormholeContracts {
   CrossChainSender: string;
   wormholeChainId: number;
+}
+
+export interface Translations {
+  NotFound: {
+    title: string;
+  };
+  Home: {
+    welcome: string;
+    to: string;
+    slogan: {
+      part1: string;
+      part2: string;
+      part3: string;
+      part4: string;
+    };
+    logoAlt: string;
+    neoMatrixAlt: string;
+    pillGifAlt: string;
+    boofiMatrixAlt: string;
+    matrixMemeAlt: string;
+  };
 }
