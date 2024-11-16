@@ -11,6 +11,7 @@ import {
   TabsTriggerAlt,
 } from "@/components/ui/tabs";
 import { Button } from "../ui/button";
+import { useNetworkManager } from "@/hooks/use-dynamic-network";
 // import MoneyMarketBentoGrid from "../money-market";
 // import { useTabStore } from "@/store/tabStore";
 // import { LottieWrapper } from "@/components/lottie-wrapper";
@@ -28,6 +29,9 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
   // const { activeTab, setActiveTab } = useTabStore();
   const [isTransitioning, setIsTransitioning] = useState(false);
   const address = useAccount();
+
+  const currentChainId = useNetworkManager();
+  console.log({ currentChainId });
 
   useEffect(() => {
     if (isTransitioning) {

@@ -15,10 +15,10 @@ import { useNetworkStore } from "@/store";
 
 export default function LinkForm() {
   const { toast } = useToast();
-    //   const chainId = primaryWallet?.connector.getNetwork().then((network) => {
-    //     return network?.toString();
-    //   });
-    //   console.log({ chainId });
+  //   const chainId = primaryWallet?.connector.getNetwork().then((network) => {
+  //     return network?.toString();
+  //   });
+  //   console.log({ chainId });
 
   const { currentChainId } = useNetworkStore();
   console.log({ currentChainId });
