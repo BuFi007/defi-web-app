@@ -29,7 +29,7 @@ export function TokenChip({ token, onClick, className }: TokenChipProps) {
       onClick={() => onClick?.(token)}
     >
       {/* <TokenImage token={token} size={24} /> */}
-      <Image src={token.image} alt={token.symbol} width={24} height={24} />
+      <Image src={token?.image} alt={token.symbol} width={24} height={24} />
       <span>{token.symbol}</span>
     </button>
   );

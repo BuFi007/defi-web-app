@@ -35,7 +35,7 @@ export const PaymentLinkTabContent: React.FC<HomeContentProps> = ({
         </TabsList>
         <TabsContent value="send-payment">
           <Suspense fallback={<PaymentCardSkeleton />}>
-            <SendPayment />
+            {/* <SendPayment /> error loop here */}
           </Suspense>
         </TabsContent>
         <TabsContent value="payment-link">

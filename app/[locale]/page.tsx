@@ -26,7 +26,8 @@ export default function Home() {
   return (
     <>
       {/* <Suspense fallback={<MoneyMarketSkeleton />}> */}
-      {/* <HomeContent translations={translations} /> */}
+      <HomeContent translations={translations} />
+
       <DynamicWidget />
       {/* </Suspense> */}
     </>

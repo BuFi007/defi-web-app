@@ -12,6 +12,6 @@ export const useGetTokensOrChain = (
   if (type === "chain") {
     if (chainId === 43113) return Avalanche;
     if (chainId === 84532) return Base;
-    if (chainId === 42161) return Arbitrum;
+    // if (chainId === 42161) return Arbitrum;
   }
 };

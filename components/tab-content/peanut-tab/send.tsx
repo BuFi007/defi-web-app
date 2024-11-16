@@ -4,19 +4,26 @@ import { useState, useMemo } from "react";
 import { useDeezNuts } from "@/hooks/use-peanut";
 import { useWindowSize } from "@/hooks/use-window-size";
 import { useToast } from "@/components/ui/use-toast";
-import { useAccount, useChainId, useSwitchChain } from "wagmi";
-import UiForm from "@/components/tab-content/peanut-tab/card";
+import LinkUiForm from "@/components/tab-content/peanut-tab/card";
 import Overlay from "@/components/tab-content/peanut-tab/overlay";
 import { Token, TransactionDetails } from "@/lib/types";
 import confetti from "canvas-confetti";
 import { useUsdcTokenChain } from "@/hooks/use-usdc-token-chain";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
-
+import {
+  getNetwork,
+  useDynamicContext,
+  Wallet,
+} from "@dynamic-labs/sdk-react-core";
 export default function LinkForm() {
-  const chainId = useChainId();
   const { toast } = useToast();
-  const { width } = useWindowSize();
-  const availableTokens = useGetTokensOrChain(chainId, "tokens");
+  const { primaryWallet } = useDynamicContext();
+  //   const chainId = primaryWallet?.connector.getNetwork().then((network) => {
+  //     return network?.toString();
+  //   });
+  //   console.log({ chainId });
+  const availableTokens = useGetTokensOrChain(84532, "tokens");
+  console.log({ availableTokens });
 
   const {
     createPayLink,
@@ -167,7 +174,7 @@ export default function LinkForm() {
 
   return (
     <section className="mx-auto h-full flex flex-col items-center">
-      <UiForm
+      <LinkUiForm
         tokenAmount={tokenAmount}
         handleValueChange={handleValueChange}
         availableTokens={availableTokens as Token[]}

@@ -37,7 +37,7 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   currentNetwork,
 }) => {
   const { width } = useWindowSize();
-  const chainId = useChainId();
+  let chainId = useChainId();
   const tokens = useGetTokensOrChain(chainId, "tokens") as Token[];
   const ETH = tokens?.find((token) => token.symbol === "ETH");
   const supportedChains = Object.values(chains);
@@ -124,6 +124,8 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
     );
   };
 
+  //   console.log({ ETH });
+  //   console.log({ availableTokens });
   return (
     <div className="mx-auto flex w-52 flex-col items-center">
       <div className="relative mb-2 text-center text-4xl">

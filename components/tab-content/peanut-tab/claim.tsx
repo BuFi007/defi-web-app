@@ -11,36 +11,17 @@ import { AnimatePresence, motion } from "framer-motion";
 import { FadeText } from "@/components/magicui/fade-text";
 import { ChevronRightIcon, XIcon } from "lucide-react";
 import Link from "next/link";
-import { Chain } from "viem/chains";
 import Image from "next/image";
 import { chainIdMapping, chainIcons } from "./card/details";
 import { ExtendedPaymentInfo, IGetLinkDetailsResponse } from "@/lib/types";
 import { ChainSelect } from "@/components/chain-select";
-import { useChainId } from "wagmi";
 import * as Chains from "@/constants/Chains";
 import {
   useDynamicContext,
   useSwitchNetwork,
   Wallet,
 } from "@dynamic-labs/sdk-react-core";
-
-const BLOCKSCOUT_EXPLORERS: Record<number, string> = {
-  1: "https://eth.blockscout.com",
-  420: "https://optimism-sepolia.blockscout.com",
-  84532: "https://base-sepolia.blockscout.com",
-  11155111: "https://sepolia.blockscout.com",
-  43113: "https://testnet.avascan.info",
-};
-
-export function getBlockExplorerUrl(chain: Chain): string {
-  return (
-    BLOCKSCOUT_EXPLORERS[chain.id] || chain.blockExplorers?.default.url || ""
-  );
-}
-
-export function getBlockExplorerUrlByChainId(chainId: number): string {
-  return BLOCKSCOUT_EXPLORERS[chainId] || "";
-}
+import { getBlockExplorerUrlByChainId } from "@/utils";
 
 export function getChainInfoByChainId(chainId: number | string) {
   const id = Number(chainId);
@@ -252,7 +233,7 @@ export default function ClaimForm({
         <ChainSelect
           value={chainId}
           onChange={(value) => {
-            console.log({ value });
+            // console.log({ value });
             setDestinationChainId(value);
             switchNetwork({
               wallet: primaryWallet as Wallet,
