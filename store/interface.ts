@@ -14,4 +14,14 @@ interface TransactionState {
   setError: (error: string | null) => void;
 }
 
-export type { PaymentStore, TransactionState, PaymentTab, ViewTab };
+interface NetworkState {
+  currentChainId: number | string | undefined;
+  setCurrentChainId: (chainId: number | string | undefined) => void;
+  isLoading: boolean;
+  error: string | null;
+  setLoading: (isLoading: boolean) => void;
+  setError: (error: string | null) => void;
+}
+
+
+export type { PaymentStore, TransactionState, PaymentTab, ViewTab, NetworkState };

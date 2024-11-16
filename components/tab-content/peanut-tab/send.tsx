@@ -10,19 +10,21 @@ import { Token, TransactionDetails } from "@/lib/types";
 import confetti from "canvas-confetti";
 import { useUsdcTokenChain } from "@/hooks/use-usdc-token-chain";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
-import {
-  getNetwork,
-  useDynamicContext,
-  Wallet,
-} from "@dynamic-labs/sdk-react-core";
+
+import { useNetworkStore } from "@/store";
+
 export default function LinkForm() {
   const { toast } = useToast();
-  const { primaryWallet } = useDynamicContext();
-  //   const chainId = primaryWallet?.connector.getNetwork().then((network) => {
-  //     return network?.toString();
-  //   });
-  //   console.log({ chainId });
-  const availableTokens = useGetTokensOrChain(84532, "tokens");
+    //   const chainId = primaryWallet?.connector.getNetwork().then((network) => {
+    //     return network?.toString();
+    //   });
+    //   console.log({ chainId });
+
+  const { currentChainId } = useNetworkStore();
+  console.log({ currentChainId });
+  const chainId = currentChainId as number;
+
+  const availableTokens = useGetTokensOrChain(chainId, "tokens");
   console.log({ availableTokens });
 
   const {
