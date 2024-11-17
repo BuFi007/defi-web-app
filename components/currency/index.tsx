@@ -1,5 +1,3 @@
-// CurrencyDisplayer.tsx
-
 import React, { useState, ChangeEvent, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +19,7 @@ import * as chains from "@/constants/Chains";
 import { TokenChip } from "../token-chip";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { useTokenBalance } from "@/hooks/use-user-balance";
+import { NATIVE_TOKEN_ADDRESS } from "@/constants/Tokens";
 
 const chainIcons: { [key: number]: string } = {
   11155111: "/icons/ethereum-eth-logo.svg",
@@ -32,29 +31,37 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   tokenAmount,
   onValueChange,
   initialAmount = 0,
-  availableTokens,
+  availableTokens = [],
   onTokenSelect,
   currentNetwork,
 }) => {
   const { width } = useWindowSize();
   let chainId = useChainId();
   const tokens = useGetTokensOrChain(chainId, "tokens") as Token[];
-  const ETH = tokens?.find((token) => token.symbol === "ETH");
+  const ETH = tokens?.find((token) => token?.symbol === "ETH");
   const supportedChains = Object.values(chains);
   const isMobile = width && width <= 768;
   const { address } = useAccount();
   const [usdAmount, setUsdAmount] = useState<number>(0);
-  const [selectedToken, setSelectedToken] = useState<Token>(ETH!);
+  const [selectedToken, setSelectedToken] = useState<Token | null>(null);
   const [inputValue, setInputValue] = useState<string>(
     initialAmount.toFixed(3)
   );
 
-  const { balance, isLoading: wagmiLoading } = useTokenBalance({
-    address: address as `0x${string}`,
-    chainId,
-    tokenAddress: selectedToken?.address as `0x${string}`,
-    decimals: selectedToken?.decimals,
+  useEffect(() => {
+    if (ETH && !selectedToken) {
+      setSelectedToken(ETH);
+    }
+  }, [ETH]);
+
+  const balance = useTokenBalance({
+    address: address || "0x0",
+    chainId: chainId || 1,
+    tokenAddress:
+      (selectedToken?.address as `0x${string}`) || NATIVE_TOKEN_ADDRESS,
+    decimals: selectedToken?.decimals ?? 18,
   });
+  const wagmiLoading = balance.isLoading;
 
   useEffect(() => {
     if (chainId !== currentNetwork) {
@@ -62,11 +69,23 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
     }
   }, [chainId, currentNetwork]);
 
+  const getTokenValue = (token: Token) => {
+    if (!token.address) {
+      return token.symbol;
+    }
+    return token.address;
+  };
+
   const handleSelectChange = (value: string) => {
-    const tokenSymbol = value.toUpperCase();
-    const token = tokens?.find((token) => token?.symbol === tokenSymbol);
-    setSelectedToken(token!);
-    onTokenSelect(token!);
+    let token = tokens?.find((t) => t?.address === value);
+    if (!token) {
+      token = tokens?.find((t) => t?.symbol === value);
+    }
+    if (token) {
+      setSelectedToken(token);
+      onTokenSelect(token);
+      setInputValue("0.0000");
+    }
   };
 
   useEffect(() => {
@@ -75,7 +94,16 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
 
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { value } = event.target;
-    if (/^\d*\.?\d*$/.test(value) || value === "") {
+
+    if (value.length > balance.data?.decimals! + 1) {
+      return;
+    }
+    if (value === "") {
+      setInputValue(value);
+      return;
+    }
+
+    if (/^\d*\.?\d*$/.test(value)) {
       setInputValue(value);
       const numericValue = parseFloat(value);
       onValueChange(numericValue || 0, numericValue);
@@ -92,11 +120,11 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   };
 
   const getAvailableBalance = () => {
-    const token = tokens?.find(
-      (token) => token.address === selectedToken.address
-    );
-    if (balance) {
-      return parseFloat(formatUnits(BigInt(balance), token?.decimals || 18));
+    const token = selectedToken;
+    if (balance && token) {
+      return parseFloat(
+        formatUnits(balance.data?.value!, balance.data?.decimals!)
+      );
     }
     return 0;
   };
@@ -108,10 +136,22 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   };
 
   const renderAvailableBalance = () => {
-    if (wagmiLoading) {
+    if (balance.isLoading) {
       return <p className="text-xs">Loading balance...</p>;
     }
-    const displayBalance = getAvailableBalance().toFixed(6);
+    const decimals = selectedToken?.decimals || 18;
+    let displayBalance;
+    if (decimals > 6) {
+      displayBalance = getAvailableBalance().toFixed(4);
+    } else {
+      displayBalance = getAvailableBalance().toFixed(2);
+    }
+    console.log(
+      "Here is the displayBalance for the token on the current network:",
+      selectedToken?.symbol,
+      displayBalance,
+      currentNetwork
+    );
     return (
       <>
         <Button variant={"link"} className="text-xs" onClick={handleMaxClick}>
@@ -124,10 +164,12 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
     );
   };
 
-  //   console.log({ ETH });
-  //   console.log({ availableTokens });
+  if (!selectedToken) {
+    return <div>Loading...</div>;
+  }
+
   return (
-    <div className="mx-auto flex w-52 flex-col items-center">
+    <div className="mx-auto flex w-80 flex-col items-center">
       <div className="relative mb-2 text-center text-4xl">
         <div className="relative flex justify-center text-6xl">
           <InputMoney
@@ -143,16 +185,13 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
         {renderAvailableBalance()}
       </div>
 
-      <Select
-        onValueChange={handleSelectChange}
-        value={selectedToken?.symbol?.toLowerCase()}
-      >
+      <Select onValueChange={handleSelectChange} value={selectedToken.address}>
         <SelectTrigger className="w-full border-transparent flex justify-between">
           <SelectValue>
             {selectedToken && currentNetwork && (
               <div className="flex items-center">
                 <img
-                  src={chainIcons[currentNetwork]}
+                  src={selectedToken.image}
                   alt={
                     supportedChains?.find(
                       (chain) => chain.chainId === currentNetwork
@@ -160,26 +199,32 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
                   }
                   className="inline-block w-4 h-4 mr-2"
                 />
-                {selectedToken?.symbol}
+                {selectedToken.symbol}
               </div>
             )}
           </SelectValue>
         </SelectTrigger>
         <SelectContent className="w-full justify-between">
-          <SelectGroup className="justify-stretch">
-            <SelectLabel>Tokens</SelectLabel>
-            {availableTokens?.map((token) => (
-              <SelectItem key={token.address} value={token.address}>
-                <TokenChip token={availableTokens[token as any]} />
+          {ETH && (
+            <SelectGroup>
+              <SelectLabel>Native Token</SelectLabel>
+              <SelectItem value={getTokenValue(ETH)}>
+                <TokenChip token={ETH} />
               </SelectItem>
-            ))}
-          </SelectGroup>
-          <SelectGroup>
-            <SelectLabel>Native Token</SelectLabel>
-            <SelectItem value="eth">
-              <TokenChip token={ETH!} /> ETH
-            </SelectItem>
-          </SelectGroup>
+            </SelectGroup>
+          )}
+          {availableTokens?.length > 0 && (
+            <SelectGroup className="justify-stretch">
+              <SelectLabel>Tokens</SelectLabel>
+              {availableTokens
+                .filter((token) => token.address)
+                .map((token: Token) => (
+                  <SelectItem key={token.address} value={getTokenValue(token)}>
+                    <TokenChip token={token} />
+                  </SelectItem>
+                ))}
+            </SelectGroup>
+          )}
         </SelectContent>
       </Select>
     </div>

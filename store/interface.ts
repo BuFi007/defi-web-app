@@ -23,5 +23,10 @@ interface NetworkState {
   setError: (error: string | null) => void;
 }
 
-
-export type { PaymentStore, TransactionState, PaymentTab, ViewTab, NetworkState };
+export type {
+  PaymentStore,
+  TransactionState,
+  PaymentTab,
+  ViewTab,
+  NetworkState,
+};

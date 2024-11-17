@@ -1,17 +1,19 @@
 import { http, createConfig, useConnectorClient, Config } from "wagmi";
-import { mainnet } from "wagmi/chains";
+import { sepolia, avalancheFuji, baseSepolia, optimismSepolia } from "wagmi/chains";
 import { useMemo } from "react";
 import { providers } from "ethers";
-
 import type { Account, Chain, Client, Transport } from "viem";
+
 export const config = createConfig({
-  chains: [mainnet],
-  multiInjectedProviderDiscovery: false,
-  ssr: true,
+  chains: [sepolia, avalancheFuji, baseSepolia, optimismSepolia],
   transports: {
-    [mainnet.id]: http(),
+    [sepolia.id]: http(),
+    [avalancheFuji.id]: http(),
+    [baseSepolia.id]: http(),
+    [optimismSepolia.id]: http(),
   },
 });
+
 
 declare module "wagmi" {
   interface Register {

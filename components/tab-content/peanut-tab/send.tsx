@@ -1,5 +1,3 @@
-// LinkForm.tsx
-
 import { useState, useMemo } from "react";
 import { useDeezNuts } from "@/hooks/use-peanut";
 import { useWindowSize } from "@/hooks/use-window-size";
@@ -10,22 +8,18 @@ import { Token, TransactionDetails } from "@/lib/types";
 import confetti from "canvas-confetti";
 import { useUsdcTokenChain } from "@/hooks/use-usdc-token-chain";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
-
+import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { useNetworkStore } from "@/store";
 
 export default function LinkForm() {
   const { toast } = useToast();
-  //   const chainId = primaryWallet?.connector.getNetwork().then((network) => {
-  //     return network?.toString();
-  //   });
-  //   console.log({ chainId });
-
-  const { currentChainId } = useNetworkStore();
-  console.log({ currentChainId });
+  const currentChainId = useNetworkManager();
+  console.log({ currentChainId: currentChainId });
   const chainId = currentChainId as number;
-
+  console.log({ chainId: chainId });
+  console.log({ currentChainId: currentChainId });
   const availableTokens = useGetTokensOrChain(chainId, "tokens");
-  console.log({ availableTokens });
+  console.log({ availableTokens: availableTokens });
 
   const {
     createPayLink,

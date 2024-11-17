@@ -12,14 +12,7 @@ import {
 } from "@/components/ui/tabs";
 import { Button } from "../ui/button";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
-// import MoneyMarketBentoGrid from "../money-market";
-// import { useTabStore } from "@/store/tabStore";
-// import { LottieWrapper } from "@/components/lottie-wrapper";
-// import { PaymentLinkSkeleton } from "@/components/tab-content/money-market/payment-skeleton";
-// import { MoneyMarketBentoSkeleton } from "@/components/tab-content/money-market/money-market-skeleton";
-// import { GridSmall } from "../ui/bg-dot";
-// import TokenSwap from "@/components/swap";
-// import TokenSwapSkeleton from "@/components/token-swap/token-swap-skeleton";
+
 interface HomeContentProps {
   translations: Translations["Home"];
 }
@@ -44,7 +37,6 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
 
   const handleTabChange = (value: string) => {
     setIsTransitioning(true);
-    //  setActiveTab(value as "paymentLink" | "moneyMarket" | "tokenSwap");
   };
 
   return (

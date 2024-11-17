@@ -1,9 +1,12 @@
 import type { Token } from "@/lib/types";
 import { Hex } from "viem";
 
+export const NATIVE_TOKEN_ADDRESS = "0x0000000000000000000000000000000000000000" as Hex;
+
+
 export const AvalancheTokens: Token[] = [
   {
-    address: "" as Hex,
+    address: NATIVE_TOKEN_ADDRESS,
     chainId: 43113,
     decimals: 18,
     name: "Avax",
@@ -26,7 +29,7 @@ export const AvalancheTokens: Token[] = [
 
 export const BaseTokens: Token[] = [
   {
-    address: "" as Hex,
+    address: NATIVE_TOKEN_ADDRESS,
     chainId: 84532,
     decimals: 18,
     name: "Ethereum",

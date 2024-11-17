@@ -1,32 +1,28 @@
-import { useTokenBalances } from "@dynamic-labs/sdk-react-core";
 import { formatUnits } from "viem";
 import { UseTokenBalanceProps } from "@/lib/types";
-
+import { erc20Abi } from "viem";
+import { useBalance, UseBalanceReturnType } from "wagmi";
+import { baseSepolia, avalancheFuji } from "wagmi/chains";
 export function useTokenBalance({
   tokenAddress,
   chainId,
   address,
   setBalance: externalSetBalance,
-}: UseTokenBalanceProps) {
-  if (!tokenAddress || !chainId || !address) return { balance: "0" };
-  const { tokenBalances, isLoading, isError } = useTokenBalances({
-    accountAddress: address,
-    tokenAddresses: [tokenAddress],
-    networkId: chainId,
-  });
-
-  const balance = tokenBalances?.[0]?.balance || "0";
-  const decimals = tokenBalances?.[0]?.decimals || 18;
-  const formattedBalance = formatUnits(BigInt(balance), decimals);
-
-  if (externalSetBalance) {
-    externalSetBalance(formattedBalance);
+}: UseTokenBalanceProps): UseBalanceReturnType {
+  console.log(tokenAddress, "tokenAddress");
+  let balance;
+  if (tokenAddress !== "0x0000000000000000000000000000000000000000") {
+    balance = useBalance({
+      address: address,
+      token: tokenAddress,
+      chainId: chainId,
+    });
+  } else {
+    balance = useBalance({
+      address: address,
+      chainId: chainId,
+    });
   }
 
-  return {
-    balance: formattedBalance,
-    isLoading,
-    error: isError,
-    refetch: null,
-  };
+  return balance;
 }

@@ -1,6 +1,6 @@
 import type { Abi, Address, Hex } from "viem";
 import React from "react";
-
+import * as chains from "wagmi/chains";
 export interface CurrencyInfo {
   address: string;
   borrowContract?: string;
@@ -155,7 +155,7 @@ export interface TransactionHistoryItem {
 
 export interface UseTokenBalanceProps {
   tokenAddress: Address;
-  chainId: number;
+  chainId: 11155111 | 43113 | 84532 | 11155420 | undefined;
   address: Address;
   decimals: number;
   setBalance?: (balance: string) => void;
@@ -182,6 +182,7 @@ export interface Token {
   name: string;
   symbol: string;
   image: string;
+  isNative?: boolean;
 }
 
 export interface ChainSelectProps {

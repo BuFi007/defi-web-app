@@ -1,6 +1,26 @@
 import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin();
 
-const nextConfig = {};
+const config = {
+  reactStrictMode: true,
+  swcMinify: true,
+  images: {
+    formats: ["image/avif", "image/webp"],
+    remotePatterns: [
+      {
+        protocol: "http",
+        hostname: "localhost",
+        port: "3000",
+        pathname: "**",
+      },
+      {
+        protocol: "https",
+        hostname: "dynamic-assets.coinbase.com",
+        pathname: "**",
+      },
+    ],
+  },
+  experimental: {},
+};
 
-export default withNextIntl(nextConfig);
+export default withNextIntl(config);
