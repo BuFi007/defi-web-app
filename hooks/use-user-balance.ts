@@ -8,24 +8,27 @@ export function useTokenBalance({
   address,
   setBalance: externalSetBalance,
 }: UseTokenBalanceProps) {
-  if (!tokenAddress || !chainId || !address) return { balance: "0" };
   const { tokenBalances, isLoading, isError } = useTokenBalances({
-    accountAddress: address,
-    tokenAddresses: [tokenAddress],
-    networkId: chainId,
+    accountAddress: address || "0x0",
+    tokenAddresses: tokenAddress ? [tokenAddress] : [],
+    networkId: chainId || 1,
   });
 
-  const balance = tokenBalances?.[0]?.balance || "0";
-  const decimals = tokenBalances?.[0]?.decimals || 18;
-  const formattedBalance = formatUnits(BigInt(balance), decimals);
+  const getFormattedBalance = () => {
+    if (!tokenAddress || !chainId || !address) {
+      return "0";
+    }
+    
+    const balance = tokenBalances?.[0]?.balance || "0";
+    const decimals = tokenBalances?.[0]?.decimals || 18;
+    const parsedBalance = parseFloat(formatUnits(BigInt(balance), decimals));
+    return parsedBalance;
+  };
 
-  if (externalSetBalance) {
-    externalSetBalance(formattedBalance);
-  }
 
   return {
-    balance: formattedBalance,
-    isLoading,
+    balance: Number(getFormattedBalance()),
+    isLoading: !tokenAddress || !chainId || !address ? false : isLoading,
     error: isError,
     refetch: null,
   };

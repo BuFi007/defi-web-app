@@ -182,6 +182,7 @@ export interface Token {
   name: string;
   symbol: string;
   image: string;
+  isNative?: boolean;
 }
 
 export interface ChainSelectProps {

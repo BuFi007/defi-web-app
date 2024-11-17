@@ -1,4 +1,3 @@
-// LinkForm.tsx
 
 import { useState, useMemo } from "react";
 import { useDeezNuts } from "@/hooks/use-peanut";
@@ -10,24 +9,22 @@ import { Token, TransactionDetails } from "@/lib/types";
 import confetti from "canvas-confetti";
 import { useUsdcTokenChain } from "@/hooks/use-usdc-token-chain";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
-import {
-  getNetwork,
-  useDynamicContext,
-  Wallet,
-} from "@dynamic-labs/sdk-react-core";
+import { useNetworkManager } from "@/hooks/use-dynamic-network";
+import { useNetworkStore } from "@/store";
+
 export default function LinkForm() {
   const { toast } = useToast();
-  const { primaryWallet } = useDynamicContext();
-  //   const chainId = primaryWallet?.connector.getNetwork().then((network) => {
-  //     return network?.toString();
-  //   });
-  //   console.log({ chainId });
-  const availableTokens = useGetTokensOrChain(84532, "tokens");
-  console.log({ availableTokens });
+  const currentChainId = useNetworkManager();
+  console.log({ "currentChainId": currentChainId });
+  const chainId = currentChainId as number;
+  console.log({ "chainId": chainId });
+  console.log({ "currentChainId": currentChainId });
+  const availableTokens = useGetTokensOrChain(chainId, "tokens");
+  console.log({ "availableTokens": availableTokens });
 
   const {
     createPayLink,
-    isLoading: isPeanutLoading,
+    isLoading: isPeanutLoading, 
     copyToClipboard,
     truncateAddress,
   } = useDeezNuts();

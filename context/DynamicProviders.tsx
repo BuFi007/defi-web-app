@@ -1,22 +1,30 @@
 "use client";
 
 import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
-import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
+import { DynamicWagmiConnector } from "@dynamic-labs/wagmi-connector";
 import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { DynamicWagmiConnector } from "@dynamic-labs/wagmi-connector";
 import { config } from "@/lib/wagmi";
+import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
+import { ReactNode } from "react";
 import { DYNAMIC_ENVIRONMENT_ID } from "@/constants/Env";
+import { Avalanche, Base, Arbitrum } from "@/constants/Chains";
 
-export default function Providers({ children }: { children: React.ReactNode }) {
-  const queryClient = new QueryClient();
+const queryClient = new QueryClient();
+const evmNetworks = [Avalanche, Base, Arbitrum];
 
+export default function Providers({ children }: { children: ReactNode }) {
   return (
     <DynamicContextProvider
-      theme="auto"
       settings={{
         environmentId: DYNAMIC_ENVIRONMENT_ID,
-        walletConnectors: [EthereumWalletConnectors],
+        walletConnectors: [EthereumWalletConnectors as any],
+        overrides: {
+          evmNetworks: evmNetworks.map((network) => ({
+            ...network,
+            iconUrls: network.iconUrls,
+          })),
+        },
       }}
     >
       <WagmiProvider config={config}>
@@ -27,3 +35,4 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     </DynamicContextProvider>
   );
 }
+

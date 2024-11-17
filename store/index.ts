@@ -4,6 +4,7 @@ import {
   TransactionState,
   PaymentTab,
   ViewTab,
+  NetworkState
 } from "./interface";
 import { MarketStore, CurrencyInfo, TabState } from "@/lib/types";
 
@@ -35,4 +36,13 @@ export const useMarketStore = create<MarketStore>((set) => ({
 export const useTabStore = create<TabState>((set) => ({
   activeTab: "moneyMarket",
   setActiveTab: (tab) => set({ activeTab: tab }),
+}));
+
+export const useNetworkStore = create<NetworkState>((set) => ({
+  currentChainId: undefined,
+  setCurrentChainId: (chainId: number | string | undefined) => set({ currentChainId: chainId }),
+  isLoading: false,
+  error: null,
+  setLoading: (isLoading) => set({ isLoading }),
+  setError: (error) => set({ error }),
 }));
