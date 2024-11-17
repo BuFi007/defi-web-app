@@ -20,6 +20,7 @@ import { TokenChip } from "../token-chip";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { useTokenBalance } from "@/hooks/use-user-balance";
 import { NATIVE_TOKEN_ADDRESS } from "@/constants/Tokens";
+import { toast } from "../ui/use-toast";
 
 const chainIcons: { [key: number]: string } = {
   11155111: "/icons/ethereum-eth-logo.svg",
@@ -98,6 +99,14 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
     if (value.length > balance.data?.decimals! + 1) {
       return;
     }
+    if (value > getAvailableBalance().toString()) {
+      toast({
+        title: "Insufficient balance",
+        description: "You do not have enough balance to perform this action",
+      });
+      return;
+    }
+
     if (value === "") {
       setInputValue(value);
       return;
@@ -146,12 +155,7 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
     } else {
       displayBalance = getAvailableBalance().toFixed(2);
     }
-    console.log(
-      "Here is the displayBalance for the token on the current network:",
-      selectedToken?.symbol,
-      displayBalance,
-      currentNetwork
-    );
+
     return (
       <>
         <Button variant={"link"} className="text-xs" onClick={handleMaxClick}>
@@ -174,7 +178,11 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
         <div className="relative flex justify-center text-6xl">
           <InputMoney
             placeholder="0.0000"
-            value={inputValue}
+            value={
+              selectedToken.decimals > 6
+                ? inputValue.slice(0, 10)
+                : inputValue.slice(0, 5)
+            }
             onChange={handleInputChange}
             className="text-center w-full"
           />
