@@ -87,11 +87,13 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
             </TabsTriggerAlt>
           </TabsList>
         </div>
-        <div>
-          <PaymentLinkTabContent
-            translations={translations}
-            address={address?.address ?? ""}
-          />
+        <div className="p-10 overflow-hidden flex flex-col items-center justify-center w-full">
+          <div className="relative flex flex-col items-center justify-center w-full h-full">
+            <PaymentLinkTabContent
+              translations={translations}
+              address={address?.address ?? ""}
+            />
+          </div>
         </div>
 
         {/* <div className="p-10 overflow-hidden flex flex-col items-center justify-center w-full">

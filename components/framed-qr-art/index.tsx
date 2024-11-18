@@ -1,3 +1,5 @@
+"use client";
+
 import { QRImage } from "react-qrbtf";
 import { useEffect, useState } from "react";
 import { FramedQRCodeProps } from "@/lib/types";
