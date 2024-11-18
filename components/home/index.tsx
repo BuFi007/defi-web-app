@@ -11,14 +11,8 @@ import {
   TabsTriggerAlt,
 } from "@/components/ui/tabs";
 import { Button } from "../ui/button";
-// import MoneyMarketBentoGrid from "../money-market";
-// import { useTabStore } from "@/store/tabStore";
-// import { LottieWrapper } from "@/components/lottie-wrapper";
-// import { PaymentLinkSkeleton } from "@/components/tab-content/money-market/payment-skeleton";
-// import { MoneyMarketBentoSkeleton } from "@/components/tab-content/money-market/money-market-skeleton";
-// import { GridSmall } from "../ui/bg-dot";
-// import TokenSwap from "@/components/swap";
-// import TokenSwapSkeleton from "@/components/token-swap/token-swap-skeleton";
+import { useNetworkManager } from "@/hooks/use-dynamic-network";
+
 interface HomeContentProps {
   translations: Translations["Home"];
 }
@@ -28,6 +22,8 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
   // const { activeTab, setActiveTab } = useTabStore();
   const [isTransitioning, setIsTransitioning] = useState(false);
   const address = useAccount();
+
+  const currentChainId = useNetworkManager();
 
   useEffect(() => {
     if (isTransitioning) {
@@ -40,7 +36,6 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
 
   const handleTabChange = (value: string) => {
     setIsTransitioning(true);
-    //  setActiveTab(value as "paymentLink" | "moneyMarket" | "tokenSwap");
   };
 
   return (
@@ -87,13 +82,11 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
             </TabsTriggerAlt>
           </TabsList>
         </div>
-        <div className="p-10 overflow-hidden flex flex-col items-center justify-center w-full">
-          <div className="relative flex flex-col items-center justify-center w-full h-full">
-            <PaymentLinkTabContent
-              translations={translations}
-              address={address?.address ?? ""}
-            />
-          </div>
+        <div>
+          <PaymentLinkTabContent
+            translations={translations}
+            address={address?.address ?? ""}
+          />
         </div>
 
         {/* <div className="p-10 overflow-hidden flex flex-col items-center justify-center w-full">

@@ -1,7 +1,5 @@
-
-import { useState, useMemo } from "react";
-import { useDeezNuts } from "@/hooks/use-peanut";
-import { useWindowSize } from "@/hooks/use-window-size";
+import { useState } from "react";
+import { usePeanut } from "@/hooks/use-peanut";
 import { useToast } from "@/components/ui/use-toast";
 import LinkUiForm from "@/components/tab-content/peanut-tab/card";
 import Overlay from "@/components/tab-content/peanut-tab/overlay";
@@ -10,24 +8,19 @@ import confetti from "canvas-confetti";
 import { useUsdcTokenChain } from "@/hooks/use-usdc-token-chain";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
-import { useNetworkStore } from "@/store";
+import { truncateAddress } from "@/utils";
 
 export default function LinkForm() {
   const { toast } = useToast();
   const currentChainId = useNetworkManager();
-  console.log({ "currentChainId": currentChainId });
   const chainId = currentChainId as number;
-  console.log({ "chainId": chainId });
-  console.log({ "currentChainId": currentChainId });
   const availableTokens = useGetTokensOrChain(chainId, "tokens");
-  console.log({ "availableTokens": availableTokens });
 
   const {
     createPayLink,
-    isLoading: isPeanutLoading, 
+    isLoading: isPeanutLoading,
     copyToClipboard,
-    truncateAddress,
-  } = useDeezNuts();
+  } = usePeanut();
 
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [usdAmount, setUsdAmount] = useState<number>(0);
@@ -46,22 +39,7 @@ export default function LinkForm() {
     setOverlayVisible(true);
 
     try {
-      // switchChain({ chainId: defaultChainId });
-      console.log("Successfully switched to Base Sepolia network.");
-    } catch (error) {
-      console.error("Failed to switch network:", error);
-      toast({
-        title: "Network Switch Failed",
-        description:
-          "Please switch to the Base Sepolia network to create a payment link.",
-        variant: "destructive",
-      });
-      setOverlayVisible(false);
-      return;
-    }
-
-    try {
-      const tokenAddress = selectedToken; /// token address ?
+      const tokenAddress = selectedToken;
       if (!tokenAddress) {
         throw new Error(
           `Token ${selectedToken} is not supported on this network.`
@@ -69,17 +47,10 @@ export default function LinkForm() {
       }
 
       setCurrentText("In Progress...");
-      console.log(
-        "Calling createPayLink with tokenAmount:",
-        tokenAmount,
-        "and token:",
-        selectedToken
-      );
 
       const linkResponse = await createPayLink(
         tokenAmount.toString(),
         tokenAddress,
-        chainId,
         () => setCurrentText("In Progress..."),
         () => setCurrentText("Success!"),
         (error: Error) => setCurrentText(`Failed: ${error.message}`),
@@ -101,7 +72,6 @@ export default function LinkForm() {
       });
     } finally {
       setOverlayVisible(true);
-      console.log("Overlay set to visible after link creation attempt.");
     }
   };
 

@@ -12,7 +12,7 @@ import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAccount } from "wagmi";
 
-import { BlackCreateWalletButton } from "../base-onboard/black-create-wallet-button";
+// import { BlackCreateWalletButton } from "../base-onboard/black-create-wallet-button";
 import { baseSepolia } from "viem/chains";
 
 const Header: React.FC = () => {
@@ -78,7 +78,8 @@ const Header: React.FC = () => {
                 <></>
               ) : (
                 // If no wallet is connected, show MobileMenu or a connect button
-                <BlackCreateWalletButton />
+                // <BlackCreateWalletButton />
+                <></>
               )
             ) : (
               // Fallback to MobileMenu on smaller screens
