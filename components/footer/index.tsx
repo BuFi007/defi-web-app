@@ -12,6 +12,7 @@ export default function Component({ isPlaying, togglePlay, playNextSong, playPre
   const marqueeText = isPlaying ? `${currentSong}       ` : " BooFi Radio 👻";
 
   return (
+    <div className="absolute bottom-0 w-full">
     <div className="flex items-center w-full mt-8">
       <span className="h-px flex-1 bg-black dark:bg-white"></span>
       <button
@@ -47,6 +48,7 @@ export default function Component({ isPlaying, togglePlay, playNextSong, playPre
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }

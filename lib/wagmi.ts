@@ -6,19 +6,28 @@ import {
   avalanche,
   base,
   arbitrum,
+  arbitrumSepolia,
 } from "wagmi/chains";
 import { useMemo } from "react";
 import { providers } from "ethers";
 import type { Account, Chain, Client, Transport } from "viem";
 
 export const config = createConfig({
-  chains: [avalancheFuji, baseSepolia, arbitrum, avalanche, base],
+  chains: [
+    avalancheFuji,
+    baseSepolia,
+    arbitrumSepolia,
+    avalanche,
+    base,
+    arbitrum,
+  ],
   transports: {
     [base.id]: http(),
     [arbitrum.id]: http(),
     [avalanche.id]: http(),
     [avalancheFuji.id]: http(),
     [baseSepolia.id]: http(),
+    [arbitrumSepolia.id]: http(),
   },
 });
 

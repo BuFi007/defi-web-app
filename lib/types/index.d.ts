@@ -155,7 +155,7 @@ export interface TransactionHistoryItem {
 
 export interface UseTokenBalanceProps {
   tokenAddress: Address;
-  chainId: 11155111 | 43113 | 84532 | 11155420 | undefined;
+  chainId: ChainList;
   address: Address;
   decimals: number;
   setBalance?: (balance: string) => void;
