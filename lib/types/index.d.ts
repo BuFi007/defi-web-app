@@ -296,3 +296,5 @@ export interface Translations {
     matrixMemeAlt: string;
   };
 }
+
+export type ChainList = 43113 | 84532 | 11155420 | 42161 | 421614 | 43114 | undefined;

@@ -70,14 +70,14 @@ export const BaseNameDialogAlert = ({
   };
 
   return (
-    <div className="relative text-xs font-nupower font-bold transition-all">
+    <div className="relative text-xs font-nupower font-bold transition-all justify-center">
       {!ensName ? (
         <Skeleton className="h-4 w-full mt-2" />
       ) : (
         <div>
           {!ensNotFound && ensName ? (
             <>
-              <div className="flex items-center gap-1 inline-block justify-center">
+              <div className="items-center gap-1 inline-block justify-center">
                 <div className="flex flex-col items-center justify-center">
                   <h1 className="text-center">
                     <span className="font-clash"> Hi {ensName}! </span>
@@ -107,7 +107,7 @@ export const BaseNameDialogAlert = ({
               )}
             </>
           ) : (
-            <div className="flex items-center inline-block justify-center">
+            <div className="items-center inline-block justify-center">
               <Button
                 variant="link"
                 size="noPadding"

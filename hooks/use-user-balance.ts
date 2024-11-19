@@ -1,4 +1,4 @@
-import { UseTokenBalanceProps } from "@/lib/types";
+import { UseTokenBalanceProps, ChainList } from "@/lib/types";
 import { useBalance, UseBalanceReturnType } from "wagmi";
 
 export function useTokenBalance({
@@ -13,12 +13,12 @@ export function useTokenBalance({
     balance = useBalance({
       address: address,
       token: tokenAddress,
-      chainId: chainId,
+      chainId: chainId as ChainList,
     });
   } else {
     balance = useBalance({
       address: address,
-      chainId: chainId,
+      chainId: chainId as ChainList,
     });
   }
 

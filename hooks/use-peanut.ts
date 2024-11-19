@@ -241,11 +241,11 @@ export const usePeanut = () => {
 
       const claimedLinkResponse = await claimLinkXChainGasless({
         link,
-        APIKey: PEANUTAPIKEY,
         recipientAddress: primaryWallet.address as `0x${string}`,
-        destinationChainId,
+        destinationChainId: Number(destinationChainId).toString(),
         destinationToken,
-        isMainnet: true,
+        APIKey: PEANUTAPIKEY,
+        isMainnet: false,
         slippage: 1
       });
 

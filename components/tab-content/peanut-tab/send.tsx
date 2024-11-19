@@ -56,15 +56,19 @@ export default function LinkForm() {
         (error: Error) => setCurrentText(`Failed: ${error.message}`),
         () => setCurrentText("Spooky Crypto Finance Made Easy!")
       );
-
       // Assuming linkResponse has the structure { paymentLink: string, transactionHash: string }
-      setTransactionDetails(linkResponse as TransactionDetails);
-      console.log("Payment link created successfully:", linkResponse);
+      if (linkResponse) { 
+        setTransactionDetails(linkResponse as TransactionDetails);
+        console.log("Payment link created successfully:", linkResponse);
 
-      // Trigger confetti animation
-      triggerConfetti("👻");
+        // Trigger confetti animation
+        triggerConfetti("👻");
+      } else {
+        setOverlayVisible(false);
+      }
     } catch (error: any) {
       console.error("Error creating pay link:", error);
+      setOverlayVisible(false);
       toast({
         title: "Error Creating Pay Link",
         description: error.message,

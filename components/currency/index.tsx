@@ -22,11 +22,6 @@ import { useTokenBalance } from "@/hooks/use-user-balance";
 import { NATIVE_TOKEN_ADDRESS } from "@/constants/Tokens";
 import { toast } from "../ui/use-toast";
 
-const chainIcons: { [key: number]: string } = {
-  11155111: "/icons/ethereum-eth-logo.svg",
-  84532: "/icons/base-logo-in-blue.svg",
-  43113: "/icons/avalanche-avax-logo.svg",
-};
 
 const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   tokenAmount,
