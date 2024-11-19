@@ -13,12 +13,12 @@ export function useTokenBalance({
     balance = useBalance({
       address: address,
       token: tokenAddress,
-      chainId: chainId as ChainList,
+      chainId: chainId,
     });
   } else {
     balance = useBalance({
       address: address,
-      chainId: chainId as ChainList,
+      chainId: chainId,
     });
   }
 
