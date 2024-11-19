@@ -13,7 +13,6 @@ import Header from "@/components/header";
 import Container from "@/components/container";
 import Providers from "@/context/DynamicProviders";
 
-
 const locales = ["en", "es", "pt"] as const;
 const ibmPlexSerif = IBM_Plex_Serif({
   subsets: ["latin"],
@@ -46,13 +45,14 @@ export default function RootLayout({
   children,
   params: { locale },
 }: RootLayoutProps) {
+  console.log("locale", locale);
   return (
     <html
       lang={locale}
       className={`${GeistSans.variable} ${GeistMono.variable} ${ibmPlexSerif.variable} ${inconsolata.variable} h-full scroll-smooth antialiased`}
       suppressHydrationWarning
     >
-      <body className="h-full bg-gradient-to-br from-indigo-100 via-violet-200 to-cyan-300 bg-no-repeat font-nubase dark:bg-gradient-to-r dark:from-gray-900 dark:via-indigo-400 dark:to-gray-800 h-screen">
+      <body className="bg-gradient-to-br from-indigo-100 via-violet-200 to-cyan-300 bg-no-repeat font-nubase dark:bg-gradient-to-r dark:from-gray-900 dark:via-indigo-400 dark:to-gray-800">
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
@@ -82,6 +82,7 @@ export default function RootLayout({
                   </Container>
                 </div>
               </div>
+              <br />
               <LayoutMusic />
             </main>
             <Toaster />

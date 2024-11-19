@@ -70,16 +70,18 @@ const LayoutMusic: React.FC<{}> = () => {
   }, [isPlaying]);
 
   return (
-    <>
-      <Footer
-        isPlaying={isPlaying}
-        togglePlay={togglePlay}
-        playNextSong={playNextSong}
-        playPreviousSong={playPreviousSong}
-        currentSong={songs[currentSongIndex].name}
-      />
+    <div>
+      <footer className="fixed bottom-0 w-screen">
+        <Footer
+          isPlaying={isPlaying}
+          togglePlay={togglePlay}
+          playNextSong={playNextSong}
+          playPreviousSong={playPreviousSong}
+          currentSong={songs[currentSongIndex].name}
+        />
+      </footer>
       <audio ref={audioRef} src={songs[currentSongIndex].src} loop />
-    </>
+    </div>
   );
 };
 

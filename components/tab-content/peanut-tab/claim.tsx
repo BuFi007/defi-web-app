@@ -23,8 +23,10 @@ export function getChainInfoByChainId(chainId: number | string) {
   const id = Number(chainId);
   const chainName = chainIdMapping[id] || `Chain ${id}`;
   const chainIcon = chainIcons[id] || "";
-  const isMainnet = Chains[chainName as keyof typeof Chains].isMainnet;
 
+  const isMainnet = Object.values(Chains).find(
+    (chain) => chain.chainId === id
+  )?.isMainnet;
   return {
     chainName,
     chainIcon,
@@ -222,17 +224,17 @@ export default function ClaimForm({
           {/* //add info icon explaining what this is */}
         </div>
       )}
-     {isMultiChain && !paymentInfo?.claimed && (
-      <NetworkSelector
-        currentChainId={paymentInfo?.chainId.toString() || ""}
-        destinationChainId={destinationChainId}
-        onSelect={(selectedChainId: string) => {
-          const numericChainId = Number(selectedChainId);
-          if (isNaN(numericChainId)) return;
-          console.log("Setting destination chain:", numericChainId);
-          setDestinationChainId(selectedChainId);
+      {isMultiChain && !paymentInfo?.claimed && (
+        <NetworkSelector
+          currentChainId={paymentInfo?.chainId.toString() || ""}
+          destinationChainId={destinationChainId}
+          onSelect={(selectedChainId: string) => {
+            const numericChainId = Number(selectedChainId);
+            if (isNaN(numericChainId)) return;
+            console.log("Setting destination chain:", numericChainId);
+            setDestinationChainId(selectedChainId);
           }}
-        />  
+        />
       )}
     </section>
   );
