@@ -18,10 +18,16 @@ import { parseUnits } from "viem";
 import { useToast } from "@/components/ui/use-toast";
 import { Token } from "@/lib/types";
 import { useUsdcChain } from "@/hooks/use-usdc-chain";
+import {
+  useDynamicContext,
+  useSwitchNetwork,
+} from "@dynamic-labs/sdk-react-core";
+import { useNetworkManager } from "@/hooks/use-dynamic-network";
+import { base } from "viem/chains";
 
 export default function TokenSwap() {
   const { address } = useAccount();
-  const chainId = useChainId();
+  const chainId = useNetworkManager();
   const { toast } = useToast();
   const tokens = useUsdcChain(chainId, false);
   const [fromAmount, setFromAmount] = useState<string>("");
@@ -29,7 +35,8 @@ export default function TokenSwap() {
   const [toAmount, setToAmount] = useState<string>("");
   const { switchChain } = useSwitchChain();
   const [sourceChain, setSourceChain] = useState<string | null>(null);
-
+  const switchNetwork = useSwitchNetwork();
+  const { primaryWallet } = useDynamicContext();
   const [destinationChain, setDestinationChain] = useState<string | null>(null);
   const destinationChainInfo = getCCIPChainByChainId({
     chainId: Number(destinationChain),
@@ -75,7 +82,10 @@ export default function TokenSwap() {
       setSourceChain(currentDestination);
       setDestinationChain(currentSource);
 
-      //switchChain({ chainId: currentDestination });
+      switchNetwork({
+        wallet: primaryWallet!,
+        network: Number(currentDestination),
+      });
     } else {
       setSourceChain(String(chainId));
       setDestinationChain(null);
@@ -136,8 +146,11 @@ export default function TokenSwap() {
           onChange={(value) => {
             setSelectedToken("");
             setFromAmount("");
-            if (chainId !== Number(value)) {
-              //    switchChain({ chainId: Number(value) });
+            if (chainId !== value) {
+              switchNetwork({
+                wallet: primaryWallet!,
+                network: Number(value),
+              });
               setDestinationChain(null);
               setSourceChain(value);
             }
@@ -156,6 +169,9 @@ export default function TokenSwap() {
           onChange={(value) => {
             setSelectedToken("");
             setFromAmount("");
+            console.log({ value });
+            console.log({ chainId });
+            console.log({ primaryWallet });
             if (chainId !== Number(value)) {
               setDestinationChain(value);
             }
@@ -171,7 +187,7 @@ export default function TokenSwap() {
         amount={toAmount}
         setAmount={setToAmount}
         className={cn(
-          "mb-2 p-4 bg-card dark:bg-darkCard border-2 border-border dark:border-darkBorder rounded-md",
+          "mb-2 p-4 w-5/12 bg-card dark:bg-darkCard border-2 border-border dark:border-darkBorder rounded-md",
           "focus-within:shadow-light dark:focus-within:shadow-dark"
         )}
         address={address || ""}

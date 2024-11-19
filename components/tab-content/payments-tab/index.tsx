@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/tabs";
 import { BaseNameDialogAlert } from "@/components/ens-alert-dialog";
 import PaymentCardSkeleton from "@/components/ui/skeleton/index";
+import TokenSwap from "./ccip";
 interface HomeContentProps {
   translations: Translations["Home"];
   address: string;
@@ -35,7 +36,7 @@ export const PaymentLinkTabContent: React.FC<HomeContentProps> = ({
         </TabsList>
         <TabsContent value="send-payment">
           <Suspense fallback={<PaymentCardSkeleton />}>
-            {/* <SendPayment /> error loop here */}
+            <TokenSwap />
           </Suspense>
         </TabsContent>
         <TabsContent value="payment-link">

@@ -22,7 +22,7 @@ export const ChainSelect: React.FC<ChainSelectProps> = ({
       "tokens",
       false
     ) as Token[];
-    const baseToken = tokens.find((token) => token.symbol === "USDC");
+    const baseToken = tokens?.find((token) => token.symbol === "USDC");
     if (!chain) {
       return null;
     }
@@ -44,9 +44,9 @@ export const ChainSelect: React.FC<ChainSelectProps> = ({
       {!value && (
         <span className="text-xs text-gray-500 uppercase ">{label}</span>
       )}
-      <div className=" min-w-[230px] w-[230px] max-w-[230px] m-auto">
+      <div className=" min-w-[230px] w-[230px] max-w-[230px] m-auto ">
         <Select value={value || ""} onValueChange={onChange}>
-          <SelectTrigger className="w-full m-auto flex items-center">
+          <SelectTrigger className="w-full m-auto flex items-center bg-white">
             <SelectValue placeholder={label} className="m-auto">
               {value ? renderChainOption(value) : label}
             </SelectValue>
