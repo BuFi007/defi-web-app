@@ -240,7 +240,8 @@ export const usePeanut = () => {
     onInProgress?: () => void,
     onSuccess?: () => void,
     onFailed?: (error: Error) => void,
-    onFinished?: () => void
+    onFinished?: () => void,
+    isMainnet?: boolean
   ) => {
     setIsLoading(true);
     setLoading(true);
@@ -257,7 +258,7 @@ export const usePeanut = () => {
         destinationChainId: Number(destinationChainId).toString(),
         destinationToken,
         APIKey: PEANUTAPIKEY,
-        isMainnet: false,
+        isMainnet: isMainnet || false,
         slippage: 1,
       });
 

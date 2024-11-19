@@ -20,7 +20,7 @@ export default function Component(
   const marqueeText = isPlaying ? `${currentSong}       ` : " BooFi Radio 👻";
 
   return (
-    <footer className="fixed bottom-0 w-screen">
+    <footer className="absolute bottom-0 w-screen">
       <div className="flex items-center w-full mt-8">
         <span className="h-px flex-1 bg-black dark:bg-white"></span>
         <button

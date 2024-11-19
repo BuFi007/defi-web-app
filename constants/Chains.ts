@@ -88,8 +88,8 @@ export const Arbitrum = {
     `https://arb.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`,
   ],
   blockExplorerUrls: ["https://explorer.arbitrum.io/"],
-  vanityName: "Arbitrum Sepolia",
-  chainName: "ArbitrumSepolia",
+  vanityName: "Arbitrum",
+  chainName: "Arbitrum",
   networkId: 42161,
   iconUrls: ["https://app.dynamic.xyz/assets/networks/arbitrum.svg"],
 };

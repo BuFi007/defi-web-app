@@ -32,10 +32,9 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
 }) => {
   const { width } = useWindowSize();
   let chainId = useChainId();
-  const tokens = useGetTokensOrChain(chainId, "tokens", false) as Token[];
-  const ETH = tokens?.find((token) => token?.symbol === "ETH");
+  const tokens = useGetTokensOrChain(currentNetwork, "tokens", currentNetwork === 8453 || currentNetwork === 43114) || availableTokens;
+  const ETH = Array.isArray(tokens) ? tokens.find((token: Token) => token?.symbol === "ETH") : undefined;
   const supportedChains = Object.values(chains);
-  const isMobile = width && width <= 768;
   const { address } = useAccount();
   const [usdAmount, setUsdAmount] = useState<number>(0);
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
@@ -70,11 +69,10 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
     }
     return token.address;
   };
-
   const handleSelectChange = (value: string) => {
-    let token = tokens?.find((t) => t?.address === value);
-    if (!token) {
-      token = tokens?.find((t) => t?.symbol === value);
+    let token: Token | undefined;
+    if (Array.isArray(tokens)) {
+      token = tokens.find((t) => t?.address === value || t?.symbol === value);
     }
     if (token) {
       setSelectedToken(token);

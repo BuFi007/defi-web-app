@@ -163,6 +163,10 @@ export default function ClaimForm({
       }
     } else if (paymentInfo && destinationChainId) {
       try {
+
+        const sourceChainInfo = getChainInfoByChainId(paymentInfo.chainId);
+        const isMainnet = sourceChainInfo.isMainnet;
+
         setCurrentText("Claiming the cross-chain payment link...");
         const txHash = await claimPayLinkXChain(
           details?.link || "",
@@ -171,7 +175,8 @@ export default function ClaimForm({
           () => setCurrentText("Cross-chain transaction in progress..."),
           () => setCurrentText("Cross-chain transaction successful!"),
           (error: Error) => setCurrentText(`Error: ${error.message}`),
-          () => setCurrentText("Process complete.")
+          () => setCurrentText("Process complete."),
+          isMainnet
         );
         setTransactionDetails(txHash);
         setPaymentInfo((prevInfo) =>

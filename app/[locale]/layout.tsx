@@ -10,8 +10,12 @@ import { IBM_Plex_Serif, Inconsolata } from "next/font/google";
 import GridPattern from "@/components/magicui/grid-pattern";
 import { cn } from "@/utils";
 import Header from "@/components/header";
-import Container from "@/components/container";
 import Providers from "@/context/DynamicProviders";
+import dynamic from "next/dynamic";
+
+const Container = dynamic(() => import("@/components/container"), {
+  ssr: false,
+});
 
 const locales = ["en", "es", "pt"] as const;
 const ibmPlexSerif = IBM_Plex_Serif({
@@ -52,7 +56,7 @@ export default function RootLayout({
       className={`${GeistSans.variable} ${GeistMono.variable} ${ibmPlexSerif.variable} ${inconsolata.variable} h-full scroll-smooth antialiased`}
       suppressHydrationWarning
     >
-      <body className="bg-gradient-to-br from-indigo-100 via-violet-200 to-cyan-300 bg-no-repeat font-nubase dark:bg-gradient-to-r dark:from-gray-900 dark:via-indigo-400 dark:to-gray-800">
+      <body className="bg-gradient-to-br from-indigo-100 via-violet-200 to-cyan-300 bg-no-repeat font-nubase dark:bg-gradient-to-r dark:from-gray-900 dark:via-indigo-400 dark:to-gray-800 h-screen">
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

@@ -14,7 +14,7 @@ export default function LinkForm() {
   const { toast } = useToast();
   const currentChainId = useNetworkManager();
   const chainId = currentChainId as number;
-  const availableTokens = useGetTokensOrChain(chainId, "tokens", false);
+  const availableTokens = useGetTokensOrChain(chainId, "tokens", true);
 
   const {
     createPayLink,
@@ -49,7 +49,7 @@ export default function LinkForm() {
         () => setCurrentText("In Progress..."),
         () => setCurrentText("Success!"),
         (error: Error) => setCurrentText(`Failed: ${error.message}`),
-        () => setCurrentText("Spooky Crypto Finance Made Easy!")
+        () => setCurrentText("Spooky Crypto Finance Made Easy!"),
       );
       // Assuming linkResponse has the structure { paymentLink: string, transactionHash: string }
       if (linkResponse) {
