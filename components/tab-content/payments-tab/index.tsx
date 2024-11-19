@@ -24,7 +24,7 @@ export const PaymentLinkTabContent: React.FC<HomeContentProps> = ({
   return (
     <>
       <BaseNameDialogAlert translations={translations} address={address} />
-      <Tabs defaultValue="send-payment" className="w-full">
+      <Tabs defaultValue={"send-payment"} className="w-full">
         <TabsList className="grid w-full grid-cols-2 mt-1">
           <TabsTriggerRight value="send-payment" position="left">
             👽 Send Payment 🛸

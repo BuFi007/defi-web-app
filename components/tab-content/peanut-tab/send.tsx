@@ -40,12 +40,7 @@ export default function LinkForm() {
 
     try {
       const tokenAddress = selectedToken;
-      if (!tokenAddress) {
-        throw new Error(
-          `Token ${selectedToken} is not supported on this network.`
-        );
-      }
-
+      console.log("tokenAddress", tokenAddress);
       setCurrentText("In Progress...");
 
       const linkResponse = await createPayLink(
