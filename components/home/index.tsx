@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/tabs";
 import { Button } from "../ui/button";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
+import { useTabStore } from "@/store";
+import { PaymentLinkSkeleton } from "../skeleton-card";
 
 interface HomeContentProps {
   translations: Translations["Home"];
@@ -19,7 +21,7 @@ interface HomeContentProps {
 
 export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
   const { isConnected } = useAccount();
-  // const { activeTab, setActiveTab } = useTabStore();
+  const { activeTab, setActiveTab } = useTabStore();
   const [isTransitioning, setIsTransitioning] = useState(false);
   const address = useAccount();
 
@@ -82,14 +84,14 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
             </TabsTriggerAlt>
           </TabsList>
         </div>
-        <div>
+        {/* <div>
           <PaymentLinkTabContent
             translations={translations}
             address={address?.address ?? ""}
           />
-        </div>
+        </div> */}
 
-        {/* <div className="p-10 overflow-hidden flex flex-col items-center justify-center w-full">
+        <div className="p-10 overflow-hidden flex flex-col items-center justify-center w-full">
           <div className="relative flex flex-col items-center justify-center w-full h-full">
             <div
               className={`relative z-1 text-center bg-background dark:bg-background rounded-lg shadow-lg px-8 py-4 w-full border-2 border-black dark:border-white transition-all duration-300 ease-in-out ${
@@ -100,28 +102,19 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
                   : "max-w-5xl"
               }`}
             >
-              <LottieWrapper />
               {isTransitioning ? (
-                activeTab === "paymentLink" || activeTab === "tokenSwap" ? (
-                  activeTab === "paymentLink" ? (
-                    <PaymentLinkSkeleton />
-                  ) : (
-                    <TokenSwapSkeleton />
-                  )
-                ) : (
-                  <MoneyMarketBentoSkeleton />
-                )
+                <>money market</>
               ) : (
                 <>
                   <TabsContent
                     value="moneyMarket"
                     className="transition-opacity duration-300 ease-in-out flex-grow"
                   >
-                    <GridSmall>
+                    {/* <GridSmall>
                       <Suspense fallback={<MoneyMarketBentoSkeleton />}>
                         <MoneyMarketBentoGrid />
                       </Suspense>
-                    </GridSmall>
+                    </GridSmall> */}
                   </TabsContent>
                   <TabsContent
                     value="paymentLink"
@@ -138,15 +131,15 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
                     value="tokenSwap"
                     className="transition-opacity duration-300 ease-in-out"
                   >
-                    <Suspense fallback={<TokenSwapSkeleton />}>
+                    {/* <Suspense fallback={<TokenSwapSkeleton />}>
                       <TokenSwap />
-                    </Suspense>
+                    </Suspense> */}
                   </TabsContent>
                 </>
               )}
             </div>
           </div>
-        </div> */}
+        </div>
       </Tabs>
     </>
   );

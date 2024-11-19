@@ -5,7 +5,11 @@ import {
   BaseSepoliaTokens,
 } from "@/constants/Tokens";
 
-export const useUsdcChain = (chainId: number, isMainnet?: boolean) => {
+export const useUsdcChain = (
+  chainId: number | undefined | string,
+  isMainnet?: boolean
+) => {
+  //   if (!chainId) return "error no chain id";
   if (chainId === 84532 && isMainnet)
     return BaseTokens.filter((token) => token.symbol === "USDC");
   if (chainId === 43113 && isMainnet)
