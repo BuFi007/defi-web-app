@@ -233,57 +233,76 @@ export const usePeanut = () => {
     }
   };
 
-  const claimPayLinkXChain = async (
-    link: string,
-    destinationChainId: string,
-    destinationToken: string,
-    onInProgress?: () => void,
-    onSuccess?: () => void,
-    onFailed?: (error: Error) => void,
-    onFinished?: () => void,
-    isMainnet?: boolean
-  ) => {
-    setIsLoading(true);
-    setLoading(true);
-    setError(null);
+const claimPayLinkXChain = async (
+  link: string,
+  destinationChainId: string,
+  destinationToken: string,
+  onInProgress?: () => void,
+  onSuccess?: () => void,
+  onFailed?: (error: Error) => void,
+  onFinished?: () => void
+) => {
+  setIsLoading(true);
+  setLoading(true);
+  setError(null);
 
-    try {
-      if (!primaryWallet?.address) {
-        throw new Error("Wallet not connected");
-      }
+  try {
+    if (!primaryWallet?.address) {
+      throw new Error("Wallet not connected");
+    }
 
-      const claimedLinkResponse = await claimLinkXChainGasless({
-        link,
-        recipientAddress: primaryWallet.address as `0x${string}`,
-        destinationChainId: Number(destinationChainId).toString(),
-        destinationToken,
-        APIKey: PEANUTAPIKEY,
-        isMainnet: isMainnet || false,
-        slippage: 1,
-      });
+    // Define mappings for supported chains
+    const mainnetIds = ["8453", "43114", "42161"];
+    const testnetIds = ["false", "43113", "421614"];
+    
+    const isTestnet = testnetIds.includes(destinationChainId);
+    const isMainnet = mainnetIds.includes(destinationChainId);
 
-      toast({
-        title: "Cross-chain transaction sent",
-        description: `Transaction hash: ${claimedLinkResponse.txHash}. This may take a few minutes.`,
-      });
+    if (!isTestnet && !isMainnet) {
+      throw new Error(`Chain ${destinationChainId} is not supported`);
+    }
 
-      onInProgress?.();
-      onSuccess?.();
-      return claimedLinkResponse.txHash;
-    } catch (error: any) {
-      console.error("Error claiming cross-chain paylink:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      setError(errorMessage);
-      toast({
-        title: "Error claiming cross-chain link",
-        description: errorMessage,
-        variant: "destructive",
-      });
-      onFailed?.(error);
-      throw error;
-    } finally {
-      setIsLoading(false);
+    console.log("Claiming with params:", {
+      link,
+      destinationChainId,
+      isMainnet: !isTestnet,
+      recipientAddress: primaryWallet.address,
+      destinationToken
+    });
+
+    const claimedLinkResponse = await claimLinkXChainGasless({
+      link,
+      APIKey: PEANUTAPIKEY,
+      recipientAddress: primaryWallet.address as `0x${string}`,
+      destinationChainId,
+      destinationToken,
+      isMainnet: !isTestnet,
+      slippage: 1,
+      baseUrl: "https://api.peanut.to/claim-v2"
+    });
+
+    toast({
+      title: "Cross-chain transaction sent",
+      description: `Transaction hash: ${claimedLinkResponse.txHash}. This may take a few minutes.`
+    });
+
+    onInProgress?.();
+    onSuccess?.();
+    return claimedLinkResponse.txHash;
+
+  } catch (error: any) {
+    console.error("Error claiming cross-chain paylink:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    setError(errorMessage);
+    toast({
+      title: "Error claiming cross-chain link",
+      description: errorMessage,
+      variant: "destructive"
+    });
+    onFailed?.(error);
+    throw error;
+  } finally {
+    setIsLoading(false);
       setLoading(false);
       onFinished?.();
     }

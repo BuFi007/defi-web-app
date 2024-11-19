@@ -24,9 +24,14 @@ const NetworkSelector: React.FC<NetworkSelectorProps> = ({
 }) => {
   const [selectedChain, setSelectedChain] = useState<string>(destinationChainId || "");
 
-  const supportedChains = Object.values(Chains).filter(
-    chain => chain.chainId.toString() !== currentChainId
+  const currentChain = Object.values(Chains).find(
+    chain => chain.chainId.toString() === currentChainId
   );
+  
+  const supportedChains = Object.values(Chains).filter(chain => {
+    return chain.chainId.toString() !== currentChainId && 
+           chain.isMainnet === currentChain?.isMainnet;
+  });
 
   const handleChainSelect = useCallback((value: string) => {
     console.log("Selecting chain:", value);
@@ -56,7 +61,7 @@ const NetworkSelector: React.FC<NetworkSelectorProps> = ({
   );
 
   return (
-    <div className="w-full">
+    <div className="w-fit justify-center items-center">
       <Select
         value={selectedChain}
         onValueChange={handleChainSelect}
@@ -72,7 +77,9 @@ const NetworkSelector: React.FC<NetworkSelectorProps> = ({
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            <SelectLabel>Available Chains</SelectLabel>
+            <SelectLabel>
+              Available {currentChain?.isMainnet ? 'Mainnet' : 'Testnet'} Chains
+            </SelectLabel>
             {supportedChains.map((chain) => (
               <SelectItem
                 key={chain.chainId}

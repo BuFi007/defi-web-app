@@ -229,6 +229,7 @@ export default function ClaimForm({
           {/* //add info icon explaining what this is */}
         </div>
       )}
+      <div className="flex items-center justify-center p-4 space-x-2">
       {isMultiChain && !paymentInfo?.claimed && (
         <NetworkSelector
           currentChainId={paymentInfo?.chainId.toString() || ""}
@@ -240,7 +241,8 @@ export default function ClaimForm({
             setDestinationChainId(selectedChainId);
           }}
         />
-      )}
+        )}
+      </div>
     </section>
   );
 
