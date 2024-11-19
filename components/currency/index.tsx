@@ -22,7 +22,6 @@ import { useTokenBalance } from "@/hooks/use-user-balance";
 import { NATIVE_TOKEN_ADDRESS } from "@/constants/Tokens";
 import { toast } from "../ui/use-toast";
 
-
 const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   tokenAmount,
   onValueChange,
@@ -208,14 +207,6 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
           </SelectValue>
         </SelectTrigger>
         <SelectContent className="w-full justify-between">
-          {ETH && (
-            <SelectGroup>
-              <SelectLabel>Native Token</SelectLabel>
-              <SelectItem value={getTokenValue(ETH)}>
-                <TokenChip token={ETH} />
-              </SelectItem>
-            </SelectGroup>
-          )}
           {availableTokens?.length > 0 && (
             <SelectGroup className="justify-stretch">
               <SelectLabel>Tokens</SelectLabel>

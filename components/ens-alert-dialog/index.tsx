@@ -77,8 +77,8 @@ export const BaseNameDialogAlert = ({
         <div>
           {!ensNotFound && ensName ? (
             <>
-              <div className="items-center gap-1 inline-block justify-center">
-                <div className="flex flex-col items-center justify-center">
+              <div className="items-center gap-1 inline-block justify-center w-full">
+                <div className="flex flex-col items-center justify-center m-auto w-8/12">
                   <h1 className="text-center">
                     <span className="font-clash"> Hi {ensName}! </span>
                   </h1>
