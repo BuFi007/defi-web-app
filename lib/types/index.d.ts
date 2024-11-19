@@ -296,3 +296,5 @@ export interface Translations {
     matrixMemeAlt: string;
   };
 }
+
+export type ChainList = chains.Chain.id | undefined;

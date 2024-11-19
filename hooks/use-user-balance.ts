@@ -1,8 +1,6 @@
-import { formatUnits } from "viem";
-import { UseTokenBalanceProps } from "@/lib/types";
-import { erc20Abi } from "viem";
+import { UseTokenBalanceProps, ChainList } from "@/lib/types";
 import { useBalance, UseBalanceReturnType } from "wagmi";
-import { baseSepolia, avalancheFuji } from "wagmi/chains";
+
 export function useTokenBalance({
   tokenAddress,
   chainId,
@@ -15,12 +13,12 @@ export function useTokenBalance({
     balance = useBalance({
       address: address,
       token: tokenAddress,
-      chainId: chainId,
+      chainId: chainId as ChainList,
     });
   } else {
     balance = useBalance({
       address: address,
-      chainId: chainId,
+      chainId: chainId as ChainList,
     });
   }
 

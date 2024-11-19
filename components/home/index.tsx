@@ -24,7 +24,6 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
   const address = useAccount();
 
   const currentChainId = useNetworkManager();
-  console.log({ currentChainId });
 
   useEffect(() => {
     if (isTransitioning) {

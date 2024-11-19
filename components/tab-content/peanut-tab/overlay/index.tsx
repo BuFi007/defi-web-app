@@ -23,6 +23,7 @@ export default function Overlay({
   handleShare,
   truncateHash,
 }: OverlayProps) {
+  console.log("Here are the tx details 1", transactionDetails);
   return (
     <div className="animate-in fade-in-0 fixed inset-0 z-50 bg-white/90">
       <div className="relative flex size-full items-center justify-center">

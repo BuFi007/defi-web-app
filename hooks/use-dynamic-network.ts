@@ -11,7 +11,6 @@ export const useNetworkManager = () => {
     const updateNetwork = async () => {
       if (!primaryWallet?.connector) {
         setCurrentChainId(undefined);
-        console.log("no primary wallet");
         return;
       }
 

@@ -1,3 +1,5 @@
+"use client";
+
 import { QRImage } from "react-qrbtf";
 import { useEffect, useState } from "react";
 import { FramedQRCodeProps } from "@/lib/types";
@@ -16,7 +18,9 @@ export const FramedQRCode = ({
   copyLink,
 }: FramedQRCodeProps) => {
   const [logoBase64, setLogoBase64] = useState<string>("");
-  const [isLoading, setIsLoading] = useState<boolean>(true); // Loading state
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [qrError, setQrError] = useState<boolean>(false);
+
 
   const convertImageToBase64 = async (imageUrl: string): Promise<string> => {
     try {
@@ -42,19 +46,35 @@ export const FramedQRCode = ({
 
   useEffect(() => {
     const loadImage = async () => {
+      if (!link) {
+        setQrError(true);
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
-      const base64 = await convertImageToBase64(image);
-      setLogoBase64(base64);
-      setIsLoading(false);
+      try {
+        const base64 = await convertImageToBase64(image);
+        setLogoBase64(base64);
+        setQrError(false);
+      } catch (error) {
+        console.error("Error loading QR code:", error);
+        setQrError(true);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    if (image.startsWith("data:")) {
-      setLogoBase64(image);
-      setIsLoading(false);
-    } else {
-      loadImage();
-    }
-  }, [image]);
+    loadImage();
+  }, [image, link]);
+
+  if (!link || qrError) {
+    return (
+      <div className="w-32 h-32 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center">

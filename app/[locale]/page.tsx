@@ -3,8 +3,8 @@ import { Translations } from "@/lib/types";
 import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
 import { useTranslations } from "next-intl";
 import { Suspense } from "react";
+import { MoneyMarketSkeleton } from "@/components/skeleton-card";
 
-//import { MoneyMarketSkeleton } from "@/components/base-lend-borrow/money-market-skeleton";
 export default function Home() {
   const t = useTranslations("Home");
 
@@ -26,11 +26,9 @@ export default function Home() {
 
   return (
     <>
-      {/* <Suspense fallback={<MoneyMarketSkeleton />}> */}
-      <HomeContent translations={translations} />
-
-      <DynamicWidget />
-      {/* </Suspense> */}
+      <Suspense fallback={<MoneyMarketSkeleton />}>
+        <HomeContent translations={translations} />
+      </Suspense>
     </>
   );
 }

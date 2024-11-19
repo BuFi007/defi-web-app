@@ -1,6 +1,6 @@
 import React, { useState, ChangeEvent, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { useDeezNuts } from "@/hooks/use-peanut";
+import { usePeanut } from "@/hooks/use-peanut";
 import PaymentDetails from "./card/details";
 import confetti from "canvas-confetti";
 import { toast } from "@/components/ui/use-toast";
@@ -14,23 +14,21 @@ import Link from "next/link";
 import Image from "next/image";
 import { chainIdMapping, chainIcons } from "./card/details";
 import { ExtendedPaymentInfo, IGetLinkDetailsResponse } from "@/lib/types";
-import { ChainSelect } from "@/components/chain-select";
+import NetworkSelector from "@/components/chain-select";
 import * as Chains from "@/constants/Chains";
-import {
-  useDynamicContext,
-  useSwitchNetwork,
-  Wallet,
-} from "@dynamic-labs/sdk-react-core";
+import { useSwitchNetwork } from "@dynamic-labs/sdk-react-core";
 import { getBlockExplorerUrlByChainId } from "@/utils";
 
 export function getChainInfoByChainId(chainId: number | string) {
   const id = Number(chainId);
   const chainName = chainIdMapping[id] || `Chain ${id}`;
   const chainIcon = chainIcons[id] || "";
+  const isMainnet = Chains[chainName as keyof typeof Chains].isMainnet;
 
   return {
     chainName,
     chainIcon,
+    isMainnet,
   };
 }
 
@@ -43,7 +41,8 @@ export default function ClaimForm({
     claimPayLink,
     claimPayLinkXChain,
     isLoading: isPeanutLoading,
-  } = useDeezNuts();
+  } = usePeanut();
+
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [transactionDetails, setTransactionDetails] = useState<string | null>(
     null
@@ -52,17 +51,16 @@ export default function ClaimForm({
   const [paymentInfo, setPaymentInfo] = useState<ExtendedPaymentInfo | null>(
     null
   );
-  const [chainId, setChainId] = useState<string>("");
   const [inProgress, setInProgress] = useState(false);
   const [currentText, setCurrentText] = useState("Ready to claim your link");
   const chains = Object.values(Chains).map((chain) => ({
     chainId: chain.chainId,
   }));
-  const [destinationChainId, setDestinationChainId] = useState<string>(""); // To store selected chain ID
+  const [destinationChainId, setDestinationChainId] = useState<string>("");
   const [details, setDetails] = useState<IGetLinkDetailsResponse | null>(null);
   const [isMultiChain, setIsMultiChain] = useState(false);
   const switchNetwork = useSwitchNetwork();
-  const { primaryWallet } = useDynamicContext();
+
   const fetchLinkDetails = async (link: string) => {
     try {
       const details = (await getLinkDetails({
@@ -146,7 +144,7 @@ export default function ClaimForm({
           details?.link || "",
           () => setCurrentText("Transaction in progress..."),
           () => setCurrentText("Transaction successful!"),
-          (error) => setCurrentText(`Error: ${error.message}`),
+          (error: Error) => setCurrentText(`Error: ${error.message}`),
           () => setCurrentText("Process complete.")
         );
         setTransactionDetails(txHash);
@@ -170,7 +168,7 @@ export default function ClaimForm({
           details?.tokenAddress || "",
           () => setCurrentText("Cross-chain transaction in progress..."),
           () => setCurrentText("Cross-chain transaction successful!"),
-          (error) => setCurrentText(`Error: ${error.message}`),
+          (error: Error) => setCurrentText(`Error: ${error.message}`),
           () => setCurrentText("Process complete.")
         );
         setTransactionDetails(txHash);
@@ -224,27 +222,17 @@ export default function ClaimForm({
           {/* //add info icon explaining what this is */}
         </div>
       )}
-
-      {isMultiChain && !paymentInfo?.claimed && (
-        // <NetworkSelector
-        //   currentChainId={paymentInfo?.chainId.toString() || ""}
-        //   onSelect={(chainId: string) => setDestinationChainId(chainId)}
-        // />
-        <ChainSelect
-          value={chainId}
-          onChange={(value) => {
-            // console.log({ value });
-            setDestinationChainId(value);
-            switchNetwork({
-              wallet: primaryWallet as Wallet,
-              network: value,
-            });
-
-            setChainId(value);
+     {isMultiChain && !paymentInfo?.claimed && (
+      <NetworkSelector
+        currentChainId={paymentInfo?.chainId.toString() || ""}
+        destinationChainId={destinationChainId}
+        onSelect={(selectedChainId: string) => {
+          const numericChainId = Number(selectedChainId);
+          if (isNaN(numericChainId)) return;
+          console.log("Setting destination chain:", numericChainId);
+          setDestinationChainId(selectedChainId);
           }}
-          chains={chains}
-          label="Select Chain"
-        />
+        />  
       )}
     </section>
   );

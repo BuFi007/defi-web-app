@@ -81,7 +81,6 @@ const getMetadata = cache((locale: string): Metadata => {
       'smart contracts',
       'cryptocurrency',
     ],
-    viewport: 'width=device-width, initial-scale=1',
     robots: {
       index: true,
       follow: true,
@@ -118,16 +117,6 @@ const getMetadata = cache((locale: string): Metadata => {
   };
 });
 
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#000000" },
-  ],
-};
 
 export function generateBuMetadata(locale: string): Metadata {
   return getMetadata(locale);
