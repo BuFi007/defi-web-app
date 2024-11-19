@@ -14,7 +14,7 @@ export default function LinkForm() {
   const { toast } = useToast();
   const currentChainId = useNetworkManager();
   const chainId = currentChainId as number;
-  const availableTokens = useGetTokensOrChain(chainId, "tokens");
+  const availableTokens = useGetTokensOrChain(chainId, "tokens", false);
 
   const {
     createPayLink,

@@ -1,17 +1,35 @@
-import { AvalancheTokens, BaseTokens } from "@/constants/Tokens";
-import { Avalanche, Base, Arbitrum } from "@/constants/Chains";
+import {
+  AvalancheTokens,
+  BaseSepoliaTokens,
+  AvalancheFujiTokens,
+  BaseTokens,
+} from "@/constants/Tokens";
+import {
+  Avalanche,
+  Base,
+  BaseSepolia,
+  AvalancheFuji,
+} from "@/constants/Chains";
 
 export const useGetTokensOrChain = (
   chainId: number,
-  type: "tokens" | "chain"
+  type: "tokens" | "chain",
+  isMainnet?: boolean
 ) => {
-  if (type === "tokens") {
-    if (chainId === 43113) return AvalancheTokens;
-    if (chainId === 84532) return BaseTokens;
+  if (type === "tokens" && !isMainnet) {
+    if (chainId === 43113) return AvalancheFujiTokens;
+    if (chainId === 84532) return BaseSepoliaTokens;
   }
-  if (type === "chain") {
-    if (chainId === 43113) return Avalanche;
-    if (chainId === 84532) return Base;
-    // if (chainId === 42161) return Arbitrum;
+  if (type === "tokens" && isMainnet) {
+    if (chainId === 8453) return BaseTokens;
+    if (chainId === 43114) return AvalancheTokens;
+  }
+  if (type === "chain" && !isMainnet) {
+    if (chainId === 43113) return AvalancheFuji;
+    if (chainId === 84532) return BaseSepolia;
+  }
+  if (type === "chain" && isMainnet) {
+    if (chainId === 8453) return Base;
+    if (chainId === 43114) return Avalanche;
   }
 };

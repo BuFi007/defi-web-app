@@ -32,7 +32,7 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
 }) => {
   const { width } = useWindowSize();
   let chainId = useChainId();
-  const tokens = useGetTokensOrChain(chainId, "tokens") as Token[];
+  const tokens = useGetTokensOrChain(chainId, "tokens", false) as Token[];
   const ETH = tokens?.find((token) => token?.symbol === "ETH");
   const supportedChains = Object.values(chains);
   const isMobile = width && width <= 768;

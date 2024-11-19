@@ -14,7 +14,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { chainIdMapping, chainIcons } from "./card/details";
 import { ExtendedPaymentInfo, IGetLinkDetailsResponse } from "@/lib/types";
-import NetworkSelector from "@/components/chain-select";
+import NetworkSelector from "@/components/network-selector";
 import * as Chains from "@/constants/Chains";
 import { useSwitchNetwork } from "@dynamic-labs/sdk-react-core";
 import { getBlockExplorerUrlByChainId } from "@/utils";
