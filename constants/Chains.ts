@@ -9,7 +9,7 @@ export const Base = {
     iconUrls: ["https://app.dynamic.xyz/assets/networks/base.svg"],
   },
   rpcUrls: [
-    `https://base-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`,
+    `https://base.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`,
   ],
   blockExplorerUrls: ["https://base.blockscout.com"],
   chainName: "Base",
@@ -49,7 +49,7 @@ export const Avalanche = {
     decimals: 18,
     iconUrls: ["https://app.dynamic.xyz/assets/networks/avax.svg"],
   },
-  rpcUrls: ["https://rpc.ankr.com/avalanche_fuji"],
+  rpcUrls: ["https://rpc.ankr.com/avalanche"],
   vanityName: "Avalanche ",
   chainName: "Avalanche",
   networkId: 43114,
@@ -85,7 +85,7 @@ export const Arbitrum = {
     iconUrls: ["https://app.dynamic.xyz/assets/networks/arbitrum.svg"],
   },
   rpcUrls: [
-    `https://arb-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`,
+    `https://arb.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`,
   ],
   blockExplorerUrls: ["https://explorer.arbitrum.io/"],
   vanityName: "Arbitrum Sepolia",
