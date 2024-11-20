@@ -23,9 +23,8 @@ import {
   useSwitchNetwork,
 } from "@dynamic-labs/sdk-react-core";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
-import { base } from "viem/chains";
 
-export default function TokenSwap() {
+export default function CCIPBridge() {
   const { address } = useAccount();
   const chainId = useNetworkManager();
   const { toast } = useToast();
@@ -143,11 +142,15 @@ export default function TokenSwap() {
   }
 
   return (
-    <div className="border p-2 rounded-xl ">
-      <div className="flex flex-col items-center gap-10 text-nowrap w-5/12 m-auto">
-        <h2 className="text-center text-xl font-nupower font-bold">
-          CCIP USDC Bridge 🔄
-        </h2>
+    <div className="p-2 rounded-xl ">
+      <div className="flex flex-col items-center gap-10 text-nowrap w-full m-auto">
+        <div className="flex flex-row items-center w-full m-auto justify-between">
+          <h2 className="text-xl font-nupower font-bold">⛽🏎️⛽</h2>
+          <h2 className="text-xl font-nupower font-bold">
+            You are bridging USDC
+          </h2>
+        </div>
+
         <div className="flex flex-col items-center gap-10 text-nowrap ">
           <ChainSelect
             value={sourceChain ? sourceChain : chainId?.toString() ?? ""}

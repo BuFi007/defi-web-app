@@ -11,9 +11,10 @@ import {
   TabsTriggerAlt,
 } from "@/components/ui/tabs";
 import { Button } from "../ui/button";
-import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { useTabStore } from "@/store";
 import { PaymentLinkSkeleton } from "../skeleton-card";
+import CCIPBridge from "../tab-content/payments-tab/ccip";
+import TokenSwapSkeleton from "../swap/components/TokenSwapSkeleton";
 
 interface HomeContentProps {
   translations: Translations["Home"];
@@ -68,7 +69,7 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
                 Payments 💸
               </Button>
             </TabsTriggerAlt>
-            <TabsTriggerAlt value="tokenSwap">
+            <TabsTriggerAlt value="CCIP">
               <Button
                 size="lg"
                 className="flex items-center gap-2 w-full"
@@ -126,12 +127,12 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
                       </Suspense>
                     </TabsContent>
                     <TabsContent
-                      value="tokenSwap"
+                      value="CCIP"
                       className="transition-opacity duration-300 ease-in-out"
                     >
-                      {/* <Suspense fallback={<TokenSwapSkeleton />}>
-                      <TokenSwap />
-                    </Suspense> */}
+                      <Suspense fallback={<TokenSwapSkeleton />}>
+                        <CCIPBridge />
+                      </Suspense>
                     </TabsContent>
                   </>
                 )}
