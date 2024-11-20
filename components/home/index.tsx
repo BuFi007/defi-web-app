@@ -20,12 +20,9 @@ interface HomeContentProps {
 }
 
 export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
-  const { isConnected } = useAccount();
   const { activeTab, setActiveTab } = useTabStore();
   const [isTransitioning, setIsTransitioning] = useState(false);
   const address = useAccount();
-
-  const currentChainId = useNetworkManager();
 
   useEffect(() => {
     if (isTransitioning) {
@@ -92,7 +89,7 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
         </div> */}
 
         <div className="p-10 overflow-hidden flex flex-col items-center justify-center w-full">
-          <div className="relative flex flex-col items-center justify-center w-full h-full">
+          <div className="relative flex flex-col items-center justify-center w-full h-full ">
             <div
               className={`relative z-1 text-center bg-background dark:bg-background rounded-lg shadow-lg px-8 py-4 w-full border-2 border-black dark:border-white transition-all duration-300 ease-in-out ${
                 activeTab === "paymentLink"
@@ -102,41 +99,43 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
                   : "max-w-5xl"
               }`}
             >
-              {isTransitioning ? (
-                <>money market</>
-              ) : (
-                <>
-                  <TabsContent
-                    value="moneyMarket"
-                    className="transition-opacity duration-300 ease-in-out flex-grow"
-                  >
-                    {/* <GridSmall>
+              <div className="border p-5 rounded-xl">
+                {isTransitioning ? (
+                  <>money market</>
+                ) : (
+                  <>
+                    <TabsContent
+                      value="moneyMarket"
+                      className="transition-opacity duration-300 ease-in-out flex-grow"
+                    >
+                      {/* <GridSmall>
                       <Suspense fallback={<MoneyMarketBentoSkeleton />}>
                         <MoneyMarketBentoGrid />
                       </Suspense>
                     </GridSmall> */}
-                  </TabsContent>
-                  <TabsContent
-                    value="paymentLink"
-                    className="transition-opacity duration-300 ease-in-out"
-                  >
-                    <Suspense fallback={<PaymentLinkSkeleton />}>
-                      <PaymentLinkTabContent
-                        translations={translations}
-                        address={address?.address ?? ""}
-                      />
-                    </Suspense>
-                  </TabsContent>
-                  <TabsContent
-                    value="tokenSwap"
-                    className="transition-opacity duration-300 ease-in-out"
-                  >
-                    {/* <Suspense fallback={<TokenSwapSkeleton />}>
+                    </TabsContent>
+                    <TabsContent
+                      value="paymentLink"
+                      className="transition-opacity duration-300 ease-in-out"
+                    >
+                      <Suspense fallback={<PaymentLinkSkeleton />}>
+                        <PaymentLinkTabContent
+                          translations={translations}
+                          address={address?.address ?? ""}
+                        />
+                      </Suspense>
+                    </TabsContent>
+                    <TabsContent
+                      value="tokenSwap"
+                      className="transition-opacity duration-300 ease-in-out"
+                    >
+                      {/* <Suspense fallback={<TokenSwapSkeleton />}>
                       <TokenSwap />
                     </Suspense> */}
-                  </TabsContent>
-                </>
-              )}
+                    </TabsContent>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>

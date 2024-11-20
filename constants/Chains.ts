@@ -1,4 +1,6 @@
-export const Base = {
+import { Chain } from "@/lib/types";
+
+export const Base: Chain = {
   chainId: 8453,
   isMainnet: true,
   name: "Base",
@@ -18,7 +20,7 @@ export const Base = {
   iconUrls: ["https://app.dynamic.xyz/assets/networks/base.svg"],
 };
 
-export const BaseSepolia = {
+export const BaseSepolia: Chain = {
   chainId: 84532,
   isMainnet: false,
   name: "Base",
@@ -38,7 +40,7 @@ export const BaseSepolia = {
   iconUrls: ["https://app.dynamic.xyz/assets/networks/base.svg"],
 };
 
-export const Avalanche = {
+export const Avalanche: Chain = {
   chainId: 43114,
   isMainnet: true,
   name: "Avalanche",
@@ -56,7 +58,7 @@ export const Avalanche = {
   iconUrls: ["https://app.dynamic.xyz/assets/networks/avax.svg"],
 };
 
-export const AvalancheFuji = {
+export const AvalancheFuji: Chain = {
   chainId: 43113,
   isMainnet: false,
   name: "Avalanche",
@@ -74,7 +76,7 @@ export const AvalancheFuji = {
   iconUrls: ["https://app.dynamic.xyz/assets/networks/avax.svg"],
 };
 
-export const Arbitrum = {
+export const Arbitrum: Chain = {
   chainId: 42161,
   isMainnet: true,
   name: "Arbitrum",
@@ -94,7 +96,7 @@ export const Arbitrum = {
   iconUrls: ["https://app.dynamic.xyz/assets/networks/arbitrum.svg"],
 };
 
-export const ArbitrumSepolia = {
+export const ArbitrumSepolia: Chain = {
   chainId: 421614,
   isMainnet: false,
   name: "Arbitrum",

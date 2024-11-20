@@ -1,9 +1,11 @@
 import { useEffect } from "react";
 import { useDynamicContext, getNetwork } from "@dynamic-labs/sdk-react-core";
 import { useNetworkStore } from "@/store";
+import { useChainId } from "wagmi";
 
 export const useNetworkManager = () => {
   const { primaryWallet } = useDynamicContext();
+  const chainId = useChainId();
   const { setCurrentChainId, setLoading, setError, currentChainId } =
     useNetworkStore();
 
@@ -30,6 +32,11 @@ export const useNetworkManager = () => {
     };
 
     updateNetwork();
-  }, [primaryWallet?.connector]);
+  }, [
+    primaryWallet?.connector,
+    primaryWallet?.switchNetwork,
+    currentChainId,
+    chainId,
+  ]);
   return currentChainId;
 };

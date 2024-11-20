@@ -6,8 +6,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChainSelectProps, Token } from "@/lib/types";
+import { Chain, ChainSelectProps, Token } from "@/lib/types";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
+import { useNetworkManager } from "@/hooks/use-dynamic-network";
 
 export const ChainSelect: React.FC<ChainSelectProps> = ({
   value,
@@ -15,23 +16,16 @@ export const ChainSelect: React.FC<ChainSelectProps> = ({
   chains,
   label,
 }) => {
+  const chainId = useNetworkManager();
   const renderChainOption = (chainId: string | number) => {
-    const chain = chains.find((c) => c.chainId === Number(chainId));
-    const tokens = useGetTokensOrChain(
-      Number(chainId),
-      "tokens",
-      false
-    ) as Token[];
-    const baseToken = tokens?.find((token) => token.symbol === "USDC");
-    if (!chain) {
-      return null;
-    }
+    const chain = useGetTokensOrChain(Number(chainId), "chain", false) as Chain;
 
+    console.log(chain, "daskadsjkdkjdsa");
     return (
       <div className="flex items-center space-x-2">
         <img
-          src={baseToken?.image || ""}
-          alt={baseToken?.symbol || ""}
+          src={chain?.iconUrls[0] || ""}
+          alt={chain?.name || ""}
           className="h-6 w-6 rounded-full"
         />
         <span className="font-clash text-sm">{chain.name}</span>
@@ -52,15 +46,17 @@ export const ChainSelect: React.FC<ChainSelectProps> = ({
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {chains.map((chain) => (
-              <SelectItem
-                key={chain.chainId}
-                value={chain.chainId.toString()}
-                className="m-auto"
-              >
-                {renderChainOption(chain.chainId.toString())}
-              </SelectItem>
-            ))}
+            {chains
+              .filter((chain) => chain.chainId !== chainId)
+              .map((chain) => (
+                <SelectItem
+                  key={chain.chainId}
+                  value={chain.chainId.toString()}
+                  className="m-auto"
+                >
+                  {renderChainOption(chain.chainId.toString())}
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
       </div>

@@ -33,7 +33,6 @@ export default function TokenSwap() {
   const [fromAmount, setFromAmount] = useState<string>("");
   const [selectedToken, setSelectedToken] = useState<string>("");
   const [toAmount, setToAmount] = useState<string>("");
-  const { switchChain } = useSwitchChain();
   const [sourceChain, setSourceChain] = useState<string | null>(null);
   const switchNetwork = useSwitchNetwork();
   const { primaryWallet } = useDynamicContext();
@@ -65,27 +64,24 @@ export default function TokenSwap() {
       console.warn("Source and destination chains cannot be the same.");
       return;
     }
+    console.log("pass this");
 
-    if (sourceChain && destinationChain && sourceChain !== destinationChain) {
-      const currentSource = sourceChain;
-      const currentDestination = destinationChain;
-
+    if (sourceChain !== destinationChain) {
       const destinationChainName =
-        chains.find((chain) => chain.chainId === Number(currentDestination))
-          ?.name || `Chain ID ${currentDestination}`;
+        chains.find((chain) => chain.chainId === Number(sourceChain))?.name ||
+        `Chain ID ${destinationChain}`;
 
       toast({
         title: "Switching Network",
         description: `Switching network to ${destinationChainName}. Please check your wallet to allow network change.`,
       });
 
-      setSourceChain(currentDestination);
-      setDestinationChain(currentSource);
-
       switchNetwork({
         wallet: primaryWallet!,
-        network: Number(currentDestination),
+        network: Number(destinationChain),
       });
+      setSourceChain(destinationChain);
+      setDestinationChain(sourceChain);
     } else {
       setSourceChain(String(chainId));
       setDestinationChain(null);
@@ -95,7 +91,15 @@ export default function TokenSwap() {
   const signer = useEthersSigner();
   async function sendCCIPTransfer() {
     const amount = parseUnits(toAmount, tokens?.[0]?.decimals!);
-    if (!destinationChainInfo?.ccipChainId) return;
+    if (!destinationChainInfo?.ccipChainId) {
+      toast({
+        title: "Invalid Destination Chain",
+        description: "Please select a valid destination chain",
+        variant: "destructive",
+        className: "bg-red-500 text-white",
+      });
+      return;
+    }
     try {
       const contractERC20 = new ethers.Contract(
         tokens?.[0]?.address! as Hex,
@@ -139,66 +143,75 @@ export default function TokenSwap() {
   }
 
   return (
-    <div className="flex flex-col items-center gap-10 text-nowrap">
-      <div className="flex flex-col items-center gap-10 text-nowrap">
-        <ChainSelect
-          value={sourceChain ? sourceChain : String(chainId)}
-          onChange={(value) => {
-            setSelectedToken("");
-            setFromAmount("");
-            if (chainId !== value) {
-              switchNetwork({
-                wallet: primaryWallet!,
-                network: Number(value),
-              });
-              setDestinationChain(null);
-              setSourceChain(value);
-            }
-          }}
-          chains={chains}
-          label="Source Chain"
-        />
-        <div className="relative w-full flex justify-center items-center ">
-          <SwapToggleButton
-            className="bg-main border-2 border-border dark:border-white rounded-full shadow-light dark:shadow-dark hover:bg-clr-yellow"
-            handleToggle={handleToggle}
+    <div className="border p-2 rounded-xl ">
+      <div className="flex flex-col items-center gap-10 text-nowrap w-5/12 m-auto">
+        <h2 className="text-center text-xl font-nupower font-bold">
+          CCIP USDC Bridge 🔄
+        </h2>
+        <div className="flex flex-col items-center gap-10 text-nowrap ">
+          <ChainSelect
+            value={sourceChain ? sourceChain : chainId?.toString() ?? ""}
+            onChange={(value) => {
+              setSelectedToken("");
+              setFromAmount("");
+              console.log({ value });
+              if (chainId === value) {
+                setSourceChain(null);
+              } else {
+                switchNetwork({
+                  wallet: primaryWallet!,
+                  network: Number(value),
+                });
+                setDestinationChain(null);
+                setSourceChain(value);
+              }
+            }}
+            chains={chains}
+            label="Source Chain"
+          />
+          <div className="relative w-full flex justify-center items-center ">
+            <SwapToggleButton
+              className="bg-main border-2 border-border dark:border-white rounded-full shadow-light dark:shadow-dark hover:bg-clr-yellow"
+              handleToggle={handleToggle}
+            />
+          </div>
+          <ChainSelect
+            value={destinationChain}
+            onChange={(value) => {
+              setSelectedToken("");
+              setFromAmount("");
+              console.log(value, "value");
+              console.log(chainId, "chainId");
+              if (Number(value) !== chainId) {
+                setDestinationChain(value);
+              } else {
+                return;
+              }
+            }}
+            chains={chains}
+            label="Bridge USDC to:"
           />
         </div>
-        <ChainSelect
-          value={destinationChain}
-          onChange={(value) => {
-            setSelectedToken("");
-            setFromAmount("");
-            console.log({ value });
-            console.log({ chainId });
-            console.log({ primaryWallet });
-            if (chainId !== Number(value)) {
-              setDestinationChain(value);
-            }
-          }}
-          chains={chains}
-          label="Bridge USDC to:"
+        <SwapAmountInput
+          label="Sell"
+          swappableTokens={tokens}
+          token={tokens?.[0]}
+          amount={toAmount}
+          setAmount={setToAmount}
+          className={cn(
+            "mb-2 p-3 w-full bg-card dark:bg-darkCard border-2 border-border dark:border-darkBorder rounded-xl ",
+            "focus-within:shadow-light dark:focus-within:shadow-dark"
+          )}
+          address={address || ""}
+          handleAmountChange={handleFromAmountChange}
+          amountUSD={"100"}
+          loading={false}
         />
-      </div>
-      <SwapAmountInput
-        label="Sell"
-        swappableTokens={tokens}
-        token={tokens?.[0]}
-        amount={toAmount}
-        setAmount={setToAmount}
-        className={cn(
-          "mb-2 p-4 w-5/12 bg-card dark:bg-darkCard border-2 border-border dark:border-darkBorder rounded-md",
-          "focus-within:shadow-light dark:focus-within:shadow-dark"
-        )}
-        address={address || ""}
-        handleAmountChange={handleFromAmountChange}
-        amountUSD={"100"}
-        loading={false}
-      />
 
-      <Button variant={"brutalism"} onClick={sendCCIPTransfer}>
-        Bridge
-      </Button>
+        <Button variant={"brutalism"} onClick={sendCCIPTransfer}>
+          Bridge
+        </Button>
+      </div>
     </div>
   );
 }

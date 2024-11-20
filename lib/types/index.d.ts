@@ -190,6 +190,7 @@ export interface ChainSelectProps {
   onChange: (value: string) => void;
   chains: ChainConfig[];
   label: string;
+  chainId?: number | undefined | string;
 }
 
 export type { TransactionError as Error };
@@ -298,3 +299,21 @@ export interface Translations {
 }
 
 export type ChainList = chains.Chain.id | undefined;
+
+export interface Chain {
+  chainId: number;
+  isMainnet: boolean;
+  name: string;
+  nativeCurrency: {
+    name: string;
+    symbol: string;
+    decimals: number;
+    iconUrls: string[];
+  };
+  rpcUrls: string[];
+  blockExplorerUrls: string[];
+  chainName: string;
+  vanityName: string;
+  networkId: number;
+  iconUrls: string[];
+}
