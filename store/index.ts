@@ -5,8 +5,9 @@ import {
   PaymentTab,
   ViewTab,
   NetworkState,
+  MarketStore,
 } from "./interface";
-import { MarketStore, CurrencyInfo, TabState } from "@/lib/types";
+import { Token, TabState, Chain } from "@/lib/types";
 
 export const usePaymentStore = create<PaymentStore>((set) => ({
   currentPaymentTab: "send",
@@ -25,12 +26,12 @@ export const useMarketStore = create<MarketStore>((set) => ({
   setCurrentViewTab: (tab: ViewTab) => set({ currentViewTab: tab }),
 
   selectedAsset: null,
-  setSelectedAsset: (asset: CurrencyInfo) => set({ selectedAsset: asset }),
+  setSelectedAsset: (asset: Token) => set({ selectedAsset: asset }),
 
-  fromChain: "",
-  toChain: "",
-  setFromChain: (chainId: string) => set({ fromChain: chainId }),
-  setToChain: (chainId: string) => set({ toChain: chainId }),
+  fromChain: undefined as unknown as Chain,
+  toChain: undefined as unknown as Chain,
+  setFromChain: (chain: Chain) => set({ fromChain: chain }),  
+  setToChain: (chain: Chain) => set({ toChain: chain }),
 }));
 
 export const useTabStore = create<TabState>((set) => ({

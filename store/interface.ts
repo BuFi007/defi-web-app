@@ -1,3 +1,6 @@
+import { Token } from "@/lib/types";
+import { Chain } from "@/lib/types";
+
 type ViewTab = "lend" | "withdraw" | "borrow" | "repay";
 
 type PaymentTab = "send" | "receive";
@@ -23,10 +26,23 @@ interface NetworkState {
   setError: (error: string | null) => void;
 }
 
+interface MarketStore {
+  currentViewTab: ViewTab;
+  setCurrentViewTab: (tab: ViewTab) => void;
+  selectedAsset: Token | null;
+  setSelectedAsset: (asset: Token) => void;
+  fromChain: Chain;
+  toChain: Chain;
+  setFromChain: (Chain: Chain) => void;
+  setToChain: (Chain: Chain) => void;
+}
+
+
 export type {
   PaymentStore,
   TransactionState,
   PaymentTab,
   ViewTab,
   NetworkState,
+  MarketStore,
 };

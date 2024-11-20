@@ -240,7 +240,7 @@ export default function ClaimForm({
             console.log("Setting destination chain:", numericChainId);
             setDestinationChainId(selectedChainId);
           }}
-        />
+          />
         )}
       </div>
     </section>

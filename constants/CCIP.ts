@@ -30,7 +30,3 @@ export const getCCIPChainByChainId = ({
   return destinationChains.find((chain) => chain.chainId === chainId);
 };
 
-export const chains = [
-  { id: "base-sepolia", name: "Base Sepolia", chainId: 84532, isHub: false }, // Hub
-  { id: "avax-fuji", name: "Avalanche Fuji", chainId: 43113, isHub: true }, // Spoke
-];

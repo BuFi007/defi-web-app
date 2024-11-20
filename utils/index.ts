@@ -1,7 +1,8 @@
 import { type ClassValue, clsx } from "clsx";
 import { useCallback } from "react";
 import { twMerge } from "tailwind-merge";
-import { Chain } from "viem";
+import { Chain } from "@/lib/types";
+import * as Chains from "@/constants/Chains";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -22,7 +23,7 @@ const BLOCKSCOUT_EXPLORERS: Record<number, string> = {
 
 export function getBlockExplorerUrl(chain: Chain): string {
   return (
-    BLOCKSCOUT_EXPLORERS[chain.id] || chain.blockExplorers?.default.url || ""
+    BLOCKSCOUT_EXPLORERS[chain.chainId] || chain.rpcUrls[0] || ""
   );
 }
 export function isValidAmount(value: string) {
@@ -125,3 +126,105 @@ export const border = {
 export const placeholder = {
   default: "placeholder-ock-default",
 } as const;
+
+
+
+/**
+ * Determines the available "From" chains based on the selected action.
+ * @param action - The selected action ("lend", "borrow", "withdraw", "repay").
+ * @param chains - The array of all chain configurations.
+ * @returns An array of ChainConfig objects that can be used as "From" options.
+ */
+
+export const getFromChains = (
+  action: 'lend' | 'borrow' | 'withdraw' | 'repay',
+  isMainnet: boolean
+): Chain[] => {
+  switch (action) {
+    case 'lend':
+      // Supply from spokes only (isHub: false)
+      if (isMainnet) {
+        return [Chains.Arbitrum, Chains.Base, Chains.Avalanche]
+      } else {
+        return [Chains.ArbitrumSepolia, Chains.BaseSepolia, Chains.AvalancheFuji]
+      }
+    case 'borrow':
+      if (isMainnet) {
+        return [Chains.Avalanche]
+      } else {
+        return [Chains.AvalancheFuji]
+      }   
+       case 'withdraw':
+        if (isMainnet) {
+        return [Chains.Avalanche]
+      } else {
+        return [Chains.AvalancheFuji]
+      }   
+    case 'repay':
+      if (isMainnet) {
+        return [Chains.Arbitrum, Chains.Base, Chains.Avalanche]
+      } else {
+        return [Chains.ArbitrumSepolia, Chains.BaseSepolia, Chains.AvalancheFuji]
+      } 
+    default:
+      return [Chains.Arbitrum, Chains.Avalanche, Chains.Base, Chains.BaseSepolia, Chains.AvalancheFuji, Chains.ArbitrumSepolia];
+  }
+};
+
+/**
+ * Determines the available "To" chains based on the selected action.
+ * @param action - The selected action ("lend", "borrow", "withdraw", "repay").
+ * @param chains - The array of all chain configurations.
+ * @returns An array of ChainConfig objects that can be used as "To" options.
+ */
+export const getToChains = (
+  action: 'lend' | 'borrow' | 'withdraw' | 'repay',
+  isMainnet: boolean
+): Chain[] => {
+ switch (action) {
+    case 'lend':
+      // Supply from spokes only (isHub: false)
+      if (isMainnet) {
+        return [Chains.Avalanche]
+      } else {
+        return [Chains.AvalancheFuji]
+      }
+    case 'borrow':
+      if (isMainnet) {
+        return [Chains.Arbitrum, Chains.Base, Chains.Avalanche]
+      } else {
+        return [Chains.ArbitrumSepolia, Chains.BaseSepolia, Chains.AvalancheFuji]
+      }   
+       case 'withdraw':
+        if (isMainnet) {
+          return [Chains.Arbitrum, Chains.Base, Chains.Avalanche]
+        } else {
+          return [Chains.ArbitrumSepolia, Chains.BaseSepolia, Chains.AvalancheFuji]
+        }   
+    case 'repay':
+      if (isMainnet) {
+        return [Chains.Avalanche]
+      } else {
+        return [Chains.AvalancheFuji]
+      }
+    default:
+      return [Chains.Arbitrum, Chains.Avalanche, Chains.Base, Chains.BaseSepolia, Chains.AvalancheFuji, Chains.ArbitrumSepolia];
+  }
+};
+
+export const formatCurrency = (value: bigint | number, options?: Intl.NumberFormatOptions) => {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+    ...options,
+  }).format(Number(value));
+};
+
+export const formatToken = (value: bigint | number, options?: Intl.NumberFormatOptions) => {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    maximumFractionDigits: 6,
+    ...options,
+  }).format(Number(value));
+};

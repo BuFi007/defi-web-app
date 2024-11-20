@@ -21,6 +21,7 @@ import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { useTokenBalance } from "@/hooks/use-user-balance";
 import { NATIVE_TOKEN_ADDRESS } from "@/constants/Tokens";
 import { toast } from "../ui/use-toast";
+import {IS_MAINNET} from "@/constants/Env"
 
 const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   tokenAmount,
@@ -32,7 +33,7 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
 }) => {
   const { width } = useWindowSize();
   let chainId = useChainId();
-  const tokens = useGetTokensOrChain(currentNetwork, "tokens", currentNetwork === 8453 || currentNetwork === 43114) || availableTokens;
+  const tokens = useGetTokensOrChain(currentNetwork, "tokens") || availableTokens;
   const ETH = Array.isArray(tokens) ? tokens.find((token: Token) => token?.symbol === "ETH") : undefined;
   const supportedChains = Object.values(chains);
   const { address } = useAccount();

@@ -9,12 +9,12 @@ import { useUsdcTokenChain } from "@/hooks/use-usdc-token-chain";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { truncateAddress } from "@/utils";
-
+import {IS_MAINNET} from "@/constants/Env";
 export default function LinkForm() {
   const { toast } = useToast();
   const currentChainId = useNetworkManager();
   const chainId = currentChainId as number;
-  const availableTokens = useGetTokensOrChain(chainId, "tokens", true);
+  const availableTokens = useGetTokensOrChain(chainId, "tokens");
 
   const {
     createPayLink,

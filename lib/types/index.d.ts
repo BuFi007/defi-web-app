@@ -1,6 +1,7 @@
 import type { Abi, Address, Hex } from "viem";
 import React from "react";
 import * as chains from "wagmi/chains";
+
 export interface CurrencyInfo {
   address: string;
   borrowContract?: string;
@@ -98,20 +99,6 @@ export interface TransactionWrapperPropsWithCall
   call: Call;
 }
 
-export interface MarketStore {
-  currentViewTab: ViewTab;
-  setCurrentViewTab: (tab: ViewTab) => void;
-
-  selectedAsset: CurrencyInfo | null;
-  setSelectedAsset: (asset: CurrencyInfo) => void;
-
-  fromChain: string;
-  setFromChain: (chainId: string) => void;
-
-  toChain: string;
-  setToChain: (chainId: string) => void;
-}
-
 export interface AssetData {
   assetName: string;
   chains: string[];
@@ -188,8 +175,10 @@ export interface Token {
 export interface ChainSelectProps {
   value: string | null;
   onChange: (value: string) => void;
-  chains: ChainConfig[];
+  chains: Chains[];
   label: string;
+  chainId?: number | undefined | string;
+  ccip?: boolean;
 }
 
 export type { TransactionError as Error };
@@ -298,3 +287,21 @@ export interface Translations {
 }
 
 export type ChainList = chains.Chain.id | undefined;
+
+export interface Chain {
+  chainId: number;
+  isMainnet: boolean;
+  name: string;
+  nativeCurrency: {
+    name: string;
+    symbol: string;
+    decimals: number;
+    iconUrls: string[];
+  };
+  rpcUrls: string[];
+  blockExplorerUrls: string[];
+  chainName: string;
+  vanityName: string;
+  networkId: number;
+  iconUrls: string[];
+}

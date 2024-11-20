@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/select";
 import { ChainSelectProps, Token } from "@/lib/types";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
-
+import {IS_MAINNET} from "@/constants/Env"
 export const ChainSelect: React.FC<ChainSelectProps> = ({
   value,
   onChange,
@@ -19,9 +19,9 @@ export const ChainSelect: React.FC<ChainSelectProps> = ({
     const chain = chains.find((c) => c.chainId === Number(chainId));
     const tokens = useGetTokensOrChain(
       Number(chainId),
-      "tokens",
-      false
+      "tokens"
     ) as Token[];
+    
     const baseToken = tokens?.find((token) => token.symbol === "USDC");
     if (!chain) {
       return null;

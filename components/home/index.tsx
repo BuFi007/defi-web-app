@@ -13,7 +13,8 @@ import {
 import { Button } from "../ui/button";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { useTabStore } from "@/store";
-import { PaymentLinkSkeleton } from "../skeleton-card";
+import { PaymentLinkSkeleton, MoneyMarketBentoSkeleton } from "../skeleton-card";
+import MoneyMarketBentoGrid from "@/components/money-market";
 
 interface HomeContentProps {
   translations: Translations["Home"];
@@ -110,11 +111,9 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
                     value="moneyMarket"
                     className="transition-opacity duration-300 ease-in-out flex-grow"
                   >
-                    {/* <GridSmall>
                       <Suspense fallback={<MoneyMarketBentoSkeleton />}>
                         <MoneyMarketBentoGrid />
                       </Suspense>
-                    </GridSmall> */}
                   </TabsContent>
                   <TabsContent
                     value="paymentLink"

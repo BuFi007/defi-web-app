@@ -10,11 +10,11 @@ import {
   BaseSepolia,
   AvalancheFuji,
 } from "@/constants/Chains";
+import {IS_MAINNET as isMainnet} from "@/constants/Env";
 
 export const useGetTokensOrChain = (
   chainId: number,
   type: "tokens" | "chain",
-  isMainnet?: boolean
 ) => {
   if (type === "tokens" && !isMainnet) {
     if (chainId === 43113) return AvalancheFujiTokens;
