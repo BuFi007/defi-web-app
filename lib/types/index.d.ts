@@ -305,3 +305,12 @@ export interface Chain {
   networkId: number;
   iconUrls: string[];
 }
+
+export interface TransferWrapperProps {
+  amount: string;
+  onSuccess: (txHash: string) => void;
+  onError: (error: any) => void;
+  functionName: ValidFunctionNames;
+  buttonText: string;
+  argsExtra?: any[];
+}

@@ -37,7 +37,6 @@ interface MarketStore {
   setToChain: (Chain: Chain) => void;
 }
 
-
 export type {
   PaymentStore,
   TransactionState,
@@ -46,3 +45,26 @@ export type {
   NetworkState,
   MarketStore,
 };
+
+export interface Message {
+  id: string;
+  role: "user" | "assistant" | "tool";
+  content: string;
+
+  toolName?: string;
+  result?: any;
+}
+
+export interface AssistantState {
+  messages: Message[];
+  isOpen: boolean;
+  setOpen: (isOpen: boolean) => void;
+  addMessage: (message: Message) => void;
+  clearMessages: () => void;
+  isRecording: boolean;
+  setIsRecording: (isRecording: boolean) => void;
+  audioLevel: number;
+  setAudioLevel: (level: number) => void;
+  input: string;
+  setInput: (input: string) => void;
+}

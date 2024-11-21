@@ -1,13 +1,13 @@
 "use client";
 
 import { parseUnits, encodeFunctionData, erc20Abi } from "viem";
-import { spokeAbi } from "@/utils/abis";
+import { spokeAbi } from "@/constants/ABI";
 import type { Address, Hex } from "viem";
-import { chains } from "@/utils/contracts";
-import { currencyAddresses } from "@/utils/currencyAddresses";
+import * as chains from "@/constants/Chains";
 import type { TransferWrapperProps } from "@/lib/types";
 import { useReadContract, useWriteContract } from "wagmi";
 import { Button } from "@/components/ui/button";
+import { useUsdcChain } from "@/hooks/use-usdc-chain";
 
 const TransferWrapper: React.FC<TransferWrapperProps> = ({
   amount,
@@ -18,8 +18,7 @@ const TransferWrapper: React.FC<TransferWrapperProps> = ({
   argsExtra = [],
 }) => {
   const { writeContract, error, data, isIdle, isError } = useWriteContract();
-  // Find the chain object for 'Base Sepolia'
-  const chain = chains.find((c) => c.name === "Base Sepolia");
+  const chain = Object.values(chains).find((c) => c.name === "Base Sepolia");
   if (!chain) {
     console.error("Chain 'Base Sepolia' not found in chains configuration.");
     return null;
@@ -29,13 +28,14 @@ const TransferWrapper: React.FC<TransferWrapperProps> = ({
   const chainId = chain.chainId;
 
   // Retrieve spoke contract address
-  const spokeContract = currencyAddresses[chainId]?.USDC?.spokeContract;
+  // const spokeContract = currencyAddresses[chainId]?.USDC?.spokeContract;
+  const spokeContract = "0xA8f6Db88D79bcA5F1990C93b6a6eA5866722d198"; /// todo remove this
   if (!spokeContract) {
     console.error(`Spoke contract address for chain ID ${chainId} not found.`);
     return null;
   }
 
-  const assetAddress = currencyAddresses[chainId].USDC.address as Address;
+  const assetAddress = useUsdcChain(chainId)?.[0]?.address;
   const assetAmount = parseUnits(amount || "0", 6);
 
   // Ensure that the costForReturnDelivery is calculated properly
@@ -62,28 +62,9 @@ const TransferWrapper: React.FC<TransferWrapperProps> = ({
   const encodedData = encodeFunctionData({
     abi: spokeAbi,
     functionName: functionName,
-    args: [assetAddress, assetAmount, costForReturnDelivery || 0n],
+    args: [assetAddress as Hex, assetAmount, costForReturnDelivery || 0n],
   });
 
-  const calls = [
-    {
-      to: currencyAddresses[chainId].USDC.address as Hex,
-      data: encodeFunctionData({
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [spokeContract as Hex, assetAmount],
-      }),
-    },
-    {
-      to: spokeContract as Hex,
-      data: encodeFunctionData({
-        abi: spokeAbi,
-        functionName: functionName,
-        args: [assetAddress, assetAmount, costForReturnDelivery || 0n],
-      }),
-    },
-  ];
-  console.log(assetAddress, assetAmount, costForReturnDelivery || 0n, "");
   return (
     <div className="flex w-full">
       {/* <Transaction
@@ -116,7 +97,11 @@ const TransferWrapper: React.FC<TransferWrapperProps> = ({
             address: "0xA8f6Db88D79bcA5F1990C93b6a6eA5866722d198",
             abi: spokeAbi,
             functionName: "depositCollateral",
-            args: [assetAddress, assetAmount, costForReturnDelivery || 0n],
+            args: [
+              assetAddress as Hex,
+              assetAmount,
+              costForReturnDelivery || 0n,
+            ],
             value: 1000000n,
           })
         }

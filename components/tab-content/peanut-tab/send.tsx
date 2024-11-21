@@ -5,11 +5,11 @@ import LinkUiForm from "@/components/tab-content/peanut-tab/card";
 import Overlay from "@/components/tab-content/peanut-tab/overlay";
 import { Token, TransactionDetails } from "@/lib/types";
 import confetti from "canvas-confetti";
-import { useUsdcTokenChain } from "@/hooks/use-usdc-token-chain";
+import { useUsdcChain } from "@/hooks/use-usdc-chain";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { truncateAddress } from "@/utils";
-import {IS_MAINNET} from "@/constants/Env";
+import { IS_MAINNET } from "@/constants/Env";
 export default function LinkForm() {
   const { toast } = useToast();
   const currentChainId = useNetworkManager();
@@ -30,7 +30,7 @@ export default function LinkForm() {
   const [showSentTable, setShowSentTable] = useState(false);
   const [selectedToken, setSelectedToken] = useState<string>("");
   const [currentText, setCurrentText] = useState<string>("");
-  const USDC = useUsdcTokenChain(chainId);
+  const USDC = useUsdcChain(chainId);
 
   const handleCreateLinkClick = async (
     e: React.MouseEvent<HTMLButtonElement>
@@ -49,7 +49,7 @@ export default function LinkForm() {
         () => setCurrentText("In Progress..."),
         () => setCurrentText("Success!"),
         (error: Error) => setCurrentText(`Failed: ${error.message}`),
-        () => setCurrentText("Spooky Crypto Finance Made Easy!"),
+        () => setCurrentText("Spooky Crypto Finance Made Easy!")
       );
       // Assuming linkResponse has the structure { paymentLink: string, transactionHash: string }
       if (linkResponse) {

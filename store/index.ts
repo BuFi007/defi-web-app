@@ -6,6 +6,7 @@ import {
   ViewTab,
   NetworkState,
   MarketStore,
+  AssistantState,
 } from "./interface";
 import { Token, TabState, Chain } from "@/lib/types";
 
@@ -30,7 +31,7 @@ export const useMarketStore = create<MarketStore>((set) => ({
 
   fromChain: undefined as unknown as Chain,
   toChain: undefined as unknown as Chain,
-  setFromChain: (chain: Chain) => set({ fromChain: chain }),  
+  setFromChain: (chain: Chain) => set({ fromChain: chain }),
   setToChain: (chain: Chain) => set({ toChain: chain }),
 }));
 
@@ -47,4 +48,19 @@ export const useNetworkStore = create<NetworkState>((set) => ({
   error: null,
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
+}));
+
+export const useAssistantStore = create<AssistantState>((set) => ({
+  messages: [],
+  isRecording: false,
+  isOpen: false,
+  audioLevel: 0,
+  input: "",
+  setInput: (input) => set({ input }),
+  setOpen: (isOpen) => set({ isOpen }),
+  clearMessages: () => set({ messages: [] }),
+  setIsRecording: (isRecording) => set({ isRecording }),
+  setAudioLevel: (level) => set({ audioLevel: level }),
+  addMessage: (message) =>
+    set((state) => ({ messages: [...state.messages, message] })),
 }));
