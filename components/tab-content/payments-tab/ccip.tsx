@@ -25,7 +25,7 @@ import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { base } from "viem/chains";
 import { destinationChains as chains } from "@/constants/CCIP";
 
-export default function TokenSwap() {
+export default function CCIPBridge() {
   const { address } = useAccount();
   const chainId = useNetworkManager();
   const { toast } = useToast();

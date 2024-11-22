@@ -13,20 +13,22 @@ import {
 import { Button } from "../ui/button";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { useTabStore } from "@/store";
-import { PaymentLinkSkeleton, MoneyMarketBentoSkeleton } from "../skeleton-card";
+import {
+  PaymentLinkSkeleton,
+  MoneyMarketBentoSkeleton,
+} from "../skeleton-card";
 import MoneyMarketBentoGrid from "@/components/money-market";
+import TokenSwapSkeleton from "../swap/components/TokenSwapSkeleton";
+import CCIPBridge from "../tab-content/payments-tab/ccip";
 
 interface HomeContentProps {
   translations: Translations["Home"];
 }
 
 export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
-  const { isConnected } = useAccount();
   const { activeTab, setActiveTab } = useTabStore();
   const [isTransitioning, setIsTransitioning] = useState(false);
   const address = useAccount();
-
-  const currentChainId = useNetworkManager();
 
   useEffect(() => {
     if (isTransitioning) {
@@ -111,9 +113,9 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
                     value="moneyMarket"
                     className="transition-opacity duration-300 ease-in-out flex-grow"
                   >
-                      <Suspense fallback={<MoneyMarketBentoSkeleton />}>
-                        <MoneyMarketBentoGrid />
-                      </Suspense>
+                    <Suspense fallback={<MoneyMarketBentoSkeleton />}>
+                      <MoneyMarketBentoGrid />
+                    </Suspense>
                   </TabsContent>
                   <TabsContent
                     value="paymentLink"
@@ -130,9 +132,9 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
                     value="tokenSwap"
                     className="transition-opacity duration-300 ease-in-out"
                   >
-                    {/* <Suspense fallback={<TokenSwapSkeleton />}>
-                      <TokenSwap />
-                    </Suspense> */}
+                    <Suspense fallback={<TokenSwapSkeleton />}>
+                      <CCIPBridge />
+                    </Suspense>
                   </TabsContent>
                 </>
               )}
