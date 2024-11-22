@@ -29,8 +29,8 @@ function LendBorrowActionCard() {
       onValueChange={(value: string) => handleTabChange(value as 'lend' | 'borrow' | 'withdraw' | 'repay')}
       className="flex w-full flex-col mb-2 gap-2 uppercase z-100"
     >
-      <div className="flex justify-between items-center w-full">
-        <TabsList className="gap-2 flex-grow">
+      <div className="flex justify-start items-center w-full">
+        <TabsList className="gap-2 flex-grow justify-start">
           <TabsTriggerAlt value="lend">
             <Button size="sm" variant="paez" tabValue="lend" storeType="market">
               Lend

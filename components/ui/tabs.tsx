@@ -64,7 +64,7 @@ const TabsTriggerAlt = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex items-center justify-center space-x-2",
+      "inline-flex items-center justify-start space-x-2",
       className
     )}
     {...props}

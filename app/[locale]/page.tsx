@@ -1,6 +1,5 @@
 import { HomeContent } from "@/components/home";
 import { Translations } from "@/lib/types";
-import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
 import { useTranslations } from "next-intl";
 import { Suspense } from "react";
 import { MoneyMarketSkeleton } from "@/components/skeleton-card";
