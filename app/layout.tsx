@@ -1,5 +1,8 @@
-import { Viewport } from 'next';
-import './globals.css'
+"use client";
+import { Viewport } from "next";
+import "./globals.css";
+import { IS_MAINNET } from "@/constants/Env";
+import { useEffect } from "react";
 
 const viewport: Viewport = {
   width: "device-width",
@@ -24,4 +27,4 @@ export default function RootLayout({
   );
 }
 
-export { viewport }
+export { viewport };

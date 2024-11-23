@@ -24,12 +24,13 @@ import {
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { base } from "viem/chains";
 import { destinationChains as chains } from "@/constants/CCIP";
-
+import * as Chains from "@/constants/Chains";
 export default function CCIPBridge() {
   const { address } = useAccount();
   const chainId = useNetworkManager();
   const { toast } = useToast();
-  const tokens = useUsdcChain(chainId);
+  const tokens = useUsdcChain();
+  console.log(tokens, "tokens");
   const [fromAmount, setFromAmount] = useState<string>("");
   const [selectedToken, setSelectedToken] = useState<string>("");
   const [toAmount, setToAmount] = useState<string>("");
@@ -89,7 +90,7 @@ export default function CCIPBridge() {
   }
 
   async function sendCCIPTransfer() {
-    const amount = parseUnits(toAmount, tokens?.[0]?.decimals!);
+    const amount = parseUnits(toAmount, tokens?.decimals!);
     if (!destinationChainInfo?.ccipChainId) {
       toast({
         title: "Invalid Destination Chain",
@@ -101,7 +102,7 @@ export default function CCIPBridge() {
     }
     try {
       const contractERC20 = new ethers.Contract(
-        tokens?.[0]?.address! as Hex,
+        tokens?.address! as Hex,
         erc20Abi,
         signer
       );
@@ -127,7 +128,7 @@ export default function CCIPBridge() {
       const tx = await contract.transferTokensPayLINK(
         destinationChainInfo?.ccipChainId,
         address,
-        tokens?.[0]?.address!,
+        tokens?.address!,
         amount
       );
 
@@ -141,6 +142,13 @@ export default function CCIPBridge() {
     }
   }
 
+  const allChains = Object.values(Chains);
+  const chainsArray = allChains.filter((chain) =>
+    chains.map((c) => c.chainId).includes(chain.chainId)
+  );
+
+  console.log(chainsArray, "chainsArray");
+
   return (
     <div className="border p-2 rounded-xl ">
       <div className="flex flex-col items-center gap-10 text-nowrap w-5/12 m-auto">
@@ -153,7 +161,6 @@ export default function CCIPBridge() {
             onChange={(value) => {
               setSelectedToken("");
               setFromAmount("");
-              console.log({ value });
               if (chainId === value) {
                 setSourceChain(null);
               } else {
@@ -193,8 +200,8 @@ export default function CCIPBridge() {
         </div>
         <SwapAmountInput
           label="Sell"
-          swappableTokens={tokens}
-          token={tokens?.[0]}
+          swappableTokens={tokens ? [tokens] : undefined}
+          token={tokens ? tokens : undefined}
           amount={toAmount}
           setAmount={setToAmount}
           className={cn(

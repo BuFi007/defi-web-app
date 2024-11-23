@@ -7,12 +7,7 @@ export const destinationChains = [
     name: "Avalanche Fuji",
     chainId: 43113,
   },
-  //   {
-  //     address: "0x0000000000000000000000000000000000000000", // this chain is only used for ccip
-  //     ccipChainId: 16015286601757825753n, //// ccip chain id for sepolia
-  //     name: "Sepolia",
-  //     chainId: 11155111, // chain id for sepolia
-  //   },
+
   {
     address: "0x480f9F2Fe22cB70C92058f34d5E89F0D8441146d", // base sepolia
     ccipChainId: 10344971235874465080n, // ccip chain id for base sepolia
@@ -29,4 +24,3 @@ export const getCCIPChainByChainId = ({
   if (!chainId) return null;
   return destinationChains.find((chain) => chain.chainId === chainId);
 };
-
