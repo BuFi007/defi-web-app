@@ -30,7 +30,6 @@ export default function CCIPBridge() {
   const chainId = useNetworkManager();
   const { toast } = useToast();
   const tokens = useUsdcChain();
-  console.log(tokens, "tokens");
   const [fromAmount, setFromAmount] = useState<string>("");
   const [selectedToken, setSelectedToken] = useState<string>("");
   const [toAmount, setToAmount] = useState<string>("");
@@ -41,6 +40,7 @@ export default function CCIPBridge() {
   const destinationChainInfo = getCCIPChainByChainId({
     chainId: Number(destinationChain),
   });
+  console.log(destinationChain, "destinationChain");
   const signer = useEthersSigner();
 
   const actualChain = getCCIPChainByChainId({ chainId });
@@ -62,19 +62,10 @@ export default function CCIPBridge() {
   };
 
   function handleToggle() {
-    if (sourceChain && destinationChain && sourceChain === destinationChain) {
-      console.warn("Source and destination chains cannot be the same.");
-      return;
-    }
-
     if (sourceChain !== destinationChain) {
-      const destinationChainName =
-        chains.find((chain) => chain.chainId === Number(sourceChain))?.name ||
-        `Chain ID ${destinationChain}`;
-
       toast({
         title: "Switching Network",
-        description: `Switching network to ${destinationChainName}. Please check your wallet to allow network change.`,
+        description: `Switching network to ${destinationChain}. Please check your wallet to allow network change.`,
       });
 
       switchNetwork({
@@ -132,6 +123,7 @@ export default function CCIPBridge() {
         amount
       );
 
+      await tx.wait();
       toast({
         title: "Transaction sent",
         description: "Transaction sent successfully",
@@ -157,22 +149,25 @@ export default function CCIPBridge() {
         </h2>
         <div className="flex flex-col items-center gap-10 text-nowrap ">
           <ChainSelect
-            value={sourceChain ? sourceChain : chainId?.toString() ?? ""}
+            value={chainId?.toString() ?? ""}
             onChange={(value) => {
               setSelectedToken("");
               setFromAmount("");
-              if (chainId === value) {
-                setSourceChain(null);
-              } else {
-                switchNetwork({
-                  wallet: primaryWallet!,
-                  network: Number(value),
-                });
-                setDestinationChain(null);
-                setSourceChain(value);
-              }
+              // if (chainId === value) {
+              //   toast({
+              //     title: "Already on this chain",
+              //     description: "You are already on this chain",
+              //     variant: "destructive",
+              //   });
+              // } else {
+              switchNetwork({
+                wallet: primaryWallet!,
+                network: value,
+              });
+              setSourceChain(value);
+              //}
             }}
-            chains={chains}
+            chains={chainsArray}
             label="Source Chain"
           />
           <div className="relative w-full flex justify-center items-center ">
@@ -194,7 +189,9 @@ export default function CCIPBridge() {
                 return;
               }
             }}
-            chains={chains}
+            chains={chainsArray.filter(
+              (chain) => Number(chain.chainId) !== Number(chainId)
+            )}
             label="Bridge USDC to:"
           />
         </div>
