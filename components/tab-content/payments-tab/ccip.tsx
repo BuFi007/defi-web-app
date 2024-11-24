@@ -24,12 +24,12 @@ import {
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { base } from "viem/chains";
 import { destinationChains as chains } from "@/constants/CCIP";
-
+import * as Chains from "@/constants/Chains";
 export default function CCIPBridge() {
   const { address } = useAccount();
   const chainId = useNetworkManager();
   const { toast } = useToast();
-  const tokens = useUsdcChain(chainId);
+  const tokens = useUsdcChain();
   const [fromAmount, setFromAmount] = useState<string>("");
   const [selectedToken, setSelectedToken] = useState<string>("");
   const [toAmount, setToAmount] = useState<string>("");
@@ -40,6 +40,7 @@ export default function CCIPBridge() {
   const destinationChainInfo = getCCIPChainByChainId({
     chainId: Number(destinationChain),
   });
+  console.log(destinationChain, "destinationChain");
   const signer = useEthersSigner();
 
   const actualChain = getCCIPChainByChainId({ chainId });
@@ -61,19 +62,10 @@ export default function CCIPBridge() {
   };
 
   function handleToggle() {
-    if (sourceChain && destinationChain && sourceChain === destinationChain) {
-      console.warn("Source and destination chains cannot be the same.");
-      return;
-    }
-
     if (sourceChain !== destinationChain) {
-      const destinationChainName =
-        chains.find((chain) => chain.chainId === Number(sourceChain))?.name ||
-        `Chain ID ${destinationChain}`;
-
       toast({
         title: "Switching Network",
-        description: `Switching network to ${destinationChainName}. Please check your wallet to allow network change.`,
+        description: `Switching network to ${destinationChain}. Please check your wallet to allow network change.`,
       });
 
       switchNetwork({
@@ -89,7 +81,7 @@ export default function CCIPBridge() {
   }
 
   async function sendCCIPTransfer() {
-    const amount = parseUnits(toAmount, tokens?.[0]?.decimals!);
+    const amount = parseUnits(toAmount, tokens?.decimals!);
     if (!destinationChainInfo?.ccipChainId) {
       toast({
         title: "Invalid Destination Chain",
@@ -101,7 +93,7 @@ export default function CCIPBridge() {
     }
     try {
       const contractERC20 = new ethers.Contract(
-        tokens?.[0]?.address! as Hex,
+        tokens?.address! as Hex,
         erc20Abi,
         signer
       );
@@ -127,10 +119,11 @@ export default function CCIPBridge() {
       const tx = await contract.transferTokensPayLINK(
         destinationChainInfo?.ccipChainId,
         address,
-        tokens?.[0]?.address!,
+        tokens?.address!,
         amount
       );
 
+      await tx.wait();
       toast({
         title: "Transaction sent",
         description: "Transaction sent successfully",
@@ -141,6 +134,13 @@ export default function CCIPBridge() {
     }
   }
 
+  const allChains = Object.values(Chains);
+  const chainsArray = allChains.filter((chain) =>
+    chains.map((c) => c.chainId).includes(chain.chainId)
+  );
+
+  console.log(chainsArray, "chainsArray");
+
   return (
     <div className="border p-2 rounded-xl ">
       <div className="flex flex-col items-center gap-10 text-nowrap w-5/12 m-auto">
@@ -149,23 +149,25 @@ export default function CCIPBridge() {
         </h2>
         <div className="flex flex-col items-center gap-10 text-nowrap ">
           <ChainSelect
-            value={sourceChain ? sourceChain : chainId?.toString() ?? ""}
+            value={chainId?.toString() ?? ""}
             onChange={(value) => {
               setSelectedToken("");
               setFromAmount("");
-              console.log({ value });
-              if (chainId === value) {
-                setSourceChain(null);
-              } else {
-                switchNetwork({
-                  wallet: primaryWallet!,
-                  network: Number(value),
-                });
-                setDestinationChain(null);
-                setSourceChain(value);
-              }
+              // if (chainId === value) {
+              //   toast({
+              //     title: "Already on this chain",
+              //     description: "You are already on this chain",
+              //     variant: "destructive",
+              //   });
+              // } else {
+              switchNetwork({
+                wallet: primaryWallet!,
+                network: value,
+              });
+              setSourceChain(value);
+              //}
             }}
-            chains={chains}
+            chains={chainsArray}
             label="Source Chain"
           />
           <div className="relative w-full flex justify-center items-center ">
@@ -187,14 +189,16 @@ export default function CCIPBridge() {
                 return;
               }
             }}
-            chains={chains}
+            chains={chainsArray.filter(
+              (chain) => Number(chain.chainId) !== Number(chainId)
+            )}
             label="Bridge USDC to:"
           />
         </div>
         <SwapAmountInput
           label="Sell"
-          swappableTokens={tokens}
-          token={tokens?.[0]}
+          swappableTokens={tokens ? [tokens] : undefined}
+          token={tokens ? tokens : undefined}
           amount={toAmount}
           setAmount={setToAmount}
           className={cn(

@@ -175,7 +175,7 @@ export interface Token {
 export interface ChainSelectProps {
   value: string | null;
   onChange: (value: string) => void;
-  chains: Chains[];
+  chains: Chain[];
   label: string;
   chainId?: number | undefined | string;
   ccip?: boolean;
@@ -286,7 +286,14 @@ export interface Translations {
   };
 }
 
-export type ChainList = chains.Chain.id | undefined;
+export type ChainList =
+  | 8453
+  | 42161
+  | 43114
+  | 43113
+  | 84532
+  | 421614
+  | undefined;
 
 export interface Chain {
   chainId: number;

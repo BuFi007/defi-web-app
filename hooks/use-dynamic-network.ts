@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useCallback } from "react";
 import { useDynamicContext, getNetwork } from "@dynamic-labs/sdk-react-core";
 import { useNetworkStore } from "@/store";
+import { ChainList } from "@/lib/types";
 
-export const useNetworkManager = () => {
-  const { primaryWallet } = useDynamicContext();
+export const useNetworkManager = (): ChainList => {
+  const { network } = useDynamicContext();
   const { setCurrentChainId, setLoading, setError, currentChainId } =
     useNetworkStore();
 
-  const connector = useMemo(() => primaryWallet?.connector, [primaryWallet]);
+  const connector = useMemo(() => network, [network]);
+
 
   const updateNetwork = useCallback(async () => {
     if (!connector) {
@@ -17,7 +19,6 @@ export const useNetworkManager = () => {
 
     setLoading(true);
     try {
-      const network = await getNetwork(connector);
       setCurrentChainId(network as number | undefined);
       setError(null);
     } catch (error) {
@@ -28,12 +29,12 @@ export const useNetworkManager = () => {
     } finally {
       setLoading(false);
     }
-  }, [connector, setCurrentChainId, setError, setLoading]);
+  }, [network, setCurrentChainId, setError, setLoading, connector]);
+
 
   useEffect(() => {
     updateNetwork();
   }, [updateNetwork]);
 
-
-  return currentChainId;
+  return currentChainId as ChainList;
 };

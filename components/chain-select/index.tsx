@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/select";
 import { ChainSelectProps, Token } from "@/lib/types";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
-import {IS_MAINNET} from "@/constants/Env"
 export const ChainSelect: React.FC<ChainSelectProps> = ({
   value,
   onChange,
@@ -17,12 +16,7 @@ export const ChainSelect: React.FC<ChainSelectProps> = ({
 }) => {
   const renderChainOption = (chainId: string | number) => {
     const chain = chains.find((c) => c.chainId === Number(chainId));
-    const tokens = useGetTokensOrChain(
-      Number(chainId),
-      "tokens"
-    ) as Token[];
-    
-    const baseToken = tokens?.find((token) => token.symbol === "USDC");
+
     if (!chain) {
       return null;
     }
@@ -30,11 +24,11 @@ export const ChainSelect: React.FC<ChainSelectProps> = ({
     return (
       <div className="flex items-center space-x-2">
         <img
-          src={baseToken?.image || ""}
-          alt={baseToken?.symbol || ""}
+          src={chain?.iconUrls?.[0] || ""}
+          alt={chain?.name || ""}
           className="h-6 w-6 rounded-full"
         />
-        <span className="font-clash text-sm">{chain.name}</span>
+        <span className="font-clash text-sm">{chain?.name}</span>
       </div>
     );
   };
@@ -56,7 +50,7 @@ export const ChainSelect: React.FC<ChainSelectProps> = ({
               <SelectItem
                 key={chain.chainId}
                 value={chain.chainId.toString()}
-                className="m-auto"
+                className="m-auto bg-white "
               >
                 {renderChainOption(chain.chainId.toString())}
               </SelectItem>

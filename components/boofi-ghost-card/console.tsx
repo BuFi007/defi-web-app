@@ -31,7 +31,7 @@ import SparklesText from "@/components/magicui/sparkles-text";
 import { Separator } from "@/components/ui/separator";
 import LayoutAuthCardAiAssistant from "@/components/money-market/bento-3/boofi-ai-assistant/layout-auth-card";
 import { useTokenBalance } from "@/hooks/use-user-balance";
-import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain"
+import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { Token } from "@/lib/types";
 import { useEthersSigner } from "@/lib/wagmi";
 
@@ -68,13 +68,13 @@ export function BooFiConsole() {
   // });
 
   const chainId = useChainId();
-  const USDC_ADDRESS = useUsdcChain(chainId);
+  const USDC_ADDRESS = useUsdcChain();
 
   const getUsdcBalance = useTokenBalance({
     address: address as Hex,
-    tokenAddress: USDC_ADDRESS?.[0].address as `0x${string}`,
+    tokenAddress: USDC_ADDRESS?.address as `0x${string}`,
     chainId: chainId,
-    decimals: USDC_ADDRESS?.[0].decimals || 6,
+    decimals: USDC_ADDRESS?.decimals || 6,
     setBalance: setUsdcBalance,
   });
 

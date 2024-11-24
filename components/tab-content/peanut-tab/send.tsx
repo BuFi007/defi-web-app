@@ -30,7 +30,6 @@ export default function LinkForm() {
   const [showSentTable, setShowSentTable] = useState(false);
   const [selectedToken, setSelectedToken] = useState<string>("");
   const [currentText, setCurrentText] = useState<string>("");
-  const USDC = useUsdcChain(chainId);
 
   const handleCreateLinkClick = async (
     e: React.MouseEvent<HTMLButtonElement>

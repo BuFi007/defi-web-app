@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useReadContract } from "wagmi";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import TransferWrapper from "@/components/money-market/transfer-wrapper";
@@ -8,9 +8,12 @@ import { useTokenBalance } from "@/hooks/use-user-balance";
 import { useChainSelection } from "@/hooks/use-chain-selection";
 import { ChainSelect } from "@/components/chain-select";
 import { BalanceDisplay } from "@/components/balance-display";
-import { useSwitchNetwork, useDynamicContext } from "@dynamic-labs/sdk-react-core";
-import { Hex } from "viem";
-import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain"
+import {
+  useSwitchNetwork,
+  useDynamicContext,
+} from "@dynamic-labs/sdk-react-core";
+import { erc20Abi, formatUnits, Hex } from "viem";
+import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { useUsdcChain } from "@/hooks/use-usdc-chain";
 import { useToast } from "@/components/ui/use-toast";
@@ -25,77 +28,94 @@ export function MoneyMarketCard() {
     setToChain,
     setFromChain,
     toChain,
-    fromChain
+    fromChain,
   } = useChainSelection();
   const [amount, setAmount] = useState("");
-  const [transactionHistory, setTransactionHistory] = useState<TransactionHistoryItem[]>([]);
-  const [usdcBalance, setUsdcBalance] = useState<string | undefined>(undefined);
+  const [transactionHistory, setTransactionHistory] = useState<
+    TransactionHistoryItem[]
+  >([]);
+  const { primaryWallet } = useDynamicContext();
   const chainId = useNetworkManager();
-  const USDC_ADDRESS = useUsdcChain(chainId);
+  const USDC_ADDRESS = useUsdcChain();
   const switchNetwork = useSwitchNetwork();
-    const { primaryWallet } = useDynamicContext();
   const { toast } = useToast();
 
-
-  const getUsdcBalance = useTokenBalance({
-    address: address as Hex,
-    tokenAddress: USDC_ADDRESS?.[0]?.address as Hex,
+  const { data: usdcBalance } = useReadContract({
+    address: USDC_ADDRESS?.address as Hex,
+    abi: erc20Abi,
     chainId: chainId,
-    decimals: USDC_ADDRESS?.[0]?.decimals || 6,
-    setBalance: setUsdcBalance,
+    functionName: "balanceOf",
+    args: [address as `0x${string}`],
   });
+
+  const formattedBalance = usdcBalance
+    ? formatUnits(usdcBalance, USDC_ADDRESS?.decimals!)
+    : "0";
+
+  console.log(formattedBalance, "formattedBalance");
 
   const transferActions = {
     lend: { functionName: "depositCollateral", buttonText: "Deposit USDC" },
-    withdraw: { functionName: "withdrawCollateral", buttonText: "Withdraw USDC" },
+    withdraw: {
+      functionName: "withdrawCollateral",
+      buttonText: "Withdraw USDC",
+    },
     borrow: { functionName: "borrow", buttonText: "Borrow USDC" },
-    repay: { functionName: "repay", buttonText: "Repay USDC" }
+    repay: { functionName: "repay", buttonText: "Repay USDC" },
   };
 
-  const action = transferActions[currentViewTab as keyof typeof transferActions] || {};
+  const action =
+    transferActions[currentViewTab as keyof typeof transferActions] || {};
   const { functionName, buttonText } = action;
 
   const handleTransactionSuccess = (txHash: string) => {
-    setTransactionHistory(prev => [
+    setTransactionHistory((prev) => [
       ...prev,
-      { date: new Date().toLocaleString(), amount: parseFloat(amount), status: "Success" }
+      {
+        date: new Date().toLocaleString(),
+        amount: parseFloat(amount),
+        status: "Success",
+      },
     ]);
   };
 
   const handleTransactionError = (error: any) => {
-    setTransactionHistory(prev => [
+    setTransactionHistory((prev) => [
       ...prev,
-      { date: new Date().toLocaleString(), amount: parseFloat(amount), status: "Failed" }
+      {
+        date: new Date().toLocaleString(),
+        amount: parseFloat(amount),
+        status: "Failed",
+      },
     ]);
   };
 
-  
-
   function handleToggle(value: string) {
+    toast({
+      title: "Switching Network",
+      description: `Switching network to ${value}. Please check your wallet to allow network change.`,
+    });
 
-      toast({
-        title: "Switching Network",
-        description: `Switching network to ${value}. Please check your wallet to allow network change.`,
-      });
-
-      const chain = useGetTokensOrChain(Number(value),"chain");
-      setFromChain(chain as Chain);
-      switchNetwork({
-        wallet: primaryWallet!,
-        network: Number(value),
-      });
-  
-    }
+    const chain = useGetTokensOrChain(Number(value), "chain");
+    setFromChain(chain as Chain);
+    switchNetwork({
+      wallet: primaryWallet!,
+      network: Number(value),
+    });
+  }
   return (
     <div className="w-full max-w-3xl mx-auto">
       <div className="flex flex-col space-y-4 w-full">
         <Separator />
         <div className="flex items-center justify-between">
           <ChainSelect
-            value={fromChain?.chainId?.toString()}
- 
+            value={
+              fromChain?.chainId?.toString()
+                ? fromChain?.chainId?.toString()
+                : chainId?.toString()!
+            }
             onChange={(value) => {
-              handleToggle(value)
+              handleToggle(value);
             }}
             chains={fromChains}
             label="From"
@@ -103,12 +123,10 @@ export function MoneyMarketCard() {
           <Separator orientation="vertical" className="h-8 mx-4" />
           <ChainSelect
             value={toChain?.chainId?.toString()}
-            onChange={(value) =>
-              {
-                const chain = useGetTokensOrChain(Number(value),"chain");
-                setToChain(chain as Chain);
-              } 
-              }
+            onChange={(value) => {
+              const chain = useGetTokensOrChain(Number(value), "chain");
+              setToChain(chain as Chain);
+            }}
             chains={toChains}
             label="To"
           />
@@ -124,8 +142,8 @@ export function MoneyMarketCard() {
               className="text-4xl font-bold h-16 w-full"
             />
             <BalanceDisplay
-              balance={usdcBalance || "0"}
-              isLoading={!usdcBalance}
+              balance={formattedBalance || "0"}
+              isLoading={!formattedBalance}
               symbol="USDC"
             />
           </div>

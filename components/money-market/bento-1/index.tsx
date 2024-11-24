@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState, useEffect } from "react";
 import {
   Tabs,
   TabsContent,
@@ -12,21 +12,28 @@ import { Button } from "@/components/ui/button";
 import { useMarketStore } from "@/store";
 import { MoneyMarketCard } from "@/components/money-market/bento-1/card/index";
 import { TokenChip } from "@/components/token-chip";
+import { useUsdcChain } from "@/hooks/use-usdc-chain";
+import { useNetworkManager } from "@/hooks/use-dynamic-network";
+import { Token } from "@/lib/types";
 
 function LendBorrowActionCard() {
   const { currentViewTab, setCurrentViewTab } = useMarketStore();
-
-  const handleTabChange = (tab: 'lend' | 'borrow' | 'withdraw' | 'repay') => {
+  const chainId = useNetworkManager();
+  // const [usdcToken, setUsdcToken] = useState<Token | null>(null);
+  const handleTabChange = (tab: "lend" | "borrow" | "withdraw" | "repay") => {
     setCurrentViewTab(tab);
   };
 
-  const token = useMarketStore((state) => state.selectedAsset);
+  const token = useUsdcChain();
+  console.log(token, "token");
 
   return (
     <Tabs
       defaultValue="lend"
       value={currentViewTab}
-      onValueChange={(value: string) => handleTabChange(value as 'lend' | 'borrow' | 'withdraw' | 'repay')}
+      onValueChange={(value: string) =>
+        handleTabChange(value as "lend" | "borrow" | "withdraw" | "repay")
+      }
       className="flex w-full flex-col mb-2 gap-2 uppercase z-100"
     >
       <div className="flex justify-start items-center w-full">
@@ -37,23 +44,38 @@ function LendBorrowActionCard() {
             </Button>
           </TabsTriggerAlt>
           <TabsTriggerAlt value="borrow">
-            <Button size="sm" variant="paez" tabValue="borrow" storeType="market">
+            <Button
+              size="sm"
+              variant="paez"
+              tabValue="borrow"
+              storeType="market"
+            >
               Borrow
             </Button>
           </TabsTriggerAlt>
           <TabsTriggerAlt value="withdraw">
-            <Button size="sm" variant="paez" tabValue="withdraw" storeType="market">
+            <Button
+              size="sm"
+              variant="paez"
+              tabValue="withdraw"
+              storeType="market"
+            >
               Withdraw
             </Button>
           </TabsTriggerAlt>
           <TabsTriggerAlt value="repay">
-            <Button size="sm" variant="paez" tabValue="repay" storeType="market">
+            <Button
+              size="sm"
+              variant="paez"
+              tabValue="repay"
+              storeType="market"
+            >
               Repay
             </Button>
           </TabsTriggerAlt>
         </TabsList>
         <div className="ml-auto">
-        <TokenChip token={token!} />
+          <TokenChip token={token!} />
         </div>
       </div>
       <TabsContent value={currentViewTab} className="flex-col flex-1">

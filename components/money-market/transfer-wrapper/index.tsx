@@ -35,7 +35,7 @@ const TransferWrapper: React.FC<TransferWrapperProps> = ({
     return null;
   }
 
-  const assetAddress = useUsdcChain(chainId)?.[0]?.address;
+  const assetAddress = useUsdcChain()?.address;
   const assetAmount = parseUnits(amount || "0", 6);
 
   // Ensure that the costForReturnDelivery is calculated properly
