@@ -10,6 +10,7 @@ export const useNetworkManager = (): ChainList => {
 
   const connector = useMemo(() => network, [network]);
 
+
   const updateNetwork = useCallback(async () => {
     if (!connector) {
       setCurrentChainId(undefined);
@@ -29,6 +30,7 @@ export const useNetworkManager = (): ChainList => {
       setLoading(false);
     }
   }, [network, setCurrentChainId, setError, setLoading, connector]);
+
 
   useEffect(() => {
     updateNetwork();

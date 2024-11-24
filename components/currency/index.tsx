@@ -128,7 +128,9 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
         formatUnits(balance.data?.value!, balance.data?.decimals!)
       );
     }
-    return 0;
+    else {
+      return 0;
+    }
   };
 
   const handleMaxClick = () => {

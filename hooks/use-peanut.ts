@@ -246,21 +246,38 @@ export const usePeanut = () => {
     setIsLoading(true);
     setLoading(true);
     setError(null);
-
+    console.log("this is the link ", link);
+    console.log("this is the destinationChainId ", destinationChainId);
+    console.log("this is the isMainnet ", isMainnet);
+    console.log("this is the PEANUTAPIKEY ", PEANUTAPIKEY);
+    
     try {
       if (!primaryWallet?.address) {
         throw new Error("Wallet not connected");
       }
 
+
+      console.log("this is the destinationTokenAddress 1", destinationToken);
+
+
       const claimedLinkResponse = await claimLinkXChainGasless({
         link,
         recipientAddress: primaryWallet.address as `0x${string}`,
         destinationChainId: Number(destinationChainId).toString(),
-        destinationToken,
+        destinationToken: destinationToken,
         APIKey: PEANUTAPIKEY,
         isMainnet: isMainnet || false,
         slippage: 10,
       });
+
+      console.log("this is the claimedLinkResponse 3", claimedLinkResponse);
+      console.log("this is the destinationChainId 3", destinationChainId);
+      console.log("this is the isMainnet 3 ", isMainnet);
+      console.log("this is the PEANUTAPIKEY 3 ", PEANUTAPIKEY);
+      console.log("this is the link 3", link);
+
+      console.log("this is the destinationTokenAddress 2", destinationToken);
+
 
       toast({
         title: "Cross-chain transaction sent",

@@ -85,7 +85,7 @@ export const Arbitrum = {
     iconUrls: ["https://app.dynamic.xyz/assets/networks/arbitrum.svg"],
   },
   rpcUrls: [
-    `https://arb.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`,
+    `https://arb-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`,
   ],
   blockExplorerUrls: ["https://explorer.arbitrum.io/"],
   vanityName: "Arbitrum",

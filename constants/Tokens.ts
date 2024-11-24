@@ -81,7 +81,7 @@ export const BaseTokens: Token[] = [
 export const AvalancheTokens: Token[] = [
   {
     address: NATIVE_TOKEN_ADDRESS,
-    chainId: 84532,
+    chainId: 43114,
     decimals: 18,
     name: "Ethereum",
     payable: false,
@@ -92,6 +92,53 @@ export const AvalancheTokens: Token[] = [
   {
     address: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E" as Hex,
     chainId: 43114,
+    decimals: 6,
+    name: "USDC",
+    payable: true,
+    symbol: "USDC",
+    image:
+      "https://dynamic-assets.coinbase.com/3c15df5e2ac7d4abbe9499ed9335041f00c620f28e8de2f93474a9f432058742cdf4674bd43f309e69778a26969372310135be97eb183d91c492154176d455b8/asset_icons/9d67b728b6c8f457717154b3a35f9ddc702eae7e76c4684ee39302c4d7fd0bb8.png",
+  },
+];
+
+export const ArbitrumTokens: Token[] = [
+  {
+    address: NATIVE_TOKEN_ADDRESS,
+    chainId: 42161,
+    decimals: 18,
+    name: "Ethereum",
+    payable: false,
+    symbol: "ETH",
+    image:
+      "https://app.dynamic.xyz/assets/networks/arbitrum.svg",
+  },
+  {
+    address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831" as Hex,
+    chainId: 42161,
+    decimals: 6,
+    name: "USDC",
+    payable: true,
+    symbol: "USDC",
+    image:
+      "https://dynamic-assets.coinbase.com/3c15df5e2ac7d4abbe9499ed9335041f00c620f28e8de2f93474a9f432058742cdf4674bd43f309e69778a26969372310135be97eb183d91c492154176d455b8/asset_icons/9d67b728b6c8f457717154b3a35f9ddc702eae7e76c4684ee39302c4d7fd0bb8.png",
+  },
+];
+
+
+export const ArbitrumSepoliaTokens: Token[] = [
+  {
+    address: NATIVE_TOKEN_ADDRESS,
+    chainId: 421614,
+    decimals: 18,
+    name: "Ethereum",
+    payable: false,
+    symbol: "ETH",
+    image:
+      "https://app.dynamic.xyz/assets/networks/arbitrum.svg",
+  },
+  {
+    address: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d" as Hex,
+    chainId: 421614,
     decimals: 6,
     name: "USDC",
     payable: true,

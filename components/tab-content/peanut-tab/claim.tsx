@@ -18,6 +18,7 @@ import NetworkSelector from "@/components/network-selector";
 import * as Chains from "@/constants/Chains";
 import { useSwitchNetwork } from "@dynamic-labs/sdk-react-core";
 import { getBlockExplorerUrlByChainId } from "@/utils";
+import { useDestinationToken } from "@/hooks/use-destination-chain";
 
 export function getChainInfoByChainId(chainId: number | string) {
   const id = Number(chainId);
@@ -53,6 +54,9 @@ export default function ClaimForm({
   const [paymentInfo, setPaymentInfo] = useState<ExtendedPaymentInfo | null>(
     null
   );
+
+  const getDestinationTokenAddress = useDestinationToken();
+
   const [inProgress, setInProgress] = useState(false);
   const [currentText, setCurrentText] = useState("Ready to claim your link");
   const chains = Object.values(Chains).map((chain) => ({
@@ -168,16 +172,29 @@ export default function ClaimForm({
         const isMainnet = sourceChainInfo.isMainnet;
 
         setCurrentText("Claiming the cross-chain payment link...");
+
+        const destinationToken = await getDestinationTokenAddress(
+          paymentInfo.tokenSymbol,
+          destinationChainId
+        );
+
+        console.log("this is the destinationTokenAddress 1 from the hook", destinationToken);
+
         const txHash = await claimPayLinkXChain(
           details?.link || "",
           destinationChainId,
-          details?.tokenAddress || "",
+          destinationToken,
           () => setCurrentText("Cross-chain transaction in progress..."),
           () => setCurrentText("Cross-chain transaction successful!"),
           (error: Error) => setCurrentText(`Error: ${error.message}`),
           () => setCurrentText("Process complete."),
           isMainnet
         );
+        console.log("this is the txHash 1", txHash);
+        console.log("this is the destinationChainId 1", destinationChainId);
+        console.log("this is the details 1", details);
+
+
         setTransactionDetails(txHash);
         setPaymentInfo((prevInfo) =>
           prevInfo
@@ -237,7 +254,9 @@ export default function ClaimForm({
           onSelect={(selectedChainId: string) => {
             const numericChainId = Number(selectedChainId);
             if (isNaN(numericChainId)) return;
-            console.log("Setting destination chain:", numericChainId);
+            console.log("Setting destination chain by numeric id:", numericChainId);
+            console.log("Setting destination chain by destination chain id:", destinationChainId);
+
             setDestinationChainId(selectedChainId);
           }}
           />
