@@ -15,7 +15,7 @@ import { CCIPTransferAbi } from "@/constants/ABI";
 import { useEthersSigner } from "@/lib/wagmi";
 import { parseUnits } from "viem";
 import { useToast } from "@/components/ui/use-toast";
-import { Chain, Token } from "@/lib/types";
+import { Chain, ChainList, Token } from "@/lib/types";
 import { useUsdcChain } from "@/hooks/use-usdc-chain";
 import {
   useDynamicContext,
@@ -38,7 +38,7 @@ export default function CCIPBridge() {
   const { primaryWallet } = useDynamicContext();
   const [destinationChain, setDestinationChain] = useState<string | null>(null);
   const destinationChainInfo = getCCIPChainByChainId({
-    chainId: Number(destinationChain),
+    chainId: Number(destinationChain) as ChainList,
   });
   console.log(destinationChain, "destinationChain");
   const signer = useEthersSigner();
