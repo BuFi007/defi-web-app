@@ -6,28 +6,28 @@ import { Button } from "@/components/ui/button";
 import { useEnsName } from "@/hooks/use-ens-name";
 import { base } from "viem/chains";
 import { OverlayPayName } from "@/components/overlay/claim";
-import { BaseNameDialogAlertProps } from "@/lib/types";
+import { AddressProps } from "@/lib/types";
 import { useLocale } from "next-intl";
+import { useAppTranslations } from "@/context/TranslationContext";
 
 export const BaseNameDialogAlert = ({
-  translations,
   address,
-}: BaseNameDialogAlertProps) => {
+}: AddressProps) => {
+  const translations = useAppTranslations('EnsAlertDialog');
   const [copiedText, copy] = useCopyToClipboard();
   const [overlayVisible, setOverlayVisible] = useState(false);
   const { ensName, ensNotFound } = useEnsName({
     address,
     chain: base,
   });
-  const locale = useLocale(); // Get the current locale
+  const locale = useLocale();
   console.log({ ensName });
 
-  // Dynamically generate the base URL using window.location and include the locale
   const getBaseUrl = () => {
     if (typeof window !== "undefined") {
       return `${window.location.protocol}//${window.location.host}/${locale}`;
     }
-    return `https://defi.boofi.xyz/${locale}`; // Fallback for server-side rendering
+    return `https://defi.boofi.xyz/${locale}`;
   };
 
   const link = `${getBaseUrl()}/${ensName}`;
@@ -90,7 +90,7 @@ export const BaseNameDialogAlert = ({
                   >
                     <span>
                       {" "}
-                      Send and receive payments with your BooFi link name
+                      {translations.actionButton}
                     </span>
                   </Button>
                 </div>
@@ -114,7 +114,7 @@ export const BaseNameDialogAlert = ({
                 onClick={onClickLinkBaseNames}
                 className="flex items-center gap-1 cursor-pointer text-blue-500 text-xs hover:underline"
               >
-                <span>Create your Base Name</span>
+                <span>{translations.callToAction}</span>
               </Button>
             </div>
           )}

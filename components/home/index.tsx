@@ -1,7 +1,6 @@
 "use client"
 
 import React, { Suspense, useState, useEffect } from "react";
-import { Translations } from "@/lib/types";
 import { useAccount } from "wagmi";
 import { NotConnectedHome } from "@/components/not-connected";
 import { PaymentLinkTabContent } from "@/components/tab-content/payments-tab";
@@ -17,17 +16,14 @@ import { useTabStore } from "@/store";
 import { LottieWrapper } from "@/components/lottie-wrapper"
 import { PaymentLinkSkeleton, TokenSwapSkeleton, MoneyMarketBentoSkeleton } from "@/components/skeleton-card";
 import CCIPBridge from "@/components/tab-content/payments-tab/ccip";
+import { useAppTranslations } from "@/context/TranslationContext";
 
-interface HomeContentProps {
-  translations: Translations["Home"]
-}
-
-export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
+export const HomeContent: React.FC = () => {
   const { isConnected } = useAccount()
   const { activeTab, setActiveTab } = useTabStore()
   const [isTransitioning, setIsTransitioning] = useState(false)
   const address = useAccount();
-
+  const translations = useAppTranslations('Home');
 
   useEffect(() => {
     if (isTransitioning) {
@@ -39,7 +35,7 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
   }, [isTransitioning])
 
   if (!isConnected) {
-    return <NotConnectedHome translations={translations} />
+    return <NotConnectedHome />
   }
 
   const handleTabChange = (value: string) => {
@@ -60,7 +56,7 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
                 tabValue="moneyMarket"
                 storeType="tab"
               >
-                <span>Money Markets 🏦</span>
+                <span>{translations.moneyMarketTab}</span>
               </Button>
             </TabsTriggerAlt>
             <TabsTriggerAlt value="paymentLink">
@@ -71,7 +67,7 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
                 tabValue="paymentLink"
                 storeType="tab"
               >
-                <span>Payments 💸</span>
+                <span>{translations.paymentsTab} 💸</span>
               </Button>
             </TabsTriggerAlt>
             <TabsTriggerAlt value="tokenSwap">
@@ -82,7 +78,7 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
                 tabValue="tokenSwap"
                 storeType="tab"
               >
-                <span>CCIP USDC Bridge 🔄</span>
+                <span>{translations.ccipUsdcBridgeTab} 🔄</span>
               </Button>
             </TabsTriggerAlt>
           </TabsList>
@@ -111,7 +107,7 @@ export const HomeContent: React.FC<HomeContentProps> = ({ translations }) => {
                   </TabsContent>
                   <TabsContent value="paymentLink" className="transition-opacity duration-300 ease-in-out">
                     <Suspense fallback={<PaymentLinkSkeleton />}>
-                      <PaymentLinkTabContent translations={translations} address={address?.address ?? ""} />
+                      <PaymentLinkTabContent address={address?.address ?? ""} />
                     </Suspense>
                   </TabsContent>
                   <TabsContent value="tokenSwap" className="transition-opacity duration-300 ease-in-out">

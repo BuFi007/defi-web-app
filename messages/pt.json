@@ -20,6 +20,62 @@
     "description": "Finanças cripto assustadoras feitas fáceis!",
     "incrementButton": "Incrementar",
     "glowButton": "Brilhar",
-    "scrollContent": "Este é um conteúdo rolável para testar a barra de rolagem personalizada. Ele se repete para garantir que haja conteúdo suficiente para rolar."
+    "scrollContent": "Este é um conteúdo rolável para testar a barra de rolagem personalizada. Ele se repete para garantir que haja conteúdo suficiente para rolar.",
+    "connectWalletAlert": "Por favor, conecta sua carteira",
+    "sendPaymentTab": "Enviar pagamento",
+    "paymentLinksTab": "Enlaces de pagamento",
+    "moneyMarketTab": "Préstamos",
+    "paymentsTab": "Pagos",
+    "ccipUsdcBridgeTab": "CCIP USDC Bridge"
+  },
+  "EnsAlertDialog": {
+    "actionButton": "Envia e recebe pagamentos com seu nome no BooFi",
+    "callToAction": "Criar nome com Base ENS"
+  },
+"PeanutTab": {
+    "sendTab": "Enviar",
+    "receiveTab": "Receber",
+    "linkTitle": "Você está enviando",
+    "createLinkButton": "Criar link",
+    "claimReady": "Pronto para reivindicar seu link",
+    "handleFetchLinkDetailsError": "Ocorreu um erro ao buscar os detalhes do link.",
+    "currentTextStartingClaim": "Iniciando o processo de reivindicação...",
+    "currentTextAlreadyClaimedTitle": "Link indisponível",
+    "currentTextAlreadyClaimed": "Este link já foi reivindicado.",
+    "currentTextClaiming": "Reivindicando o link de pagamento...",
+    "currentTextProgress": "Transação em andamento...",
+    "currentTextClaimSuccess": "Reivindicação bem-sucedida",
+    "currentTextClaimError": "Falha ao reivindicar o link.",
+    "currentTextClaimComplete": "Reivindicação concluída",
+    "currentTextCrossChainProgress": "Transação entre cadeias em andamento...",
+    "currentTextCrossChainSuccess": "Transação entre cadeias bem-sucedida!",
+    "currentTextCrossChainError": "Falha ao reivindicar o link.",
+    "currentTextCrossChainComplete": "Transação entre cadeias concluída",
+    "claimTitle": "Você está reivindicando",
+    "claimDescription": "Reivindique seu link aqui",
+    "claimSuccessTitle": "Link reivindicado com sucesso",
+    "claimPaste": "Colar",
+    "claimVerify": "Verificar",
+    "claimClaim": "Reivindicar",
+    "claimSuccess": "Reivindicação bem-sucedida",
+    "claimDestinationChain": "Rede de destino",
+    "claimViewInExplorer": "Ver no explorador de blocos"
+  },
+  "CurrencyDisplayer": {
+    "availableBalance": "Saldo disponível (Max):",
+    "loadingBalance": "Carregando saldo..."
+  },
+  "Overlay": {
+    "frameText": "Enviar cripto com este link único",
+    "linkSubtitle": "Enviar cripto com este link único",
+    "linkCopied": "Link copiado para o clipboard",
+    "linkDescription": "Envie cripto com este link seguro para seus amigos e familiares",
+    "shareWhatsapp": "Compartilhar no WhatsApp",
+    "shareTelegram": "Compartilhar no Telegram",
+    "hashTxText": "Hash da transação",
+    "viewInExplorer": "Ver no explorador de blocos",
+    "toastError": "Erro ao criar o link de pagamento",
+    "toastCopyTitle": "Copiado para o clipboard!",
+    "toastCopyDescription": " foi copiado para o clipboard."
   }
 }

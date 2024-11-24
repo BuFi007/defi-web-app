@@ -8,7 +8,7 @@ import FramedQRCode from "@/components/framed-qr-art";
 import { getBlockExplorerUrlByChainId } from "@/utils";
 import { Suspense } from "react";
 import { useNetworkStore } from "@/store";
-
+import { useAppTranslations } from "@/context/TranslationContext";
 export default function TransactionDetailsDisplay({
   transactionDetails,
   chainId,
@@ -20,6 +20,7 @@ export default function TransactionDetailsDisplay({
 
   const { currentChainId } = useNetworkStore();
 
+  const translations = useAppTranslations('Overlay');
   const paymentLink = Array.isArray(transactionDetails?.paymentLink) 
     ? transactionDetails.paymentLink[0]
     : transactionDetails?.paymentLink;
@@ -45,8 +46,8 @@ export default function TransactionDetailsDisplay({
               <FramedQRCode
               image="/images/BooFi-icon.png"
               link={paymentLink}
-              frameText="Send Crypto with this unique Link"
-                copyLink={() => handleCopy(paymentLink, "Payment Link")}
+              frameText={translations.frameText}
+                copyLink={() => handleCopy(paymentLink, translations.linkSubtitle)}
               />
             </Suspense>
           ) : (
@@ -63,13 +64,13 @@ export default function TransactionDetailsDisplay({
             className="flex items-center gap-2"
             onClick={() => handleCopy(paymentLink, "Payment Link")}
           >
-            Copy Link
+            {translations.linkCopied}
             <CopyIcon className="size-4" />
           </Button>
         </div>
 
         <div className="flex justify-center text-xs text-primary my-2">
-          Send crypto with this secure vault link to your friends and family
+          {translations.linkDescription}
         </div>
 
         {/* Share Buttons */}
@@ -87,7 +88,7 @@ export default function TransactionDetailsDisplay({
               width={24}
               height={24}
             />
-            Share on WhatsApp
+            {translations.shareWhatsapp}
           </Button>
           <Button
             size="sm"
@@ -102,7 +103,7 @@ export default function TransactionDetailsDisplay({
               width={24}
               height={24}
             />
-            Share on Telegram
+            {translations.shareTelegram}
           </Button>
         </div>
 
@@ -112,7 +113,7 @@ export default function TransactionDetailsDisplay({
             <div className="mx-5 flex w-full items-center justify-between">
               <div className="flex flex-col">
                 <span className="font-semibold flex items-center">
-                  Transaction Hash:
+                  {translations.hashTxText}:
                 </span>
                 <Button
                   size="sm"
@@ -120,7 +121,7 @@ export default function TransactionDetailsDisplay({
                   onClick={() =>
                     handleCopy(
                       transactionDetails.transactionHash,
-                      "Transaction Hash"
+                      translations.hashTxText
                     )
                   }
                 >
@@ -134,7 +135,7 @@ export default function TransactionDetailsDisplay({
                     target="_blank"
                   >
                     <Button size="sm" variant="ghost" className="px-2">
-                      View in Block Explorer
+                      {translations.viewInExplorer}
                       <ChevronRightIcon className="ml-1 size-4" />
                     </Button>
                   </Link>

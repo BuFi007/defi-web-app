@@ -19,6 +19,7 @@ import * as Chains from "@/constants/Chains";
 import { useSwitchNetwork } from "@dynamic-labs/sdk-react-core";
 import { getBlockExplorerUrlByChainId } from "@/utils";
 import { useDestinationToken } from "@/hooks/use-destination-chain";
+import { useAppTranslations } from "@/context/TranslationContext";
 
 export function getChainInfoByChainId(chainId: number | string) {
   const id = Number(chainId);
@@ -54,11 +55,12 @@ export default function ClaimForm({
   const [paymentInfo, setPaymentInfo] = useState<ExtendedPaymentInfo | null>(
     null
   );
+  const translations = useAppTranslations('PeanutTab');
 
   const getDestinationTokenAddress = useDestinationToken();
 
   const [inProgress, setInProgress] = useState(false);
-  const [currentText, setCurrentText] = useState("Ready to claim your link");
+  const [currentText, setCurrentText] = useState(translations.claimReady);
   const chains = Object.values(Chains).map((chain) => ({
     chainId: chain.chainId,
   }));
@@ -87,7 +89,7 @@ export default function ClaimForm({
       console.error("Error fetching link details:", error.message);
       toast({
         title: "Error",
-        description: "An error occurred while fetching the link details.",
+        description: translations.handleFetchLinkDetailsError,
         variant: "destructive",
       });
     }
@@ -135,23 +137,23 @@ export default function ClaimForm({
   const handleClaim = async () => {
     setInProgress(true);
     setOverlayVisible(true);
-    setCurrentText("Starting the claim process...");
+    setCurrentText(translations.currentTextStartingClaim);
 
     if (paymentInfo?.claimed) {
       toast({
-        title: "Already claimed",
-        description: "You have already claimed this link.",
+        title: translations.currentTextAlreadyClaimedTitle,
+        description: translations.currentTextAlreadyClaimed,
       });
-      setCurrentText("Link already claimed.");
+      setCurrentText(translations.currentTextAlreadyClaimed);
     } else if (paymentInfo && !destinationChainId) {
       try {
-        setCurrentText("Claiming the payment link...");
+        setCurrentText(translations.currentTextClaiming);
         const txHash = await claimPayLink(
           details?.link || "",
-          () => setCurrentText("Transaction in progress..."),
-          () => setCurrentText("Transaction successful!"),
+          () => setCurrentText(translations.currentTextProgress),
+          () => setCurrentText(translations.currentTextClaimSuccess),
           (error: Error) => setCurrentText(`Error: ${error.message}`),
-          () => setCurrentText("Process complete.")
+          () => setCurrentText(translations.currentTextClaimComplete)
         );
         setTransactionDetails(txHash);
         setPaymentInfo((prevInfo) =>
@@ -163,7 +165,7 @@ export default function ClaimForm({
         console.error("Error claiming payment link:", error);
         setInProgress(false);
         setOverlayVisible(false);
-        setCurrentText("Failed to claim the link.");
+        setCurrentText(translations.currentTextClaimError);
       }
     } else if (paymentInfo && destinationChainId) {
       try {
@@ -171,30 +173,23 @@ export default function ClaimForm({
         const sourceChainInfo = getChainInfoByChainId(paymentInfo.chainId);
         const isMainnet = sourceChainInfo.isMainnet;
 
-        setCurrentText("Claiming the cross-chain payment link...");
+        setCurrentText(translations.currentTextCrossChainProgress);
 
         const destinationToken = await getDestinationTokenAddress(
           paymentInfo.tokenSymbol,
           destinationChainId
         );
 
-        console.log("this is the destinationTokenAddress 1 from the hook", destinationToken);
-
         const txHash = await claimPayLinkXChain(
           details?.link || "",
           destinationChainId,
           destinationToken,
-          () => setCurrentText("Cross-chain transaction in progress..."),
-          () => setCurrentText("Cross-chain transaction successful!"),
+          () => setCurrentText(translations.currentTextCrossChainProgress),
+          () => setCurrentText(translations.currentTextCrossChainSuccess),
           (error: Error) => setCurrentText(`Error: ${error.message}`),
-          () => setCurrentText("Process complete."),
+          () => setCurrentText(translations.currentTextCrossChainComplete),
           isMainnet
         );
-        console.log("this is the txHash 1", txHash);
-        console.log("this is the destinationChainId 1", destinationChainId);
-        console.log("this is the details 1", details);
-
-
         setTransactionDetails(txHash);
         setPaymentInfo((prevInfo) =>
           prevInfo
@@ -205,7 +200,7 @@ export default function ClaimForm({
         console.error("Error claiming cross-chain payment link:", error);
         setInProgress(false);
         setOverlayVisible(false);
-        setCurrentText("Failed to claim the link.");
+        setCurrentText(translations.currentTextCrossChainError);
       }
     }
   };
@@ -221,7 +216,7 @@ export default function ClaimForm({
         <div className="p-5">
           <div className="flex items-center justify-between text-xs w-full">
             <span className="text-xl">💸👻💸</span>
-            <span>You are claiming</span>
+            <span>{translations.claimTitle}</span>
           </div>
           <div className="text-center flex py-2 w-full justify-center">
             {paymentInfo && (
@@ -254,9 +249,6 @@ export default function ClaimForm({
           onSelect={(selectedChainId: string) => {
             const numericChainId = Number(selectedChainId);
             if (isNaN(numericChainId)) return;
-            console.log("Setting destination chain by numeric id:", numericChainId);
-            console.log("Setting destination chain by destination chain id:", destinationChainId);
-
             setDestinationChainId(selectedChainId);
           }}
           />
@@ -272,7 +264,7 @@ export default function ClaimForm({
           htmlFor="claimLink"
           className="text-xs font-semibold font-aeonik"
         >
-          Claim your Link Here{" "}
+          {translations.claimDescription}
         </label>
         <div className="flex">
           <input
@@ -283,7 +275,7 @@ export default function ClaimForm({
             className="mt-1 rounded border px-3 py-2 flex-grow"
           />
           <Button onClick={handlePasteClick} className="ml-2">
-            Paste
+            {translations.claimPaste}
           </Button>
         </div>
       </div>
@@ -293,7 +285,7 @@ export default function ClaimForm({
         className="mt-5 flex items-center gap-2 self-end w-full"
         variant={"fito"}
       >
-        Verify <span className="text-xl"> 🍸</span>
+        {translations.claimVerify} <span className="text-xl"> 🍸</span>
       </Button>
     </div>
   );
@@ -310,7 +302,7 @@ export default function ClaimForm({
             variant={"fito"}
             disabled={paymentInfo.claimed || isPeanutLoading}
           >
-            Claim
+            {translations.claimClaim}
             <span className="text-xl"> 👻</span>
           </Button>
         </>
@@ -365,7 +357,7 @@ export default function ClaimForm({
                   <div className="flex w-full flex-col justify-between rounded-2xl border bg-white">
                     <div className="p-5">
                       <div className="flex items-center text-xs">
-                        <span>Link Claimed Successfully</span>
+                        <span>{translations.claimSuccessTitle}</span>
                       </div>
                       <div className="p-5">
                         {paymentInfo && (
@@ -397,7 +389,7 @@ export default function ClaimForm({
                                         </div>
                                         <div className="flex-1">
                                           <p className="text-muted-foreground text-xs">
-                                            Destination Chain
+                                            {translations.claimDestinationChain}
                                           </p>
 
                                           <h3 className="text-2xl font-semibold">
@@ -418,7 +410,7 @@ export default function ClaimForm({
                                               target="_blank"
                                               className="flex items-center"
                                             >
-                                              <span>View in Blockscout</span>
+                                              <span>{translations.claimViewInExplorer}</span>
                                               <ChevronRightIcon className="size-4" />
                                             </Link>
                                           </p>

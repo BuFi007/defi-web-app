@@ -17,7 +17,7 @@ export default function Component(
     currentSong: "Sample Song",
   }
 ) {
-  const marqueeText = isPlaying ? `${currentSong}       ` : " BooFi Radio 👻";
+  const marqueeText = isPlaying ? `${currentSong}       ` : " BuFi Radio 👻";
 
   return (
     <footer className="absolute bottom-0 w-screen">

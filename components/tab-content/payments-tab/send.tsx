@@ -13,11 +13,14 @@ import CardSkeleton from "@/components/ui/card-skeleton";
 import LinkForm from "../peanut-tab/send";
 import ClaimForm from "../peanut-tab/claim";
 import { usePaymentStore } from "@/store";
+import { useAppTranslations } from "@/context/TranslationContext";
 
 function PaymentLinkContent() {
   const { currentPaymentTab, setCurrentPaymentTab } = usePaymentStore();
   const [claimId, setClaimId] = useState("");
   const searchParams = useSearchParams();
+  const translations = useAppTranslations('PeanutTab');
+
 
   useEffect(() => {
     const linkParam = searchParams.get("link");
@@ -43,7 +46,7 @@ function PaymentLinkContent() {
       <TabsList className="gap-2">
         <TabsTriggerAlt value="send">
           <Button size="sm" variant="paez" tabValue="send" storeType="payment">
-            Send
+            {translations.sendTab}
           </Button>
         </TabsTriggerAlt>
         <TabsTriggerAlt value="receive">
@@ -53,7 +56,7 @@ function PaymentLinkContent() {
             tabValue="receive"
             storeType="payment"
           >
-            Receive
+            {translations.receiveTab}
           </Button>
         </TabsTriggerAlt>
       </TabsList>

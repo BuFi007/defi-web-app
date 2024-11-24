@@ -11,26 +11,23 @@ import {
 } from "@/components/ui/tabs";
 import { BaseNameDialogAlert } from "@/components/ens-alert-dialog";
 import PaymentCardSkeleton from "@/components/ui/skeleton/index";
+import { AddressProps } from "@/lib/types";
+import { useAppTranslations } from "@/context/TranslationContext";
 
-interface HomeContentProps {
-  translations: Translations["Home"];
-  address: string;
-}
-
-export const PaymentLinkTabContent: React.FC<HomeContentProps> = ({
-  translations,
+export const PaymentLinkTabContent: React.FC<AddressProps> = ({
   address,
 }) => {
+  const translations = useAppTranslations('Home');
   return (
     <>
-      <BaseNameDialogAlert translations={translations} address={address} />
+      <BaseNameDialogAlert address={address} />
       <Tabs defaultValue={"send-payment"} className="w-full">
         <TabsList className="grid w-full grid-cols-2 mt-1">
           <TabsTriggerRight value="send-payment" position="left">
-            👽 Send Payment 🛸
+            👽 {translations.sendPaymentTab} 🛸
           </TabsTriggerRight>
           <TabsTriggerRight value="payment-link" position="right">
-            🥜 Payment Links 🔗
+            🥜 {translations.paymentLinksTab} 🔗
           </TabsTriggerRight>
         </TabsList>
         <TabsContent value="send-payment">

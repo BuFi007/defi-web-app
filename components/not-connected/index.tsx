@@ -1,13 +1,11 @@
 "use client";
 
 import React from "react";
-import { Translations } from "@/lib/types";
+import { useAppTranslations } from "@/context/TranslationContext";
 
-interface HomeContentProps {
-  translations: Translations["Home"];
-}
 
-export const NotConnectedHome: React.FC<HomeContentProps> = ({ translations }) => {
+export const NotConnectedHome: React.FC = () => {
+  const translations = useAppTranslations('Home');
 
   const renderSlogan = () => (
     <p className="text-lg mb-8">
@@ -37,7 +35,7 @@ export const NotConnectedHome: React.FC<HomeContentProps> = ({ translations }) =
             </p>
             {renderSlogan()}
             <p className="text-lg mb-8">
-              Please connect your wallet <span className="text-3xl">👻</span>
+              {translations.connectWalletAlert} <span className="text-3xl">👻</span>
             </p>
           </div>
         </div>

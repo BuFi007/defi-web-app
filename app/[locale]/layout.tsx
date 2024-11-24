@@ -12,12 +12,13 @@ import { cn } from "@/utils";
 import Header from "@/components/header";
 import Providers from "@/context/DynamicProviders";
 import dynamic from "next/dynamic";
+import { NextIntlClientProvider, useMessages } from 'next-intl';
+import { TranslationProvider } from "@/context/TranslationContext";
 
 const Container = dynamic(() => import("@/components/container"), {
   ssr: false,
 });
 
-const locales = ["en", "es", "pt"] as const;
 const ibmPlexSerif = IBM_Plex_Serif({
   subsets: ["latin"],
   weight: ["400", "700"],
@@ -29,8 +30,6 @@ const inconsolata = Inconsolata({
   weight: ["400", "700"],
   variable: "--font-inconsolata",
 });
-
-type Locale = (typeof locales)[number];
 
 interface RootLayoutProps {
   children: React.ReactNode;
@@ -49,7 +48,8 @@ export default function RootLayout({
   children,
   params: { locale },
 }: RootLayoutProps) {
-  console.log("locale", locale);
+  const messages = useMessages();
+  
   return (
     <html
       lang={locale}
@@ -63,34 +63,38 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <Providers>
-            <main className="rounded-md">
-              <GridPattern
-                width={20}
-                height={20}
-                x={-1}
-                y={-1}
-                className={cn(
-                  "[mask-image:linear-gradient(to_bottom_right,white,transparent,transparent)]"
-                )}
-              />
-              <Header />
-              <div className="custom-scrollbar">
-                <div className="mx-auto px-4 relative flex flex-col justify-center overflow-hidden">
-                  <Container>
-                    <div className="relative">
-                      <div className="w-full flex flex-col items-center">
-                        {children}
-                      </div>
+          <NextIntlClientProvider messages={messages} locale={locale}>
+            <TranslationProvider>
+              <Providers>
+                <main className="rounded-md">
+                  <GridPattern
+                    width={20}
+                    height={20}
+                    x={-1}
+                    y={-1}
+                    className={cn(
+                      "[mask-image:linear-gradient(to_bottom_right,white,transparent,transparent)]"
+                    )}
+                  />
+                  <Header />
+                  <div className="custom-scrollbar">
+                    <div className="mx-auto px-4 relative flex flex-col justify-center overflow-hidden">
+                      <Container>
+                        <div className="relative">
+                          <div className="w-full flex flex-col items-center">
+                            {children}
+                          </div>
+                        </div>
+                      </Container>
                     </div>
-                  </Container>
-                </div>
-              </div>
-              <br />
-              <LayoutMusic />
-            </main>
-            <Toaster />
-          </Providers>
+                  </div>
+                  <br />
+                  <LayoutMusic />
+                </main>
+                <Toaster />
+              </Providers>
+            </TranslationProvider>
+          </NextIntlClientProvider>
         </ThemeProvider>
       </body>
     </html>

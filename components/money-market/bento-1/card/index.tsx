@@ -18,8 +18,10 @@ import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { useUsdcChain } from "@/hooks/use-usdc-chain";
 import { useToast } from "@/components/ui/use-toast";
 import { Chain } from "@/lib/types";
+import { useAppTranslations } from "@/context/TranslationContext";
 
 export function MoneyMarketCard() {
+  const translations = useAppTranslations('MoneyMarketBento1');
   const { address } = useAccount();
   const {
     currentViewTab,
@@ -55,13 +57,13 @@ export function MoneyMarketCard() {
   console.log(formattedBalance, "formattedBalance");
 
   const transferActions = {
-    lend: { functionName: "depositCollateral", buttonText: "Deposit USDC" },
+    lend: { functionName: "depositCollateral", buttonText: translations.depositUSDC },
     withdraw: {
       functionName: "withdrawCollateral",
-      buttonText: "Withdraw USDC",
+      buttonText: translations.withdrawUSDC,
     },
-    borrow: { functionName: "borrow", buttonText: "Borrow USDC" },
-    repay: { functionName: "repay", buttonText: "Repay USDC" },
+    borrow: { functionName: "borrow", buttonText: translations.borrowUSDC },
+    repay: { functionName: "repay", buttonText: translations.repayUSDC },
   };
 
   const action =
@@ -92,8 +94,8 @@ export function MoneyMarketCard() {
 
   function handleToggle(value: string) {
     toast({
-      title: "Switching Network",
-      description: `Switching network to ${value}. Please check your wallet to allow network change.`,
+      title: translations.toastSwitchTitle,
+      description: `${translations.toastSwitchDescription} ${value}. ${translations.toastSwitchDescription2}`,
     });
 
     const chain = useGetTokensOrChain(Number(value), "chain");
@@ -118,7 +120,7 @@ export function MoneyMarketCard() {
               handleToggle(value);
             }}
             chains={fromChains}
-            label="From"
+            label={translations.labelFrom}
           />
           <Separator orientation="vertical" className="h-8 mx-4" />
           <ChainSelect
@@ -128,7 +130,7 @@ export function MoneyMarketCard() {
               setToChain(chain as Chain);
             }}
             chains={toChains}
-            label="To"
+            label={translations.labelTo}
           />
         </div>
         <Separator />
