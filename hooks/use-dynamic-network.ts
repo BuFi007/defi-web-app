@@ -1,15 +1,9 @@
 import { useEffect, useMemo, useCallback } from "react";
 import { useDynamicContext, getNetwork } from "@dynamic-labs/sdk-react-core";
 import { useNetworkStore } from "@/store";
+import { ChainList } from "@/lib/types";
 
-export const useNetworkManager = ():
-  | 8453
-  | 42161
-  | 43114
-  | 43113
-  | 84532
-  | 421614
-  | undefined => {
+export const useNetworkManager = (): ChainList => {
   const { network } = useDynamicContext();
   const { setCurrentChainId, setLoading, setError, currentChainId } =
     useNetworkStore();
@@ -40,5 +34,5 @@ export const useNetworkManager = ():
     updateNetwork();
   }, [updateNetwork]);
 
-  return currentChainId;
+  return currentChainId as ChainList;
 };

@@ -286,7 +286,14 @@ export interface Translations {
   };
 }
 
-export type ChainList = chains.Chain.id | undefined;
+export type ChainList =
+  | 8453
+  | 42161
+  | 43114
+  | 43113
+  | 84532
+  | 421614
+  | undefined;
 
 export interface Chain {
   chainId: number;
