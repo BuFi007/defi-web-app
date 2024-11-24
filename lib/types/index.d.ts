@@ -1,5 +1,6 @@
 import type { Abi, Address, Hex } from "viem";
 import React from "react";
+import * as chains from "wagmi/chains";
 
 export interface CurrencyInfo {
   address: string;
@@ -98,20 +99,6 @@ export interface TransactionWrapperPropsWithCall
   call: Call;
 }
 
-export interface MarketStore {
-  currentViewTab: ViewTab;
-  setCurrentViewTab: (tab: ViewTab) => void;
-
-  selectedAsset: CurrencyInfo | null;
-  setSelectedAsset: (asset: CurrencyInfo) => void;
-
-  fromChain: string;
-  setFromChain: (chainId: string) => void;
-
-  toChain: string;
-  setToChain: (chainId: string) => void;
-}
-
 export interface AssetData {
   assetName: string;
   chains: string[];
@@ -155,9 +142,10 @@ export interface TransactionHistoryItem {
 
 export interface UseTokenBalanceProps {
   tokenAddress: Address;
-  chainId: number;
-  accountAddress: Address;
+  chainId: ChainList;
+  address: Address;
   decimals: number;
+  setBalance?: (balance: string) => void;
 }
 
 export interface BalanceDisplayProps {
@@ -181,13 +169,16 @@ export interface Token {
   name: string;
   symbol: string;
   image: string;
+  isNative?: boolean;
 }
 
 export interface ChainSelectProps {
   value: string | null;
   onChange: (value: string) => void;
-  chains: ChainConfig[];
+  chains: Chains[];
   label: string;
+  chainId?: number | undefined | string;
+  ccip?: boolean;
 }
 
 export type { TransactionError as Error };
@@ -214,7 +205,7 @@ export type CurrencyAddresses = Record<
 export interface LinkUiFormProps {
   tokenAmount: number;
   handleValueChange: (usdAmount: number, tokenAmount: number) => void;
-  availableTokens: Record<string, string>;
+  availableTokens: Token[];
   setSelectedToken: Dispatch<SetStateAction<string>>;
   chainId: number | undefined;
   handleCreateLinkClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
@@ -235,6 +226,7 @@ export interface CurrencyDisplayerProps {
   availableTokens: Token[];
   onTokenSelect: (token: Token) => void;
   currentNetwork: number;
+  tokenAmount?: number;
 }
 
 export interface AbstractTransaction {
@@ -271,4 +263,54 @@ export interface FramedQRCodeProps {
 export interface WormholeContracts {
   CrossChainSender: string;
   wormholeChainId: number;
+}
+
+export interface Translations {
+  NotFound: {
+    title: string;
+  };
+  Home: {
+    welcome: string;
+    to: string;
+    slogan: {
+      part1: string;
+      part2: string;
+      part3: string;
+      part4: string;
+    };
+    logoAlt: string;
+    neoMatrixAlt: string;
+    pillGifAlt: string;
+    boofiMatrixAlt: string;
+    matrixMemeAlt: string;
+  };
+}
+
+export type ChainList = chains.Chain.id | undefined;
+
+export interface Chain {
+  chainId: number;
+  isMainnet: boolean;
+  name: string;
+  nativeCurrency: {
+    name: string;
+    symbol: string;
+    decimals: number;
+    iconUrls: string[];
+  };
+  rpcUrls: string[];
+  blockExplorerUrls: string[];
+  chainName: string;
+  vanityName: string;
+  networkId: number;
+  iconUrls: string[];
+}
+
+export interface TransferWrapperProps {
+  amount: string;
+  onSuccess: (txHash: string) => void;
+  onError: (error: any) => void;
+  functionName: ValidFunctionNames;
+  buttonText: string;
+  argsExtra?: any[];
 }
