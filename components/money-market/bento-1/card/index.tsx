@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useReadContract } from "wagmi";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import TransferWrapper from "@/components/money-market/transfer-wrapper";
@@ -12,7 +12,7 @@ import {
   useSwitchNetwork,
   useDynamicContext,
 } from "@dynamic-labs/sdk-react-core";
-import { Hex } from "viem";
+import { erc20Abi, formatUnits, Hex } from "viem";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { useUsdcChain } from "@/hooks/use-usdc-chain";
@@ -35,19 +35,24 @@ export function MoneyMarketCard() {
     TransactionHistoryItem[]
   >([]);
   const { primaryWallet } = useDynamicContext();
-  const [usdcBalance, setUsdcBalance] = useState<string | undefined>(undefined);
   const chainId = useNetworkManager();
   const USDC_ADDRESS = useUsdcChain();
   const switchNetwork = useSwitchNetwork();
   const { toast } = useToast();
 
-  const getUsdcBalance = useTokenBalance({
-    address: address as Hex,
-    tokenAddress: USDC_ADDRESS?.address as Hex,
+  const { data: usdcBalance } = useReadContract({
+    address: USDC_ADDRESS?.address as Hex,
+    abi: erc20Abi,
     chainId: chainId,
-    decimals: USDC_ADDRESS?.decimals || 6,
-    setBalance: setUsdcBalance,
+    functionName: "balanceOf",
+    args: [address as `0x${string}`],
   });
+
+  const formattedBalance = usdcBalance
+    ? formatUnits(usdcBalance, USDC_ADDRESS?.decimals!)
+    : "0";
+
+  console.log(formattedBalance, "formattedBalance");
 
   const transferActions = {
     lend: { functionName: "depositCollateral", buttonText: "Deposit USDC" },
@@ -137,8 +142,8 @@ export function MoneyMarketCard() {
               className="text-4xl font-bold h-16 w-full"
             />
             <BalanceDisplay
-              balance={usdcBalance || "0"}
-              isLoading={!usdcBalance}
+              balance={formattedBalance || "0"}
+              isLoading={!formattedBalance}
               symbol="USDC"
             />
           </div>
