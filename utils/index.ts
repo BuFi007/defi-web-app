@@ -1,8 +1,14 @@
 import { type ClassValue, clsx } from "clsx";
 import { useCallback } from "react";
 import { twMerge } from "tailwind-merge";
-import { Chain } from "@/lib/types";
+import {
+  Chain,
+  ExtendedPaymentInfo,
+  IGetLinkDetailsResponse,
+} from "@/lib/types";
 import * as Chains from "@/constants/Chains";
+import { getLinkDetails } from "@squirrel-labs/peanut-sdk";
+import { toast } from "@/components/ui/use-toast";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -22,9 +28,7 @@ const BLOCKSCOUT_EXPLORERS: Record<number, string> = {
 };
 
 export function getBlockExplorerUrl(chain: Chain): string {
-  return (
-    BLOCKSCOUT_EXPLORERS[chain.chainId] || chain.rpcUrls[0] || ""
-  );
+  return BLOCKSCOUT_EXPLORERS[chain.chainId] || chain.rpcUrls[0] || "";
 }
 export function isValidAmount(value: string) {
   if (value === "") {
@@ -127,8 +131,6 @@ export const placeholder = {
   default: "placeholder-ock-default",
 } as const;
 
-
-
 /**
  * Determines the available "From" chains based on the selected action.
  * @param action - The selected action ("lend", "borrow", "withdraw", "repay").
@@ -137,37 +139,52 @@ export const placeholder = {
  */
 
 export const getFromChains = (
-  action: 'lend' | 'borrow' | 'withdraw' | 'repay',
+  action: "lend" | "borrow" | "withdraw" | "repay",
   isMainnet: boolean
 ): Chain[] => {
   switch (action) {
-    case 'lend':
+    case "lend":
       // Supply from spokes only (isHub: false)
       if (isMainnet) {
-        return [Chains.Arbitrum, Chains.Base, Chains.Avalanche]
+        return [Chains.Arbitrum, Chains.Base, Chains.Avalanche];
       } else {
-        return [Chains.ArbitrumSepolia, Chains.BaseSepolia, Chains.AvalancheFuji]
+        return [
+          Chains.ArbitrumSepolia,
+          Chains.BaseSepolia,
+          Chains.AvalancheFuji,
+        ];
       }
-    case 'borrow':
+    case "borrow":
       if (isMainnet) {
-        return [Chains.Avalanche]
+        return [Chains.Avalanche];
       } else {
-        return [Chains.AvalancheFuji]
-      }   
-       case 'withdraw':
-        if (isMainnet) {
-        return [Chains.Avalanche]
-      } else {
-        return [Chains.AvalancheFuji]
-      }   
-    case 'repay':
+        return [Chains.AvalancheFuji];
+      }
+    case "withdraw":
       if (isMainnet) {
-        return [Chains.Arbitrum, Chains.Base, Chains.Avalanche]
+        return [Chains.Avalanche];
       } else {
-        return [Chains.ArbitrumSepolia, Chains.BaseSepolia, Chains.AvalancheFuji]
-      } 
+        return [Chains.AvalancheFuji];
+      }
+    case "repay":
+      if (isMainnet) {
+        return [Chains.Arbitrum, Chains.Base, Chains.Avalanche];
+      } else {
+        return [
+          Chains.ArbitrumSepolia,
+          Chains.BaseSepolia,
+          Chains.AvalancheFuji,
+        ];
+      }
     default:
-      return [Chains.Arbitrum, Chains.Avalanche, Chains.Base, Chains.BaseSepolia, Chains.AvalancheFuji, Chains.ArbitrumSepolia];
+      return [
+        Chains.Arbitrum,
+        Chains.Avalanche,
+        Chains.Base,
+        Chains.BaseSepolia,
+        Chains.AvalancheFuji,
+        Chains.ArbitrumSepolia,
+      ];
   }
 };
 
@@ -178,41 +195,59 @@ export const getFromChains = (
  * @returns An array of ChainConfig objects that can be used as "To" options.
  */
 export const getToChains = (
-  action: 'lend' | 'borrow' | 'withdraw' | 'repay',
+  action: "lend" | "borrow" | "withdraw" | "repay",
   isMainnet: boolean
 ): Chain[] => {
- switch (action) {
-    case 'lend':
+  switch (action) {
+    case "lend":
       // Supply from spokes only (isHub: false)
       if (isMainnet) {
-        return [Chains.Avalanche]
+        return [Chains.Avalanche];
       } else {
-        return [Chains.AvalancheFuji]
+        return [Chains.AvalancheFuji];
       }
-    case 'borrow':
+    case "borrow":
       if (isMainnet) {
-        return [Chains.Arbitrum, Chains.Base, Chains.Avalanche]
+        return [Chains.Arbitrum, Chains.Base, Chains.Avalanche];
       } else {
-        return [Chains.ArbitrumSepolia, Chains.BaseSepolia, Chains.AvalancheFuji]
-      }   
-       case 'withdraw':
-        if (isMainnet) {
-          return [Chains.Arbitrum, Chains.Base, Chains.Avalanche]
-        } else {
-          return [Chains.ArbitrumSepolia, Chains.BaseSepolia, Chains.AvalancheFuji]
-        }   
-    case 'repay':
+        return [
+          Chains.ArbitrumSepolia,
+          Chains.BaseSepolia,
+          Chains.AvalancheFuji,
+        ];
+      }
+    case "withdraw":
       if (isMainnet) {
-        return [Chains.Avalanche]
+        return [Chains.Arbitrum, Chains.Base, Chains.Avalanche];
       } else {
-        return [Chains.AvalancheFuji]
+        return [
+          Chains.ArbitrumSepolia,
+          Chains.BaseSepolia,
+          Chains.AvalancheFuji,
+        ];
+      }
+    case "repay":
+      if (isMainnet) {
+        return [Chains.Avalanche];
+      } else {
+        return [Chains.AvalancheFuji];
       }
     default:
-      return [Chains.Arbitrum, Chains.Avalanche, Chains.Base, Chains.BaseSepolia, Chains.AvalancheFuji, Chains.ArbitrumSepolia];
+      return [
+        Chains.Arbitrum,
+        Chains.Avalanche,
+        Chains.Base,
+        Chains.BaseSepolia,
+        Chains.AvalancheFuji,
+        Chains.ArbitrumSepolia,
+      ];
   }
 };
 
-export const formatCurrency = (value: bigint | number, options?: Intl.NumberFormatOptions) => {
+export const formatCurrency = (
+  value: bigint | number,
+  options?: Intl.NumberFormatOptions
+) => {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -221,10 +256,43 @@ export const formatCurrency = (value: bigint | number, options?: Intl.NumberForm
   }).format(Number(value));
 };
 
-export const formatToken = (value: bigint | number, options?: Intl.NumberFormatOptions) => {
+export const formatToken = (
+  value: bigint | number,
+  options?: Intl.NumberFormatOptions
+) => {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     maximumFractionDigits: 6,
     ...options,
   }).format(Number(value));
+};
+
+export const fetchLinkDetails = async (
+  link: string,
+  setDetails: (details: IGetLinkDetailsResponse) => void,
+  setPaymentInfo: (paymentInfo: ExtendedPaymentInfo) => void
+) => {
+  try {
+    const details = (await getLinkDetails({
+      link,
+    })) as unknown as IGetLinkDetailsResponse;
+    setDetails(details);
+    const extendedPaymentInfo: ExtendedPaymentInfo = {
+      chainId: details.chainId,
+      tokenSymbol: details.tokenSymbol,
+      tokenAmount: details.tokenAmount,
+      senderAddress: details.sendAddress,
+      claimed: details.claimed,
+      depositDate: details.depositDate,
+      depositIndex: details.depositIndex,
+    };
+    setPaymentInfo(extendedPaymentInfo);
+  } catch (error: any) {
+    console.error("Error fetching link details:", error.message);
+    toast({
+      title: "Error",
+      description: "An error occurred while fetching the link details.",
+      variant: "destructive",
+    });
+  }
 };

@@ -17,7 +17,7 @@ import { ExtendedPaymentInfo, IGetLinkDetailsResponse } from "@/lib/types";
 import NetworkSelector from "@/components/network-selector";
 import * as Chains from "@/constants/Chains";
 import { useSwitchNetwork } from "@dynamic-labs/sdk-react-core";
-import { getBlockExplorerUrlByChainId } from "@/utils";
+import { fetchLinkDetails, getBlockExplorerUrlByChainId } from "@/utils";
 import { useDestinationToken } from "@/hooks/use-destination-chain";
 
 export function getChainInfoByChainId(chainId: number | string) {
@@ -45,6 +45,7 @@ export default function ClaimForm({
     claimPayLinkXChain,
     isLoading: isPeanutLoading,
   } = usePeanut();
+  console.log("this is the initialClaimId 2", initialClaimId);
 
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [transactionDetails, setTransactionDetails] = useState<string | null>(
@@ -65,37 +66,36 @@ export default function ClaimForm({
   const [destinationChainId, setDestinationChainId] = useState<string>("");
   const [details, setDetails] = useState<IGetLinkDetailsResponse | null>(null);
   const [isMultiChain, setIsMultiChain] = useState(false);
-  const switchNetwork = useSwitchNetwork();
 
-  const fetchLinkDetails = async (link: string) => {
-    try {
-      const details = (await getLinkDetails({
-        link,
-      })) as unknown as IGetLinkDetailsResponse;
-      setDetails(details);
-      const extendedPaymentInfo: ExtendedPaymentInfo = {
-        chainId: details.chainId,
-        tokenSymbol: details.tokenSymbol,
-        tokenAmount: details.tokenAmount,
-        senderAddress: details.sendAddress,
-        claimed: details.claimed,
-        depositDate: details.depositDate,
-        depositIndex: details.depositIndex,
-      };
-      setPaymentInfo(extendedPaymentInfo);
-    } catch (error: any) {
-      console.error("Error fetching link details:", error.message);
-      toast({
-        title: "Error",
-        description: "An error occurred while fetching the link details.",
-        variant: "destructive",
-      });
-    }
-  };
+  // const fetchLinkDetails = async (link: string) => {
+  //   try {
+  //     const details = (await getLinkDetails({
+  //       link,
+  //     })) as unknown as IGetLinkDetailsResponse;
+  //     setDetails(details);
+  //     const extendedPaymentInfo: ExtendedPaymentInfo = {
+  //       chainId: details.chainId,
+  //       tokenSymbol: details.tokenSymbol,
+  //       tokenAmount: details.tokenAmount,
+  //       senderAddress: details.sendAddress,
+  //       claimed: details.claimed,
+  //       depositDate: details.depositDate,
+  //       depositIndex: details.depositIndex,
+  //     };
+  //     setPaymentInfo(extendedPaymentInfo);
+  //   } catch (error: any) {
+  //     console.error("Error fetching link details:", error.message);
+  //     toast({
+  //       title: "Error",
+  //       description: "An error occurred while fetching the link details.",
+  //       variant: "destructive",
+  //     });
+  //   }
+  // };
 
   useEffect(() => {
     if (initialClaimId) {
-      fetchLinkDetails(initialClaimId);
+      fetchLinkDetails(initialClaimId, setDetails, setPaymentInfo);
     }
   }, [initialClaimId]);
 
@@ -115,21 +115,18 @@ export default function ClaimForm({
   };
 
   const handleVerify = () => {
-    fetchLinkDetails(inputLink);
+    fetchLinkDetails(inputLink, setDetails, setPaymentInfo);
   };
 
   const handleSuccess = async () => {
-    // Trigger confetti animation
     confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
 
-    // Fetch and update the latest link details
     if (inputLink) {
-      await fetchLinkDetails(inputLink);
+      await fetchLinkDetails(inputLink, setDetails, setPaymentInfo);
     }
 
-    // Set the overlay visible
     setOverlayVisible(true);
-    setInProgress(false); // Mark the transaction as complete
+    setInProgress(false);
   };
 
   const handleClaim = async () => {
@@ -167,7 +164,6 @@ export default function ClaimForm({
       }
     } else if (paymentInfo && destinationChainId) {
       try {
-
         const sourceChainInfo = getChainInfoByChainId(paymentInfo.chainId);
         const isMainnet = sourceChainInfo.isMainnet;
 
@@ -178,7 +174,10 @@ export default function ClaimForm({
           destinationChainId
         );
 
-        console.log("this is the destinationTokenAddress 1 from the hook", destinationToken);
+        console.log(
+          "this is the destinationTokenAddress 1 from the hook",
+          destinationToken
+        );
 
         const txHash = await claimPayLinkXChain(
           details?.link || "",
@@ -193,7 +192,6 @@ export default function ClaimForm({
         console.log("this is the txHash 1", txHash);
         console.log("this is the destinationChainId 1", destinationChainId);
         console.log("this is the details 1", details);
-
 
         setTransactionDetails(txHash);
         setPaymentInfo((prevInfo) =>
@@ -247,18 +245,24 @@ export default function ClaimForm({
         </div>
       )}
       <div className="flex items-center justify-center p-4 space-x-2">
-      {isMultiChain && !paymentInfo?.claimed && (
-        <NetworkSelector
-          currentChainId={paymentInfo?.chainId.toString() || ""}
-          destinationChainId={destinationChainId}
-          onSelect={(selectedChainId: string) => {
-            const numericChainId = Number(selectedChainId);
-            if (isNaN(numericChainId)) return;
-            console.log("Setting destination chain by numeric id:", numericChainId);
-            console.log("Setting destination chain by destination chain id:", destinationChainId);
+        {isMultiChain && !paymentInfo?.claimed && (
+          <NetworkSelector
+            currentChainId={paymentInfo?.chainId.toString() || ""}
+            destinationChainId={destinationChainId}
+            onSelect={(selectedChainId: string) => {
+              const numericChainId = Number(selectedChainId);
+              if (isNaN(numericChainId)) return;
+              console.log(
+                "Setting destination chain by numeric id:",
+                numericChainId
+              );
+              console.log(
+                "Setting destination chain by destination chain id:",
+                destinationChainId
+              );
 
-            setDestinationChainId(selectedChainId);
-          }}
+              setDestinationChainId(selectedChainId);
+            }}
           />
         )}
       </div>
