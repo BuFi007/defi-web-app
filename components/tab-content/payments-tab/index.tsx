@@ -13,6 +13,7 @@ import { BaseNameDialogAlert } from "@/components/ens-alert-dialog";
 import PaymentCardSkeleton from "@/components/ui/skeleton/index";
 import { AddressProps } from "@/lib/types";
 import { useAppTranslations } from "@/context/TranslationContext";
+import { LiFiSwap } from "@/components/lifi-swap";
 
 export const PaymentLinkTabContent: React.FC<AddressProps> = ({
   address,
@@ -32,6 +33,7 @@ export const PaymentLinkTabContent: React.FC<AddressProps> = ({
         </TabsList>
         <TabsContent value="send-payment">
           <Suspense fallback={<PaymentCardSkeleton />}>
+            <LiFiSwap />
           </Suspense>
         </TabsContent>
         <TabsContent value="payment-link">

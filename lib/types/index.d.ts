@@ -300,8 +300,6 @@ export interface Translations {
     createLinkButton: string;
     claimReady: string;
     currentTextAlreadyClaimedTitle: string;
-    handleClaimToastTitle: string;
-    handleClaimToastDescription: string;
     currentTextStartingClaim: string;
     handleFetchLinkDetailsError: string; 
     currentTextAlreadyClaimed: string;

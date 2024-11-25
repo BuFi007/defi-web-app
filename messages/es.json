@@ -77,5 +77,38 @@
     "toastError": "Error al crear el enlace de pago",
     "toastCopyTitle": "Copiado al portapapeles!",
     "toastCopyDescription": " ha sido copiado al portapapeles."
+  },
+  "CCIPBridge": {
+    "connectWallet": "Por favor, conecta tu billetera",
+    "title": "Puentes USDC",
+    "toastTitleNetwork": "Cambiando de red",
+    "toastDescriptionNetwork": "Cambiando de red a",
+    "toastDescriptionNetwork2": "Por favor, revisa tu billetera para permitir el cambio de red.",
+    "toastTitleError": "Cadena de destino inválida",
+    "toastDescriptionError": "Por favor, selecciona una cadena de destino válida",
+    "toastSentTitle": "Transacción enviada",
+    "toastSentDescription": "Transacción enviada exitosamente",
+    "sourceChain": "Cadena de origen",
+    "destinationChain": "Cadena de destino",
+    "buttonText": "Puente"
+  },
+  "MoneyMarketBento1": {
+    "tabLend": "Prestar",
+    "tabBorrow": "Pedir prestado",
+    "tabWithdraw": "Retirar",
+    "tabRepay": "Repagar",
+    "depositUSDC": "Depositar USDC",
+    "withdrawUSDC": "Retirar USDC",
+    "borrowUSDC": "Pedir prestado USDC",
+    "repayUSDC": "Repagar USDC",
+    "toastSwitchTitle": "Cambiando de red",
+    "toastSwitchDescription": "Cambiando de red a",
+    "toastSwitchDescription2": "Por favor, revisa tu billetera para permitir el cambio de red.",
+    "labelFrom": "Desde",
+    "labelTo": "A"
+  },
+  "MoneyMarketBento3": {
+    "title": "Asistente",
+    "description": "Desbloquea insights financieros impulsados por IA con BooFi premium. Obtén consejos y estrategias personalizados."
   }
 }
