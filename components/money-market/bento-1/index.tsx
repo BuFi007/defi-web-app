@@ -15,6 +15,7 @@ import { TokenChip } from "@/components/token-chip";
 import { useUsdcChain } from "@/hooks/use-usdc-chain";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { useAppTranslations } from "@/context/TranslationContext";
+
 function LendBorrowActionCard() {
   const { currentViewTab, setCurrentViewTab } = useMarketStore();
   const chainId = useNetworkManager();
@@ -34,7 +35,7 @@ function LendBorrowActionCard() {
       onValueChange={(value: string) =>
         handleTabChange(value as "lend" | "borrow" | "withdraw" | "repay")
       }
-      className="flex w-full flex-col mb-2 gap-2 uppercase z-40"
+      className="flex w-full flex-col mb-2 gap-2 uppercase z-10"
     >
       <div className="flex justify-start items-center w-full">
         <TabsList stackBehavior="stacked-2" className="gap-2 flex-grow justify-start">

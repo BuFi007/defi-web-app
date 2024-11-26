@@ -96,7 +96,7 @@
     "sourceChain": "Cadeia de origem",
     "destinationChain": "Cadeia de destino",
     "buttonText": "Puente",
-    "linkTitle": "Você está transferindo",
+    "linkTitle": "Você está trazendo",
     "labelBridge": "Puente USDC para:"
   },
   "MoneyMarketBento1": {
@@ -120,6 +120,19 @@
   },
   "HistoryTab": {
     "title": "Histórico",
-    "description": "Revisa o histórico dos seus links de pagamento"
+    "description": "Revisa o histórico dos seus links de pagamento",
+    "noData": "Nenhum dado encontrado",
+    "toastCopyTitle": "Copiado para o clipboard!",
+    "toastCopyDescription": " foi copiado para o clipboard.",
+    "pagPrev": "Anterior",
+    "pagNext": "Próximo",
+    "pagPage": "Página",
+    "pagOf": "de",
+    "tabLink": "Link",
+    "tabDate": "Data",
+    "tabHash": "Hash",
+    "tabChain": "Cadeia",
+    "tabAmount": "Quantidade",
+    "tabToken": "Token"
   }
 }

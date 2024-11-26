@@ -84,9 +84,9 @@ export default function ClaimsDisplay() {
 
   if (claims.length === 0) {
     return (
-      <Card className="w-full">
+      <Card className="w-full h-[400px]">
         <CardContent className="pt-6">
-          <p className="text-center text-muted-foreground">No data found.</p>
+          <p className="text-center text-muted-foreground ">👁️⃤ {translations.noData} 👁️⃤</p>
         </CardContent>
       </Card>
     );
@@ -105,17 +105,17 @@ export default function ClaimsDisplay() {
           {translations.title}
         </label>
       </div>
-      <div className="rounded-md border">
+      <div className="rounded-md border h-[400px]">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-[50px]">#</TableHead>
-              <TableHead>Link</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Hash</TableHead>
-              <TableHead>Chain</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Token</TableHead>
+              <TableHead>{translations.tabLink}</TableHead>
+              <TableHead>{translations.tabDate}</TableHead>
+              <TableHead>{translations.tabHash}</TableHead>
+              <TableHead>{translations.tabChain}</TableHead>
+              <TableHead>{translations.tabAmount}</TableHead>
+              <TableHead>{translations.tabToken}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

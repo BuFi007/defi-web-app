@@ -92,7 +92,7 @@
     "sourceChain": "Source Chain",
     "destinationChain": "Destination Chain",
     "buttonText": "Bridge",
-    "linkTitle": "You are transferring",
+    "linkTitle": "You are bridging",
     "labelBridge": "Bridge USDC to:"
   },
   "MoneyMarketBento1": {
@@ -116,6 +116,19 @@
   },
   "HistoryTab": {
     "title": "History",
-    "description": "Review your payment links history"
+    "description": "Review your payment links history",
+    "toastCopyTitle": "Copied to clipboard!",
+    "toastCopyDescription": " has been copied to clipboard.",
+    "noData": "No data found",
+    "pagPrev": "Previous",
+    "pagNext": "Next",
+    "pagPage": "Page",
+    "pagOf": "of",
+    "tabLink": "Link",
+    "tabDate": "Date",
+    "tabHash": "Hash",
+    "tabChain": "Chain",
+    "tabAmount": "Amount",
+    "tabToken": "Token"
   }
 }

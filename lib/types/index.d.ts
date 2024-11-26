@@ -384,6 +384,19 @@ export interface Translations {
   HistoryTab: {
     title: string;
     description: string;
+    noData: string;
+    toastCopyTitle: string;
+    toastCopyDescription: string;
+    pagPrev: string;
+    pagNext: string;
+    pagPage: string;
+    pagOf: string;
+    tabLink: string;
+    tabDate: string;
+    tabHash: string;
+    tabChain: string;
+    tabAmount: string;
+    tabToken: string;
   };
 }
 

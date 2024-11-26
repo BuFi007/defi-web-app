@@ -144,13 +144,13 @@ export default function CCIPBridge() {
   console.log(chainsArray, "chainsArray");
 
   return (
-    <div className="border p-2 rounded-xl ">
-      <div className="flex flex-col items-center gap-10 text-nowrap w-full md:w-8/12 m-auto">
+    <div className="p-2 flex w-full flex-col justify-between rounded-2xl border bg-background">
+      <div className="flex flex-col text-nowrap w-full  m-auto px-4 pt-2">
         <div className="flex items-center justify-between text-xs">
             <span className="text-xl">🏎️🏁</span>
             <span>{translations.linkTitle}</span>
         </div>  
-        <div className="flex flex-col items-center gap-10 text-nowrap ">
+        <div className="flex flex-col items-center text-nowrap gap-10 py-6">
           <ChainSelect
             value={chainId?.toString() ?? ""}
             onChange={(value) => {

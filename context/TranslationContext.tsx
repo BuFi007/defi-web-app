@@ -140,6 +140,19 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
     HistoryTab: {
       title: t("HistoryTab.title"),
       description: t("HistoryTab.description"),
+      noData: t("HistoryTab.noData"),
+      toastCopyTitle: t("HistoryTab.toastCopyTitle"),
+      toastCopyDescription: t("HistoryTab.toastCopyDescription"),
+      pagPrev: t("HistoryTab.pagPrev"),
+      pagNext: t("HistoryTab.pagNext"),
+      pagPage: t("HistoryTab.pagPage"),
+      pagOf: t("HistoryTab.pagOf"),
+      tabLink: t("HistoryTab.tabLink"),
+      tabDate: t("HistoryTab.tabDate"),
+      tabHash: t("HistoryTab.tabHash"),
+      tabChain: t("HistoryTab.tabChain"),
+      tabAmount: t("HistoryTab.tabAmount"),
+      tabToken: t("HistoryTab.tabToken"),
     },
   };
 
