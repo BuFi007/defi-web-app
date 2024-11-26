@@ -8,7 +8,7 @@ import {
   MarketStore,
   AssistantState,
 } from "./interface";
-import { Token, TabState, Chain } from "@/lib/types";
+import { Token, TabState, Chain, LocalStorageStore } from "@/lib/types";
 import { persist } from "zustand/middleware";
 
 export const usePaymentStore = create<PaymentStore>((set) => ({
@@ -78,4 +78,9 @@ export const useAssistantStore = create<AssistantState>((set) => ({
   setAudioLevel: (level) => set({ audioLevel: level }),
   addMessage: (message) =>
     set((state) => ({ messages: [...state.messages, message] })),
+}));
+
+export const useLocalStorageStore = create<LocalStorageStore>((set) => ({
+  links: [],
+  setLinks: (links: string[]) => set({ links }),
 }));

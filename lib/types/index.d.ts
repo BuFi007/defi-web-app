@@ -297,12 +297,13 @@ export interface Translations {
   PeanutTab: {
     sendTab: string;
     receiveTab: string;
+    historyTab: string;
     linkTitle: string;
     createLinkButton: string;
     claimReady: string;
     currentTextAlreadyClaimedTitle: string;
     currentTextStartingClaim: string;
-    handleFetchLinkDetailsError: string; 
+    handleFetchLinkDetailsError: string;
     currentTextAlreadyClaimed: string;
     currentTextClaiming: string;
     currentTextProgress: string;
@@ -323,9 +324,7 @@ export interface Translations {
     claimDestinationChain: string;
     claimViewInExplorer: string;
   };
-  PaymentsTab: {
-
-  };
+  PaymentsTab: {};
   CurrencyDisplayer: {
     availableBalance: string;
     loadingBalance: string;
@@ -382,6 +381,10 @@ export interface Translations {
     title: string;
     description: string;
   };
+  HistoryTab: {
+    title: string;
+    description: string;
+  };
 }
 
 export type ChainList =
@@ -418,4 +421,9 @@ export interface TransferWrapperProps {
   functionName: ValidFunctionNames;
   buttonText: string;
   argsExtra?: any[];
+}
+
+export interface LocalStorageStore {
+  links: string[];
+  setLinks: (links: string[]) => void;
 }

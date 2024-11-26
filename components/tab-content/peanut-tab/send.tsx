@@ -12,7 +12,7 @@ import { useAppTranslations } from "@/context/TranslationContext";
 
 export default function LinkForm() {
   const { toast } = useToast();
-  const translations = useAppTranslations('Overlay');
+  const translations = useAppTranslations("Overlay");
   const currentChainId = useNetworkManager();
   const chainId = currentChainId as number;
   const availableTokens = useGetTokensOrChain(chainId, "tokens");
@@ -47,15 +47,16 @@ export default function LinkForm() {
         tokenAddress,
         () => setCurrentText(translations.currentTextProgress),
         () => setCurrentText(translations.currentTextSuccess),
-        (error: Error) => setCurrentText(`${translations.currentTextFailed} ${error.message}`),
+        (error: Error) =>
+          setCurrentText(`${translations.currentTextFailed} ${error.message}`),
         () => setCurrentText(translations.currentTextSpooky)
       );
       // Assuming linkResponse has the structure { paymentLink: string, transactionHash: string }
       if (linkResponse) {
         setTransactionDetails(linkResponse as TransactionDetails);
+
         console.log("Payment link created successfully:", linkResponse);
 
-        // Trigger confetti animation
         triggerConfetti("👻");
       } else {
         setOverlayVisible(false);

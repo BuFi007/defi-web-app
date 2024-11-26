@@ -14,11 +14,12 @@ import {
   Arbitrum,
   ArbitrumSepolia,
 } from "@/constants/Chains";
-import {IS_MAINNET as isMainnet} from "@/constants/Env";
+import { IS_MAINNET as isMainnet } from "@/constants/Env";
+import { Chain, Token } from "@/lib/types";
 
 export const useGetTokensOrChain = (
   chainId: number,
-  type: "tokens" | "chain",
+  type: "tokens" | "chain"
 ) => {
   if (type === "tokens" && !isMainnet) {
     if (chainId === 43113) return AvalancheFujiTokens;

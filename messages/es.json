@@ -32,9 +32,10 @@
     "actionButton": "Envia y recibe pagos con tu nombre en Bu",
     "callToAction": "Crear nombre con Base ENS"
   },
-"PeanutTab": {
+  "PeanutTab": {
     "sendTab": "Enviar",
     "receiveTab": "Recibir",
+    "historyTab": "Historial",
     "linkTitle": "Estás enviando",
     "createLinkButton": "Crear enlace",
     "claimReady": "Listo para reclamar tu enlace",
@@ -116,5 +117,9 @@
   "MoneyMarketBento3": {
     "title": "Asistente",
     "description": "Desbloquea insights financieros impulsados por IA con BooFi premium. Obtén consejos y estrategias personalizados."
+  },
+  "HistoryTab": {
+    "title": "Historial de links",
+    "description": "Revisa el historial de tus links de pago"
   }
 }

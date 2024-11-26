@@ -30,6 +30,7 @@
   "PeanutTab": {
     "sendTab": "Send",
     "receiveTab": "Receive",
+    "historyTab": "History",
     "linkTitle": "You are sending",
     "createLinkButton": "Create Link",
     "claimReady": "Ready to claim your link",
@@ -56,9 +57,7 @@
     "claimDestinationChain": "Destination Chain",
     "claimViewInExplorer": "View in Block Explorer"
   },
-  "PaymentsTab": {
-
-  },
+  "PaymentsTab": {},
   "CurrencyDisplayer": {
     "availableBalance": "Available balance (Max):",
     "loadingBalance": "Loading balance..."
@@ -114,5 +113,9 @@
   "MoneyMarketBento3": {
     "title": "Assistant",
     "description": "Unlock AI-driven financial insights with BooFi premium. Get personalized advice and strategies."
+  },
+  "HistoryTab": {
+    "title": "History",
+    "description": "Review your payment links history"
   }
 }

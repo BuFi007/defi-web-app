@@ -15,10 +15,8 @@ import { AddressProps } from "@/lib/types";
 import { useAppTranslations } from "@/context/TranslationContext";
 import { LiFiSwap } from "@/components/lifi-swap";
 
-export const PaymentLinkTabContent: React.FC<AddressProps> = ({
-  address,
-}) => {
-  const translations = useAppTranslations('Home');
+export const PaymentLinkTabContent: React.FC<AddressProps> = ({ address }) => {
+  const translations = useAppTranslations("Home");
   return (
     <>
       <BaseNameDialogAlert address={address} />

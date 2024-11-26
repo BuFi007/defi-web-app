@@ -14,13 +14,13 @@ import LinkForm from "../peanut-tab/send";
 import ClaimForm from "../peanut-tab/claim";
 import { usePaymentStore } from "@/store";
 import { useAppTranslations } from "@/context/TranslationContext";
+import ClaimsDisplay from "@/components/peanut/get-links";
 
 function PaymentLinkContent() {
   const { currentPaymentTab, setCurrentPaymentTab } = usePaymentStore();
   const [claimId, setClaimId] = useState("");
   const searchParams = useSearchParams();
-  const translations = useAppTranslations('PeanutTab');
-
+  const translations = useAppTranslations("PeanutTab");
 
   useEffect(() => {
     const linkParam = searchParams.get("link");
@@ -59,12 +59,26 @@ function PaymentLinkContent() {
             {translations.receiveTab}
           </Button>
         </TabsTriggerAlt>
+        <TabsTriggerAlt value="history">
+          <Button
+            size="sm"
+            variant="paez"
+            tabValue="history"
+            storeType="payment"
+          >
+            {translations.historyTab}
+          </Button>
+        </TabsTriggerAlt>
       </TabsList>
+
       <TabsContent value="send" className="flex-col">
         <LinkForm />
       </TabsContent>
       <TabsContent value="receive" className="flex-col flex-1">
         <ClaimForm claimId={claimId} />
+      </TabsContent>
+      <TabsContent value="history" className="flex-col flex-1">
+        <ClaimsDisplay />
       </TabsContent>
     </Tabs>
   );

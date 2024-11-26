@@ -4,7 +4,6 @@ import { usePeanut } from "@/hooks/use-peanut";
 import PaymentDetails from "./card/details";
 import confetti from "canvas-confetti";
 import { toast } from "@/components/ui/use-toast";
-import { getLinkDetails } from "@squirrel-labs/peanut-sdk";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { AnimatePresence, motion } from "framer-motion";
@@ -17,7 +16,7 @@ import { ExtendedPaymentInfo, IGetLinkDetailsResponse } from "@/lib/types";
 import NetworkSelector from "@/components/network-selector";
 import * as Chains from "@/constants/Chains";
 import { useSwitchNetwork } from "@dynamic-labs/sdk-react-core";
-import { getBlockExplorerUrlByChainId } from "@/utils";
+import { fetchLinkDetails, getBlockExplorerUrlByChainId } from "@/utils";
 import { useDestinationToken } from "@/hooks/use-destination-chain";
 import { useAppTranslations } from "@/context/TranslationContext";
 
@@ -55,7 +54,7 @@ export default function ClaimForm({
   const [paymentInfo, setPaymentInfo] = useState<ExtendedPaymentInfo | null>(
     null
   );
-  const translations = useAppTranslations('PeanutTab');
+  const translations = useAppTranslations("PeanutTab");
 
   const getDestinationTokenAddress = useDestinationToken();
 
@@ -64,40 +63,20 @@ export default function ClaimForm({
   const chains = Object.values(Chains).map((chain) => ({
     chainId: chain.chainId,
   }));
+
   const [destinationChainId, setDestinationChainId] = useState<string>("");
   const [details, setDetails] = useState<IGetLinkDetailsResponse | null>(null);
   const [isMultiChain, setIsMultiChain] = useState(false);
   const switchNetwork = useSwitchNetwork();
 
-  const fetchLinkDetails = async (link: string) => {
-    try {
-      const details = (await getLinkDetails({
-        link,
-      })) as unknown as IGetLinkDetailsResponse;
-      setDetails(details);
-      const extendedPaymentInfo: ExtendedPaymentInfo = {
-        chainId: details.chainId,
-        tokenSymbol: details.tokenSymbol,
-        tokenAmount: details.tokenAmount,
-        senderAddress: details.sendAddress,
-        claimed: details.claimed,
-        depositDate: details.depositDate,
-        depositIndex: details.depositIndex,
-      };
-      setPaymentInfo(extendedPaymentInfo);
-    } catch (error: any) {
-      console.error("Error fetching link details:", error.message);
-      toast({
-        title: "Error",
-        description: translations.handleFetchLinkDetailsError,
-        variant: "destructive",
-      });
-    }
-  };
-
   useEffect(() => {
     if (initialClaimId) {
-      fetchLinkDetails(initialClaimId);
+      fetchLinkDetails(
+        initialClaimId,
+        setDetails,
+        setPaymentInfo,
+        translations
+      );
     }
   }, [initialClaimId]);
 
@@ -117,21 +96,23 @@ export default function ClaimForm({
   };
 
   const handleVerify = () => {
-    fetchLinkDetails(inputLink);
+    fetchLinkDetails(inputLink, setDetails, setPaymentInfo, translations);
   };
 
   const handleSuccess = async () => {
-    // Trigger confetti animation
     confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
 
-    // Fetch and update the latest link details
     if (inputLink) {
-      await fetchLinkDetails(inputLink);
+      await fetchLinkDetails(
+        inputLink,
+        setDetails,
+        setPaymentInfo,
+        translations
+      );
     }
 
-    // Set the overlay visible
     setOverlayVisible(true);
-    setInProgress(false); // Mark the transaction as complete
+    setInProgress(false);
   };
 
   const handleClaim = async () => {
@@ -169,7 +150,6 @@ export default function ClaimForm({
       }
     } else if (paymentInfo && destinationChainId) {
       try {
-
         const sourceChainInfo = getChainInfoByChainId(paymentInfo.chainId);
         const isMainnet = sourceChainInfo.isMainnet;
 
@@ -242,15 +222,15 @@ export default function ClaimForm({
         </div>
       )}
       <div className="flex items-center justify-center p-4 space-x-2">
-      {isMultiChain && !paymentInfo?.claimed && (
-        <NetworkSelector
-          currentChainId={paymentInfo?.chainId.toString() || ""}
-          destinationChainId={destinationChainId}
-          onSelect={(selectedChainId: string) => {
-            const numericChainId = Number(selectedChainId);
-            if (isNaN(numericChainId)) return;
-            setDestinationChainId(selectedChainId);
-          }}
+        {isMultiChain && !paymentInfo?.claimed && (
+          <NetworkSelector
+            currentChainId={paymentInfo?.chainId.toString() || ""}
+            destinationChainId={destinationChainId}
+            onSelect={(selectedChainId: string) => {
+              const numericChainId = Number(selectedChainId);
+              if (isNaN(numericChainId)) return;
+              setDestinationChainId(selectedChainId);
+            }}
           />
         )}
       </div>
@@ -410,7 +390,11 @@ export default function ClaimForm({
                                               target="_blank"
                                               className="flex items-center"
                                             >
-                                              <span>{translations.claimViewInExplorer}</span>
+                                              <span>
+                                                {
+                                                  translations.claimViewInExplorer
+                                                }
+                                              </span>
                                               <ChevronRightIcon className="size-4" />
                                             </Link>
                                           </p>
