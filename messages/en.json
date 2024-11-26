@@ -15,6 +15,105 @@
     "neoMatrixAlt": "Neo matrix image",
     "pillGifAlt": "Matrix pill gif",
     "boofiMatrixAlt": "BooFi matrix gif",
-    "matrixMemeAlt": "Matrix crypto meme"
+    "matrixMemeAlt": "Matrix crypto meme",
+    "connectWalletAlert": "Please connect your wallet",
+    "sendPaymentTab": "Send Payment",
+    "paymentLinksTab": "Payment Links",
+    "moneyMarketTab": "Loan and Borrow",
+    "paymentsTab": "Payments",
+    "ccipUsdcBridgeTab": "CCIP USDC Bridge"
+  },
+  "EnsAlertDialog": {
+    "actionButton": "Send and receive payments with your BooFi link name",
+    "callToAction": "Create Base Name"
+  },
+  "PeanutTab": {
+    "sendTab": "Send",
+    "receiveTab": "Receive",
+    "historyTab": "History",
+    "linkTitle": "You are sending",
+    "createLinkButton": "Create Link",
+    "claimReady": "Ready to claim your link",
+    "handleFetchLinkDetailsError": "An error occurred while fetching the link details.",
+    "currentTextStartingClaim": "Starting the claim process...",
+    "currentTextAlreadyClaimedTitle": "Link unavailable",
+    "currentTextAlreadyClaimed": "This link has already been claimed.",
+    "currentTextClaiming": "Claiming the payment link...",
+    "currentTextProgress": "Transaction in progress...",
+    "currentTextClaimSuccess": "Claim successful",
+    "currentTextClaimError": "Failed to claim the link.",
+    "currentTextClaimComplete": "Claim complete",
+    "currentTextCrossChainProgress": "Cross-chain transaction in progress...",
+    "currentTextCrossChainSuccess": "Cross-chain transaction successful!",
+    "currentTextCrossChainError": "Failed to claim the link.",
+    "currentTextCrossChainComplete": "Cross-chain complete",
+    "claimTitle": "You are claiming",
+    "claimDescription": "Claim your Link Here",
+    "claimSuccessTitle": "Link Claimed Successfully",
+    "claimPaste": "Paste",
+    "claimVerify": "Verify",
+    "claimClaim": "Claim",
+    "claimSuccess": "Claim successful",
+    "claimDestinationChain": "Destination Chain",
+    "claimViewInExplorer": "View in Block Explorer"
+  },
+  "PaymentsTab": {},
+  "CurrencyDisplayer": {
+    "availableBalance": "Available balance (Max):",
+    "loadingBalance": "Loading balance..."
+  },
+  "Overlay": {
+    "frameText": "Send Crypto with this unique Link",
+    "linkSubtitle": "Send Crypto with this unique Link",
+    "linkCopied": "Link copied to clipboard",
+    "linkDescription": "Send crypto with this secure vault link to your friends and family",
+    "shareWhatsapp": "Share on WhatsApp",
+    "shareTelegram": "Share on Telegram",
+    "hashTxText": "Transaction Hash",
+    "viewInExplorer": "View in Block Explorer",
+    "currentTextProgress": "In Progress...",
+    "currentTextSuccess": "Success!",
+    "currentTextFailed": "Failed:",
+    "currentTextSpooky": "Spooky Crypto Finance Made Easy!",
+    "toastError": "Error Creating Pay Link",
+    "toastCopyTitle": "Copied to clipboard!",
+    "toastCopyDescription": " has been copied to clipboard."
+  },
+  "CCIPBridge": {
+    "connectWallet": "Please connect your wallet",
+    "title": "CCIP USDC Bridge",
+    "toastTitleNetwork": "Switching Network",
+    "toastDescriptionNetwork": "Switching network to",
+    "toastDescriptionNetwork2": "Please check your wallet to allow network change.",
+    "toastTitleError": "Invalid Destination Chain",
+    "toastDescriptionError": "Please select a valid destination chain",
+    "toastSentTitle": "Transaction Sent",
+    "toastSentDescription": "Transaction sent successfully",
+    "sourceChain": "Source Chain",
+    "destinationChain": "Destination Chain",
+    "buttonText": "Bridge"
+  },
+  "MoneyMarketBento1": {
+    "tabLend": "Lend",
+    "tabBorrow": "Borrow",
+    "tabWithdraw": "Withdraw",
+    "tabRepay": "Repay",
+    "depositUSDC": "Deposit USDC",
+    "withdrawUSDC": "Withdraw USDC",
+    "borrowUSDC": "Borrow USDC",
+    "repayUSDC": "Repay USDC",
+    "toastSwitchTitle": "Switching Network",
+    "toastSwitchDescription": "Switching network to",
+    "toastSwitchDescription2": "Please check your wallet to allow network change.",
+    "labelFrom": "From",
+    "labelTo": "To"
+  },
+  "MoneyMarketBento3": {
+    "title": "Assistant",
+    "description": "Unlock AI-driven financial insights with BooFi premium. Get personalized advice and strategies."
+  },
+  "HistoryTab": {
+    "title": "History",
+    "description": "Review your payment links history"
   }
 }

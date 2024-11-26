@@ -20,6 +20,100 @@
     "description": "¡Finanzas cripto espeluznantes hechas fáciles!",
     "incrementButton": "Incrementar",
     "glowButton": "Brillar",
-    "scrollContent": "Este es un contenido desplazable para probar la barra de desplazamiento personalizada. Se repite para asegurar que haya suficiente contenido para desplazarse."
+    "scrollContent": "Este es un contenido desplazable para probar la barra de desplazamiento personalizada. Se repite para asegurar que haya suficiente contenido para desplazarse.",
+    "connectWalletAlert": "Por favor, conecta tu billetera",
+    "sendPaymentTab": "Enviar pago",
+    "paymentLinksTab": "Enlaces de pago",
+    "moneyMarketTab": "Prestamos",
+    "paymentsTab": "Pagos",
+    "ccipUsdcBridgeTab": "CCIP USDC Bridge"
+  },
+  "EnsAlertDialog": {
+    "actionButton": "Envia y recibe pagos con tu nombre en Bu",
+    "callToAction": "Crear nombre con Base ENS"
+  },
+  "PeanutTab": {
+    "sendTab": "Enviar",
+    "receiveTab": "Recibir",
+    "historyTab": "Historial",
+    "linkTitle": "Estás enviando",
+    "createLinkButton": "Crear enlace",
+    "claimReady": "Listo para reclamar tu enlace",
+    "handleFetchLinkDetailsError": "Ocurrió un error al obtener los detalles del enlace.",
+    "currentTextStartingClaim": "Iniciando el proceso de reclamación...",
+    "currentTextAlreadyClaimedTitle": "Enlace no disponible",
+    "currentTextAlreadyClaimed": "Este enlace ya ha sido reclamado.",
+    "currentTextClaiming": "Reclamando el enlace de pago...",
+    "currentTextProgress": "Transacción en progreso...",
+    "currentTextClaimSuccess": "Reclamación exitosa",
+    "currentTextClaimError": "Error al reclamar el enlace.",
+    "currentTextClaimComplete": "Reclamación completada",
+    "currentTextCrossChainProgress": "Transacción entre cadenas en progreso...",
+    "currentTextCrossChainSuccess": "¡Transacción entre cadenas exitosa!",
+    "currentTextCrossChainError": "Error al reclamar el enlace.",
+    "currentTextCrossChainComplete": "Transacción entre cadenas completada",
+    "claimTitle": "Estás reclamando",
+    "claimDescription": "Reclama tu enlace aquí",
+    "claimSuccessTitle": "Enlace reclamado con éxito",
+    "claimPaste": "Pegar",
+    "claimVerify": "Verificar",
+    "claimClaim": "Reclamar",
+    "claimSuccess": "Reclamación exitosa",
+    "claimDestinationChain": "Cadena de destino",
+    "claimViewInExplorer": "Ver en el explorador de bloques"
+  },
+  "CurrencyDisplayer": {
+    "availableBalance": "Saldo disponible (Max):",
+    "loadingBalance": "Cargando saldo..."
+  },
+  "Overlay": {
+    "frameText": "Enviar cripto con este enlace único",
+    "linkSubtitle": "Enviar cripto con este enlace único",
+    "linkCopied": "Enlace copiado al portapapeles",
+    "linkDescription": "Envía cripto con este enlace seguro a tus amigos y familiares",
+    "shareWhatsapp": "Compartir en WhatsApp",
+    "shareTelegram": "Compartir en Telegram",
+    "hashTxText": "Hash de la transacción",
+    "viewInExplorer": "Ver en el explorador de bloques",
+    "toastError": "Error al crear el enlace de pago",
+    "toastCopyTitle": "Copiado al portapapeles!",
+    "toastCopyDescription": " ha sido copiado al portapapeles."
+  },
+  "CCIPBridge": {
+    "connectWallet": "Por favor, conecta tu billetera",
+    "title": "Puentes USDC",
+    "toastTitleNetwork": "Cambiando de red",
+    "toastDescriptionNetwork": "Cambiando de red a",
+    "toastDescriptionNetwork2": "Por favor, revisa tu billetera para permitir el cambio de red.",
+    "toastTitleError": "Cadena de destino inválida",
+    "toastDescriptionError": "Por favor, selecciona una cadena de destino válida",
+    "toastSentTitle": "Transacción enviada",
+    "toastSentDescription": "Transacción enviada exitosamente",
+    "sourceChain": "Cadena de origen",
+    "destinationChain": "Cadena de destino",
+    "buttonText": "Puente"
+  },
+  "MoneyMarketBento1": {
+    "tabLend": "Prestar",
+    "tabBorrow": "Pedir prestado",
+    "tabWithdraw": "Retirar",
+    "tabRepay": "Repagar",
+    "depositUSDC": "Depositar USDC",
+    "withdrawUSDC": "Retirar USDC",
+    "borrowUSDC": "Pedir prestado USDC",
+    "repayUSDC": "Repagar USDC",
+    "toastSwitchTitle": "Cambiando de red",
+    "toastSwitchDescription": "Cambiando de red a",
+    "toastSwitchDescription2": "Por favor, revisa tu billetera para permitir el cambio de red.",
+    "labelFrom": "Desde",
+    "labelTo": "A"
+  },
+  "MoneyMarketBento3": {
+    "title": "Asistente",
+    "description": "Desbloquea insights financieros impulsados por IA con BooFi premium. Obtén consejos y estrategias personalizados."
+  },
+  "HistoryTab": {
+    "title": "Historial de links",
+    "description": "Revisa el historial de tus links de pago"
   }
 }

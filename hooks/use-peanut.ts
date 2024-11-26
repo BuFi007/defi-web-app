@@ -12,12 +12,8 @@ import { useChainId } from "wagmi";
 import { useEthersSigner } from "@/lib/wagmi";
 import { NATIVE_TOKEN_ADDRESS } from "@/constants/Tokens";
 import { Token } from "@/lib/types";
-
-const PEANUTAPIKEY = process.env.NEXT_PUBLIC_DEEZ_NUTS_API_KEY;
-
-if (!PEANUTAPIKEY) {
-  throw new Error("Peanut API key not found in environment variables");
-}
+import { PEANUTAPIKEY } from "@/constants/Env";
+import { saveCreatedLinkToLocalStorage } from "@/utils";
 
 export const usePeanut = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -146,10 +142,26 @@ export const usePeanut = () => {
         linkDetails: linkDetails,
         password: password,
       });
+      const getLinksFromTxResponse = await peanut.getLinksFromTx({
+        linkDetails,
+        txHash: txHash,
+        passwords: [password],
+      });
+      let links: string[] = getLinksFromTxResponse.links;
 
       toast({
         title: "Link created successfully",
         description: "Your payment link has been created.",
+      });
+
+      saveCreatedLinkToLocalStorage({
+        address: primaryWallet.address as string,
+        data: {
+          link: links[0],
+          depositDate: new Date().toISOString(),
+          txHash: txHash,
+          ...linkDetails,
+        },
       });
 
       onSuccess?.();
@@ -202,7 +214,7 @@ export const usePeanut = () => {
 
       const claimedLinkResponse = await claimLinkGasless({
         link,
-        APIKey: PEANUTAPIKEY,
+        APIKey: PEANUTAPIKEY!,
         recipientAddress: primaryWallet.address as `0x${string}`,
         baseUrl: `https://api.peanut.to/claim-v2`,
       });
@@ -264,7 +276,7 @@ export const usePeanut = () => {
         recipientAddress: primaryWallet.address as `0x${string}`,
         destinationChainId: Number(destinationChainId).toString(),
         destinationToken: destinationToken,
-        APIKey: PEANUTAPIKEY,
+        APIKey: PEANUTAPIKEY!,
         isMainnet: isMainnet || false,
         slippage: 10,
       });

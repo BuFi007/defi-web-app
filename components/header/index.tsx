@@ -66,7 +66,7 @@ const Header: React.FC = () => {
               </SparklesText>
               <span className="absolute mt-28 sm:mt-20 opacity-0 group-hover:opacity-100 group-hover:-rotate-12 transition-all duration-300">
                 <span className="inline-block font-clash bg-gradient-to-r text-3xl from-indigo-300 via-purple-400 to-cyan-300 bg-clip-text text-transparent">
-                  BooFi
+                  Bu
                 </span>
               </span>
             </div>

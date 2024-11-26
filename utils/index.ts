@@ -1,14 +1,13 @@
+import { IGetLinkDetailsResponse } from "./../lib/types/index.d";
 import { type ClassValue, clsx } from "clsx";
 import { useCallback } from "react";
 import { twMerge } from "tailwind-merge";
-import {
-  Chain,
-  ExtendedPaymentInfo,
-  IGetLinkDetailsResponse,
-} from "@/lib/types";
+import { Chain, ExtendedPaymentInfo, Translations } from "@/lib/types";
 import * as Chains from "@/constants/Chains";
-import { getLinkDetails } from "@squirrel-labs/peanut-sdk";
+import { getLinkDetails, interfaces } from "@squirrel-labs/peanut-sdk";
 import { toast } from "@/components/ui/use-toast";
+import { useAppTranslations } from "@/context/TranslationContext";
+import confetti from "canvas-confetti";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -270,7 +269,8 @@ export const formatToken = (
 export const fetchLinkDetails = async (
   link: string,
   setDetails: (details: IGetLinkDetailsResponse) => void,
-  setPaymentInfo: (paymentInfo: ExtendedPaymentInfo) => void
+  setPaymentInfo: (paymentInfo: ExtendedPaymentInfo) => void,
+  translations: Translations["PeanutTab"]
 ) => {
   try {
     const details = (await getLinkDetails({
@@ -291,8 +291,197 @@ export const fetchLinkDetails = async (
     console.error("Error fetching link details:", error.message);
     toast({
       title: "Error",
-      description: "An error occurred while fetching the link details.",
+      description: translations.handleFetchLinkDetailsError,
       variant: "destructive",
     });
   }
+};
+
+export const saveClaimedLinkToLocalStorage = ({
+  address,
+  data,
+}: {
+  address: string;
+  data: ExtendedPaymentInfo;
+}) => {
+  try {
+    if (typeof localStorage === "undefined") return;
+
+    const key = `${address} - claimed links`;
+
+    const storedData = localStorage.getItem(key);
+
+    let dataArr: ExtendedPaymentInfo[] = [];
+    if (storedData) {
+      dataArr = JSON.parse(storedData) as ExtendedPaymentInfo[];
+    }
+
+    dataArr.push(data);
+
+    localStorage.setItem(key, JSON.stringify(dataArr));
+
+    console.log("Saved claimed link to localStorage:", data);
+  } catch (error) {
+    console.error("Error adding data to localStorage:", error);
+  }
+};
+
+export const saveCreatedLinkToLocalStorage = ({
+  address,
+  data,
+}: {
+  address: string;
+  data: {
+    link: string;
+    txHash: string;
+    depositDate: string;
+    linkDetails?: IGetLinkDetailsResponse;
+  };
+}) => {
+  try {
+    if (typeof localStorage === "undefined") return;
+
+    const key = `${address} - created links`;
+
+    const storedData = localStorage.getItem(key);
+
+    let dataArr: {
+      link: string;
+      txHash: string;
+      depositDate: string;
+      linkDetails?: IGetLinkDetailsResponse;
+    }[] = [];
+    if (storedData) {
+      dataArr = JSON.parse(storedData) as {
+        link: string;
+        txHash: string;
+        depositDate: string;
+        linkDetails?: IGetLinkDetailsResponse;
+      }[];
+    }
+
+    dataArr?.push(data);
+
+    localStorage.setItem(key, JSON.stringify(dataArr));
+
+    console.log("Saved created link to localStorage:", data);
+  } catch (error) {
+    console.error("Error adding data to localStorage:", error);
+  }
+};
+
+export const getClaimedLinksFromLocalStorage = ({
+  address = undefined,
+}: {
+  address?: string;
+}) => {
+  try {
+    if (typeof localStorage === "undefined") return;
+
+    let storedData;
+    if (address) {
+      const key = `${address} - claimed links`;
+      storedData = localStorage.getItem(key);
+    } else {
+      const partialKey = "claimed links";
+      const matchingItems = [];
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.includes(partialKey)) {
+          const item = localStorage.getItem(key);
+          if (!item) break;
+          const value = JSON.parse(item);
+          matchingItems.push(...value);
+        }
+      }
+      storedData = JSON.stringify(matchingItems);
+    }
+
+    let data: ExtendedPaymentInfo[] = [];
+    if (storedData) {
+      data = JSON.parse(storedData) as ExtendedPaymentInfo[];
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error getting data from localStorage:", error);
+  }
+};
+
+export const getAllLinksFromLocalStorage = ({
+  address,
+}: {
+  address: string;
+}) => {
+  try {
+    if (typeof localStorage === "undefined") return;
+
+    const localStorageData: {
+      address: string;
+      hash: string;
+      idx?: string;
+      link: string;
+    }[] = [];
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+
+      if (
+        key === `${address} - created links` ||
+        key === `${address} - claimed links`
+      ) {
+      } else if (key !== null && key?.includes(address)) {
+        const value = localStorage.getItem(key);
+        if (
+          value !== null &&
+          !key.includes("- raffle -") &&
+          !key.includes("saving giga-link for address:") &&
+          !key.includes("saving temp") &&
+          value.includes("/claim")
+        ) {
+          const x = {
+            address: key.split("-")[0].trim(),
+            hash: key.split("-")[1]?.trim() ?? "",
+            idx: key.split("-")[2]?.trim() ?? "",
+            link: value.replaceAll('"', ""),
+          };
+          localStorageData.push(x);
+        }
+      }
+    }
+    return localStorageData;
+  } catch (error) {
+    console.error("Error getting data from localStorage:", error);
+  }
+};
+
+export const triggerConfetti = (emoji: string) => {
+  const scalar = 4;
+  const confettiEmoji = confetti.shapeFromText({ text: emoji, scalar });
+
+  const defaults = {
+    spread: 360,
+    ticks: 60,
+    gravity: 0,
+    decay: 0.96,
+    startVelocity: 20,
+    shapes: [confettiEmoji],
+    scalar,
+  };
+
+  const shoot = () => {
+    confetti({ ...defaults, particleCount: 30 });
+    confetti({ ...defaults, particleCount: 5 });
+    confetti({
+      ...defaults,
+      particleCount: 15,
+      scalar: scalar / 2,
+      shapes: ["circle"],
+    });
+  };
+
+  setTimeout(shoot, 0);
+  setTimeout(shoot, 100);
+  setTimeout(shoot, 200);
 };

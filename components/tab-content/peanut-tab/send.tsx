@@ -5,13 +5,14 @@ import LinkUiForm from "@/components/tab-content/peanut-tab/card";
 import Overlay from "@/components/tab-content/peanut-tab/overlay";
 import { Token, TransactionDetails } from "@/lib/types";
 import confetti from "canvas-confetti";
-import { useUsdcChain } from "@/hooks/use-usdc-chain";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { truncateAddress } from "@/utils";
-import { IS_MAINNET } from "@/constants/Env";
+import { useAppTranslations } from "@/context/TranslationContext";
+
 export default function LinkForm() {
   const { toast } = useToast();
+  const translations = useAppTranslations("Overlay");
   const currentChainId = useNetworkManager();
   const chainId = currentChainId as number;
   const availableTokens = useGetTokensOrChain(chainId, "tokens");
@@ -39,23 +40,23 @@ export default function LinkForm() {
 
     try {
       const tokenAddress = selectedToken;
-      console.log("tokenAddress", tokenAddress);
-      setCurrentText("In Progress...");
+      setCurrentText(translations.currentTextProgress);
 
       const linkResponse = await createPayLink(
         tokenAmount.toString(),
         tokenAddress,
-        () => setCurrentText("In Progress..."),
-        () => setCurrentText("Success!"),
-        (error: Error) => setCurrentText(`Failed: ${error.message}`),
-        () => setCurrentText("Spooky Crypto Finance Made Easy!")
+        () => setCurrentText(translations.currentTextProgress),
+        () => setCurrentText(translations.currentTextSuccess),
+        (error: Error) =>
+          setCurrentText(`${translations.currentTextFailed} ${error.message}`),
+        () => setCurrentText(translations.currentTextSpooky)
       );
       // Assuming linkResponse has the structure { paymentLink: string, transactionHash: string }
       if (linkResponse) {
         setTransactionDetails(linkResponse as TransactionDetails);
+
         console.log("Payment link created successfully:", linkResponse);
 
-        // Trigger confetti animation
         triggerConfetti("👻");
       } else {
         setOverlayVisible(false);
@@ -64,7 +65,7 @@ export default function LinkForm() {
       console.error("Error creating pay link:", error);
       setOverlayVisible(false);
       toast({
-        title: "Error Creating Pay Link",
+        title: `${translations.toastError}`,
         description: error.message,
         variant: "destructive",
       });
@@ -102,8 +103,8 @@ export default function LinkForm() {
     triggerConfetti("💸👻💸");
 
     toast({
-      title: "Copied to clipboard!",
-      description: `${label} has been copied to clipboard.`,
+      title: `${translations.toastCopyTitle}`,
+      description: `${label} ${translations.toastCopyDescription}`,
     });
   };
 
