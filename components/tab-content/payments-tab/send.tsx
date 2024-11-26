@@ -66,7 +66,7 @@ function PaymentLinkContent() {
             tabValue="history"
             storeType="payment"
           >
-            {translations.receiveTab}
+            {translations.historyTab}
           </Button>
         </TabsTriggerAlt>
       </TabsList>
