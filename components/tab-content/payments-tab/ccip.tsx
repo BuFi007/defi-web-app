@@ -145,10 +145,11 @@ export default function CCIPBridge() {
 
   return (
     <div className="border p-2 rounded-xl ">
-      <div className="flex flex-col items-center gap-10 text-nowrap w-5/12 m-auto">
-        <h2 className="text-center text-xl font-nupower font-bold">
-          {translations.title} 🔄
-        </h2>
+      <div className="flex flex-col items-center gap-10 text-nowrap w-full md:w-8/12 m-auto">
+        <div className="flex items-center justify-between text-xs">
+            <span className="text-xl">🏎️🏁</span>
+            <span>{translations.linkTitle}</span>
+        </div>  
         <div className="flex flex-col items-center gap-10 text-nowrap ">
           <ChainSelect
             value={chainId?.toString() ?? ""}
@@ -194,7 +195,7 @@ export default function CCIPBridge() {
             chains={chainsArray.filter(
               (chain) => Number(chain.chainId) !== Number(chainId)
             )}
-            label="Bridge USDC to:"
+            label={translations.labelBridge}
           />
         </div>
         <SwapAmountInput

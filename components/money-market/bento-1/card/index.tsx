@@ -108,9 +108,9 @@ export function MoneyMarketCard() {
   return (
     <div className="w-full max-w-3xl mx-auto">
       <div className="flex flex-col space-y-4 w-full">
-        <Separator />
-        <div className="flex items-center justify-between">
-          <ChainSelect
+      <Separator />
+        <div className="flex flex-col sm:flex-row items-center gap-4">
+        <ChainSelect
             value={
               fromChain?.chainId?.toString()
                 ? fromChain?.chainId?.toString()
@@ -122,7 +122,8 @@ export function MoneyMarketCard() {
             chains={fromChains}
             label={translations.labelFrom}
           />
-          <Separator orientation="vertical" className="h-8 mx-4" />
+          <Separator orientation="vertical" className="hidden sm:block h-8" />
+          <Separator className="w-full sm:hidden" />
           <ChainSelect
             value={toChain?.chainId?.toString()}
             onChange={(value) => {
@@ -134,14 +135,14 @@ export function MoneyMarketCard() {
           />
         </div>
         <Separator />
-        <div className="flex items-start justify-between">
-          <div className="w-1/2 pr-2 pt-2">
-            <Input
+        <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+          <div className="w-full sm:w-1/2 sm:pr-2 pt-2">
+          <Input
               type="number"
               placeholder="0.00"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="text-4xl font-bold h-16 w-full"
+              className="text-2xl sm:text-4xl font-bold h-16 w-full"
             />
             <BalanceDisplay
               balance={formattedBalance || "0"}
@@ -149,7 +150,7 @@ export function MoneyMarketCard() {
               symbol="USDC"
             />
           </div>
-          <div className="w-1/2 p-4">
+          <div className="w-full sm:w-1/2 p-4">
             <TransferWrapper
               amount={amount}
               onSuccess={handleTransactionSuccess}
