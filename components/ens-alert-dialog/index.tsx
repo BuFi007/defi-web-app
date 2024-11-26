@@ -86,9 +86,9 @@ export const BaseNameDialogAlert = ({
                     variant="link"
                     size="noPadding"
                     onClick={handleToggleOverlay}
-                    className="text-center cursor-pointer text-blue-500 text-xs hover:underline"
+                    className="text-center cursor-pointer text-blue-500 text-sm md:text-xs hover:underline"
                   >
-                    <span>
+                    <span className="text-sm md:text-xs">
                       {" "}
                       {translations.actionButton}
                     </span>

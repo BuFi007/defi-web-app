@@ -4,6 +4,11 @@ import { LiFiWidget, WidgetConfig, WidgetSkeleton } from '@lifi/widget';
 import { ClientOnly } from './ClientOnly';
 import { usePathname } from 'next/navigation';
 import { useMemo } from 'react';
+import {
+  AvalancheTokens,
+  BaseTokens,
+  ArbitrumTokens,
+} from '@/constants/Tokens';
 
 type SupportedLanguage = "en" | "es" | "pt";
 
@@ -83,11 +88,45 @@ export const LiFiSwap = () => {
     appearance: 'auto',
     chains: {
       from: {
-        allow: [42161, 8453, 43114],
+        allow: [
+          42161,  // Arbitrum
+          8453,   // Base
+          43114,  // Avalanche
+        ],
       },
       to: {
-        allow: [42161, 8453, 43114],
+        allow: [
+          42161,  // Arbitrum
+          8453,   // Base
+          43114,  // Avalanche
+        ],
       }
+    },
+    tokens: {
+      featured: [
+        // Mainnet tokens
+        ...AvalancheTokens.map(token => ({ 
+          chainId: token.chainId, 
+          address: token.address,
+          symbol: token.symbol,
+          decimals: token.decimals,
+          name: token.name,
+        })),
+        ...BaseTokens.map(token => ({ 
+          chainId: token.chainId, 
+          address: token.address,
+          symbol: token.symbol,
+          decimals: token.decimals,
+          name: token.name,
+        })),
+        ...ArbitrumTokens.map(token => ({ 
+          chainId: token.chainId, 
+          address: token.address,
+          symbol: token.symbol,
+          decimals: token.decimals,
+          name: token.name,
+        })),
+      ],
     },
     languages: {
       default: getLanguageFromPath(),

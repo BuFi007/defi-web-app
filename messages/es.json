@@ -76,7 +76,11 @@
     "viewInExplorer": "Ver en el explorador de bloques",
     "toastError": "Error al crear el enlace de pago",
     "toastCopyTitle": "Copiado al portapapeles!",
-    "toastCopyDescription": " ha sido copiado al portapapeles."
+    "toastCopyDescription": " ha sido copiado al portapapeles.",
+    "currentTextProgress": "En progreso...",
+    "currentTextSuccess": "¡Éxito!",
+    "currentTextFailed": "¡Error:",
+    "currentTextSpooky": "¡Finanzas cripto espeluznantes hechas fáciles!"
   },
   "CCIPBridge": {
     "connectWallet": "Por favor, conecta tu billetera",
@@ -90,7 +94,9 @@
     "toastSentDescription": "Transacción enviada exitosamente",
     "sourceChain": "Cadena de origen",
     "destinationChain": "Cadena de destino",
-    "buttonText": "Puente"
+    "buttonText": "Puente",
+    "linkTitle": "Estás transferiendo",
+    "labelBridge": "Puente USDC a:"
   },
   "MoneyMarketBento1": {
     "tabLend": "Prestar",

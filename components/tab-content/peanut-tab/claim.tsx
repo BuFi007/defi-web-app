@@ -308,7 +308,7 @@ export default function ClaimForm({
         </>
       )}
       {overlayVisible && (
-        <div className="animate-in fade-in-0 fixed inset-0 z-50 bg-white/90">
+        <div className="animate-in fade-in-0 fixed inset-0 z-40 bg-white/90">
           <div className="relative flex size-full items-center justify-center">
             <button
               className="absolute right-4 top-4"

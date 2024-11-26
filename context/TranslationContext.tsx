@@ -108,6 +108,9 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
       sourceChain: t('CCIPBridge.sourceChain'),
       destinationChain: t('CCIPBridge.destinationChain'),
       buttonText: t('CCIPBridge.buttonText'),
+      linkTitle: t('CCIPBridge.linkTitle'),
+      labelBridge: t('CCIPBridge.labelBridge'),
+
     },
     MoneyMarketBento1: {
       tabLend: t('MoneyMarketBento1.tabLend'),

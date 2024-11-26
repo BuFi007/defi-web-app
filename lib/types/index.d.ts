@@ -110,6 +110,7 @@ export interface AssetData {
 export interface TabState {
   activeTab: "moneyMarket" | "paymentLink" | "tokenSwap";
   setActiveTab: (tab: "moneyMarket" | "paymentLink" | "tokenSwap") => void;
+  resetTab: () => void;
 }
 
 export interface APYData {
@@ -359,6 +360,8 @@ export interface Translations {
     sourceChain: string;
     destinationChain: string;
     buttonText: string;
+    linkTitle: string;
+    labelBridge: string;
   };
   MoneyMarketBento1: {
     tabLend: string;
