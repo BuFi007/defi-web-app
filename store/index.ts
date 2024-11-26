@@ -8,7 +8,8 @@ import {
   MarketStore,
   AssistantState,
 } from "./interface";
-import { Token, TabState, Chain } from "@/lib/types";
+import { Token, TabState, Chain, LocalStorageStore } from "@/lib/types";
+import { persist } from "zustand/middleware";
 
 export const usePaymentStore = create<PaymentStore>((set) => ({
   currentPaymentTab: "send",
@@ -35,10 +36,24 @@ export const useMarketStore = create<MarketStore>((set) => ({
   setToChain: (chain: Chain) => set({ toChain: chain }),
 }));
 
-export const useTabStore = create<TabState>((set) => ({
-  activeTab: "moneyMarket",
-  setActiveTab: (tab) => set({ activeTab: tab }),
-}));
+export const useTabStore = create<TabState>()(
+  persist(
+    (set) => ({
+      activeTab: "moneyMarket",
+      setActiveTab: (tab) => set({ activeTab: tab }),
+      resetTab: () => set({ activeTab: "moneyMarket" }),
+    }),
+    {
+      name: 'tab-storage',
+      onRehydrateStorage: () => (state) => {
+        // Reset state on page load
+        if (state) {
+          state.resetTab();
+        }
+      },
+    }
+  )
+);
 
 export const useNetworkStore = create<NetworkState>((set) => ({
   currentChainId: undefined,
@@ -63,4 +78,9 @@ export const useAssistantStore = create<AssistantState>((set) => ({
   setAudioLevel: (level) => set({ audioLevel: level }),
   addMessage: (message) =>
     set((state) => ({ messages: [...state.messages, message] })),
+}));
+
+export const useLocalStorageStore = create<LocalStorageStore>((set) => ({
+  links: [],
+  setLinks: (links: string[]) => set({ links }),
 }));

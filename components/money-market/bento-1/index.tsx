@@ -14,7 +14,7 @@ import { MoneyMarketCard } from "@/components/money-market/bento-1/card/index";
 import { TokenChip } from "@/components/token-chip";
 import { useUsdcChain } from "@/hooks/use-usdc-chain";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
-import { Token } from "@/lib/types";
+import { useAppTranslations } from "@/context/TranslationContext";
 
 function LendBorrowActionCard() {
   const { currentViewTab, setCurrentViewTab } = useMarketStore();
@@ -26,6 +26,7 @@ function LendBorrowActionCard() {
 
   const token = useUsdcChain();
   console.log(token, "token");
+  const translations = useAppTranslations('MoneyMarketBento1');
 
   return (
     <Tabs
@@ -34,13 +35,13 @@ function LendBorrowActionCard() {
       onValueChange={(value: string) =>
         handleTabChange(value as "lend" | "borrow" | "withdraw" | "repay")
       }
-      className="flex w-full flex-col mb-2 gap-2 uppercase z-100"
+      className="flex w-full flex-col mb-2 gap-2 uppercase z-10"
     >
       <div className="flex justify-start items-center w-full">
-        <TabsList className="gap-2 flex-grow justify-start">
+        <TabsList stackBehavior="stacked-2" className="gap-2 flex-grow justify-start">
           <TabsTriggerAlt value="lend">
             <Button size="sm" variant="paez" tabValue="lend" storeType="market">
-              Lend
+              {translations.tabLend}
             </Button>
           </TabsTriggerAlt>
           <TabsTriggerAlt value="borrow">
@@ -50,7 +51,7 @@ function LendBorrowActionCard() {
               tabValue="borrow"
               storeType="market"
             >
-              Borrow
+              {translations.tabBorrow}
             </Button>
           </TabsTriggerAlt>
           <TabsTriggerAlt value="withdraw">
@@ -60,7 +61,7 @@ function LendBorrowActionCard() {
               tabValue="withdraw"
               storeType="market"
             >
-              Withdraw
+              {translations.tabWithdraw}
             </Button>
           </TabsTriggerAlt>
           <TabsTriggerAlt value="repay">
@@ -70,7 +71,7 @@ function LendBorrowActionCard() {
               tabValue="repay"
               storeType="market"
             >
-              Repay
+              {translations.tabRepay}
             </Button>
           </TabsTriggerAlt>
         </TabsList>

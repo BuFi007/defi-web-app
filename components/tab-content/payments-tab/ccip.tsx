@@ -25,6 +25,7 @@ import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { base } from "viem/chains";
 import { destinationChains as chains } from "@/constants/CCIP";
 import * as Chains from "@/constants/Chains";
+import { useAppTranslations } from "@/context/TranslationContext";
 export default function CCIPBridge() {
   const { address } = useAccount();
   const chainId = useNetworkManager();
@@ -44,11 +45,12 @@ export default function CCIPBridge() {
   const signer = useEthersSigner();
 
   const actualChain = getCCIPChainByChainId({ chainId });
-
+  const translations = useAppTranslations('CCIPBridge');
+  
   if (!address) {
     return (
       <div className="flex justify-center items-center h-full">
-        <div className="font-nupower text-xl">Please connect your wallet</div>
+        <div className="font-nupower text-xl">{translations.connectWallet}</div>
       </div>
     );
   }
@@ -64,8 +66,8 @@ export default function CCIPBridge() {
   function handleToggle() {
     if (sourceChain !== destinationChain) {
       toast({
-        title: "Switching Network",
-        description: `Switching network to ${destinationChain}. Please check your wallet to allow network change.`,
+        title: translations.toastTitleNetwork,
+        description: translations.toastDescriptionNetwork + " " + destinationChain + " " + translations.toastDescriptionNetwork2,
       });
 
       switchNetwork({
@@ -84,8 +86,8 @@ export default function CCIPBridge() {
     const amount = parseUnits(toAmount, tokens?.decimals!);
     if (!destinationChainInfo?.ccipChainId) {
       toast({
-        title: "Invalid Destination Chain",
-        description: "Please select a valid destination chain",
+        title: translations.toastTitleError,
+        description: translations.toastDescriptionError,
         variant: "destructive",
         className: "bg-red-500 text-white",
       });
@@ -125,8 +127,8 @@ export default function CCIPBridge() {
 
       await tx.wait();
       toast({
-        title: "Transaction sent",
-        description: "Transaction sent successfully",
+        title: translations.toastSentTitle,
+        description: translations.toastSentDescription,
         variant: "default",
       });
     } catch (error) {
@@ -142,12 +144,13 @@ export default function CCIPBridge() {
   console.log(chainsArray, "chainsArray");
 
   return (
-    <div className="border p-2 rounded-xl ">
-      <div className="flex flex-col items-center gap-10 text-nowrap w-5/12 m-auto">
-        <h2 className="text-center text-xl font-nupower font-bold">
-          CCIP USDC Bridge 🔄
-        </h2>
-        <div className="flex flex-col items-center gap-10 text-nowrap ">
+    <div className="p-2 flex w-full flex-col justify-between rounded-2xl border bg-background">
+      <div className="flex flex-col text-nowrap w-full  m-auto px-4 pt-2">
+        <div className="flex items-center justify-between text-xs">
+            <span className="text-xl">🏎️🏁</span>
+            <span>{translations.linkTitle}</span>
+        </div>  
+        <div className="flex flex-col items-center text-nowrap gap-10 py-6">
           <ChainSelect
             value={chainId?.toString() ?? ""}
             onChange={(value) => {
@@ -192,7 +195,7 @@ export default function CCIPBridge() {
             chains={chainsArray.filter(
               (chain) => Number(chain.chainId) !== Number(chainId)
             )}
-            label="Bridge USDC to:"
+            label={translations.labelBridge}
           />
         </div>
         <SwapAmountInput
@@ -212,7 +215,7 @@ export default function CCIPBridge() {
         />
 
         <Button variant={"brutalism"} onClick={sendCCIPTransfer}>
-          Bridge
+          {translations.buttonText}
         </Button>
       </div>
     </div>

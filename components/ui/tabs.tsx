@@ -10,16 +10,25 @@ interface TabsTriggerRightProps
   position?: "left" | "right";
 }
 
+interface TabsListProps extends React.ComponentPropsWithoutRef<typeof TabsPrimitive.List> {
+  stackBehavior?: "default" | "stacked-2" | "stacked";
+}
+
+
 const Tabs = TabsPrimitive.Root;
 
 const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
->(({ className, ...props }, ref) => (
+  TabsListProps
+>(({ className, stackBehavior = "default", ...props }, ref) => (
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "inline-flex h-9 items-center justify-center rounded-lg p-1",
+      "inline-flex items-center justify-center rounded-lg p-1",
+      {
+        "flex-col sm:flex-row": stackBehavior === "stacked",
+        "flex-wrap sm:flex-nowrap": stackBehavior === "stacked-2",
+      },
       className
     )}
     {...props}

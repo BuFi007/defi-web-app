@@ -110,6 +110,7 @@ export interface AssetData {
 export interface TabState {
   activeTab: "moneyMarket" | "paymentLink" | "tokenSwap";
   setActiveTab: (tab: "moneyMarket" | "paymentLink" | "tokenSwap") => void;
+  resetTab: () => void;
 }
 
 export interface APYData {
@@ -248,8 +249,7 @@ export interface OverlayPayNameProps {
   shareOnTelegram: (localizedLink: string) => void;
 }
 
-export interface BaseNameDialogAlertProps {
-  translations: Translations["Home"];
+export interface AddressProps {
   address: string;
 }
 
@@ -283,6 +283,120 @@ export interface Translations {
     pillGifAlt: string;
     boofiMatrixAlt: string;
     matrixMemeAlt: string;
+    connectWalletAlert: string;
+    sendPaymentTab: string;
+    paymentLinksTab: string;
+    moneyMarketTab: string;
+    paymentsTab: string;
+    ccipUsdcBridgeTab: string;
+  };
+  EnsAlertDialog: {
+    actionButton: string;
+    callToAction: string;
+  };
+  PeanutTab: {
+    sendTab: string;
+    receiveTab: string;
+    historyTab: string;
+    linkTitle: string;
+    createLinkButton: string;
+    claimReady: string;
+    currentTextAlreadyClaimedTitle: string;
+    currentTextStartingClaim: string;
+    handleFetchLinkDetailsError: string;
+    currentTextAlreadyClaimed: string;
+    currentTextClaiming: string;
+    currentTextProgress: string;
+    currentTextClaimSuccess: string;
+    currentTextClaimError: string;
+    currentTextClaimComplete: string;
+    currentTextCrossChainProgress: string;
+    currentTextCrossChainSuccess: string;
+    currentTextCrossChainError: string;
+    currentTextCrossChainComplete: string;
+    claimTitle: string;
+    claimSuccessTitle: string;
+    claimDescription: string;
+    claimPaste: string;
+    claimVerify: string;
+    claimClaim: string;
+    claimSuccess: string;
+    claimDestinationChain: string;
+    claimViewInExplorer: string;
+  };
+  PaymentsTab: {};
+  CurrencyDisplayer: {
+    availableBalance: string;
+    loadingBalance: string;
+  };
+  Overlay: {
+    frameText: string;
+    linkSubtitle: string;
+    linkCopied: string;
+    linkDescription: string;
+    shareWhatsapp: string;
+    shareTelegram: string;
+    hashTxText: string;
+    viewInExplorer: string;
+    currentTextProgress: string;
+    currentTextSuccess: string;
+    currentTextFailed: string;
+    currentTextSpooky: string;
+    toastError: string;
+    toastCopyTitle: string;
+    toastCopyDescription: string;
+  };
+  CCIPBridge: {
+    connectWallet: string;
+    title: string;
+    toastTitleNetwork: string;
+    toastDescriptionNetwork: string;
+    toastDescriptionNetwork2: string;
+    toastTitleError: string;
+    toastDescriptionError: string;
+    toastSentTitle: string;
+    toastSentDescription: string;
+    sourceChain: string;
+    destinationChain: string;
+    buttonText: string;
+    linkTitle: string;
+    labelBridge: string;
+  };
+  MoneyMarketBento1: {
+    tabLend: string;
+    tabBorrow: string;
+    tabWithdraw: string;
+    tabRepay: string;
+    depositUSDC: string;
+    withdrawUSDC: string;
+    borrowUSDC: string;
+    repayUSDC: string;
+    toastSwitchTitle: string;
+    toastSwitchDescription: string;
+    toastSwitchDescription2: string;
+    labelFrom: string;
+    labelTo: string;
+  };
+  MoneyMarketBento3: {
+    title: string;
+    description: string;
+  };
+  HistoryTab: {
+    title: string;
+    description: string;
+    noData: string;
+    toastCopyTitle: string;
+    toastCopyDescription: string;
+    pagPrev: string;
+    pagNext: string;
+    pagPage: string;
+    pagOf: string;
+    tabLink: string;
+    tabDate: string;
+    tabHash: string;
+    tabChain: string;
+    tabAmount: string;
+    tabToken: string;
   };
 }
 
@@ -320,4 +434,9 @@ export interface TransferWrapperProps {
   functionName: ValidFunctionNames;
   buttonText: string;
   argsExtra?: any[];
+}
+
+export interface LocalStorageStore {
+  links: string[];
+  setLinks: (links: string[]) => void;
 }

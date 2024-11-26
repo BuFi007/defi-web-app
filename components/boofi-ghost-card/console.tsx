@@ -34,6 +34,7 @@ import { useTokenBalance } from "@/hooks/use-user-balance";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { Token } from "@/lib/types";
 import { useEthersSigner } from "@/lib/wagmi";
+import { useAppTranslations } from "@/context/TranslationContext";
 
 /**
  * Type for all event logs
@@ -49,6 +50,7 @@ const USDC_CONTRACT_ADDRESS = "0x036cbd53842c5426634e7929541ec2318f3dcf7e";
 const BLOCKSCOUT_URL = "https://base-sepolia.blockscout.com";
 
 export function BooFiConsole() {
+  const translations = useAppTranslations('MoneyMarketBento3');
   const { address } = useAccount();
   const { data: balance } = useBalance({ address });
   const { sendTransaction } = useSendTransaction();
@@ -752,9 +754,9 @@ export function BooFiConsole() {
                       height={100}
                     />
                   </SparklesText>
-                  <span className="absolute mt-28 sm:mt-20 z-100 opacity-0 group-hover:opacity-100 group-hover:-rotate-12 transition-all duration-300">
+                  <span className="absolute mt-28 sm:mt-20 z-40 opacity-0 group-hover:opacity-100 group-hover:-rotate-12 transition-all duration-300">
                     <span className="inline-block font-clash bg-gradient-to-r text-3xl from-indigo-300 via-purple-400 to-cyan-300 bg-clip-text text-transparent my-4 pt-2">
-                      Assistant
+                      {translations.title}
                     </span>
                   </span>
                 </div>
@@ -762,8 +764,7 @@ export function BooFiConsole() {
             </div>
             <Separator className="my-4" />
             <p className="text-gray-600 dark:text-gray-300 text-xs font-nupower mb-4">
-              Unlock AI-driven financial insights with BooFi premium. Get
-              personalized advice and strategies.
+              {translations.description}
             </p>
             <div className="flex items-center justify-center">
               {!LOCAL_RELAY_SERVER_URL && apiKey && (
