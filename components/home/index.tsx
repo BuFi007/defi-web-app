@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import React, { Suspense, useState, useEffect } from "react";
 import { useAccount } from "wagmi";
@@ -13,39 +13,46 @@ import {
 import { Button } from "../ui/button";
 import MoneyMarketBentoGrid from "../money-market";
 import { useTabStore } from "@/store";
-import { LottieWrapper } from "@/components/lottie-wrapper"
-import { PaymentLinkSkeleton, TokenSwapSkeleton, MoneyMarketBentoSkeleton } from "@/components/skeleton-card";
-import CCIPBridge from "@/components/tab-content/payments-tab/ccip";
+import { LottieWrapper } from "@/components/lottie-wrapper";
+import {
+  PaymentLinkSkeleton,
+  TokenSwapSkeleton,
+  MoneyMarketBentoSkeleton,
+} from "@/components/skeleton-card";
 import { useAppTranslations } from "@/context/TranslationContext";
 
 export const HomeContent: React.FC = () => {
-  const { isConnected } = useAccount()
-  const { activeTab, setActiveTab } = useTabStore()
-  const [isTransitioning, setIsTransitioning] = useState(false)
+  const { isConnected } = useAccount();
+  const { activeTab, setActiveTab } = useTabStore();
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const address = useAccount();
-  const translations = useAppTranslations('Home');
+  const translations = useAppTranslations("Home");
 
   useEffect(() => {
     if (isTransitioning) {
       const timer = setTimeout(() => {
-        setIsTransitioning(false)
-      }, 300)
-      return () => clearTimeout(timer)
+        setIsTransitioning(false);
+      }, 300);
+      return () => clearTimeout(timer);
     }
-  }, [isTransitioning])
+  }, [isTransitioning]);
 
   if (!isConnected) {
-    return <NotConnectedHome />
+    return <NotConnectedHome />;
   }
 
   const handleTabChange = (value: string) => {
-    setIsTransitioning(true)
-    setActiveTab(value as "paymentLink" | "moneyMarket" | "tokenSwap")
-  }
+    setIsTransitioning(true);
+    setActiveTab(value as "paymentLink" | "moneyMarket" | "tokenSwap");
+  };
 
   return (
     <>
-      <Tabs defaultValue="moneyMarket" className="w-full max-w-5xl" onValueChange={handleTabChange}>
+      <Tabs
+        defaultValue="moneyMarket"
+        className="w-full max-w-5xl"
+        onValueChange={handleTabChange}
+      >
         <div className="flex justify-center w-full">
           <TabsList className="flex justify-center gap-4 m-4">
             <TabsTriggerAlt value="moneyMarket">
@@ -70,17 +77,6 @@ export const HomeContent: React.FC = () => {
                 <span>{translations.paymentsTab} 💸</span>
               </Button>
             </TabsTriggerAlt>
-            <TabsTriggerAlt value="tokenSwap">
-              <Button
-                size="lg"
-                className="flex items-center gap-2 w-full"
-                variant="charly"
-                tabValue="tokenSwap"
-                storeType="tab"
-              >
-                <span>{translations.ccipUsdcBridgeTab} 🔄</span>
-              </Button>
-            </TabsTriggerAlt>
           </TabsList>
         </div>
 
@@ -88,31 +84,40 @@ export const HomeContent: React.FC = () => {
           <div className="relative flex flex-col items-center justify-center w-full h-full">
             <div
               className={`relative z-1 text-center bg-background dark:bg-background rounded-lg shadow-lg px-8 py-4 w-full border-2 border-black dark:border-white transition-all duration-300 ease-in-out ${
-                activeTab === 'paymentLink' ? 'max-w-xl' : activeTab === 'tokenSwap' ? 'max-w-xl' : 'max-w-5xl'
+                activeTab === "paymentLink"
+                  ? "max-w-xl"
+                  : activeTab === "tokenSwap"
+                  ? "max-w-xl"
+                  : "max-w-5xl"
               }`}
             >
               <LottieWrapper />
               {isTransitioning ? (
-                activeTab === 'paymentLink' || activeTab === 'tokenSwap' ? (
-                  activeTab === 'paymentLink' ? <PaymentLinkSkeleton /> : <TokenSwapSkeleton />
+                activeTab === "paymentLink" || activeTab === "tokenSwap" ? (
+                  activeTab === "paymentLink" ? (
+                    <PaymentLinkSkeleton />
+                  ) : (
+                    <TokenSwapSkeleton />
+                  )
                 ) : (
                   <MoneyMarketBentoSkeleton />
                 )
               ) : (
                 <>
-                  <TabsContent value="moneyMarket" className="transition-opacity duration-300 ease-in-out flex-grow">
-                      <Suspense fallback={<MoneyMarketBentoSkeleton />}>
-                        <MoneyMarketBentoGrid />
-                      </Suspense>
-                  </TabsContent>
-                  <TabsContent value="paymentLink" className="transition-opacity duration-300 ease-in-out">
-                    <Suspense fallback={<PaymentLinkSkeleton />}>
-                      <PaymentLinkTabContent address={address?.address ?? ""} />
+                  <TabsContent
+                    value="moneyMarket"
+                    className="transition-opacity duration-300 ease-in-out flex-grow"
+                  >
+                    <Suspense fallback={<MoneyMarketBentoSkeleton />}>
+                      <MoneyMarketBentoGrid />
                     </Suspense>
                   </TabsContent>
-                  <TabsContent value="tokenSwap" className="transition-opacity duration-300 ease-in-out">
-                    <Suspense fallback={<TokenSwapSkeleton />}>
-                    <CCIPBridge/>
+                  <TabsContent
+                    value="paymentLink"
+                    className="transition-opacity duration-300 ease-in-out"
+                  >
+                    <Suspense fallback={<PaymentLinkSkeleton />}>
+                      <PaymentLinkTabContent address={address?.address ?? ""} />
                     </Suspense>
                   </TabsContent>
                 </>
@@ -122,5 +127,5 @@ export const HomeContent: React.FC = () => {
         </div>
       </Tabs>
     </>
-  )
-}
+  );
+};

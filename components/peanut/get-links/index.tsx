@@ -59,10 +59,10 @@ export default function ClaimsDisplay() {
     copyToClipboard(text);
     triggerConfetti("💸👻💸");
 
-    toast({
-      title: `${translations.toastCopyTitle}`,
-      description: `${label} ${translations.toastCopyDescription}`,
-    });
+    // toast({
+    //   title: `${translations.title}`,
+    //   description: `${label} ${translations.description}`,
+    // });
   };
 
   useEffect(() => {
