@@ -16,11 +16,12 @@ import {
 } from "@dynamic-labs/sdk-react-core";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
-import { Token } from "@/lib/types";
+import { Chain, ChainList, Token } from "@/lib/types";
 import { getAllChains } from "@/utils";
 import { useEthersSigner } from "@/lib/wagmi";
-import useEnsName from "@/hooks/use-ens-name";
+import { useEnsName } from "wagmi";
 import { ethers } from "ethers";
+import { BuIdentity } from "@/components/Identity";
 
 export default function PayId() {
   const params = useParams();
@@ -44,14 +45,15 @@ export default function PayId() {
   async function getEnsAddress() {
     setLoading(true);
     try {
-      setReceiver(address as Hex);
+      setReceiver(id as Hex);
       const ensNameEthers = useEnsName({
         address: id as Hex,
-        chain: allChains[chainId!],
+        chainId: (useGetTokensOrChain(chainId!, "chain") as Chain)
+          ?.chainId as ChainList,
       });
-      setEnsName(ensNameEthers?.ensName!);
+      console.log(ensNameEthers, "ensNameEthers");
+      setEnsName(ensNameEthers?.data!);
       setReceiver(id as Hex);
-      setEnsNotFound(ensNameEthers?.ensNotFound!);
       console.log(ensName, "ensName");
       setLoading(false);
     } finally {
@@ -76,10 +78,8 @@ export default function PayId() {
       <div className="flex flex-col w-full max-w-l">
         {!ensNotFound ? (
           <>
-            {/* {receiver && (
-              <CoinBaseIdentity address={receiver as Hex} label="Recipient" />
-            )} */}
-            <div className="flex justify-center space-x-2">
+            <BuIdentity address={receiver as Hex} ensName={ensName} />
+            <div className="flex justify-center space-x-2 mt-4">
               <PresetAmountButtons onAmountSelect={handleAmountSelect} />
             </div>
 
