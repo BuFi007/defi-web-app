@@ -228,6 +228,8 @@ export interface CurrencyDisplayerProps {
   onTokenSelect: (token: Token) => void;
   currentNetwork: number;
   tokenAmount?: number;
+  size?: "sm" | "base" | "lg";
+  action?: 'pay' | 'request' | 'default';
 }
 
 export interface AbstractTransaction {
@@ -247,6 +249,7 @@ export interface OverlayPayNameProps {
   link: string;
   shareOnWhatsApp: (localizedLink: string) => void;
   shareOnTelegram: (localizedLink: string) => void;
+  shareOnDownload: (qrCodeElement: HTMLElement) => void;
 }
 
 export interface AddressProps {

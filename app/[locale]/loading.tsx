@@ -1,7 +1,5 @@
-import { ContainerSkeleton, MoneyMarketSkeleton } from "@/components/skeleton-card";
-import { useAccount } from "wagmi";
+import { ContainerSkeleton } from "@/components/skeleton-card";
 
 export default function Loading() {
-  const isConnected = useAccount();
-    return isConnected ? <ContainerSkeleton /> : <MoneyMarketSkeleton />
+    return <ContainerSkeleton />
   }

@@ -81,13 +81,12 @@ export const FramedQRCode = ({
       {frameText && (
         <div className="text-xs text-gray-500 mb-2">{frameText}</div>
       )}
-
-      {/* Conditionally render the Skeleton or the QR Code */}
       {isLoading ? (
         <Skeleton className="w-48 h-48 rounded-lg p-4 mb-2" />
       ) : (
+        <div className="group" >
         <div
-          className="cursor-pointer"
+          className="cursor-pointer flex items-center justify-center"
           onClick={copyLink}
           role="button"
           aria-label="Copy QR link"
@@ -109,6 +108,10 @@ export const FramedQRCode = ({
               posType="rect"
               posColor="#ffc640"
             />
+            <div className="absolute m-6 inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black bg-opacity-50 rounded-lg">
+              <span className="text-white text-sm font-aeonik">Click to copy link</span>
+            </div>
+          </div>
         </div>
       )}
     </div>

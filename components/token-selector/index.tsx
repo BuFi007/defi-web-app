@@ -14,7 +14,7 @@ import { useMarketStore } from "@/store";
 import * as Chains from "@/constants/Chains";
 import { CurrencyInfo, Token } from "@/lib/types";
 import { useNetworkStore } from "@/store";
-import {IS_MAINNET} from "@/constants/Env";
+import Image from 'next/image';
 
 
 function getChainInfoByChainId(chainId: number | string) {
@@ -70,7 +70,7 @@ const TokenSelector = () => {
         <SelectValue>
           {selectedAsset && (
             <div className="flex items-center">
-              <img
+              <Image
                 src={selectedAsset.image || ''}
                 alt={selectedAsset.symbol}
                 className="inline-block w-4 h-4 mr-2"

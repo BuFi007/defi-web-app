@@ -131,26 +131,13 @@ const TokenSwapSkeleton: React.FC = () => {
   );
 }
 
-
-const LayoutSkeleton = () => {
-  return (
-    <div className="relative w-full lg:max-w-7xl mx-auto border border-black rounded-lg overflow-hidden">
-      <MoneyMarketSkeleton />
-    </div>
-  )
-}
-
 const ContainerSkeleton = () => {
   return (
     <div className="relative bg-gradient-to-br from-indigo-100 via-violet-200 to-cyan-300 bg-no-repeat justify-center items-center mx-auto w-full lg:max-w-7xl border border-black rounded-lg overflow-hidden h-screen">
-      <div className="mb-4 p-4 bg-background border-2 border-mainAccent rounded-md animate-pulse">
-        <div className="animate-pulse space-y-4 w-full h-full min-h-[6rem]">
-          <Skeleton className="w-full h-[800px]" />
-        </div>
-      </div>
+          <Skeleton className="w-full h-[800px] animate-pulse" />
     </div>
   )
 }
 
 
-export { MoneyMarketSkeleton, PaymentLinkSkeleton, MoneyMarketBentoSkeleton, TokenSwapSkeleton, ContainerSkeleton, LayoutSkeleton };
+export { MoneyMarketSkeleton, PaymentLinkSkeleton, MoneyMarketBentoSkeleton, TokenSwapSkeleton, ContainerSkeleton };

@@ -49,7 +49,7 @@ const ShareableQRCard = ({
   currentNetwork
 }: ShareableQRCardProps) => {
   const qrCodeRef = useRef(null);
-  const { isSharing, shareOnWhatsApp, shareOnTelegram } = useQRCodeSharing();
+  const { isSharing, shareOnWhatsApp, shareOnTelegram, shareOnDownload } = useQRCodeSharing();
   const [showTelegramInstructions, setShowTelegramInstructions] = useState(false);
   const locale = useLocale();
   const supportedLocales = ["en", "es", "pt"];
@@ -119,32 +119,24 @@ const ShareableQRCard = ({
       const shareOptions = { link: paymentLink, message: shareMessage };
       if (platform === 'whatsapp') {
         shareOnWhatsApp(qrCodeRef.current, shareOptions);
-      } else {
+      } else if (platform === 'telegram') {
         shareOnTelegram(qrCodeRef.current, shareOptions);
         setShowTelegramInstructions(true);
+      } else if (platform === 'download') {
+        shareOnDownload(qrCodeRef.current);
       }
     }
   };
 
-
-  console.log("selectedToken", selectedToken); 
-  console.log("availableTokens", availableTokens);
-
   return (
     <div className="fixed inset-0 z-40 bg-black/70 flex items-center justify-center p-4">
-      <Card className="relative bg-white dark:bg-secondaryBlack p-6 rounded-lg shadow-lg max-w-7xl w-full">
+      <Card className="relative bg-white dark:bg-secondaryBlack p-6 rounded-lg shadow-lg max-w-3xl">
         <button
           onClick={handleToggleOverlay}
           className="absolute right-4 top-4 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
         >
           <X className="h-6 w-6" />
         </button>
-
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold mb-4 text-center">
-            {title}
-          </CardTitle>
-        </CardHeader>
 
         <CardContent className="flex flex-col items-center space-y-4">
           {action === 'pay' && (
@@ -155,6 +147,8 @@ const ShareableQRCard = ({
               availableTokens={availableTokens}
               onTokenSelect={handleTokenSelect}
               currentNetwork={currentNetwork}
+              size="base"
+              action={action}
             />
           )}
           
@@ -162,6 +156,7 @@ const ShareableQRCard = ({
             <EnhancedQRCode
               link={paymentLink}
               image={image}
+              title={title}
               frameText={frameText}
               action={action}
               copyLink={onCopy}
@@ -172,23 +167,26 @@ const ShareableQRCard = ({
             />
           </div>
 
-          <div className="flex items-center justify-center w-full mb-4">
+          <div className="flex items-center justify-center w-full max-w-sm mb-4">
             <input
               type="text"
               value={getDisplayLink(paymentLink)}
               readOnly
-              className="flex-grow border text-center justify-center border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800"
+              className="flex-grow border max-w-sm text-center justify-center border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800"
               aria-label="Payment Link"
               onClick={onCopy}
             />
             <Button
               onClick={onCopy}
               variant="outline"
-              className="border border-gray-300 dark:border-gray-600"
+              className="border border-gray-300 dark:border-gray-600 ml-2"
               aria-label="Copy Link"
             >
               <CopyIcon className="h-4 w-4" />
             </Button>
+          </div>
+          <div className="text-center text-xs text-gray-500">
+            <p className="hover:underline hover:text-primary"> Share this QR code to {action === 'pay' ? `request a ${amount} ${selectedToken?.symbol} payment to` : 'send payment as a link from'} your account </p>
           </div>
 
           <TooltipProvider>
@@ -216,6 +214,19 @@ const ShareableQRCard = ({
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Share on Telegram</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ShareButton
+                    onClick={() => handleShare('download')}
+                    platform="download"
+                    isSharing={isSharing}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Download QR Code</p>
                 </TooltipContent>
               </Tooltip>
             </div>

@@ -23,7 +23,7 @@ export function useQRCodeSharing() {
       // Provide download link for the QR code image
       const a = document.createElement('a');
       a.href = imageDataUrl;
-      a.download = 'qr-code.png';
+      a.download = 'bu-pay-qr-code.png';
       a.click();
     } catch (error) {
       console.error('Error sharing on WhatsApp:', error);
@@ -42,7 +42,7 @@ export function useQRCodeSharing() {
       // Provide download link for the QR code image
       const a = document.createElement('a');
       a.href = imageDataUrl;
-      a.download = 'qr-code.png';
+      a.download = 'bu-pay-qr-code.png';
       a.click();
     } catch (error) {
       console.error('Error sharing on Telegram:', error);
@@ -51,6 +51,23 @@ export function useQRCodeSharing() {
     }
   }, []);
 
-  return { isSharing, shareOnWhatsApp, shareOnTelegram };
+  const shareOnDownload = useCallback(async (qrCodeElement: HTMLElement) => {
+    setIsSharing(true);
+    try {
+      const imageDataUrl = await generateQRImage(qrCodeElement);
+      
+      // Provide download link for the QR code image
+      const a = document.createElement('a');
+      a.href = imageDataUrl;
+      a.download = 'bu-pay-qr-code.png';
+      a.click();
+    } catch (error) {
+      console.error('Error sharing on Telegram:', error);
+    } finally {
+      setIsSharing(false);
+    }
+  }, []);
+
+  return { isSharing, shareOnWhatsApp, shareOnTelegram, shareOnDownload };
 }
 

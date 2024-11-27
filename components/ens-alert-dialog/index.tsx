@@ -56,7 +56,7 @@ export const BaseNameDialogAlert = ({
   return (
     <div className="relative text-xs font-nupower font-bold transition-all justify-center">
       {!ensName ? (
-        <Skeleton className="h-4 w-full mt-2" />
+        <Skeleton className="h-4 w-full m-4" />
       ) : (
         <div>
           {!ensNotFound && ensName ? (
@@ -86,7 +86,7 @@ export const BaseNameDialogAlert = ({
                 </div>
               </div>
               {overlayVisible && (
-                <ShareableQRCard
+              <ShareableQRCard
                 link={link}
                 title="BooFi Payment Link"
                 image="/images/BooFi-icon.png"

@@ -8,11 +8,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+
 interface ShareButtonProps {
   onClick: () => void;
-  platform: 'whatsapp' | 'telegram';
+  platform: 'whatsapp' | 'telegram' | 'download';
   isSharing?: boolean;
 }
+
 export function ShareButton({ onClick, platform, isSharing }: ShareButtonProps) {
   const platformConfig = {
     whatsapp: {
@@ -28,6 +30,13 @@ export function ShareButton({ onClick, platform, isSharing }: ShareButtonProps) 
       icon: '/icons/telegram.png',
       text: 'Telegram',
       tooltip: 'Share on Telegram',
+    },
+    download: {
+      color: 'text-gray-600',
+      hoverColor: 'hover:bg-gray-100',
+      icon: '/icons/download.svg',
+      text: 'Download',
+      tooltip: 'Download QR Code',
     },
   };
 
