@@ -74,7 +74,7 @@ export const OverlayPayName = ({
   const displayLink = getDisplayLink(fullLocalizedLink);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-40 bg-black/70 flex items-center justify-center p-4">
       <div className="relative bg-white dark:bg-secondaryBlack p-6 rounded-r-lg shadow-lg max-w-md w-full">
         {/* Close Button */}
         <button

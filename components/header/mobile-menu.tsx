@@ -1,95 +1,86 @@
 "use client";
 
-import React, { Suspense, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import MobileMenu from "./mobile-menu";
-// import LocalSwitcher from "@/components/locale-switcher";
+import { motion, AnimatePresence } from "framer-motion";
 import { ModeToggle } from "@/components/theme-toggle";
-import { useWindowSize } from "@/hooks/use-window-size";
-import SparklesText from "@/components/magicui/sparkles-text";
-import { motion } from "framer-motion";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useAccount } from "wagmi";
+import LocalSwitcher from "@/components/locale-switcher";
+import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
+import dynamic from "next/dynamic";
 
-// import { BlackCreateWalletButton } from "../base-onboard/black-create-wallet-button";
-import { baseSepolia } from "viem/chains";
+const AnimatedBackground = dynamic(() => import("@/components/lottie-wrapper"), { ssr: false });
 
-const Header: React.FC = () => {
-  const { width } = useWindowSize();
-  const MotionLink = motion(Link);
+const MobileMenu: React.FC = () => {
+  const [isOpen, setIsOpen] = useState(false);
 
-  const { address, isConnected } = useAccount();
+  const toggleMenu = () => setIsOpen(!isOpen);
 
   return (
-    <header className="bg-transparent relative pb-6">
-      <div className="container mx-auto grid grid-cols-3 items-center">
-        {/* Left Section */}
-        <div className="flex items-center space-x-2">
-          <Suspense fallback={<Skeleton className="h-4 w-[250px]" />}>
-            <ModeToggle />
-            {/* <LocalSwitcher /> */}
-          </Suspense>
-          <span className="h-px flex-1 bg-black"></span>
-        </div>
-
-        {/* Center Logo Section */}
-        <div className="flex justify-center group">
-          <MotionLink
-            href="/"
-            whileHover={{ scale: 1.15, rotate: 4 }}
-            whileTap={{ scale: 1.05, rotate: 2 }}
-          >
-            <div className="flex items-center">
-              <SparklesText>
-                <Image src="/appicon.png" alt="Logo" width={100} height={100} />
-              </SparklesText>{" "}
-              <span className="absolute mt-28 sm:mt-20 z-100 opacity-0 group-hover:opacity-100 group-hover:-rotate-12  transition-all duration-300">
-                <span className="inline-block font-clash bg-gradient-to-r text-3xl from-indigo-300 via-purple-400 to-cyan-300 bg-clip-text text-transparent">
-                  BooFi
-                </span>{" "}
-              </span>
-            </div>
-          </MotionLink>
-        </div>
-
-        {/* Right Section (Wallet Info or Mobile Menu) */}
-        <div className="flex items-center justify-end">
-          <span className="h-px flex-grow bg-black"></span>
-
-          <Suspense fallback={<Skeleton className="h-4 w-[250px]" />}>
-            {width && width >= 1024 ? (
-              // Show identity info if wallet is connected
-              isConnected && address ? (
-                // <Identity
-                //   address={address as `0x${string}`}
-                //   chain={baseSepolia}
-                // >
-                //   <div className="flex items-center space-x-4 bg-gray-800 p-4 rounded-lg">
-                //     <Avatar />
-                //     <div>
-                //       <Name className="text-lg font-semibold">
-                //         <Badge />
-                //       </Name>
-                //       <Address />
-                //     </div>
-                //   </div>
-                // </Identity>
-                <></>
-              ) : (
-                // If no wallet is connected, show MobileMenu or a connect button
-                // <BlackCreateWalletButton />
-                <></>
-              )
-            ) : (
-              // Fallback to MobileMenu on smaller screens
-              <MobileMenu />
-            )}
-          </Suspense>
-        </div>
+    <div className="container mx-auto px-4">
+      <div className="flex justify-between items-center py-4">
+        <Link href="/">
+          <Image
+            src="/images/BooFi-icon.png"
+            alt="Logo"
+            width={50}
+            height={50}
+          />
+        </Link>
+        <button
+          onClick={toggleMenu}
+          className="z-100 relative w-10 h-10 text-gray-500 hover:text-gray-700 focus:outline-none"
+        >
+          <span className="sr-only">Open main menu</span>
+          <div className="absolute left-1/2 top-1/2 block w-5 transform -translate-x-1/2 -translate-y-1/2">
+            <span
+              aria-hidden="true"
+              className={`block absolute h-0.5 w-5 bg-current transform transition duration-500 ease-in-out ${
+                isOpen ? "rotate-45" : "-translate-y-1.5"
+              }`}
+            ></span>
+            <span
+              aria-hidden="true"
+              className={`block absolute h-0.5 w-5 bg-current transform transition duration-500 ease-in-out ${
+                isOpen ? "opacity-0" : ""
+              }`}
+            ></span>
+            <span
+              aria-hidden="true"
+              className={`block absolute h-0.5 w-5 bg-current transform transition duration-500 ease-in-out ${
+                isOpen ? "-rotate-45" : "translate-y-1.5"
+              }`}
+            ></span>
+          </div>
+        </button>
       </div>
-    </header>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 z-40 bg-background"
+          >
+            <AnimatedBackground />
+            <div className="flex flex-col items-center justify-center h-full space-y-8">
+              <Link href="/" className="text-2xl font-bold" onClick={toggleMenu}>
+                Home
+              </Link>
+              <div className="flex items-center space-x-4">
+                <ModeToggle />
+                <LocalSwitcher />
+              </div>
+              <DynamicWidget />
+              </div>
+          </motion.div>
+
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 
-export default Header;
+export default MobileMenu;
+

@@ -60,7 +60,7 @@ export const LottieWrapper: React.FC = () => {
     <>
       {/* Top-Left Lottie Animation */}
       <div
-        className="absolute top-0 left-0 w-12 h-12 sm:w-20 sm:h-20 mt-8 -ml-6 sm:-ml-10 z-50 cursor-pointer"
+        className="absolute top-0 left-0 w-12 h-12 sm:w-20 sm:h-20 mt-8 -ml-6 sm:-ml-10 z-10 cursor-pointer"
         role="button"
         aria-label="Change animation by clicking"
         tabIndex={0}
@@ -82,7 +82,7 @@ export const LottieWrapper: React.FC = () => {
 
       {/* Bottom-Right Lottie Animation */}
       <div
-        className="absolute bottom-60 right-0 w-12 h-12 sm:w-20 sm:h-20 -mr-6 sm:-mr-10 z-50 cursor-pointer"
+        className="absolute bottom-60 right-0 w-12 h-12 sm:w-20 sm:h-20 -mr-6 sm:-mr-10 z-10 cursor-pointer"
         role="button"
         aria-label="Change animation by clicking"
         tabIndex={0}

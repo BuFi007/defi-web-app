@@ -754,7 +754,7 @@ export function BooFiConsole() {
                       height={100}
                     />
                   </SparklesText>
-                  <span className="absolute mt-28 sm:mt-20 z-100 opacity-0 group-hover:opacity-100 group-hover:-rotate-12 transition-all duration-300">
+                  <span className="absolute mt-28 sm:mt-20 z-40 opacity-0 group-hover:opacity-100 group-hover:-rotate-12 transition-all duration-300">
                     <span className="inline-block font-clash bg-gradient-to-r text-3xl from-indigo-300 via-purple-400 to-cyan-300 bg-clip-text text-transparent my-4 pt-2">
                       {translations.title}
                     </span>

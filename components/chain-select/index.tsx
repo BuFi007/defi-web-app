@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/select";
 import { ChainSelectProps, Token } from "@/lib/types";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
+
 export const ChainSelect: React.FC<ChainSelectProps> = ({
   value,
   onChange,
@@ -34,11 +35,9 @@ export const ChainSelect: React.FC<ChainSelectProps> = ({
   };
 
   return (
-    <div className="flex-1 flex items-center space-x-2 m-auto gap-4 justify-around">
-      {!value && (
-        <span className="text-xs text-gray-500 uppercase ">{label}</span>
-      )}
-      <div className=" min-w-[230px] w-[230px] max-w-[230px] m-auto ">
+    <div className="flex-1 flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2 m-auto gap-4 justify-around">
+      <span className="text-xs text-gray-500 uppercase sm:hidden">{label}</span>
+      <div className="min-w-[230px] w-full sm:w-[230px] max-w-[230px] m-auto">
         <Select value={value || ""} onValueChange={onChange}>
           <SelectTrigger className="w-full m-auto flex items-center bg-white">
             <SelectValue placeholder={label} className="m-auto">
@@ -50,7 +49,7 @@ export const ChainSelect: React.FC<ChainSelectProps> = ({
               <SelectItem
                 key={chain.chainId}
                 value={chain.chainId.toString()}
-                className="m-auto bg-white "
+                className="m-auto bg-white"
               >
                 {renderChainOption(chain.chainId.toString())}
               </SelectItem>
@@ -61,3 +60,4 @@ export const ChainSelect: React.FC<ChainSelectProps> = ({
     </div>
   );
 };
+

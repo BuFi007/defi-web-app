@@ -91,7 +91,9 @@
     "toastSentDescription": "Transaction sent successfully",
     "sourceChain": "Source Chain",
     "destinationChain": "Destination Chain",
-    "buttonText": "Bridge"
+    "buttonText": "Bridge",
+    "linkTitle": "You are transferring",
+    "labelBridge": "Bridge USDC to:"
   },
   "MoneyMarketBento1": {
     "tabLend": "Lend",

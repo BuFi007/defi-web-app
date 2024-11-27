@@ -23,10 +23,14 @@ import { useAppTranslations } from "@/context/TranslationContext";
 
 export const HomeContent: React.FC = () => {
   const { isConnected } = useAccount();
-  const { activeTab, setActiveTab } = useTabStore();
+  const { activeTab, setActiveTab, resetTab } = useTabStore();
   const [isTransitioning, setIsTransitioning] = useState(false);
   const address = useAccount();
   const translations = useAppTranslations("Home");
+
+  useEffect(() => {
+    resetTab();
+  }, [resetTab, translations]);
 
   useEffect(() => {
     if (isTransitioning) {
@@ -49,12 +53,16 @@ export const HomeContent: React.FC = () => {
   return (
     <>
       <Tabs
+        value={activeTab}
         defaultValue="moneyMarket"
         className="w-full max-w-5xl"
         onValueChange={handleTabChange}
       >
         <div className="flex justify-center w-full">
-          <TabsList className="flex justify-center gap-4 m-4">
+          <TabsList
+            stackBehavior="stacked-2"
+            className="flex justify-center gap-4 m-4"
+          >
             <TabsTriggerAlt value="moneyMarket">
               <Button
                 size="lg"
