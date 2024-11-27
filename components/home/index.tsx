@@ -15,7 +15,6 @@ import MoneyMarketBentoGrid from "../money-market";
 import { useTabStore } from "@/store";
 import { LottieWrapper } from "@/components/lottie-wrapper"
 import { PaymentLinkSkeleton, TokenSwapSkeleton, MoneyMarketBentoSkeleton } from "@/components/skeleton-card";
-import CCIPBridge from "@/components/tab-content/payments-tab/ccip";
 import { useAppTranslations } from "@/context/TranslationContext";
 
 export const HomeContent: React.FC = () => {
