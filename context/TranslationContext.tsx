@@ -154,6 +154,9 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
       tabAmount: t("HistoryTab.tabAmount"),
       tabToken: t("HistoryTab.tabToken"),
     },
+    DiscordBanner: {
+      cta: t("DiscordBanner.cta"),
+    },
   };
 
   return (

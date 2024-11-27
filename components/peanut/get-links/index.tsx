@@ -32,7 +32,6 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import { usePeanut } from "@/hooks/use-peanut";
 import { useAppTranslations } from "@/context/TranslationContext";
-import confetti from "canvas-confetti";
 import { triggerConfetti } from "@/utils";
 
 export interface ClaimData {

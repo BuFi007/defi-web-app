@@ -13,7 +13,7 @@ import { useEthersSigner } from "@/lib/wagmi";
 import { NATIVE_TOKEN_ADDRESS } from "@/constants/Tokens";
 import { Token } from "@/lib/types";
 import { PEANUTAPIKEY } from "@/constants/Env";
-import { saveCreatedLinkToLocalStorage } from "@/utils";
+import { playAudio, saveCreatedLinkToLocalStorage } from "@/utils";
 
 export const usePeanut = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -324,6 +324,7 @@ export const usePeanut = () => {
           title: "Link copied",
           description: "The link has been copied to your clipboard.",
         });
+        playAudio("/audio/click-coin.mp3");
       })
       .catch((err) => {
         console.error("Failed to copy:", err);

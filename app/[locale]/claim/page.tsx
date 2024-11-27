@@ -53,7 +53,6 @@ export default function Claim() {
           console.log("running");
         }}
       />
-      <ClaimsDisplay />
     </main>
   );
 }

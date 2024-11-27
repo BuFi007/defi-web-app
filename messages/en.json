@@ -130,5 +130,8 @@
     "tabChain": "Chain",
     "tabAmount": "Amount",
     "tabToken": "Token"
+  },
+  "DiscordBanner": {
+    "cta": "Join our thriving community on Discord. Connect, learn, and grow with us!"
   }
 }

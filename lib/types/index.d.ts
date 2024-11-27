@@ -398,6 +398,9 @@ export interface Translations {
     tabAmount: string;
     tabToken: string;
   };
+  DiscordBanner: {
+    cta: string;
+  };
 }
 
 export type ChainList =

@@ -4,7 +4,7 @@ import { QRImage } from "react-qrbtf";
 import { useEffect, useState } from "react";
 import { FramedQRCodeProps } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
-
+import { defaultQRSize } from "@/lib/utils";
 /**
  * FramedQRCode Component
  *
@@ -71,7 +71,7 @@ export const FramedQRCode = ({
   if (!link || qrError) {
     return (
       <div className="w-32 h-32 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-900" />
       </div>
     );
   }
@@ -84,10 +84,10 @@ export const FramedQRCode = ({
 
       {/* Conditionally render the Skeleton or the QR Code */}
       {isLoading ? (
-        <Skeleton className="w-32 h-32 rounded-lg p-4 mb-2" />
+        <Skeleton className="w-48 h-48 rounded-lg p-4 mb-2" />
       ) : (
         <div
-          className="qr-wrapper cursor-pointer"
+          className="cursor-pointer"
           onClick={copyLink}
           role="button"
           aria-label="Copy QR link"
@@ -98,11 +98,10 @@ export const FramedQRCode = ({
             }
           }}
         >
-          <div className="qr-rotated">
             <QRImage
               value={link}
-              size={150}
-              image={logoBase64}
+              size={defaultQRSize}
+              image={logoBase64 || undefined}
               level="M"
               type="rect"
               darkColor="#000000"
@@ -110,7 +109,6 @@ export const FramedQRCode = ({
               posType="rect"
               posColor="#ffc640"
             />
-          </div>
         </div>
       )}
     </div>

@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
+import { playAudio } from "@/utils";
 
 type CopiedValue = string | null;
 
@@ -24,6 +25,7 @@ export function useCopyToClipboard(): [CopiedValue, CopyFn] {
       try {
         await navigator.clipboard.writeText(text);
         setCopiedText(text);
+        playAudio("/audio/click-coin.mp3");
         toast({
           title: "Copied to Clipboard",
           description: "The text has been successfully copied.",

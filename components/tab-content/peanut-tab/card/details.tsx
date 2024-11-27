@@ -2,7 +2,7 @@ import React from "react";
 import { ToastAction } from "@/components/ui/toast";
 import Link from "next/link";
 import { ChevronRightIcon } from "lucide-react";
-import { getBlockExplorerUrlByChainId } from "@/utils";
+import { getBlockExplorerUrlByChainId, playAudio } from "@/utils";
 import { motion } from "framer-motion";
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,7 @@ const PaymentDetails: React.FC<PaymentInfoProps> = ({ paymentInfo }) => {
 
   const copyToClipboard = (link: string) => {
     navigator.clipboard.writeText(link);
+    playAudio("/audio/click-coin.mp3");
   };
 
   const originChainInfo = getChainInfoByChainId(paymentInfo.chainId);

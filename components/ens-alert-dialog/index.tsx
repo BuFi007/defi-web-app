@@ -2,13 +2,15 @@ import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCopyToClipboard } from "@/hooks/use-clipboard";
 import { Button } from "@/components/ui/button";
-
+import { truncateAddress } from "@/utils";
 import { useEnsName } from "@/hooks/use-ens-name";
 import { base } from "viem/chains";
-import { OverlayPayName } from "@/components/overlay/claim";
-import { AddressProps } from "@/lib/types";
+import { AddressProps, Token } from "@/lib/types";
 import { useLocale } from "next-intl";
 import { useAppTranslations } from "@/context/TranslationContext";
+import ShareableQRCard from "@/components/qr-gen/share-qr-card";
+import { useNetworkManager } from "@/hooks/use-dynamic-network";
+import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 
 export const BaseNameDialogAlert = ({
   address,
@@ -16,12 +18,14 @@ export const BaseNameDialogAlert = ({
   const translations = useAppTranslations('EnsAlertDialog');
   const [copiedText, copy] = useCopyToClipboard();
   const [overlayVisible, setOverlayVisible] = useState(false);
+  const chainId = useNetworkManager();
   const { ensName, ensNotFound } = useEnsName({
     address,
     chain: base,
   });
   const locale = useLocale();
   console.log({ ensName });
+  const availableTokens = useGetTokensOrChain(chainId!, "tokens");
 
   const getBaseUrl = () => {
     if (typeof window !== "undefined") {
@@ -36,26 +40,6 @@ export const BaseNameDialogAlert = ({
     if (ensName) {
       copy(link);
     }
-  };
-
-  /**
-   * Shares the payment link on WhatsApp.
-   */
-  const shareOnWhatsApp = () => {
-    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(
-      link
-    )}`;
-    window.open(whatsappUrl, "_blank");
-  };
-
-  /**
-   * Shares the payment link on Telegram.
-   */
-  const shareOnTelegram = () => {
-    const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(
-      link
-    )}&text=${encodeURIComponent("Check out my BooFi payment link!")}`;
-    window.open(telegramUrl, "_blank");
   };
 
   const handleToggleOverlay = () => {
@@ -80,7 +64,13 @@ export const BaseNameDialogAlert = ({
               <div className="items-center gap-1 inline-block justify-center w-full">
                 <div className="flex flex-col items-center justify-center m-auto w-8/12">
                   <h1 className="text-center">
-                    <span className="font-clash"> Hi {ensName}! </span>
+                    {ensName === address ? (
+                      <span className="font-clash">
+                        Hi {truncateAddress(ensName)}!
+                      </span>
+                    ) : (
+                      <span className="font-clash"> Hi {ensName}! </span>
+                    )}
                   </h1>
                   <Button
                     variant="link"
@@ -95,15 +85,21 @@ export const BaseNameDialogAlert = ({
                   </Button>
                 </div>
               </div>
-
               {overlayVisible && (
-                <OverlayPayName
-                  handleToggleOverlay={handleToggleOverlay}
-                  copyLink={copyLink}
-                  link={link}
-                  shareOnWhatsApp={shareOnWhatsApp}
-                  shareOnTelegram={shareOnTelegram}
-                />
+                <ShareableQRCard
+                link={link}
+                title="BooFi Payment Link"
+                image="/images/BooFi-icon.png"
+                shareMessage="Check out my BooFi payment link!"
+                onCopy={copyLink}
+                handleToggleOverlay={handleToggleOverlay}
+                action="pay"
+                amount="0.00"
+                ensName={ensName}
+                userAddress={address}
+                availableTokens={availableTokens as Token[]}
+                currentNetwork={chainId! || ""}
+              />
               )}
             </>
           ) : (

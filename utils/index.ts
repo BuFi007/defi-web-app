@@ -1,12 +1,10 @@
 import { IGetLinkDetailsResponse } from "./../lib/types/index.d";
 import { type ClassValue, clsx } from "clsx";
-import { useCallback } from "react";
 import { twMerge } from "tailwind-merge";
 import { Chain, ExtendedPaymentInfo, Translations } from "@/lib/types";
 import * as Chains from "@/constants/Chains";
-import { getLinkDetails, interfaces } from "@squirrel-labs/peanut-sdk";
+import { getLinkDetails } from "@squirrel-labs/peanut-sdk";
 import { toast } from "@/components/ui/use-toast";
-import { useAppTranslations } from "@/context/TranslationContext";
 import confetti from "canvas-confetti";
 
 export function cn(...inputs: ClassValue[]) {
@@ -485,3 +483,11 @@ export const triggerConfetti = (emoji: string) => {
   setTimeout(shoot, 100);
   setTimeout(shoot, 200);
 };
+
+
+export function playAudio(audioFilePath: string): void {
+  const audio = new Audio(audioFilePath);
+  audio.play().catch((err) => console.warn("Audio playback failed:", err));
+}
+
+

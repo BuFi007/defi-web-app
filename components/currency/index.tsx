@@ -21,7 +21,6 @@ import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { useTokenBalance } from "@/hooks/use-user-balance";
 import { NATIVE_TOKEN_ADDRESS } from "@/constants/Tokens";
 import { toast } from "../ui/use-toast";
-import {IS_MAINNET} from "@/constants/Env"
 
 const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   tokenAmount,
