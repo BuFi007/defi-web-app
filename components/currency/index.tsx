@@ -20,8 +20,12 @@ import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { useTokenBalance } from "@/hooks/use-user-balance";
 import { NATIVE_TOKEN_ADDRESS } from "@/constants/Tokens";
 import { toast } from "../ui/use-toast";
+<<<<<<< HEAD
 import { sizeStyles } from "@/lib/utils";
 
+=======
+import { IS_MAINNET } from "@/constants/Env";
+>>>>>>> bea03aca2f20237a483ab789f797bb732a7faa8d
 
 const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   tokenAmount,
@@ -35,8 +39,11 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
 }) => {
   const { width } = useWindowSize();
   let chainId = useChainId();
-  const tokens = useGetTokensOrChain(currentNetwork, "tokens") || availableTokens;
-  const ETH = Array.isArray(tokens) ? tokens.find((token: Token) => token?.symbol === "ETH") : undefined;
+  const tokens =
+    useGetTokensOrChain(currentNetwork, "tokens") || availableTokens;
+  const ETH = Array.isArray(tokens)
+    ? tokens.find((token: Token) => token?.symbol === "ETH")
+    : undefined;
   const supportedChains = Object.values(chains);
   const { address } = useAccount();
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
@@ -111,7 +118,51 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
     if (!token.address) {
       return token.symbol;
     }
+<<<<<<< HEAD
     return token.address;
+=======
+  };
+
+  const getAvailableBalance = () => {
+    const token = selectedToken;
+    if (balance && token) {
+      return parseFloat(
+        formatUnits(balance.data?.value!, balance.data?.decimals!)
+      );
+    } else {
+      return 0;
+    }
+  };
+
+  const handleMaxClick = () => {
+    const maxBalance = getAvailableBalance().toFixed(6);
+    setInputValue(maxBalance);
+    updateValues(maxBalance);
+  };
+
+  const renderAvailableBalance = () => {
+    if (balance.isLoading) {
+      return <p className="text-xs">Loading balance...</p>;
+    }
+    const decimals = selectedToken?.decimals || 18;
+    let displayBalance;
+    if (decimals > 6) {
+      displayBalance = getAvailableBalance().toFixed(4);
+    } else {
+      displayBalance = getAvailableBalance().toFixed(2);
+    }
+
+    return (
+      <>
+        <Button variant={"link"} className="text-xs" onClick={handleMaxClick}>
+          Available balance (Max):
+        </Button>
+        <Button variant={"link"} className="text-xs" onClick={handleMaxClick}>
+          {displayBalance} {selectedToken?.symbol}
+        </Button>
+      </>
+    );
+>>>>>>> bea03aca2f20237a483ab789f797bb732a7faa8d
   };
 
   if (!selectedToken) {

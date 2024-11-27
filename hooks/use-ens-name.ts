@@ -21,7 +21,7 @@ export function useEnsName({
   let ensName: string | null = null;
   const result = useEnsNameWagmi({
     address: address as `0x${string}`,
-    chainId: chain.id,
+    chainId: chain?.id,
   });
 
   const ensNotFound = !result.isLoading && result.data === null;

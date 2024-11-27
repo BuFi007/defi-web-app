@@ -484,6 +484,7 @@ export const triggerConfetti = (emoji: string) => {
   setTimeout(shoot, 200);
 };
 
+<<<<<<< HEAD
 
 export function playAudio(audioFilePath: string): void {
   const audio = new Audio(audioFilePath);
@@ -491,3 +492,8 @@ export function playAudio(audioFilePath: string): void {
 }
 
 
+=======
+export const getAllChains = () => {
+  return Object.values(Chains);
+};
+>>>>>>> bea03aca2f20237a483ab789f797bb732a7faa8d
