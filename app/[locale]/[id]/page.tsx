@@ -45,7 +45,7 @@ export default function PayId() {
     setLoading(true);
     try {
       setReceiver(address as Hex);
-      const ensNameEthers = await useEnsName({
+      const ensNameEthers = useEnsName({
         address: id as Hex,
         chain: allChains[chainId!],
       });
