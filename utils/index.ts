@@ -485,3 +485,7 @@ export const triggerConfetti = (emoji: string) => {
   setTimeout(shoot, 100);
   setTimeout(shoot, 200);
 };
+
+export const getAllChains = () => {
+  return Object.values(Chains);
+};

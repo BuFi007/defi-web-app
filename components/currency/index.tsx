@@ -21,7 +21,7 @@ import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { useTokenBalance } from "@/hooks/use-user-balance";
 import { NATIVE_TOKEN_ADDRESS } from "@/constants/Tokens";
 import { toast } from "../ui/use-toast";
-import {IS_MAINNET} from "@/constants/Env"
+import { IS_MAINNET } from "@/constants/Env";
 
 const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   tokenAmount,
@@ -33,8 +33,11 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
 }) => {
   const { width } = useWindowSize();
   let chainId = useChainId();
-  const tokens = useGetTokensOrChain(currentNetwork, "tokens") || availableTokens;
-  const ETH = Array.isArray(tokens) ? tokens.find((token: Token) => token?.symbol === "ETH") : undefined;
+  const tokens =
+    useGetTokensOrChain(currentNetwork, "tokens") || availableTokens;
+  const ETH = Array.isArray(tokens)
+    ? tokens.find((token: Token) => token?.symbol === "ETH")
+    : undefined;
   const supportedChains = Object.values(chains);
   const { address } = useAccount();
   const [usdAmount, setUsdAmount] = useState<number>(0);
@@ -56,7 +59,6 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
       (selectedToken?.address as `0x${string}`) || NATIVE_TOKEN_ADDRESS,
     decimals: selectedToken?.decimals ?? 18,
   });
-  const wagmiLoading = balance.isLoading;
 
   useEffect(() => {
     if (chainId !== currentNetwork) {
@@ -127,8 +129,7 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
       return parseFloat(
         formatUnits(balance.data?.value!, balance.data?.decimals!)
       );
-    }
-    else {
+    } else {
       return 0;
     }
   };
