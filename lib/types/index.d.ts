@@ -229,7 +229,8 @@ export interface CurrencyDisplayerProps {
   currentNetwork: number;
   tokenAmount?: number;
   size?: "sm" | "base" | "lg";
-  action?: 'pay' | 'request' | 'default';
+  action?: "default" | "pay";
+  defaultToken?: Token;
 }
 
 export interface AbstractTransaction {

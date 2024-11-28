@@ -31,9 +31,8 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   onTokenSelect,
   currentNetwork,
   size = "base",
-  action = 'request'
+  action = 'default'
 }) => {
-  const { width } = useWindowSize();
   let chainId = useChainId();
   const tokens = useGetTokensOrChain(currentNetwork, "tokens") || availableTokens;
   const ETH = Array.isArray(tokens) ? tokens.find((token: Token) => token?.symbol === "ETH") : undefined;

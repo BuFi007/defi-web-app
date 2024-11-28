@@ -2,7 +2,6 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EnhancedQRCode } from "@/components/qr-gen/enhanced-qr-art";
-import { TelegramShareInstructions } from "@/components/qr-gen/share-qr-card/telegram-share-instructions";
 import { ShareButton } from "@/components/qr-gen/share-qr-button";
 import { useQRCodeSharing } from "@/hooks/use-qr-code-sharing";
 import { X, CopyIcon } from 'lucide-react';
@@ -52,7 +51,6 @@ const ShareableQRCard = ({
   const qrCodeRef = useRef(null);
   const {setAmount, setToken, token } = usePayLinkStore();
   const { isSharing, shareOnWhatsApp, shareOnTelegram, shareOnDownload } = useQRCodeSharing();
-  const [showTelegramInstructions, setShowTelegramInstructions] = useState(false);
   const locale = useLocale();
   const supportedLocales = ["en", "es", "pt"];
 
@@ -124,7 +122,6 @@ const ShareableQRCard = ({
         shareOnWhatsApp(qrCodeRef.current, shareOptions);
       } else if (platform === 'telegram') {
         shareOnTelegram(qrCodeRef.current, shareOptions);
-        setShowTelegramInstructions(true);
       } else if (platform === 'download') {
         shareOnDownload(qrCodeRef.current);
       }
@@ -236,11 +233,6 @@ const ShareableQRCard = ({
           </TooltipProvider>
         </CardContent>
       </Card>
-      
-      <TelegramShareInstructions
-        isOpen={showTelegramInstructions}
-        onClose={() => setShowTelegramInstructions(false)}
-      />
     </div>
   );
 };
