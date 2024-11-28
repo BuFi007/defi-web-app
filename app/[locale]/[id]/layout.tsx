@@ -1,10 +1,22 @@
 import React from "react";
+import { Metadata } from "next";
 import { ReactNode } from "react";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Receive a Payment Link to Your ENS Name with BooFiAiAssistant",
   description:
     "Use BooFiAiAssistant to effortlessly receive payment links tied to your ENS name. Simplify your crypto transactions with ease and security.",
+  openGraph: {
+    type: 'website',
+    siteName: 'Bu.fi',
+    title: "Receive a Payment Link to Your ENS Name with BooFiAiAssistant",
+    description: "Use BooFiAiAssistant to effortlessly receive payment links tied to your ENS name. Simplify your crypto transactions with ease and security.",
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: "Receive a Payment Link to Your ENS Name with BooFiAiAssistant",
+    description: "Use BooFiAiAssistant to effortlessly receive payment links tied to your ENS name. Simplify your crypto transactions with ease and security.",
+  }
 };
 
 interface PayIdLayoutProps {

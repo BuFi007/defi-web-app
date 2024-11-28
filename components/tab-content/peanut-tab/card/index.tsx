@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import CurrencyDisplayer from "@/components/currency";
 import { LinkUiFormProps } from "@/lib/types";
 import { useAppTranslations } from "@/context/TranslationContext";
+
 export default function LinkUiForm({
   tokenAmount,
   handleValueChange,
@@ -26,6 +27,8 @@ export default function LinkUiForm({
             availableTokens={availableTokens}
             onTokenSelect={setSelectedToken}
             currentNetwork={chainId || 1}
+            size="lg"
+            action="default"
           />
         </div>
       </div>

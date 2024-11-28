@@ -18,7 +18,7 @@ interface EnhancedQRCodeProps {
   title?: string;
 }
 
-export const EnhancedQRCode = forwardRef<HTMLDivElement, EnhancedQRCodeProps>(
+export const  EnhancedQRCode = forwardRef<HTMLDivElement, EnhancedQRCodeProps>(
   ({ link, image, frameText, action, copyLink, amount, ensName, userAddress, token, title }, ref) => {
     const actionConfig = {
       pay: {

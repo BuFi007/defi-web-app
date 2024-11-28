@@ -41,6 +41,7 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   const ETH = Array.isArray(tokens)
     ? tokens.find((token: Token) => token?.symbol === "ETH")
     : undefined;
+
   const { address } = useAccount();
   const [selectedToken, setSelectedToken] = useState<Token | null>(
     defaultToken || null

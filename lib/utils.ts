@@ -9,9 +9,9 @@ export const defaultQRSize = 150;
 
 export const sizeStyles = {
   container: {
-    sm: 'w-64',
-    base: 'w-72',
-    lg: 'w-80'
+    sm: 'w-48',
+    base: 'w-64',
+    lg: 'w-72'
   },
   input: {
     sm: 'text-lg',
