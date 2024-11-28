@@ -17,13 +17,10 @@ import { Chain, ChainList, Token } from "@/lib/types";
 import { getAllChains } from "@/utils";
 import { useEnsName } from "wagmi";
 import { BuIdentity } from "@/components/Identity";
+import { useParams } from "next/navigation";
 
-interface PayIdComponentProps {
-  params: { id: string; locale: string };
-  searchParams: { amount?: string; token?: string; chain?: string };
-}
-
-export default function PayId({ params, searchParams }: PayIdComponentProps) {
+export default function PayId() {
+  const params = useParams();
   const [selectedToken, setSelectedToken] = useState<Token>();
   const [amount, setAmount] = useState<string>("1");
   const [receiver, setReceiver] = useState<string>("");

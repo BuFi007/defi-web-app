@@ -1,13 +1,9 @@
-import PayId from '@/components/pay-id';
-import { generateMetadata } from '@/lib/seo/pay-open-graph';
-type Props = {
-  params: { id: string; locale: string }
-  searchParams: { amount?: string; token?: string; chain?: string }
-}
+"use server";
+import PayId from "@/components/pay-id";
+import { generateMetadata } from "@/lib/seo/pay-open-graph";
 
-export { generateMetadata as Metadata };
+export { generateMetadata };
 
-
-export default function Page({ params, searchParams }: Props) {
-  return <PayId params={params} searchParams={searchParams} />;
+export default async function Page() {
+  return <PayId />;
 }
