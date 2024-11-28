@@ -26,7 +26,7 @@ import { BuIdentity } from "@/components/Identity";
 export default function PayId() {
   const params = useParams();
   const [selectedToken, setSelectedToken] = useState<Token>();
-  const [amount, setAmount] = useState<number>(1);
+  const [amount, setAmount] = useState<string>("1");
   const [receiver, setReceiver] = useState<string>("");
   const [ensNotFound, setEnsNotFound] = useState<boolean>(false);
   const [ensName, setEnsName] = useState<string>("");
@@ -73,7 +73,8 @@ export default function PayId() {
   if (loading) return <Skeleton className="w-full h-full" />;
 
   function handleAmountSelect(amount: number) {
-    setAmount(amount);
+    console.log(amount, "amount");
+    setAmount(amount.toString());
   }
   const tokenFind = availableTokens?.filter(
     (token) => token?.symbol === tokenParam
@@ -107,14 +108,16 @@ export default function PayId() {
             </div>
 
             <CurrencyDisplayer
-              tokenAmount={presetAmount ? Number(presetAmount) : 1}
-              onValueChange={(value) => setAmount(value)}
+              tokenAmount={amount}
+              initialAmount={presetAmount ? Number(presetAmount) : 0}
+              onValueChange={(value) => setAmount(value.toString())}
               availableTokens={
                 tokenParam ? (tokenFind as Token[]) : availableTokens
               }
               onTokenSelect={setSelectedToken}
               currentNetwork={chainId!}
               defaultToken={tokenParam ? tokenFind?.[0] : undefined}
+              action="pay"
             />
 
             <div className="flex flex-col w-full space-y-2 pt-4">
