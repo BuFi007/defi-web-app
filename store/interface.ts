@@ -68,3 +68,12 @@ export interface AssistantState {
   input: string;
   setInput: (input: string) => void;
 }
+
+export interface PayLinkStore {
+  amount: string;
+  token: Token | null;
+  chainId: number;
+  setAmount: (amount: string) => void;
+  setToken: (token: Token) => void;
+  setChainId: (chainId: number) => void;
+}

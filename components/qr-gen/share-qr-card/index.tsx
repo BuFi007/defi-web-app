@@ -16,6 +16,7 @@ import { useLocale } from "next-intl";
 import { NEXT_PUBLIC_URL } from "@/constants";
 import CurrencyDisplayer from "@/components/currency";
 import { Token } from "@/lib/types";
+import { usePayLinkStore } from "@/store";
 
 interface ShareableQRCardProps {
   link: string;
@@ -42,21 +43,23 @@ const ShareableQRCard = ({
   onCopy,
   handleToggleOverlay,
   action,
-  amount: initialAmount,
+  amount,
   ensName,
   userAddress,
   availableTokens,
   currentNetwork
 }: ShareableQRCardProps) => {
   const qrCodeRef = useRef(null);
+  const {setAmount, setToken, token } = usePayLinkStore();
   const { isSharing, shareOnWhatsApp, shareOnTelegram, shareOnDownload } = useQRCodeSharing();
   const [showTelegramInstructions, setShowTelegramInstructions] = useState(false);
   const locale = useLocale();
   const supportedLocales = ["en", "es", "pt"];
-  
-  const [amount, setAmount] = useState(initialAmount ? parseFloat(initialAmount) : 0);
-  const [selectedToken, setSelectedToken] = useState(availableTokens?.[0] || null);
+
+
   const [paymentLink, setPaymentLink] = useState(link);
+  console.log("Here is the token", token?.symbol);
+
 
   const getLocalizedLink = (url: string) => {
     try {
@@ -80,13 +83,13 @@ const ShareableQRCard = ({
       const url = new URL(baseLink);
       
       // Add payment parameters with proper formatting
-      if (amount > 0) {
-        url.searchParams.set('amount', amount.toFixed(6));
+      if (amount && parseFloat(amount) > 0) {
+        url.searchParams.set('amount', amount);
       }
-      if (selectedToken) {
-        url.searchParams.set('token', selectedToken.symbol);
-        if (selectedToken.address) {
-          url.searchParams.set('tokenAddress', selectedToken.address);
+      if (token) {
+        url.searchParams.set('token', token?.symbol);
+        if (token.address) {
+          url.searchParams.set('tokenAddress', token.address);
         }
       }
       url.searchParams.set('chain', currentNetwork.toString());
@@ -96,14 +99,14 @@ const ShareableQRCard = ({
     } else {
       setPaymentLink(getLocalizedLink(link));
     }
-  }, [amount, selectedToken, currentNetwork, action, link, locale]);
+  }, [amount, token, currentNetwork, action, link, locale]);
 
   const handleAmountChange = (newAmount: number) => {
-    setAmount(newAmount);
+    setAmount(newAmount.toString());
   };
 
   const handleTokenSelect = (token: Token) => {
-    setSelectedToken(token);
+    setToken(token);
   };
 
   const getDisplayLink = (url: string) => {
@@ -141,9 +144,9 @@ const ShareableQRCard = ({
         <CardContent className="flex flex-col items-center space-y-4">
           {action === 'pay' && (
             <CurrencyDisplayer
-              tokenAmount={amount}
+              tokenAmount={amount ? parseFloat(amount) : 0}
               onValueChange={handleAmountChange}
-              initialAmount={amount}
+              initialAmount={amount ? parseFloat(amount) : 0}
               availableTokens={availableTokens}
               onTokenSelect={handleTokenSelect}
               currentNetwork={currentNetwork}
@@ -160,10 +163,10 @@ const ShareableQRCard = ({
               frameText={frameText}
               action={action}
               copyLink={onCopy}
-              amount={amount.toString()}
+              amount={amount?.toString()}
               ensName={ensName}
               userAddress={userAddress}
-              token={selectedToken?.symbol || ""}
+              token={token?.symbol || ""}
             />
           </div>
 
@@ -186,7 +189,7 @@ const ShareableQRCard = ({
             </Button>
           </div>
           <div className="text-center text-xs text-gray-500">
-            <p className="hover:underline hover:text-primary"> Share this QR code to {action === 'pay' ? `request a ${amount} ${selectedToken?.symbol} payment to` : 'send payment as a link from'} your account </p>
+            <p className="hover:underline hover:text-primary"> Share this QR code to {action === 'pay' ? `request a ${amount} ${token?.symbol} payment to` : 'send payment as a link from'} your account </p>
           </div>
 
           <TooltipProvider>

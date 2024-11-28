@@ -59,9 +59,11 @@ export function getBlockExplorerUrlByChainId(chainId: number): string {
 
 export function truncateAddress(address: string, length: number = 6): string {
   if (!address) return "";
-  return address.length > 2 * length + 2
-    ? `${address.slice(0, length)}...${address.slice(-length)}`
-    : address;
+  if (address.length > 15) {
+    return `${address.slice(0, length)}...${address.slice(-length)}`;
+  } else {
+    return address;
+  }
 }
 
 export const text = {
@@ -484,7 +486,6 @@ export const triggerConfetti = (emoji: string) => {
   setTimeout(shoot, 200);
 };
 
-<<<<<<< HEAD
 
 export function playAudio(audioFilePath: string): void {
   const audio = new Audio(audioFilePath);
@@ -492,8 +493,6 @@ export function playAudio(audioFilePath: string): void {
 }
 
 
-=======
 export const getAllChains = () => {
   return Object.values(Chains);
 };
->>>>>>> bea03aca2f20237a483ab789f797bb732a7faa8d

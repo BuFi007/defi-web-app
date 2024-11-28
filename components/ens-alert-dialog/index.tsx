@@ -11,6 +11,7 @@ import { useAppTranslations } from "@/context/TranslationContext";
 import ShareableQRCard from "@/components/qr-gen/share-qr-card";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
+import { usePayLinkStore } from "@/store";
 
 export const BaseNameDialogAlert = ({
   address,
@@ -26,7 +27,8 @@ export const BaseNameDialogAlert = ({
   const locale = useLocale();
   console.log({ ensName });
   const availableTokens = useGetTokensOrChain(chainId!, "tokens");
-
+  const { amount, token, chainId: chainIdStore } = usePayLinkStore();
+  
   const getBaseUrl = () => {
     if (typeof window !== "undefined") {
       return `${window.location.protocol}//${window.location.host}/${locale}`;
@@ -34,7 +36,7 @@ export const BaseNameDialogAlert = ({
     return `https://defi.boofi.xyz/${locale}`;
   };
 
-  const link = `${getBaseUrl()}/${ensName}`;
+  const link = `${getBaseUrl()}/${ensName}?amount=${amount}&token=${token?.symbol}&chain=${chainIdStore}`;
 
   const copyLink = () => {
     if (ensName) {
@@ -94,7 +96,7 @@ export const BaseNameDialogAlert = ({
                 onCopy={copyLink}
                 handleToggleOverlay={handleToggleOverlay}
                 action="pay"
-                amount="0.00"
+                amount={amount?.toString()}
                 ensName={ensName}
                 userAddress={address}
                 availableTokens={availableTokens as Token[]}

@@ -7,6 +7,7 @@ import {
   NetworkState,
   MarketStore,
   AssistantState,
+  PayLinkStore,
 } from "./interface";
 import { Token, TabState, Chain, LocalStorageStore } from "@/lib/types";
 import { persist } from "zustand/middleware";
@@ -83,4 +84,14 @@ export const useAssistantStore = create<AssistantState>((set) => ({
 export const useLocalStorageStore = create<LocalStorageStore>((set) => ({
   links: [],
   setLinks: (links: string[]) => set({ links }),
+}));
+
+
+export const usePayLinkStore = create<PayLinkStore>((set) => ({
+  amount: '0',
+  token: null,
+  chainId: 1,
+  setAmount: (amount) => set({ amount }),
+  setToken: (token) => set({ token }),
+  setChainId: (chainId) => set({ chainId }),
 }));
