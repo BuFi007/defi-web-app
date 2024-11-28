@@ -74,7 +74,6 @@ export default function PayId() {
   const tokenFind = availableTokens?.filter(
     (token) => token?.symbol === tokenParam
   );
-  console.log(tokenFind, "tokenFind");
   return (
     <div className="flex flex-col items-center w-full p-4">
       <div className="flex flex-col w-full max-w-l">
@@ -90,7 +89,6 @@ export default function PayId() {
                 <ChainSelect
                   value={chainId?.toString()!}
                   onChange={(value) => {
-                    const chain = useGetTokensOrChain(Number(value), "chain");
                     switchNetwork({
                       wallet: primaryWallet!,
                       network: Number(value),

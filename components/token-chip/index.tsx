@@ -13,9 +13,15 @@ interface TokenChipProps {
   token: Token;
   onClick?: (token: Token) => void;
   className?: string;
+  amount?: string;
 }
 
-export function TokenChip({ token, onClick, className }: TokenChipProps) {
+export function TokenChip({
+  token,
+  onClick,
+  className,
+  amount,
+}: TokenChipProps) {
   return (
     <button
       type="button"
@@ -23,12 +29,13 @@ export function TokenChip({ token, onClick, className }: TokenChipProps) {
       className={cn(
         pressable.secondary,
         pressable.shadow,
-        "flex w-fit shrink-0 items-center gap-2 rounded-lg py-1 pr-3 pl-1 ",
+        "flex w-fit shrink-0 items-center gap-1 rounded-lg py-1 pr-3 pl-1 ",
         className
       )}
       onClick={() => onClick?.(token)}
     >
       <Image src={token?.image} alt={token?.symbol} width={24} height={24} />
+      {amount && <span>{amount}</span>}
       <span>{token?.symbol}</span>
     </button>
   );

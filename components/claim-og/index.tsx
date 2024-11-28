@@ -13,7 +13,6 @@ export default function Claim() {
     null
   );
   const translations = useAppTranslations("PeanutTab");
-  const chainid = useNetworkManager();
 
   const queryString = window.location.href;
 
@@ -27,11 +26,6 @@ export default function Claim() {
         details={details!}
         paymentInfo={paymentInfo!}
         setPaymentInfo={setPaymentInfo}
-        isMultiChain={false}
-        destinationChainId={chainid!?.toString() || ""}
-        setIsMultiChain={() => {
-          console.log("running");
-        }}
         setDestinationChainId={() => {
           console.log("running");
         }}

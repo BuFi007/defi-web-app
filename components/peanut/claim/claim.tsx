@@ -4,29 +4,26 @@ import PaymentDetails from "../../tab-content/peanut-tab/card/details";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ExtendedPaymentInfo, IGetLinkDetailsResponse } from "@/lib/types";
-import NetworkSelector from "@/components/network-selector";
 import { useAppTranslations } from "@/context/TranslationContext";
 import { Button } from "@/components/ui/button";
 import { usePeanut } from "@/hooks/use-peanut";
 import { useDestinationToken } from "@/hooks/use-destination-chain";
 import { getChainInfoByChainId } from "@/components/tab-content/peanut-tab/claim";
 import { toast } from "@/components/ui/use-toast";
+import { ChainSelect } from "@/components/chain-select";
+import * as chains from "@/constants/Chains";
+import { useNetworkManager } from "@/hooks/use-dynamic-network";
+import { Input } from "@/components/ui/input";
 
 export default function ClaimInfo({
   paymentInfo,
   setPaymentInfo,
-  isMultiChain,
-  setIsMultiChain,
-  destinationChainId,
-  setDestinationChainId,
   details,
 }: {
   paymentInfo: ExtendedPaymentInfo;
   setPaymentInfo: (paymentInfo: ExtendedPaymentInfo | null) => void;
-  isMultiChain: boolean;
-  setIsMultiChain: (isMultiChain: boolean) => void;
-  destinationChainId: string;
-  setDestinationChainId: (destinationChainId: string) => void;
+  destinationChainId?: string;
+  setDestinationChainId?: (destinationChainId: string) => void;
   details: IGetLinkDetailsResponse;
 }) {
   const [inProgress, setInProgress] = useState(false);
@@ -35,8 +32,11 @@ export default function ClaimInfo({
   const [transactionDetails, setTransactionDetails] = useState<string | null>(
     null
   );
+  const [destinationChainId, setDestinationChainId] = useState<string>("");
+  const [otherWalletAddress, setOtherWalletAddress] = useState<string>("");
   const getDestinationTokenAddress = useDestinationToken();
-
+  const [isMultiChain, setIsMultiChain] = useState(false);
+  const [isOtherWallet, setIsOtherWallet] = useState(false);
   const {
     isLoading: isPeanutLoading,
     claimPayLinkXChain,
@@ -133,29 +133,50 @@ export default function ClaimInfo({
           </div>
         </div>
       </div>
-
-      {!paymentInfo?.claimed && (
-        <div className="flex items-center justify-end p-4 space-x-2">
-          <Switch
-            id="multi-chain-link"
-            checked={isMultiChain}
-            onCheckedChange={() => setIsMultiChain(!isMultiChain)}
-          />
-          <Label htmlFor="multi-chain-link" className="text-xs">
-            Multi-Chain
-          </Label>
-        </div>
-      )}
-      <div className="flex items-center justify-center p-4 space-x-2">
-        {isMultiChain && !paymentInfo?.claimed && (
-          <NetworkSelector
-            currentChainId={paymentInfo?.chainId.toString() || ""}
-            destinationChainId={destinationChainId}
-            onSelect={(selectedChainId: string) => {
-              const numericChainId = Number(selectedChainId);
-              if (isNaN(numericChainId)) return;
-              setDestinationChainId(selectedChainId);
+      <div className=" inline-flex">
+        {!paymentInfo?.claimed && (
+          <div className="flex items-center justify-start p-4 space-x-2">
+            <Switch
+              id="multi-chain-link"
+              checked={isMultiChain}
+              onCheckedChange={() => setIsMultiChain(!isMultiChain)}
+            />
+            <Label htmlFor="multi-chain-link" className="text-xs">
+              Multi-Chain
+            </Label>
+          </div>
+        )}
+        {!paymentInfo?.claimed && (
+          <div className="flex items-center justify-end p-4 space-x-2">
+            <Switch
+              id="other-wallet"
+              checked={isOtherWallet}
+              onCheckedChange={() => setIsOtherWallet(!isOtherWallet)}
+            />
+            <Label htmlFor="other-wallet" className="text-xs">
+              Other Wallet
+            </Label>
+          </div>
+        )}
+      </div>
+      <div className="flex flex-col w-10/12 gap-4 items-center justify-center m-auto">
+        {isMultiChain && (
+          <ChainSelect
+            chains={Object.values(chains)}
+            label="Select Chain"
+            value={destinationChainId}
+            onChange={(selectedChainId: string) => {
+              setDestinationChainId?.(selectedChainId);
             }}
+          />
+        )}
+
+        {isOtherWallet && (
+          <Input
+            type="text"
+            placeholder="Enter Wallet Address"
+            value={otherWalletAddress}
+            onChange={(e) => setOtherWalletAddress(e.target.value)}
           />
         )}
       </div>

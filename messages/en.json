@@ -127,6 +127,7 @@
     "tabLink": "Link",
     "tabDate": "Date",
     "tabHash": "Hash",
+    "tabClaimed": "Claimed",
     "tabChain": "Chain",
     "tabAmount": "Amount",
     "tabToken": "Token"

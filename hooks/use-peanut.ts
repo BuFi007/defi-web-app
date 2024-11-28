@@ -219,6 +219,15 @@ export const usePeanut = () => {
         baseUrl: `https://api.peanut.to/claim-v2`,
       });
 
+      saveCreatedLinkToLocalStorage({
+        address: primaryWallet.address as string,
+        data: {
+          link: claimedLinkResponse.link,
+          depositDate: new Date().toISOString(),
+          txHash: claimedLinkResponse.txHash,
+          ...claimedLinkResponse,
+        },
+      });
       toast({
         title: "Transaction sent",
         description: `Transaction hash: ${claimedLinkResponse.txHash}. Waiting for confirmation...`,
@@ -259,10 +268,6 @@ export const usePeanut = () => {
     setIsLoading(true);
     setLoading(true);
     setError(null);
-    console.log("this is the link ", link);
-    console.log("this is the destinationChainId ", destinationChainId);
-    console.log("this is the isMainnet ", isMainnet);
-    console.log("this is the PEANUTAPIKEY ", PEANUTAPIKEY);
 
     try {
       if (!primaryWallet?.address) {
@@ -281,14 +286,14 @@ export const usePeanut = () => {
         slippage: 10,
       });
 
-      console.log("this is the claimedLinkResponse 3", claimedLinkResponse);
-      console.log("this is the destinationChainId 3", destinationChainId);
-      console.log("this is the isMainnet 3 ", isMainnet);
-      console.log("this is the PEANUTAPIKEY 3 ", PEANUTAPIKEY);
-      console.log("this is the link 3", link);
-
-      console.log("this is the destinationTokenAddress 2", destinationToken);
-
+      saveCreatedLinkToLocalStorage({
+        address: primaryWallet.address as string,
+        data: {
+          link: link,
+          depositDate: new Date().toISOString(),
+          ...claimedLinkResponse,
+        },
+      });
       toast({
         title: "Cross-chain transaction sent",
         description: `Transaction hash: ${claimedLinkResponse.txHash}. This may take a few minutes.`,

@@ -400,6 +400,7 @@ export interface Translations {
     tabHash: string;
     tabChain: string;
     tabAmount: string;
+    tabClaimed: string;
     tabToken: string;
   };
   DiscordBanner: {

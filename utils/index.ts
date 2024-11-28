@@ -295,6 +295,33 @@ export const fetchLinkDetails = async (
   }
 };
 
+export const fetchLinkDetail = async (
+  link: string,
+  translations?: Translations["PeanutTab"]
+) => {
+  try {
+    const details = (await getLinkDetails({
+      link,
+    })) as unknown as IGetLinkDetailsResponse;
+    const extendedPaymentInfo: ExtendedPaymentInfo = {
+      chainId: details.chainId,
+      tokenSymbol: details.tokenSymbol,
+      tokenAmount: details.tokenAmount,
+      senderAddress: details.sendAddress,
+      claimed: details.claimed,
+      depositDate: details.depositDate,
+      depositIndex: details.depositIndex,
+    };
+    return extendedPaymentInfo;
+  } catch (error: any) {
+    console.error("Error fetching link details:", error.message);
+    toast({
+      title: "Error",
+      description: translations?.handleFetchLinkDetailsError,
+      variant: "destructive",
+    });
+  }
+};
 export const saveClaimedLinkToLocalStorage = ({
   address,
   data,
