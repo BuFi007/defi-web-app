@@ -13,10 +13,8 @@ import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { usePayLinkStore } from "@/store";
 
-export const BaseNameDialogAlert = ({
-  address,
-}: AddressProps) => {
-  const translations = useAppTranslations('EnsAlertDialog');
+export const BaseNameDialogAlert = ({ address }: AddressProps) => {
+  const translations = useAppTranslations("EnsAlertDialog");
   const [copiedText, copy] = useCopyToClipboard();
   const [overlayVisible, setOverlayVisible] = useState(false);
   const chainId = useNetworkManager();
@@ -25,10 +23,9 @@ export const BaseNameDialogAlert = ({
     chain: base,
   });
   const locale = useLocale();
-  console.log({ ensName });
   const availableTokens = useGetTokensOrChain(chainId!, "tokens");
   const { amount, token, chainId: chainIdStore } = usePayLinkStore();
-  
+
   const getBaseUrl = () => {
     if (typeof window !== "undefined") {
       return `${window.location.protocol}//${window.location.host}/${locale}`;
@@ -36,7 +33,9 @@ export const BaseNameDialogAlert = ({
     return `https://defi.boofi.xyz/${locale}`;
   };
 
-  const link = `${getBaseUrl()}/${ensName}?amount=${amount}&token=${token?.symbol}&chain=${chainIdStore}`;
+  const link = `${getBaseUrl()}/${ensName}?amount=${amount}&token=${
+    token?.symbol
+  }&chain=${chainId}`;
 
   const copyLink = () => {
     if (ensName) {
@@ -88,20 +87,20 @@ export const BaseNameDialogAlert = ({
                 </div>
               </div>
               {overlayVisible && (
-              <ShareableQRCard
-                link={link}
-                title="BooFi Payment Link"
-                image="/images/BooFi-icon.png"
-                shareMessage="Check out my BooFi payment link!"
-                onCopy={copyLink}
-                handleToggleOverlay={handleToggleOverlay}
-                action="pay"
-                amount={amount?.toString()}
-                ensName={ensName}
-                userAddress={address}
-                availableTokens={availableTokens as Token[]}
-                currentNetwork={chainId! || ""}
-              />
+                <ShareableQRCard
+                  link={link}
+                  title="BooFi Payment Link"
+                  image="/images/BooFi-icon.png"
+                  shareMessage="Check out my BooFi payment link!"
+                  onCopy={copyLink}
+                  handleToggleOverlay={handleToggleOverlay}
+                  action="pay"
+                  amount={amount?.toString()}
+                  ensName={ensName}
+                  userAddress={address}
+                  availableTokens={availableTokens as Token[]}
+                  currentNetwork={chainId! || ""}
+                />
               )}
             </>
           ) : (

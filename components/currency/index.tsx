@@ -12,7 +12,6 @@ import { cn } from "@/utils";
 import { InputMoney } from "../ui/input";
 import { useAccount, useChainId } from "wagmi";
 import { formatUnits } from "viem";
-import { useWindowSize } from "@/hooks/use-window-size";
 import { CurrencyDisplayerProps, Token } from "@/lib/types";
 import * as chains from "@/constants/Chains";
 import { TokenChip } from "../token-chip";
@@ -22,7 +21,6 @@ import { NATIVE_TOKEN_ADDRESS } from "@/constants/Tokens";
 import { toast } from "../ui/use-toast";
 import { sizeStyles } from "@/lib/utils";
 
-
 const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   tokenAmount,
   onValueChange,
@@ -31,30 +29,37 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   onTokenSelect,
   currentNetwork,
   size = "base",
-  action = 'request'
+  action = "request",
+  defaultToken = undefined,
 }) => {
-  const { width } = useWindowSize();
   let chainId = useChainId();
-  const tokens = useGetTokensOrChain(currentNetwork, "tokens") || availableTokens;
-  const ETH = Array.isArray(tokens) ? tokens.find((token: Token) => token?.symbol === "ETH") : undefined;
+  const tokens =
+    useGetTokensOrChain(currentNetwork, "tokens") || availableTokens;
+  const ETH = Array.isArray(tokens)
+    ? tokens.find((token: Token) => token?.symbol === "ETH")
+    : undefined;
   const supportedChains = Object.values(chains);
   const { address } = useAccount();
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
+  console.log(selectedToken, "selectedToken");
+  console.log(defaultToken, "defaultTokeadsdsn");
   const [inputValue, setInputValue] = useState<string>(
     (tokenAmount || initialAmount).toFixed(3)
   );
+
+  useEffect(() => {
+    if (ETH && !selectedToken && !defaultToken) {
+      setSelectedToken(ETH);
+    } else if (defaultToken) {
+      setSelectedToken(defaultToken);
+    }
+  }, [ETH, defaultToken]);
 
   useEffect(() => {
     if (tokenAmount !== undefined) {
       setInputValue(tokenAmount.toFixed(3));
     }
   }, [tokenAmount]);
-
-  useEffect(() => {
-    if (ETH && !selectedToken) {
-      setSelectedToken(ETH);
-    }
-  }, [ETH]);
 
   const balance = useTokenBalance({
     address: address || "0x0",
@@ -87,21 +92,22 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
 
     if (/^\d*\.?\d*$/.test(value)) {
       const numericValue = parseFloat(value);
-      
+
       // Only check balance for non-payment requests
-      if (action === 'default') {
+      if (action === "default") {
         const availableBalance = parseFloat(
           formatUnits(balance.data?.value || 0n, balance.data?.decimals || 18)
         );
         if (numericValue > availableBalance) {
           toast({
             title: "Insufficient balance",
-            description: "You do not have enough balance to perform this action",
+            description:
+              "You do not have enough balance to perform this action",
           });
           return;
         }
       }
-      
+
       setInputValue(value);
       onValueChange(numericValue || 0, numericValue || 0);
     }
@@ -119,7 +125,12 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   }
 
   return (
-    <div className={cn("mx-auto flex flex-col items-center", sizeStyles.container[size])}>
+    <div
+      className={cn(
+        "mx-auto flex flex-col items-center",
+        sizeStyles.container[size]
+      )}
+    >
       <div className="relative mb-2 text-center">
         <div className="relative flex justify-center">
           <InputMoney
@@ -137,7 +148,10 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
       </div>
 
       <div className="w-full">
-        <Select onValueChange={handleSelectChange} value={selectedToken.address}>
+        <Select
+          onValueChange={handleSelectChange}
+          value={selectedToken.address}
+        >
           <SelectTrigger className="w-full border-transparent flex justify-between">
             <SelectValue>
               {selectedToken && currentNetwork && (
@@ -163,7 +177,10 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
                 {availableTokens
                   .filter((token) => token.address)
                   .map((token: Token) => (
-                    <SelectItem key={token.address} value={getTokenValue(token)}>
+                    <SelectItem
+                      key={token.address}
+                      value={getTokenValue(token)}
+                    >
                       <TokenChip token={token} />
                     </SelectItem>
                   ))}
