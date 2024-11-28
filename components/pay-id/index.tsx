@@ -25,37 +25,38 @@ interface PayIdComponentProps {
 
 export default function PayId({ params, searchParams }: PayIdComponentProps) {
   const [selectedToken, setSelectedToken] = useState<Token>();
-  const [amount, setAmount] = useState<number>(
-    searchParams.amount ? Number(searchParams.amount) : 1
-  );
-  const [receiver, setReceiver] = useState<string>(params.id);
+  const [amount, setAmount] = useState<string>("1");
+  const [receiver, setReceiver] = useState<string>("");
   const [ensNotFound, setEnsNotFound] = useState<boolean>(false);
   const [ensName, setEnsName] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const { primaryWallet } = useDynamicContext();
   const chainId = useNetworkManager();
   const switchNetwork = useSwitchNetwork();
-  const availableTokens = useGetTokensOrChain(chainId!, "tokens");
+  const availableTokens = useGetTokensOrChain(chainId!, "tokens") as Token[];
   const address = primaryWallet?.address;
   const id = params.id;
   const queryString = window.location.search;
   const amountParam = new URLSearchParams(queryString);
   const presetAmount = amountParam?.get("amount");
+  const tokenParam = amountParam?.get("token");
+  const chainParam = amountParam?.get("chain");
+
   const allChains = getAllChains();
+
+  const ensNameEthers = useEnsName({
+    address: id as Hex,
+    chainId: (useGetTokensOrChain(chainId!, "chain") as Chain)
+      ?.chainId as ChainList,
+  });
 
   async function getEnsAddress() {
     setLoading(true);
     try {
       setReceiver(id as Hex);
-      const ensNameEthers = useEnsName({
-        address: id as Hex,
-        chainId: (useGetTokensOrChain(chainId!, "chain") as Chain)
-          ?.chainId as ChainList,
-      });
-      console.log(ensNameEthers, "ensNameEthers");
+
       setEnsName(ensNameEthers?.data!);
       setReceiver(id as Hex);
-      console.log(ensName, "ensName");
       setLoading(false);
     } finally {
       setLoading(false);
@@ -71,9 +72,13 @@ export default function PayId({ params, searchParams }: PayIdComponentProps) {
   if (loading) return <Skeleton className="w-full h-full" />;
 
   function handleAmountSelect(amount: number) {
-    setAmount(amount);
+    console.log(amount, "amount");
+    setAmount(amount.toString());
   }
-
+  const tokenFind = availableTokens?.filter(
+    (token) => token?.symbol === tokenParam
+  );
+  console.log(tokenFind, "tokenFind");
   return (
     <div className="flex flex-col items-center w-full p-4">
       <div className="flex flex-col w-full max-w-l">
@@ -102,13 +107,16 @@ export default function PayId({ params, searchParams }: PayIdComponentProps) {
             </div>
 
             <CurrencyDisplayer
-              tokenAmount={presetAmount ? Number(presetAmount) : 1}
-              onValueChange={(value) => setAmount(value)}
-              availableTokens={availableTokens as Token[]}
+              tokenAmount={amount}
+              initialAmount={presetAmount ? Number(presetAmount) : 0}
+              onValueChange={(value) => setAmount(value.toString())}
+              availableTokens={
+                tokenParam ? (tokenFind as Token[]) : availableTokens
+              }
               onTokenSelect={setSelectedToken}
               currentNetwork={chainId!}
-              size="lg"
-              action="default"
+              defaultToken={tokenParam ? tokenFind?.[0] : undefined}
+              action="pay"
             />
 
             <div className="flex flex-col w-full space-y-2 pt-4">
