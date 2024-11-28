@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { useAccount } from "wagmi";
 import { base } from "viem/chains";
 import { useEnsName } from "@/hooks/use-ens-name";
+import { truncateAddress } from "@/utils";
 interface Position {
   asset: string;
   amount: number;
@@ -94,7 +95,7 @@ const PositionSummary: React.FC = () => {
       <div className="flex justify-between items-center">
         <h2 className="text-sm font-medium">Your Positions</h2>
         {ensName && (
-          <span className="text-xs text-muted-foreground">{ensName}</span>
+          <span className="text-xs text-muted-foreground">{truncateAddress(ensName)}</span>
         )}
       </div>
 

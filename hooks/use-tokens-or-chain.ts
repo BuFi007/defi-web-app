@@ -15,7 +15,6 @@ import {
   ArbitrumSepolia,
 } from "@/constants/Chains";
 import { IS_MAINNET as isMainnet } from "@/constants/Env";
-import { Chain, Token } from "@/lib/types";
 
 export const useGetTokensOrChain = (
   chainId: number,

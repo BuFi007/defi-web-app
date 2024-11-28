@@ -10,26 +10,15 @@ import { motion } from "framer-motion";
 import { Skeleton } from "../ui/skeleton";
 import ActionBanner from "./action-banner";
 import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
+import { useHoverAudio } from "@/utils/audio-hover";
 
 const song = "/sounds/anime-wow-sound-effect.mp3";
 
 const HeaderFull: React.FC = () => {
   const MotionLink = motion(Link);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { playHoverSound, resetHoverSound } = useHoverAudio(song);
 
-  const handleHoverStart = () => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play();
-    }
-  };
 
-  const handleHoverEnd = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
-  };
 
   return (
     <>
@@ -47,8 +36,8 @@ const HeaderFull: React.FC = () => {
             href="/"
             whileHover={{ scale: 1.15, rotate: 4 }}
             whileTap={{ scale: 1.05, rotate: 2 }}
-            onHoverStart={handleHoverStart}
-            onHoverEnd={handleHoverEnd}
+            onHoverStart={playHoverSound}
+            onHoverEnd={resetHoverSound}
           >
             <div className="flex items-center">
               <SparklesText>
@@ -60,8 +49,8 @@ const HeaderFull: React.FC = () => {
                 />
               </SparklesText>
               <span className="absolute mt-28 sm:mt-20 opacity-0 group-hover:opacity-100 group-hover:-rotate-12 transition-all duration-300">
-                <span className="inline-block font-clash bg-gradient-to-r text-3xl from-indigo-300 via-purple-400 to-cyan-300 bg-clip-text text-transparent">
-                  Bu
+                <span className="inline-block pl-5 font-clash bg-gradient-to-r text-3xl from-indigo-300 via-purple-400 to-cyan-300 bg-clip-text text-transparent">
+                  bu.fi
                 </span>
               </span>
             </div>
@@ -76,7 +65,6 @@ const HeaderFull: React.FC = () => {
           </Suspense>
         </div>
       </div>
-      <audio ref={audioRef} src={song} />
     </>
   );
 };

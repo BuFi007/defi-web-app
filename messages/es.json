@@ -129,10 +129,14 @@
     "pagPage": "Página",
     "pagOf": "de",
     "tabLink": "Link",
+    "tabClaimed": "Reclamado",
     "tabDate": "Fecha",
     "tabHash": "Hash",
     "tabChain": "Cadena",
     "tabAmount": "Cantidad",
     "tabToken": "Token"
+  },
+  "DiscordBanner": {
+    "cta": "Únete a nuestra comunidad en Discord. Conéctate, aprende y crece con nosotros!"
   }
 }

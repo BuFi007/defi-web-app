@@ -131,4 +131,13 @@ const TokenSwapSkeleton: React.FC = () => {
   );
 }
 
-export { MoneyMarketSkeleton, PaymentLinkSkeleton, MoneyMarketBentoSkeleton, TokenSwapSkeleton };
+const ContainerSkeleton = () => {
+  return (
+    <div className="relative bg-gradient-to-br from-indigo-100 via-violet-200 to-cyan-300 bg-no-repeat justify-center items-center mx-auto w-full lg:max-w-7xl border border-black rounded-lg overflow-hidden h-screen">
+          <Skeleton className="w-full h-[800px] animate-pulse" />
+    </div>
+  )
+}
+
+
+export { MoneyMarketSkeleton, PaymentLinkSkeleton, MoneyMarketBentoSkeleton, TokenSwapSkeleton, ContainerSkeleton };

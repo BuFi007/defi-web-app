@@ -1,12 +1,10 @@
 import { IGetLinkDetailsResponse } from "./../lib/types/index.d";
 import { type ClassValue, clsx } from "clsx";
-import { useCallback } from "react";
 import { twMerge } from "tailwind-merge";
 import { Chain, ExtendedPaymentInfo, Translations } from "@/lib/types";
 import * as Chains from "@/constants/Chains";
-import { getLinkDetails, interfaces } from "@squirrel-labs/peanut-sdk";
+import { getLinkDetails } from "@squirrel-labs/peanut-sdk";
 import { toast } from "@/components/ui/use-toast";
-import { useAppTranslations } from "@/context/TranslationContext";
 import confetti from "canvas-confetti";
 
 export function cn(...inputs: ClassValue[]) {
@@ -46,8 +44,6 @@ export function getRoundedAmount(balance: string, fractionDigits: number) {
     ?.toFixed(fractionDigits)
     .replace(/0+$/, "");
 
-  // checking if balance is more than 0 but less than fractionDigits
-  // without this prints "0."
   if (parsedBalance > 0 && Number.parseFloat(result) === 0) {
     return "0";
   }
@@ -61,9 +57,11 @@ export function getBlockExplorerUrlByChainId(chainId: number): string {
 
 export function truncateAddress(address: string, length: number = 6): string {
   if (!address) return "";
-  return address.length > 2 * length + 2
-    ? `${address.slice(0, length)}...${address.slice(-length)}`
-    : address;
+  if (address.length > 15) {
+    return `${address.slice(0, length)}...${address.slice(-length)}`;
+  } else {
+    return address;
+  }
 }
 
 export const text = {
@@ -297,6 +295,33 @@ export const fetchLinkDetails = async (
   }
 };
 
+export const fetchLinkDetail = async (
+  link: string,
+  translations?: Translations["PeanutTab"]
+) => {
+  try {
+    const details = (await getLinkDetails({
+      link,
+    })) as unknown as IGetLinkDetailsResponse;
+    const extendedPaymentInfo: ExtendedPaymentInfo = {
+      chainId: details.chainId,
+      tokenSymbol: details.tokenSymbol,
+      tokenAmount: details.tokenAmount,
+      senderAddress: details.sendAddress,
+      claimed: details.claimed,
+      depositDate: details.depositDate,
+      depositIndex: details.depositIndex,
+    };
+    return extendedPaymentInfo;
+  } catch (error: any) {
+    console.error("Error fetching link details:", error.message);
+    toast({
+      title: "Error",
+      description: translations?.handleFetchLinkDetailsError,
+      variant: "destructive",
+    });
+  }
+};
 export const saveClaimedLinkToLocalStorage = ({
   address,
   data,
@@ -484,4 +509,13 @@ export const triggerConfetti = (emoji: string) => {
   setTimeout(shoot, 0);
   setTimeout(shoot, 100);
   setTimeout(shoot, 200);
+};
+
+export function playAudio(audioFilePath: string): void {
+  const audio = new Audio(audioFilePath);
+  audio.play().catch((err) => console.warn("Audio playback failed:", err));
+}
+
+export const getAllChains = () => {
+  return Object.values(Chains);
 };

@@ -3,10 +3,12 @@
 import Link from 'next/link'
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-
+import { useAppTranslations } from '@/context/TranslationContext'
 export default function ActionBanner() {
   const [isVisible, setIsVisible] = useState(true)
   const [isHovered, setIsHovered] = useState(false)
+
+  const translations = useAppTranslations("DiscordBanner");
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -49,7 +51,7 @@ export default function ActionBanner() {
                   viewBox="0 0 24 24"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 fill-current"
+                  className="h-5 w-5 fill-white"
                   aria-hidden="true"
                 >
                   <path
@@ -61,7 +63,7 @@ export default function ActionBanner() {
 
               <p className="font-clash text-xs text-center transition-transform duration-300 ease-in-out group-hover:scale-105">
                 <span className="inline-block font-clash bg-gradient-to-r dark:from-indigo-300 dark:via-purple-400 dark:to-cyan-400 from-indigo-700 via-purple-600 to-cyan-700 bg-clip-text text-transparent mx-4">
-                  Join our thriving community on Discord. Connect, learn, and grow with us!
+                  {translations.cta}
                 </span>
               </p>
 

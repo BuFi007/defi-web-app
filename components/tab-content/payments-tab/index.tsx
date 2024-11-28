@@ -1,7 +1,6 @@
 "use client";
 
 import React, { Suspense } from "react";
-import { Translations } from "@/lib/types";
 import PaymentLink from "./send";
 import {
   Tabs,

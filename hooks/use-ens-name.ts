@@ -1,6 +1,6 @@
 // boofi-lite/frontend/src/actions/use-ens-name.actions.ts
 import { useEnsName as useEnsNameWagmi } from "wagmi";
-import { truncateAddress } from "@/utils";
+
 interface UseEnsNameOptions {
   address: string;
   chain?: any;
@@ -21,7 +21,7 @@ export function useEnsName({
   let ensName: string | null = null;
   const result = useEnsNameWagmi({
     address: address as `0x${string}`,
-    chainId: chain.id,
+    chainId: chain?.id,
   });
 
   const ensNotFound = !result.isLoading && result.data === null;
@@ -29,7 +29,7 @@ export function useEnsName({
   if (result.data) {
     ensName = result.data;
   } else {
-    ensName = truncateAddress(address);
+    ensName = address;
   }
 
   return { ensName, ensNotFound };

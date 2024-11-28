@@ -15,7 +15,6 @@ import MoneyMarketBentoGrid from "../money-market";
 import { useTabStore } from "@/store";
 import { LottieWrapper } from "@/components/lottie-wrapper"
 import { PaymentLinkSkeleton, TokenSwapSkeleton, MoneyMarketBentoSkeleton } from "@/components/skeleton-card";
-import CCIPBridge from "@/components/tab-content/payments-tab/ccip";
 import { useAppTranslations } from "@/context/TranslationContext";
 
 export const HomeContent: React.FC = () => {
@@ -75,17 +74,6 @@ export const HomeContent: React.FC = () => {
                 <span>{translations.paymentsTab} 💸</span>
               </Button>
             </TabsTriggerAlt>
-            <TabsTriggerAlt value="tokenSwap">
-              <Button
-                size="lg"
-                className="flex items-center gap-2 w-full"
-                variant="charly"
-                tabValue="tokenSwap"
-                storeType="tab"
-              >
-                <span>{translations.ccipUsdcBridgeTab} 🔄</span>
-              </Button>
-            </TabsTriggerAlt>
           </TabsList>
         </div>
 
@@ -113,11 +101,6 @@ export const HomeContent: React.FC = () => {
                   <TabsContent value="paymentLink" className="transition-opacity duration-300 ease-in-out">
                     <Suspense fallback={<PaymentLinkSkeleton />}>
                       <PaymentLinkTabContent address={address?.address ?? ""} />
-                    </Suspense>
-                  </TabsContent>
-                  <TabsContent value="tokenSwap" className="transition-opacity duration-300 ease-in-out">
-                    <Suspense fallback={<TokenSwapSkeleton />}>
-                    <CCIPBridge/>
                     </Suspense>
                   </TabsContent>
                 </>

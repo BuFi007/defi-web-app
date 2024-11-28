@@ -4,11 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { TransactionDetailsDisplayProps } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
-import FramedQRCode from "@/components/framed-qr-art";
+import FramedQRCode from "@/components/qr-gen/framed-qr-art";
 import { getBlockExplorerUrlByChainId } from "@/utils";
 import { Suspense } from "react";
 import { useNetworkStore } from "@/store";
 import { useAppTranslations } from "@/context/TranslationContext";
+
 export default function TransactionDetailsDisplay({
   transactionDetails,
   chainId,
@@ -16,7 +17,6 @@ export default function TransactionDetailsDisplay({
   handleShare,
   truncateHash,
 }: TransactionDetailsDisplayProps) {
-  console.log("Here are the tx details 2", transactionDetails);
 
   const { currentChainId } = useNetworkStore();
 
@@ -26,9 +26,6 @@ export default function TransactionDetailsDisplay({
     : transactionDetails?.paymentLink;
 
   const isValidPaymentLink = Boolean(paymentLink && typeof paymentLink === 'string' && paymentLink.length > 0);
-
-  console.log({ isValidPaymentLink, paymentLink });
-
 
   const explorerBaseUrl = currentChainId ? getBlockExplorerUrlByChainId(Number(currentChainId)) : "";
   const explorerUrl = explorerBaseUrl 

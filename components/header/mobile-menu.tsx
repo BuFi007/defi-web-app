@@ -26,6 +26,9 @@ const MobileMenu: React.FC = () => {
             width={50}
             height={50}
           />
+            <span className="inline-block pl-4 font-clash bg-gradient-to-r text-3xl from-indigo-300 via-purple-400 to-cyan-300 bg-clip-text text-transparent">
+              bu.fi
+            </span>
         </Link>
         <button
           onClick={toggleMenu}

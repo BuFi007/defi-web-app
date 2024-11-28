@@ -129,10 +129,14 @@
     "pagPage": "Página",
     "pagOf": "de",
     "tabLink": "Link",
+    "tabClaimed": "Reivindicado",
     "tabDate": "Data",
     "tabHash": "Hash",
     "tabChain": "Cadeia",
     "tabAmount": "Quantidade",
     "tabToken": "Token"
+  },
+  "DiscordBanner": {
+    "cta": "Junte-se à nossa comunidade vibrante no Discord. Conecte-se, aprenda e cresça conosco!"
   }
 }

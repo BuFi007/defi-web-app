@@ -227,7 +227,10 @@ export interface CurrencyDisplayerProps {
   availableTokens: Token[];
   onTokenSelect: (token: Token) => void;
   currentNetwork: number;
-  tokenAmount?: number;
+  tokenAmount?: number | string;
+  size?: "sm" | "base" | "lg";
+  action?: "default" | "pay";
+  defaultToken?: Token;
 }
 
 export interface AbstractTransaction {
@@ -247,6 +250,7 @@ export interface OverlayPayNameProps {
   link: string;
   shareOnWhatsApp: (localizedLink: string) => void;
   shareOnTelegram: (localizedLink: string) => void;
+  shareOnDownload: (qrCodeElement: HTMLElement) => void;
 }
 
 export interface AddressProps {
@@ -396,7 +400,11 @@ export interface Translations {
     tabHash: string;
     tabChain: string;
     tabAmount: string;
+    tabClaimed: string;
     tabToken: string;
+  };
+  DiscordBanner: {
+    cta: string;
   };
 }
 

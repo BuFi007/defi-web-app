@@ -1,7 +1,7 @@
 "use client";
 
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import {
   Table,
   TableBody,
@@ -11,15 +11,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  ChevronLeft,
-  ChevronRight,
-  CopyIcon,
-  ExternalLink,
-} from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { ChevronLeft, ChevronRight, CopyIcon } from "lucide-react";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
-import { Chain, Token } from "@/lib/types";
+import { Chain } from "@/lib/types";
 import Image from "next/image";
 import { TokenChip } from "@/components/token-chip";
 import { allTokens } from "@/constants/Tokens";
@@ -29,11 +24,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { toast } from "@/components/ui/use-toast";
 import { usePeanut } from "@/hooks/use-peanut";
 import { useAppTranslations } from "@/context/TranslationContext";
-import confetti from "canvas-confetti";
-import { triggerConfetti } from "@/utils";
+import { fetchLinkDetail, triggerConfetti } from "@/utils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 
 export interface ClaimData {
   link: string;
@@ -51,18 +46,12 @@ export default function ClaimsDisplay() {
   const { primaryWallet } = useDynamicContext();
   const { copyToClipboard } = usePeanut();
   const translations = useAppTranslations("HistoryTab");
-  // Pagination states
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 5;
 
   const handleCopy = (text: string, label: string) => {
     copyToClipboard(text);
     triggerConfetti("💸👻💸");
-
-    toast({
-      title: `${translations.toastCopyTitle}`,
-      description: `${label} ${translations.toastCopyDescription}`,
-    });
   };
 
   useEffect(() => {
@@ -86,7 +75,9 @@ export default function ClaimsDisplay() {
     return (
       <Card className="w-full h-[400px]">
         <CardContent className="pt-6">
-          <p className="text-center text-muted-foreground ">👁️⃤ {translations.noData} 👁️⃤</p>
+          <p className="text-center text-muted-foreground ">
+            👁️⃤ {translations.noData} 👁️⃤
+          </p>
         </CardContent>
       </Card>
     );
@@ -97,6 +88,11 @@ export default function ClaimsDisplay() {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  const getClaimed = async (link: string) => {
+    const data = await fetchLinkDetail(link);
+    return data?.claimed ? translations.tabClaimed : "Unclaimed";
+  };
 
   return (
     <div className="space-y-4">
@@ -114,8 +110,9 @@ export default function ClaimsDisplay() {
               <TableHead>{translations.tabDate}</TableHead>
               <TableHead>{translations.tabHash}</TableHead>
               <TableHead>{translations.tabChain}</TableHead>
-              <TableHead>{translations.tabAmount}</TableHead>
+
               <TableHead>{translations.tabToken}</TableHead>
+              <TableHead>{translations.tabClaimed}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -176,13 +173,25 @@ export default function ClaimsDisplay() {
                   />
                 </TableCell>
 
-                <TableCell>{claim.tokenAmount}</TableCell>
-                <TableCell>
+                <TableCell className="flex items-center">
                   <TokenChip
                     token={
                       allTokens.find((t) => t.address === claim.tokenAddress)!
                     }
+                    amount={claim.tokenAmount.toString()}
                   />
+                </TableCell>
+
+                <TableCell className="text-xs items-center justify-center ">
+                  <Suspense
+                    fallback={
+                      <Skeleton className="w-16 h-4 font-aeonik text-xs " />
+                    }
+                  >
+                    <Badge variant="outline" className="text-xs">
+                      {getClaimed(claim.link)}
+                    </Badge>
+                  </Suspense>
                 </TableCell>
               </TableRow>
             ))}

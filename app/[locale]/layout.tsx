@@ -14,9 +14,13 @@ import Providers from "@/context/DynamicProviders";
 import dynamic from "next/dynamic";
 import { NextIntlClientProvider, useMessages } from 'next-intl';
 import { TranslationProvider } from "@/context/TranslationContext";
+import Loading from "./loading";
+
+import { Suspense } from "react";
 
 const Container = dynamic(() => import("@/components/container"), {
   ssr: false,
+  loading: () => <Loading />,
 });
 
 const ibmPlexSerif = IBM_Plex_Serif({
@@ -56,7 +60,7 @@ export default function RootLayout({
       className={`${GeistSans.variable} ${GeistMono.variable} ${ibmPlexSerif.variable} ${inconsolata.variable} scroll-smooth antialiased`}
       suppressHydrationWarning
     >
-      <body className="bg-gradient-to-br from-indigo-100 via-violet-200 to-cyan-300 bg-no-repeat font-nubase dark:bg-gradient-to-r dark:from-gray-900 dark:via-indigo-400 dark:to-gray-800">
+      <body className="bg-gradient-to-br from-indigo-100 via-violet-200 to-cyan-300 bg-no-repeat font-nubase dark:bg-gradient-to-r dark:from-gray-900 dark:via-indigo-400 dark:to-gray-800 min-h-screen">
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
@@ -76,18 +80,21 @@ export default function RootLayout({
                       "[mask-image:linear-gradient(to_bottom_right,white,transparent,transparent)]"
                     )}
                   />
+                  <Suspense fallback={<Loading />}>
                   <Header />
                   <div className="custom-scrollbar">
                     <div className="mx-auto px-4 relative flex flex-col justify-center overflow-hidden">
+                      
                       <Container>
                         <div className="relative">
                           <div className="w-full flex flex-col items-center">
                             {children}
                           </div>
                         </div>
-                      </Container>
-                    </div>
+                        </Container>
+                      </div>
                   </div>
+                  </Suspense>
                   <br />
                   <LayoutMusic />
                 </main>

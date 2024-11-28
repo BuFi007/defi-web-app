@@ -60,4 +60,3 @@ export const ChainSelect: React.FC<ChainSelectProps> = ({
     </div>
   );
 };
-
