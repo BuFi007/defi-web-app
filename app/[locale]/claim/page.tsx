@@ -1,19 +1,6 @@
-import { type Metadata } from 'next';
-import Claim from '@/components/claim-og';
-import { generateMetadata } from '@/lib/seo/claim-open-graph';
+import Claim from "@/components/claim-og";
 
-type Props = {
-  params: { locale: string }
-  searchParams: { 
-    v?: string;
-    l?: string;
-    chain?: string;
-  }
+export default function Page() {
+  return <Claim />;
 }
-
-// Export the metadata generator
-export { generateMetadata };
-
-export default function Page({ params, searchParams }: Props) {
-  return <Claim params={params} searchParams={searchParams} />;
-}
+export { generateMetadata } from "@/components/generateMetadata";

@@ -69,7 +69,6 @@ export default function PayId() {
   if (loading) return <Skeleton className="w-full h-full" />;
 
   function handleAmountSelect(amount: number) {
-    console.log(amount, "amount");
     setAmount(amount.toString());
   }
   const tokenFind = availableTokens?.filter(

@@ -6,28 +6,20 @@ import { useAppTranslations } from "@/context/TranslationContext";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { ExtendedPaymentInfo, IGetLinkDetailsResponse } from "@/lib/types";
 import { fetchLinkDetails } from "@/utils";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 
-interface ClaimProps {
-  params: { locale: string };
-  searchParams: {
-    v?: string;
-    l?: string;
-    chain?: string;
-  };
-}
-
-export default function Claim({ params, searchParams }: ClaimProps) {
+export default function Claim() {
   const [details, setDetails] = useState<IGetLinkDetailsResponse | null>(null);
-  const [paymentInfo, setPaymentInfo] = useState<ExtendedPaymentInfo | null>(null);
-  const { primaryWallet } = useDynamicContext();
+  const [paymentInfo, setPaymentInfo] = useState<ExtendedPaymentInfo | null>(
+    null
+  );
   const translations = useAppTranslations("PeanutTab");
   const chainid = useNetworkManager();
 
+  const queryString = window.location.href;
+
   useEffect(() => {
-    const url = `${window.location.origin}/claim?v=${searchParams.v}&l=${searchParams.l}&chain=${searchParams.chain}`;
-    fetchLinkDetails(url, setDetails, setPaymentInfo, translations);
-  }, [searchParams]);
+    fetchLinkDetails(queryString, setDetails, setPaymentInfo, translations);
+  }, [queryString]);
 
   return (
     <main className="flex-1 flex flex-col h-screen p-10">
@@ -36,10 +28,10 @@ export default function Claim({ params, searchParams }: ClaimProps) {
         paymentInfo={paymentInfo!}
         setPaymentInfo={setPaymentInfo}
         isMultiChain={false}
+        destinationChainId={chainid!?.toString() || ""}
         setIsMultiChain={() => {
           console.log("running");
         }}
-        destinationChainId={chainid!?.toString() || ""}
         setDestinationChainId={() => {
           console.log("running");
         }}

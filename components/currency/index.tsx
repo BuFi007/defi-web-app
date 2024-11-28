@@ -196,7 +196,7 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
       </div>
       {action !== "pay" && (
         <div className="mx-auto mt-2 block text-xs w-full items-center justify-between">
-          renderAvailableBalance()
+          {renderAvailableBalance()}
         </div>
       )}
 
