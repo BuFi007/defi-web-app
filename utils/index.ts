@@ -44,8 +44,6 @@ export function getRoundedAmount(balance: string, fractionDigits: number) {
     ?.toFixed(fractionDigits)
     .replace(/0+$/, "");
 
-  // checking if balance is more than 0 but less than fractionDigits
-  // without this prints "0."
   if (parsedBalance > 0 && Number.parseFloat(result) === 0) {
     return "0";
   }
@@ -486,12 +484,10 @@ export const triggerConfetti = (emoji: string) => {
   setTimeout(shoot, 200);
 };
 
-
 export function playAudio(audioFilePath: string): void {
   const audio = new Audio(audioFilePath);
   audio.play().catch((err) => console.warn("Audio playback failed:", err));
 }
-
 
 export const getAllChains = () => {
   return Object.values(Chains);

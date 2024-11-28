@@ -1,10 +1,10 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EnhancedQRCode } from "@/components/qr-gen/enhanced-qr-art";
 import { ShareButton } from "@/components/qr-gen/share-qr-button";
 import { useQRCodeSharing } from "@/hooks/use-qr-code-sharing";
-import { X, CopyIcon } from 'lucide-react';
+import { X, CopyIcon } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -25,7 +25,7 @@ interface ShareableQRCardProps {
   shareMessage: string;
   onCopy: () => void;
   handleToggleOverlay: () => void;
-  action: 'pay' | 'request';
+  action: "pay" | "request";
   amount?: string;
   ensName?: string;
   userAddress?: string;
@@ -46,9 +46,10 @@ const ShareableQRCard = ({
   ensName,
   userAddress,
   availableTokens,
-  currentNetwork
+  currentNetwork,
 }: ShareableQRCardProps) => {
   const qrCodeRef = useRef(null);
+
   const {setAmount, setToken, token } = usePayLinkStore();
   const { isSharing, shareOnWhatsApp, shareOnTelegram, shareOnDownload } = useQRCodeSharing();
   const locale = useLocale();
@@ -117,10 +118,10 @@ const ShareableQRCard = ({
 
   const handleShare = (platform: string) => {
     if (qrCodeRef.current) {
-      const shareOptions = { link: paymentLink, message: shareMessage };
-      if (platform === 'whatsapp') {
+      const shareOptions = { link: link, message: shareMessage };
+      if (platform === "whatsapp") {
         shareOnWhatsApp(qrCodeRef.current, shareOptions);
-      } else if (platform === 'telegram') {
+      } else if (platform === "telegram") {
         shareOnTelegram(qrCodeRef.current, shareOptions);
       } else if (platform === 'download') {
         shareOnDownload(qrCodeRef.current);
@@ -139,7 +140,7 @@ const ShareableQRCard = ({
         </button>
 
         <CardContent className="flex flex-col items-center space-y-4">
-          {action === 'pay' && (
+          {action === "pay" && (
             <CurrencyDisplayer
               tokenAmount={amount ? parseFloat(amount) : 0}
               onValueChange={handleAmountChange}
@@ -151,10 +152,10 @@ const ShareableQRCard = ({
               action={action}
             />
           )}
-          
+
           <div ref={qrCodeRef}>
             <EnhancedQRCode
-              link={paymentLink}
+              link={link}
               image={image}
               title={title}
               frameText={frameText}
@@ -170,7 +171,7 @@ const ShareableQRCard = ({
           <div className="flex items-center justify-center w-full max-w-sm mb-4">
             <input
               type="text"
-              value={getDisplayLink(paymentLink)}
+              value={getDisplayLink(link)}
               readOnly
               className="flex-grow border max-w-sm text-center justify-center border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800"
               aria-label="Payment Link"
@@ -186,7 +187,14 @@ const ShareableQRCard = ({
             </Button>
           </div>
           <div className="text-center text-xs text-gray-500">
-            <p className="hover:underline hover:text-primary"> Share this QR code to {action === 'pay' ? `request a ${amount} ${token?.symbol} payment to` : 'send payment as a link from'} your account </p>
+            <p className="hover:underline hover:text-primary">
+              {" "}
+              Share this QR code to{" "}
+              {action === "pay"
+                ? `request a ${amount} ${token?.symbol} payment to`
+                : "send payment as a link from"}{" "}
+              your account{" "}
+            </p>
           </div>
 
           <TooltipProvider>
@@ -194,7 +202,7 @@ const ShareableQRCard = ({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <ShareButton
-                    onClick={() => handleShare('whatsapp')}
+                    onClick={() => handleShare("whatsapp")}
                     platform="whatsapp"
                     isSharing={isSharing}
                   />
@@ -207,7 +215,7 @@ const ShareableQRCard = ({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <ShareButton
-                    onClick={() => handleShare('telegram')}
+                    onClick={() => handleShare("telegram")}
                     platform="telegram"
                     isSharing={isSharing}
                   />
@@ -220,7 +228,7 @@ const ShareableQRCard = ({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <ShareButton
-                    onClick={() => handleShare('download')}
+                    onClick={() => handleShare("download")}
                     platform="download"
                     isSharing={isSharing}
                   />

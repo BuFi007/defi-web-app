@@ -227,7 +227,7 @@ export interface CurrencyDisplayerProps {
   availableTokens: Token[];
   onTokenSelect: (token: Token) => void;
   currentNetwork: number;
-  tokenAmount?: number;
+  tokenAmount?: number | string;
   size?: "sm" | "base" | "lg";
   action?: "default" | "pay";
   defaultToken?: Token;
