@@ -17,21 +17,23 @@ export default function TransactionDetailsDisplay({
   handleShare,
   truncateHash,
 }: TransactionDetailsDisplayProps) {
-
   const { currentChainId } = useNetworkStore();
 
-  const translations = useAppTranslations('Overlay');
-  const paymentLink = Array.isArray(transactionDetails?.paymentLink) 
+  const translations = useAppTranslations("Overlay");
+  const paymentLink = Array.isArray(transactionDetails?.paymentLink)
     ? transactionDetails.paymentLink[0]
     : transactionDetails?.paymentLink;
 
-  const isValidPaymentLink = Boolean(paymentLink && typeof paymentLink === 'string' && paymentLink.length > 0);
+  const isValidPaymentLink = Boolean(
+    paymentLink && typeof paymentLink === "string" && paymentLink.length > 0
+  );
 
-  const explorerBaseUrl = currentChainId ? getBlockExplorerUrlByChainId(Number(currentChainId)) : "";
-  const explorerUrl = explorerBaseUrl 
+  const explorerBaseUrl = currentChainId
+    ? getBlockExplorerUrlByChainId(Number(currentChainId))
+    : "";
+  const explorerUrl = explorerBaseUrl
     ? `${explorerBaseUrl}/tx/${transactionDetails?.transactionHash}`
     : `https://etherscan.io/tx/${transactionDetails?.transactionHash}`;
-
 
   return (
     <>
@@ -41,10 +43,12 @@ export default function TransactionDetailsDisplay({
           {isValidPaymentLink ? (
             <Suspense fallback={<Skeleton className="w-32 h-32" />}>
               <FramedQRCode
-              image="/images/BooFi-icon.png"
-              link={paymentLink}
-              frameText={translations.frameText}
-                copyLink={() => handleCopy(paymentLink, translations.linkSubtitle)}
+                image="/images/BooFi-icon.png"
+                link={paymentLink}
+                frameText={translations.frameText}
+                copyLink={() =>
+                  handleCopy(paymentLink, translations.linkSubtitle)
+                }
               />
             </Suspense>
           ) : (
@@ -55,7 +59,7 @@ export default function TransactionDetailsDisplay({
         </div>
 
         {/* Copy Link Button */}
-        <div className="flex justify-center items-center mb-2">
+        <div className="flex justify-center items-center mb-2 mt-2">
           <Button
             size={"lg"}
             className="flex items-center gap-2"
@@ -127,10 +131,7 @@ export default function TransactionDetailsDisplay({
               </div>
               {chainId && (
                 <div className="flex items-center">
-                  <Link
-                    href={explorerUrl}
-                    target="_blank"
-                  >
+                  <Link href={explorerUrl} target="_blank">
                     <Button size="sm" variant="ghost" className="px-2">
                       {translations.viewInExplorer}
                       <ChevronRightIcon className="ml-1 size-4" />

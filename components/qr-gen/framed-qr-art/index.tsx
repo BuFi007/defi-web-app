@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { FramedQRCodeProps } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { defaultQRSize } from "@/lib/utils";
+
 /**
  * FramedQRCode Component
  *
@@ -107,7 +108,7 @@ export const FramedQRCode = ({
               posType="rect"
               posColor="#ffc640"
             />
-            <div className="absolute m-6 inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black bg-opacity-50 rounded-lg">
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black bg-opacity-50 rounded-lg">
               <span className="text-white text-sm font-aeonik">
                 Click to copy link
               </span>
