@@ -513,6 +513,7 @@ export const triggerConfetti = (emoji: string) => {
 
 export function playAudio(audioFilePath: string): void {
   const audio = new Audio(audioFilePath);
+  audio.volume = 0.6;
   audio.play().catch((err) => console.warn("Audio playback failed:", err));
 }
 
