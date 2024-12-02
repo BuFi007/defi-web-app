@@ -15,33 +15,61 @@ export async function generateMetadata(
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const baseUrl = `${protocol}://${domain}`;
 
-  const amount = searchParams.amount || '0';
-  const token = searchParams.token || 'ETH';
-  const chain = searchParams.chain || 'base';
-  
-  // Generate OG image URL
-  const ogImageUrl = `${baseUrl}/api/og/${params.id}?amount=${amount}&token=${token}&chain=${chain}`;
-  
-  // Construct metadata
-  const title = `Payment Request for ${amount} ${token}`;
-  const description = `Send ${amount} ${token} to ${params.id} using Bu.fi`;
+  try {
+    const amount = searchParams.amount || '0';
+    const token = searchParams.token || 'ETH';
+    const chain = searchParams.chain || 'base';
+    
+    // Generate OG image URL
+    // const ogImageUrl = `${baseUrl}/api/${params.id}?amount=${amount}&token=${token}&chain=${chain}`;
+    const ogImageUrl = `${baseUrl}/api/${encodeURIComponent(params.id)}?amount=${encodeURIComponent(amount)}&token=${encodeURIComponent(token)}&chain=${encodeURIComponent(chain)}`;
 
-  return {
-    title,
-    description,
-    openGraph: {
+
+    // Construct metadata
+    const title = `Payment Request for ${amount} ${token}`;
+    const description = `Send ${amount} ${token} to ${params.id} using Bu.fi`;
+
+    return {
       title,
       description,
-      images: [ogImageUrl],
-      url: `${baseUrl}/${params.locale}/${params.id}`,
-      siteName: 'Bu.fi',
-      type: 'website',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-      images: [ogImageUrl],
-    },
+      openGraph: {
+        title,
+        description,
+        images: [ogImageUrl],
+        url: `${baseUrl}/${params.locale}/${params.id}`,
+        siteName: 'Bu.fi',
+        type: 'website',
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title,
+        description,
+        images: [ogImageUrl],
+      },
+    };
+  } catch (error) {
+    console.error("Error generating metadata:", error);
+    const fallbackTitle = "Send or receive tokens with Bu.fi";
+    const fallbackDescription = "Send tokens easily with Bu.fi";
+    const fallbackImage = `${baseUrl}/images/BooFi-icon.png`;
+
+    return {
+      title: fallbackTitle,
+      description: fallbackDescription,
+      openGraph: {
+        title: fallbackTitle,
+        description: fallbackDescription,
+        images: [{ url: fallbackImage }],
+        url: `${baseUrl}/${params.locale}/${params.id}`,
+        siteName: "Bu.fi",
+        type: "website",
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: fallbackTitle,
+        description: fallbackDescription,
+        images: [fallbackImage],
+      },
+    };
   }
 }
