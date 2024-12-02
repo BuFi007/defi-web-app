@@ -2,6 +2,13 @@ import type { Abi, Address, Hex } from "viem";
 import React from "react";
 import * as chains from "wagmi/chains";
 
+export interface RootLayoutProps {
+  children: React.ReactNode;
+  params: {
+    locale: string;
+  };
+}
+
 export interface CurrencyInfo {
   address: string;
   borrowContract?: string;
@@ -447,4 +454,9 @@ export interface TransferWrapperProps {
 export interface LocalStorageStore {
   links: string[];
   setLinks: (links: string[]) => void;
+}
+
+export interface ShareOptions {
+  link: string;
+  message: string;
 }

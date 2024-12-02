@@ -102,10 +102,10 @@ export default function ClaimsDisplay() {
         </label>
       </div>
       <div className="rounded-md border h-[400px]">
-        <Table>
-          <TableHeader>
+        <Table className="justify-between items-center">
+          <TableHeader className="justify-between items-center">
             <TableRow>
-              <TableHead className="w-[50px]">#</TableHead>
+              <TableHead className="w-[50px] hidden">#</TableHead>
               <TableHead>{translations.tabLink}</TableHead>
               <TableHead>{translations.tabDate}</TableHead>
               <TableHead>{translations.tabHash}</TableHead>
@@ -115,10 +115,10 @@ export default function ClaimsDisplay() {
               <TableHead>{translations.tabClaimed}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody className="justify-between items-center">
             {currentClaims.map((claim, index) => (
               <TableRow key={index}>
-                <TableCell className="font-medium">
+                <TableCell className="font-medium hidden">
                   {(currentPage - 1) * itemsPerPage + index + 1}
                 </TableCell>
                 <TableCell>

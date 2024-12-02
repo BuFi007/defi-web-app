@@ -34,7 +34,7 @@ export const BaseNameDialogAlert = ({ address }: AddressProps) => {
   };
 
   const link = `${getBaseUrl()}/${ensName}?amount=${amount}&token=${
-    token?.symbol
+    token?.symbol || "ETH"
   }&chain=${chainId}`;
 
   const copyLink = () => {
@@ -89,9 +89,9 @@ export const BaseNameDialogAlert = ({ address }: AddressProps) => {
               {overlayVisible && (
                 <ShareableQRCard
                   link={link}
-                  title="BooFi Payment Link"
+                  title="Bu.fi Payment Link"
                   image="/images/BooFi-icon.png"
-                  shareMessage="Check out my BooFi payment link!"
+                  shareMessage="Check out my Bu payment link!"
                   onCopy={copyLink}
                   handleToggleOverlay={handleToggleOverlay}
                   action="pay"

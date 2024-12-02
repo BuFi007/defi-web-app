@@ -14,7 +14,7 @@
     "logoAlt": "Logo de BooFi",
     "neoMatrixAlt": "Imagen de Neo Matrix",
     "pillGifAlt": "GIF de la píldora de Matrix",
-    "boofiMatrixAlt": "GIF de BooFi Matrix",
+    "boofiMatrixAlt": "GIF de BuMatrix",
     "matrixMemeAlt": "Meme cripto de Matrix",
     "title": "Bienvenido a BooFi",
     "description": "¡Finanzas cripto espeluznantes hechas fáciles!",
@@ -22,7 +22,7 @@
     "glowButton": "Brillar",
     "scrollContent": "Este es un contenido desplazable para probar la barra de desplazamiento personalizada. Se repite para asegurar que haya suficiente contenido para desplazarse.",
     "connectWalletAlert": "Por favor, conecta tu billetera",
-    "sendPaymentTab": "Enviar pago",
+    "sendPaymentTab": "Enviar y/o Intercambiar",
     "paymentLinksTab": "Enlaces de pago",
     "moneyMarketTab": "Prestamos",
     "paymentsTab": "Pagos",
@@ -116,10 +116,10 @@
   },
   "MoneyMarketBento3": {
     "title": "Asistente",
-    "description": "Desbloquea insights financieros impulsados por IA con BooFi premium. Obtén consejos y estrategias personalizados."
+    "description": "Desbloquea insights financieros impulsados por IA con Bupremium. Obtén consejos y estrategias personalizados."
   },
   "HistoryTab": {
-    "title": "Historial de links",
+    "title": "Historial de links creados a través de Bu.fi",
     "description": "Revisa el historial de tus links de pago",
     "noData": "No se han encontrado datos",
     "toastCopyTitle": "Copiado al portapapeles!",

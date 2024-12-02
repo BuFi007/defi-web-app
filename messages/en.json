@@ -11,20 +11,20 @@
       "part3": "banking",
       "part4": "for everyone"
     },
-    "logoAlt": "BooFi logo",
+    "logoAlt": "Bulogo",
     "neoMatrixAlt": "Neo matrix image",
     "pillGifAlt": "Matrix pill gif",
-    "boofiMatrixAlt": "BooFi matrix gif",
+    "boofiMatrixAlt": "Bumatrix gif",
     "matrixMemeAlt": "Matrix crypto meme",
     "connectWalletAlert": "Please connect your wallet",
-    "sendPaymentTab": "Send Payment",
+    "sendPaymentTab": "Send and/or Exchange",
     "paymentLinksTab": "Payment Links",
     "moneyMarketTab": "Loan and Borrow",
     "paymentsTab": "Payments",
     "ccipUsdcBridgeTab": "CCIP USDC Bridge"
   },
   "EnsAlertDialog": {
-    "actionButton": "Send and receive payments with your BooFi link name",
+    "actionButton": "Send and receive payments with your Bu pay link name",
     "callToAction": "Create Base Name"
   },
   "PeanutTab": {
@@ -112,10 +112,10 @@
   },
   "MoneyMarketBento3": {
     "title": "Assistant",
-    "description": "Unlock AI-driven financial insights with BooFi premium. Get personalized advice and strategies."
+    "description": "Unlock AI-driven financial insights with Bupremium. Get personalized advice and strategies."
   },
   "HistoryTab": {
-    "title": "History",
+    "title": "Links created through Bu.fi",
     "description": "Review your payment links history",
     "toastCopyTitle": "Copied to clipboard!",
     "toastCopyDescription": " has been copied to clipboard.",

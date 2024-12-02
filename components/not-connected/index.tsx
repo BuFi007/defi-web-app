@@ -30,7 +30,7 @@ export const NotConnectedHome: React.FC = () => {
               {translations.to}
               <br />
               <span className="inline-block font-clash bg-gradient-to-r text-7xl from-indigo-300 via-purple-400 to-cyan-300 bg-clip-text text-transparent">
-                BooFi
+                Bu
               </span>
             </p>
             {renderSlogan()}

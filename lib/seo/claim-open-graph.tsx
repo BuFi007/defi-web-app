@@ -1,37 +1,8 @@
-import { Metadata, ResolvingMetadata } from "next";
+import { Metadata } from "next";
 import { headers } from "next/headers";
-import {
-  ExtendedPaymentInfo,
-  IGetLinkDetailsResponse,
-  Translations,
-} from "@/lib/types";
+import { IGetLinkDetailsResponse } from "@/lib/types";
 import { getLinkDetails } from "@squirrel-labs/peanut-sdk";
 
-export const fetchLinkDetails = async (
-  link: string,
-  setDetails: (details: IGetLinkDetailsResponse) => void,
-  setPaymentInfo: (paymentInfo: ExtendedPaymentInfo) => void,
-  translations: Translations["PeanutTab"]
-) => {
-  try {
-    const details = (await getLinkDetails({
-      link,
-    })) as unknown as IGetLinkDetailsResponse;
-    setDetails(details);
-    const extendedPaymentInfo: ExtendedPaymentInfo = {
-      chainId: details.chainId,
-      tokenSymbol: details.tokenSymbol,
-      tokenAmount: details.tokenAmount,
-      senderAddress: details.sendAddress,
-      claimed: details.claimed,
-      depositDate: details.depositDate,
-      depositIndex: details.depositIndex,
-    };
-    setPaymentInfo(extendedPaymentInfo);
-  } catch (error: any) {
-    console.error("Error fetching link details:", error.message);
-  }
-};
 type Props = {
   params: { locale: string };
   searchParams: {
@@ -41,44 +12,49 @@ type Props = {
   };
 };
 
-// Create a simplified version of fetchLinkDetails for metadata
-async function getClaimDetails(url: string): Promise<IGetLinkDetailsResponse> {
-  return new Promise((resolve, reject) => {
-    fetchLinkDetails(
-      url,
-      (details: IGetLinkDetailsResponse) => resolve(details),
-      () => {}, // setPaymentInfo
-      {} as any // translations
-    );
-  });
+// Función para obtener los detalles del enlace
+async function getClaimDetails(
+  linkCode: string
+): Promise<IGetLinkDetailsResponse> {
+  try {
+    const details = await getLinkDetails({ link: linkCode });
+    return details as unknown as IGetLinkDetailsResponse;
+  } catch (error) {
+    console.error("Error fetching link details:", error);
+    throw error;
+  }
 }
 
-export async function generateMetadata(
-  { params, searchParams }: Props,
-  parent: ResolvingMetadata
-): Promise<Metadata> {
+// Función para generar los metadatos
+export async function generateMetadata({
+  params,
+  searchParams,
+}: Props): Promise<Metadata> {
   const headersList = headers();
-  const domain = headersList.get("host") || process.env.NEXT_PUBLIC_URL;
+  const domain =
+    headersList.get("host") || process.env.NEXT_PUBLIC_URL || "localhost";
   const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
   const baseUrl = `${protocol}://${domain}`;
 
-  // Get claim details
   try {
-    const url = `${baseUrl}/claim?v=${searchParams.v}&l=${searchParams.l}&chain=${searchParams.chain}`;
-    const details = await getClaimDetails(url);
+    const linkCode = searchParams.l;
+    if (!linkCode) throw new Error("No se proporcionó el código de enlace");
 
-    if (!details) throw new Error("No details found");
+    const details = await getClaimDetails(linkCode);
 
-    const amount = details.tokenAmount?.toString() || "0";
-    const token = details.tokenSymbol || "ETH";
-    const chain = searchParams.chain || "1";
+    // Asegurar que los valores existen, de lo contrario usar valores predeterminados
+    const amount = details.tokenAmount?.toString() ?? "0";
+    const token = details.tokenSymbol?.toString() ?? "ETH";
+    const chain = searchParams.chain ?? "1";
 
-    // Generate OG image URL
-    const ogImageUrl = `${baseUrl}/api/og/claim?amount=${amount}&token=${token}&chain=${chain}`;
+    // Codificar los parámetros para la URL
+    const ogImageUrl = `${baseUrl}/api/og/claim?amount=${encodeURIComponent(
+      amount
+    )}&token=${encodeURIComponent(token)}&chain=${encodeURIComponent(chain)}`;
 
-    // Construct metadata
-    const title = `Claim ${amount} ${token} on Bu.fi`;
-    const description = `Someone sent you ${amount} ${token}. Click to claim your tokens!`;
+    // Construir los metadatos
+    const title = `Reclama ${amount} ${token} en Bu.fi`;
+    const description = `Alguien te envió ${amount} ${token}. ¡Haz clic para reclamar tus tokens!`;
 
     return {
       title,
@@ -86,7 +62,7 @@ export async function generateMetadata(
       openGraph: {
         title,
         description,
-        images: [ogImageUrl],
+        images: [{ url: ogImageUrl }],
         url: `${baseUrl}/${params.locale}/claim`,
         siteName: "Bu.fi",
         type: "website",
@@ -99,22 +75,28 @@ export async function generateMetadata(
       },
     };
   } catch (error) {
+    console.error("Error generating metadata:", error);
+    const fallbackTitle = "Reclama tus tokens en Bu.fi";
+    const fallbackDescription =
+      "Alguien te envió tokens. ¡Haz clic para reclamarlos!";
+    const fallbackImage = `${baseUrl}/images/BooFi-icon.png`;
+
     return {
-      title: "Claim your tokens on Bu.fi",
-      description: "Someone sent you tokens. Click to claim them!",
+      title: fallbackTitle,
+      description: fallbackDescription,
       openGraph: {
-        title: "Claim your tokens on Bu.fi",
-        description: "Someone sent you tokens. Click to claim them!",
-        images: [`${baseUrl}/images/BooFi-icon.png`],
+        title: fallbackTitle,
+        description: fallbackDescription,
+        images: [{ url: fallbackImage }],
         url: `${baseUrl}/${params.locale}/claim`,
         siteName: "Bu.fi",
         type: "website",
       },
       twitter: {
         card: "summary_large_image",
-        title: "Claim your tokens on Bu.fi",
-        description: "Someone sent you tokens. Click to claim them!",
-        images: [`${baseUrl}/images/BooFi-icon.png`],
+        title: fallbackTitle,
+        description: fallbackDescription,
+        images: [fallbackImage],
       },
     };
   }

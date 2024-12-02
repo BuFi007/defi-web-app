@@ -8,28 +8,30 @@ import { ModeToggle } from "@/components/theme-toggle";
 import SparklesText from "@/components/magicui/sparkles-text";
 import { motion } from "framer-motion";
 import { Skeleton } from "../ui/skeleton";
-import ActionBanner from "./action-banner";
 import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
 import { useHoverAudio } from "@/utils/audio-hover";
+import { ActionBannerSkeleton } from "@/components/skeleton-card";
+import dynamic from "next/dynamic";
 
+const ActionBanner = dynamic(() => import("./action-banner"), {
+  loading: () => <ActionBannerSkeleton />,
+});
 const song = "/sounds/anime-wow-sound-effect.mp3";
 
 const HeaderFull: React.FC = () => {
   const MotionLink = motion(Link);
   const { playHoverSound, resetHoverSound } = useHoverAudio(song);
 
-
-
   return (
     <>
       <ActionBanner />
-      <div className="container mx-auto grid grid-cols-3 items-center">
+      <div className="container mx-auto grid grid-cols-3 items-center z-100">
         <div className="flex items-center space-x-2">
           <Suspense fallback={<Skeleton className="h-4 w-[250px]" />}>
             <ModeToggle />
             <LocalSwitcher />
           </Suspense>
-          <span className="h-px flex-1 bg-black"></span>
+          <span className="h-px flex-1 bg-border"></span>
         </div>
         <div className="flex justify-center group">
           <MotionLink
@@ -39,13 +41,14 @@ const HeaderFull: React.FC = () => {
             onHoverStart={playHoverSound}
             onHoverEnd={resetHoverSound}
           >
-            <div className="flex items-center">
+            <div className="flex items-center z-50">
               <SparklesText>
                 <Image
                   src="/images/BooFi-icon.png"
-                  alt="Logo"
+                  alt="Bu Logo"
                   width={100}
                   height={100}
+                  priority
                 />
               </SparklesText>
               <span className="absolute mt-28 sm:mt-20 opacity-0 group-hover:opacity-100 group-hover:-rotate-12 transition-all duration-300">
@@ -57,7 +60,7 @@ const HeaderFull: React.FC = () => {
           </MotionLink>
         </div>
         <div className="flex items-center justify-end">
-          <span className="h-px flex-grow bg-black"></span>
+          <span className="h-px flex-grow bg-border"></span>
           <Suspense fallback={<Skeleton className="h-4 w-[250px]" />}>
             <div className="flex items-center gap-3 z-20">
               <DynamicWidget />
