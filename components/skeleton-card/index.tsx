@@ -3,8 +3,11 @@
 import React from "react"
 import { Skeleton } from "@/components/ui/skeleton";
 import { BentoGrid, BentoGridItem } from "@/components/bento-grid/index"
+import { useWindowSize } from "@/hooks/use-window-size";
+import Image from "next/image";
 
-function MoneyMarketSkeleton() {
+
+const MoneyMarketSkeleton: React.FC = () => {
   return (
     <div className="space-y-4">
       <Skeleton className="h-8 w-3/4" />
@@ -133,11 +136,65 @@ const TokenSwapSkeleton: React.FC = () => {
 
 const ContainerSkeleton = () => {
   return (
-    <div className="relative bg-gradient-to-br from-indigo-100 via-violet-200 to-cyan-300 bg-no-repeat justify-center items-center mx-auto w-full lg:max-w-7xl border border-black rounded-lg overflow-hidden h-screen">
-          <Skeleton className="w-full h-[800px] animate-pulse" />
+
+    <div className="relative bg-gradient-to-br from-indigo-300 via-violet-400 to-cyan-300 bg-no-repeat dark:bg-gradient-to-r dark:from-gray-900 dark:via-indigo-400 dark:to-gray-800 justify-center items-center mx-auto w-full lg:max-w-7xl border border-border rounded-lg overflow-hidden h-screen animate-pulse">
+          <Skeleton className="w-full" />
     </div>
   )
 }
 
+const ActionBannerSkeleton: React.FC = () => {
+  return (
+    <Skeleton className="w-full h-10 mb-2 animate-pulse bg-gradient-to-bl from-purple-400 to-teal-400 dark:from-indigo-900 dark:via-purple-900 dark:to-cyan-900 blur-xl dark:bg-gradient-to-r" />
+  )
+}
 
-export { MoneyMarketSkeleton, PaymentLinkSkeleton, MoneyMarketBentoSkeleton, TokenSwapSkeleton, ContainerSkeleton };
+
+const HeaderSkeleton: React.FC = () => {
+  const { width } = useWindowSize();
+  
+  if (width && width < 1024) {
+    return (
+      <div className="container mx-auto px-4">
+        <div className="flex justify-between items-center py-4">
+          <div className="flex items-center">
+            <Skeleton className="w-[50px] h-[50px] rounded-full animate-pulse" />
+            <Skeleton className="ml-4 h-8 w-24 animate-pulse" />
+          </div>
+          <Skeleton className="w-10 h-10 rounded animate-pulse" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <ActionBannerSkeleton/> 
+      <div className="container mx-auto grid grid-cols-3 items-center">
+        <div className="flex items-center space-x-2">
+        <Skeleton className="h-10 w-10 border border-border/50 rounded-lg animate-pulse bg-gradient-to-br from-indigo-100 via-violet-200 to-cyan-200 bg-no-repeat dark:bg-gradient-to-r dark:from-gray-900 dark:via-indigo-400 dark:to-gray-800" />
+        <Skeleton className="h-10 w-24 border border-border/50 rounded-lg animate-pulse bg-gradient-to-br from-indigo-100 via-violet-200 to-cyan-200 bg-no-repeat dark:bg-gradient-to-r dark:from-gray-900 dark:via-indigo-400 dark:to-gray-800" />
+        <span className="h-px flex-1 bg-border"></span>
+      </div>
+      <div className="flex justify-center items-center">
+        <div className="flex items-center">
+            <Image
+              src="/images/BooFi-icon.png"
+              alt="Bu Logo"
+              width={100}
+              height={100}
+              priority
+              className="animate-pulse"
+            />  
+          </div>
+        </div>
+        <div className="flex items-center justify-end">
+          <span className="h-px flex-1 bg-border"></span>
+          <Skeleton className="h-10 w-[180px] border border-border/50 rounded-lg ml-4 animate-pulse bg-gradient-to-br from-indigo-100 via-violet-200 to-cyan-200 bg-no-repeat dark:bg-gradient-to-r dark:from-gray-900 dark:via-indigo-400 dark:to-gray-800" />
+        </div>
+      </div>
+    </>
+  );
+};
+
+export { MoneyMarketSkeleton, PaymentLinkSkeleton, MoneyMarketBentoSkeleton, TokenSwapSkeleton, ContainerSkeleton, HeaderSkeleton, ActionBannerSkeleton };
