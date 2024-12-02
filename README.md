@@ -28,13 +28,13 @@ By leveraging a **Hub and Spoke Money Market** model, Bu Finance facilitates sec
 
 ### **Hub and Spoke Money Market Model**
 
-BooFi employs a **Hub and Spoke** architecture to manage liquidity and consensus across multiple blockchains:
+Buemploys a **Hub and Spoke** architecture to manage liquidity and consensus across multiple blockchains:
 
 - **Central Hub:** Acts as the liquidity aggregator and consensus finalizer, deployed on a scalable L1 blockchain.
 - **Spokes:** Connect various L1 and L2 blockchains, pulling liquidity into the central hub using CCIP and Wormhole protocols.
 - **Private Blockchain Integration:** Links to a dedicated Open Banking L1, enabling secure DeFi access for LATAM fintech and incorporation of CBDCs.
 
-### **BooFi AI Console**
+### **BuAI Console**
 
 The AI Console enhances user experience through intelligent assistance:
 

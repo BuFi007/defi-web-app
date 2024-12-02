@@ -455,3 +455,8 @@ export interface LocalStorageStore {
   links: string[];
   setLinks: (links: string[]) => void;
 }
+
+export interface ShareOptions {
+  link: string;
+  message: string;
+}
