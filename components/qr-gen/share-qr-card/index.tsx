@@ -49,56 +49,10 @@ const ShareableQRCard = ({
   currentNetwork,
 }: ShareableQRCardProps) => {
   const qrCodeRef = useRef(null);
-
   const {setAmount, setToken, token } = usePayLinkStore();
   const { isSharing, shareOnWhatsApp, shareOnTelegram, shareOnDownload } = useQRCodeSharing();
-  const locale = useLocale();
-  const supportedLocales = ["en", "es", "pt"];
-
-
   const [paymentLink, setPaymentLink] = useState(link);
   console.log("Here is the token", token?.symbol);
-
-
-  const getLocalizedLink = (url: string) => {
-    try {
-      const urlObj = new URL(url, NEXT_PUBLIC_URL);
-      const pathSegments = urlObj.pathname.split("/").filter(segment => segment);
-
-      if (pathSegments.length > 0 && supportedLocales.includes(pathSegments[0])) {
-        return urlObj.toString();
-      }
-      urlObj.pathname = `/${locale}/${urlObj.pathname}`.replace("//", "/");
-      return urlObj.toString();
-    } catch (error) {
-      console.error("Invalid URL provided to ShareableQRCard:", url);
-      return url;
-    }
-  };
-
-  const updatePaymentLink = useEffect(() => {
-    if (action === 'pay') {
-      const baseLink = getLocalizedLink(link);
-      const url = new URL(baseLink);
-      
-      // Add payment parameters with proper formatting
-      if (amount && parseFloat(amount) > 0) {
-        url.searchParams.set('amount', amount);
-      }
-      if (token) {
-        url.searchParams.set('token', token?.symbol);
-        if (token.address) {
-          url.searchParams.set('tokenAddress', token.address);
-        }
-      }
-      url.searchParams.set('chain', currentNetwork.toString());
-      url.searchParams.set('action', action);
-      
-      setPaymentLink(url.toString());
-    } else {
-      setPaymentLink(getLocalizedLink(link));
-    }
-  }, [amount, token, currentNetwork, action, link, locale]);
 
   const handleAmountChange = (newAmount: number) => {
     setAmount(newAmount.toString());
@@ -188,12 +142,11 @@ const ShareableQRCard = ({
           </div>
           <div className="text-center text-xs text-gray-500">
             <p className="hover:underline hover:text-primary">
-              {" "}
-              Share this QR code to{" "}
+              Share this QR code to
               {action === "pay"
                 ? `request a ${amount} ${token?.symbol} payment to`
-                : "send payment as a link from"}{" "}
-              your account{" "}
+                : "send payment as a link from"}
+              your account
             </p>
           </div>
 

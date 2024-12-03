@@ -91,20 +91,6 @@ const PaymentDetails: React.FC<PaymentInfoProps> = ({ paymentInfo }) => {
         )}
 
         <div className="grid gap-2 text-xs">
-          {/* <div className="flex items-center justify-between">
-            <p className="text-muted-foreground">From:</p>
-            <Button
-              variant="link"
-              className="p-0 h-auto font-medium hover:bg-transparent"
-              onClick={() =>
-                handleCopy(paymentInfo.senderAddress, "Sender Address")
-              }
-            >
-              {truncateHash(paymentInfo.senderAddress)}
-              <CopyIcon className="ml-2 h-4 w-4" />
-            </Button>
-          </div> */}
-
           <div className="flex items-center justify-between">
             <p className="text-muted-foreground">Status:</p>
             <Badge

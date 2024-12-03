@@ -12,7 +12,6 @@ import { getChainInfoByChainId } from "@/components/tab-content/peanut-tab/claim
 import { toast } from "@/components/ui/use-toast";
 import { ChainSelect } from "@/components/chain-select";
 import * as chains from "@/constants/Chains";
-import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { Input } from "@/components/ui/input";
 
 export default function ClaimInfo({

@@ -10,8 +10,9 @@ export function useQRCodeSharing() {
   const shareOnWhatsApp = useCallback(async (qrCodeElement: HTMLElement, options: ShareOptions) => {
     setIsSharing(true);
     try {
+      const whatsappText = `${options.message}\n${options.link}`;
       const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(
-        `${options.message}\n${options.link}`
+        whatsappText
       )}`;
       window.open(whatsappUrl, '_blank');
     } catch (error) {

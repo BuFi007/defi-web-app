@@ -158,6 +158,23 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
     DiscordBanner: {
       cta: t("DiscordBanner.cta"),
     },
+    OpenGraphClaim: {
+      paymentRequest: t("OpenGraphClaim.paymentRequest"),
+      claimTitle: t("OpenGraphClaim.claimTitle"),
+      claimTitle2: t("OpenGraphClaim.claimTitle2"),
+      description: t("OpenGraphClaim.description"),
+      description2: t("OpenGraphClaim.description2"),
+      fallbackTitle: t("OpenGraphClaim.fallbackTitle"),
+      fallbackDescription: t("OpenGraphClaim.fallbackDescription"),
+    },
+    OpenGraphPayment: {
+      paymentTitle: t("OpenGraphPayment.paymentTitle"),
+      paymentDescription: t("OpenGraphPayment.paymentDescription"),
+      paymentDescription2: t("OpenGraphPayment.paymentDescription2"),
+      paymentDescription3: t("OpenGraphPayment.paymentDescription3"),
+      paymentFallbackTitle: t("OpenGraphPayment.paymentFallbackTitle"),
+      paymentFallbackDescription: t("OpenGraphPayment.paymentFallbackDescription"),
+    },
   };
 
   return (

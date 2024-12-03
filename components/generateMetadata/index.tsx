@@ -1,8 +1,10 @@
-// lib/seo/claim-open-graph.tsx
 import { Metadata } from "next";
 import { headers } from "next/headers";
 import { IGetLinkDetailsResponse } from "@/lib/types";
 import { getLinkDetails } from "@squirrel-labs/peanut-sdk";
+import { useAppTranslations } from "@/context/TranslationContext";
+
+const translations = useAppTranslations("OpenGraphClaim");
 
 type Props = {
   params: { locale: string };
@@ -30,10 +32,10 @@ export async function generateMetadata({
   searchParams,
 }: Props): Promise<Metadata> {
   const headersList = headers();
-  const domain =
-    headersList.get("host") || process.env.NEXT_PUBLIC_URL || "localhost";
-  const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
-  const baseUrl = `${protocol}://${domain}`;
+  const origin = headersList.get("origin") || "";
+  const baseUrl = origin.startsWith("https") 
+    ? process.env.NEXT_PUBLIC_MAINNET_URL 
+    : process.env.NEXT_PUBLIC_TESTNET_URL;
 
   try {
     const linkCode = searchParams.l;
@@ -48,8 +50,8 @@ export async function generateMetadata({
     const ogImageUrl = `${baseUrl}/api/og/claim?amount=${amount}&token=${token}&chain=${chain}`;
 
     // Construir metadatos
-    const title = `Reclama ${amount} ${token} en Bu.fi`;
-    const description = `Alguien te envió ${amount} ${token}. ¡Haz clic para reclamar tus tokens!`;
+    const title = `${translations.claimTitle} ${amount} ${token} ${translations.claimTitle2}`;
+    const description = `${translations.description} ${amount} ${token}. ¡Haz clic para reclamar tus tokens!`;
 
     return {
       title,

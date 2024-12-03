@@ -413,6 +413,23 @@ export interface Translations {
   DiscordBanner: {
     cta: string;
   };
+  OpenGraphClaim: {
+    paymentRequest: string;
+    claimTitle: string;
+    claimTitle2: string;
+    description: string;
+    description2: string;
+    fallbackTitle: string;
+    fallbackDescription: string;
+  };
+  OpenGraphPayment: {
+    paymentTitle: string;
+    paymentDescription: string;
+    paymentDescription2: string;
+    paymentDescription3: string;
+    paymentFallbackTitle: string;
+    paymentFallbackDescription: string;
+  };
 }
 
 export type ChainList =
