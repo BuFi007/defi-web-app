@@ -33,7 +33,7 @@ const HeaderFull: React.FC = () => {
           </Suspense>
           <span className="h-px flex-1 bg-border"></span>
         </div>
-        <div className="flex justify-center group">
+        <div className="flex justify-center group z-100">
           <MotionLink
             href="/"
             whileHover={{ scale: 1.15, rotate: 4 }}
@@ -41,7 +41,7 @@ const HeaderFull: React.FC = () => {
             onHoverStart={playHoverSound}
             onHoverEnd={resetHoverSound}
           >
-            <div className="flex items-center z-50">
+            <div className="flex items-center z-100">
               <SparklesText>
                 <Image
                   src="/images/BooFi-icon.png"
@@ -52,7 +52,7 @@ const HeaderFull: React.FC = () => {
                 />
               </SparklesText>
               <span className="absolute mt-28 sm:mt-20 opacity-0 group-hover:opacity-100 group-hover:-rotate-12 transition-all duration-300">
-                <span className="inline-block pl-5 font-clash bg-gradient-to-r text-3xl from-indigo-300 via-purple-400 to-cyan-300 bg-clip-text text-transparent">
+                <span className="inline-block pl-5 font-clash bg-gradient-to-r text-3xl from-indigo-300 via-purple-400 to-cyan-300 bg-clip-text text-transparent z-100">
                   bu.fi
                 </span>
               </span>

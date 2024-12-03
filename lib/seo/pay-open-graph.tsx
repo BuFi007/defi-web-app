@@ -24,6 +24,7 @@ export async function generateMetadata(
     // const ogImageUrl = `${baseUrl}/api/${params.id}?amount=${amount}&token=${token}&chain=${chain}`;
     const ogImageUrl = `${baseUrl}/api/${encodeURIComponent(params.id)}?amount=${encodeURIComponent(amount)}&token=${encodeURIComponent(token)}&chain=${encodeURIComponent(chain)}`;
 
+    console.log("here is the ogImageUrl", ogImageUrl);
 
     // Construct metadata
     const title = `Payment Request for ${amount} ${token}`;
@@ -35,8 +36,8 @@ export async function generateMetadata(
       openGraph: {
         title,
         description,
-        images: [ogImageUrl],
         url: `${baseUrl}/${params.locale}/${params.id}`,
+        images: [ogImageUrl],
         siteName: 'Bu.fi',
         type: 'website',
       },

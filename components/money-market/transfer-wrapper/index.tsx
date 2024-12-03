@@ -19,10 +19,12 @@ const TransferWrapper: React.FC<TransferWrapperProps> = ({
 }) => {
   const { writeContract, error, data, isIdle, isError } = useWriteContract();
   const chain = Object.values(chains).find((c) => c.name === "Base Sepolia");
+  
   if (!chain) {
     console.error("Chain 'Base Sepolia' not found in chains configuration.");
     return null;
   }
+
   let costForReturnDelivery: bigint | undefined;
 
   const chainId = chain.chainId;
