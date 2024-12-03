@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useRef } from "react";
+import React, { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import LocalSwitcher from "@/components/locale-switcher";

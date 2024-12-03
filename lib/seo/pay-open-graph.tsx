@@ -1,5 +1,6 @@
 import { Metadata, ResolvingMetadata } from 'next'
 import { headers } from 'next/headers'
+import { getTranslations } from 'next-intl/server';
 
 type Props = {
   params: { id: string; locale: string }
@@ -11,9 +12,12 @@ export async function generateMetadata(
   parent: ResolvingMetadata
 ): Promise<Metadata> {
   const headersList = headers();
-  const domain = headersList.get('host') || process.env.NEXT_PUBLIC_URL;
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = `${protocol}://${domain}`;
+  const origin = headersList.get('origin') || '';
+  const baseUrl = origin.startsWith('https') 
+    ? process.env.NEXT_PUBLIC_MAINNET_URL 
+    : process.env.NEXT_PUBLIC_TESTNET_URL;
+
+  const t = await getTranslations('OpenGraphPayment');
 
   try {
     const amount = searchParams.amount || '0';
@@ -27,8 +31,8 @@ export async function generateMetadata(
     console.log("here is the ogImageUrl", ogImageUrl);
 
     // Construct metadata
-    const title = `Payment Request for ${amount} ${token}`;
-    const description = `Send ${amount} ${token} to ${params.id} using Bu.fi`;
+    const title = `${t('paymentTitle')} ${amount} ${token}`;
+    const description = `${t('paymentDescription')} ${amount} ${token} ${t('paymentDescription2')}${params.id} ${t('paymentDescription3')}`;
 
     return {
       title,
@@ -50,8 +54,8 @@ export async function generateMetadata(
     };
   } catch (error) {
     console.error("Error generating metadata:", error);
-    const fallbackTitle = "Send or receive tokens with Bu.fi";
-    const fallbackDescription = "Send tokens easily with Bu.fi";
+    const fallbackTitle = t('paymentFallbackTitle');
+    const fallbackDescription = t('paymentFallbackDescription');
     const fallbackImage = `${baseUrl}/images/BooFi-icon.png`;
 
     return {

@@ -134,5 +134,22 @@
   },
   "DiscordBanner": {
     "cta": "Join our thriving community on Discord. Connect, learn, and grow with us!"
+  },
+  "OpenGraphClaim": {
+    "paymentRequest": "Payment request for",
+    "claimTitle": "Claim",
+    "claimTitle2": "in Bu.fi",
+    "description": "A ghost sent you",
+    "description2": "¡Click to claim your tokens!",
+    "fallbackTitle": "Claim payment link",
+    "fallbackDescription": "Claim your payment link here"
+  },
+  "OpenGraphPayment": {
+    "paymentTitle": "Payment Request for ",
+    "paymentDescription": "Send",
+    "paymentDescription2": "to",
+    "paymentDescription3": "using Bu.fi",
+    "paymentFallbackTitle": "Send or receive tokens with Bu.fi",
+    "paymentFallbackDescription": "Send tokens easily with Bu.fi"
   }
 }
