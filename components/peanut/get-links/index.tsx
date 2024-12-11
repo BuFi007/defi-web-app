@@ -134,7 +134,7 @@ export default function ClaimsDisplay() {
                   </TooltipProvider>
                 </TableCell>
                 <TableCell>
-                  {new Date(claim.depositDate).toLocaleString().split(",")[0]}
+                  {new Date(claim.depositDate)?.toLocaleString()?.split(",")[0]}
                 </TableCell>
                 <TableCell className="font-mono">
                   <Link
@@ -176,9 +176,9 @@ export default function ClaimsDisplay() {
                 <TableCell className="flex items-center">
                   <TokenChip
                     token={
-                      allTokens.find((t) => t.address === claim.tokenAddress)!
+                      allTokens.find((t) => t?.address === claim?.tokenAddress)!
                     }
-                    amount={claim.tokenAmount.toString()}
+                    amount={claim?.tokenAmount?.toString()}
                   />
                 </TableCell>
 
