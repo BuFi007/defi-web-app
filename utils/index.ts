@@ -143,12 +143,22 @@ export const getFromChains = (
     case "lend":
       // Supply from spokes only (isHub: false)
       if (isMainnet) {
-        return [Chains.Arbitrum, Chains.Base, Chains.Avalanche];
+        return [
+          Chains.Arbitrum,
+          Chains.Base,
+          Chains.Avalanche,
+          Chains.Bsc,
+          Chains.Optimism,
+          Chains.ZkSync,
+        ];
       } else {
         return [
           Chains.ArbitrumSepolia,
           Chains.BaseSepolia,
           Chains.AvalancheFuji,
+          Chains.Bsc,
+          Chains.Optimism,
+          Chains.ZkSyncSepolia,
         ];
       }
     case "borrow":
@@ -165,12 +175,22 @@ export const getFromChains = (
       }
     case "repay":
       if (isMainnet) {
-        return [Chains.Arbitrum, Chains.Base, Chains.Avalanche];
+        return [
+          Chains.Arbitrum,
+          Chains.Base,
+          Chains.Avalanche,
+          Chains.Bsc,
+          Chains.Optimism,
+          Chains.ZkSync,
+        ];
       } else {
         return [
           Chains.ArbitrumSepolia,
           Chains.BaseSepolia,
           Chains.AvalancheFuji,
+          Chains.Bsc,
+          Chains.Optimism,
+          Chains.ZkSyncSepolia,
         ];
       }
     default:
@@ -181,6 +201,9 @@ export const getFromChains = (
         Chains.BaseSepolia,
         Chains.AvalancheFuji,
         Chains.ArbitrumSepolia,
+        Chains.Bsc,
+        Chains.Optimism,
+        Chains.ZkSync,
       ];
   }
 };

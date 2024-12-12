@@ -12,7 +12,8 @@ export default function LinkUiForm({
   handleCreateLinkClick,
   isPeanutLoading,
 }: LinkUiFormProps) {
-  const translations = useAppTranslations('PeanutTab');
+  const translations = useAppTranslations("PeanutTab");
+
   return (
     <>
       <div className="flex w-full md:h-[300px] lg:h-[400px] flex-col justify-between rounded-2xl border bg-background">
@@ -27,6 +28,7 @@ export default function LinkUiForm({
             availableTokens={availableTokens}
             onTokenSelect={setSelectedToken}
             currentNetwork={chainId || 1}
+            // defaultToken={availableTokens[0]}
             size="lg"
             action="default"
           />

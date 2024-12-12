@@ -8,10 +8,32 @@ import { config } from "@/lib/wagmi";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 import { ReactNode } from "react";
 import { DYNAMIC_ENVIRONMENT_ID } from "@/constants/Env";
-import { Avalanche, Base, Arbitrum, BaseSepolia, ArbitrumSepolia, AvalancheFuji } from "@/constants/Chains";
+import {
+  Avalanche,
+  Base,
+  Arbitrum,
+  BaseSepolia,
+  ArbitrumSepolia,
+  AvalancheFuji,
+  ZkSyncSepolia,
+  ZkSync,
+  Optimism,
+  Bsc,
+} from "@/constants/Chains";
 
 const queryClient = new QueryClient();
-const evmNetworks = [Avalanche, Base, Arbitrum, BaseSepolia, ArbitrumSepolia, AvalancheFuji];
+const evmNetworks = [
+  Avalanche,
+  Base,
+  // Arbitrum,
+  BaseSepolia,
+  // ArbitrumSepolia,
+  AvalancheFuji,
+  ZkSyncSepolia,
+  ZkSync,
+  Optimism,
+  Bsc,
+];
 
 export default function Providers({ children }: { children: ReactNode }) {
   return (
@@ -35,4 +57,3 @@ export default function Providers({ children }: { children: ReactNode }) {
     </DynamicContextProvider>
   );
 }
-

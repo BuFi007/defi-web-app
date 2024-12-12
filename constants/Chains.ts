@@ -113,3 +113,75 @@ export const ArbitrumSepolia = {
   networkId: 421614,
   iconUrls: ["https://app.dynamic.xyz/assets/networks/arbitrum.svg"],
 };
+
+export const ZkSync = {
+  chainId: 324,
+  rpcUrls: ["https://mainnet.era.zksync.io"],
+  isMainnet: true,
+  networkId: 324,
+  name: "ZkSync",
+  nativeCurrency: {
+    name: "Ether",
+    symbol: "ETH",
+    decimals: 18,
+    iconUrls: ["https://app.dynamic.xyz/assets/networks/zksync.svg"],
+  },
+  blockExplorerUrls: ["https://explorer.zksync.io"],
+  vanityName: "ZkSync",
+  chainName: "ZkSync",
+  iconUrls: ["https://app.dynamic.xyz/assets/networks/zksync.svg"],
+};
+
+export const ZkSyncSepolia = {
+  chainId: 300,
+  name: "ZkSync Sepolia",
+  rpcUrls: ["https://sepolia.era.zksync.dev"],
+  isMainnet: false,
+  networkId: 300,
+  nativeCurrency: {
+    name: "Ether",
+    symbol: "ETH",
+    decimals: 18,
+    iconUrls: ["https://app.dynamic.xyz/assets/networks/zksync.svg"],
+  },
+  blockExplorerUrls: ["https://sepolia.explorer.zksync.io"],
+  vanityName: "ZkSync Sepolia",
+  chainName: "ZkSyncSepolia",
+  iconUrls: ["https://app.dynamic.xyz/assets/networks/zksync.svg"],
+};
+
+export const Optimism = {
+  chainId: 10,
+  name: "Optimism",
+  rpcUrls: ["https://mainnet.optimism.io"],
+  isMainnet: true,
+  networkId: 10,
+  nativeCurrency: {
+    name: "Ether",
+    symbol: "ETH",
+    decimals: 18,
+    iconUrls: ["https://app.dynamic.xyz/assets/networks/optimism.svg"],
+  },
+  blockExplorerUrls: ["https://explorer.optimism.io"],
+  vanityName: "Optimism",
+  chainName: "Optimism",
+  iconUrls: ["https://app.dynamic.xyz/assets/networks/optimism.svg"],
+};
+
+export const Bsc = {
+  chainId: 56,
+  name: "BSC",
+  rpcUrls: ["https://bsc-dataseed.binance.org"],
+  isMainnet: true,
+  networkId: 56,
+  nativeCurrency: {
+    name: "Binance Smart Chain",
+    symbol: "BNB",
+    decimals: 18,
+    iconUrls: ["https://app.dynamic.xyz/assets/networks/bsc.svg"],
+  },
+  blockExplorerUrls: ["https://bscscan.com"],
+  vanityName: "BSC",
+  chainName: "BSC",
+  iconUrls: ["https://app.dynamic.xyz/assets/networks/bnb.svg"],
+};

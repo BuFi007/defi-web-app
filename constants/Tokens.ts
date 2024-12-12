@@ -16,7 +16,7 @@ export const AvalancheFujiTokens: Token[] = [
     payable: false,
     symbol: "AVA",
     image:
-      "https://bafybeihfbjhiz5rytxcug7l7ymu6veyam5dcdrmqevz2jkepsgec6xobgi.ipfs.web3approved.com/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjaWQiOiJiYWZ5YmVpaGZiamhpejVyeXR4Y3VnN2w3eW11NnZleWFtNWRjZHJtcWV2ejJqa2Vwc2dlYzZ4b2JnaSIsInByb2plY3RfdXVpZCI6Ijc2YTA4NzgxLTViMDctNGRhMy1iZDNhLTBiNDc2ZjRhY2YyMiIsImlhdCI6MTcyOTE5NTczMiwic3ViIjoiSVBGUy10b2tlbiJ9.Or8FYayDjxvOSgW-ZjTLYksp9-0fXa7pKmKFQPUNZL4",
+      "https://dynamic-assets.coinbase.com/dbb4b4983bde81309ddab83eb598358eb44375b930b94687ebe38bc22e52c3b2125258ffb8477a5ef22e33d6bd72e32a506c391caa13af64c00e46613c3e5806/asset_icons/4113b082d21cc5fab17fc8f2d19fb996165bcce635e6900f7fc2d57c4ef33ae9.png",
   },
   {
     address: "0x5425890298aed601595a70AB815c96711a31Bc65" as Hex,
@@ -109,7 +109,8 @@ export const ArbitrumTokens: Token[] = [
     name: "Ethereum",
     payable: false,
     symbol: "ETH",
-    image: "https://app.dynamic.xyz/assets/networks/arbitrum.svg",
+    image:
+      "https://dynamic-assets.coinbase.com/dbb4b4983bde81309ddab83eb598358eb44375b930b94687ebe38bc22e52c3b2125258ffb8477a5ef22e33d6bd72e32a506c391caa13af64c00e46613c3e5806/asset_icons/4113b082d21cc5fab17fc8f2d19fb996165bcce635e6900f7fc2d57c4ef33ae9.png",
   },
   {
     address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831" as Hex,
@@ -131,11 +132,104 @@ export const ArbitrumSepoliaTokens: Token[] = [
     name: "Ethereum",
     payable: false,
     symbol: "ETH",
-    image: "https://app.dynamic.xyz/assets/networks/arbitrum.svg",
+    image:
+      "https://dynamic-assets.coinbase.com/dbb4b4983bde81309ddab83eb598358eb44375b930b94687ebe38bc22e52c3b2125258ffb8477a5ef22e33d6bd72e32a506c391caa13af64c00e46613c3e5806/asset_icons/4113b082d21cc5fab17fc8f2d19fb996165bcce635e6900f7fc2d57c4ef33ae9.png",
   },
   {
     address: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d" as Hex,
     chainId: 421614,
+    decimals: 6,
+    name: "USDC",
+    payable: true,
+    symbol: "USDC",
+    image:
+      "https://dynamic-assets.coinbase.com/3c15df5e2ac7d4abbe9499ed9335041f00c620f28e8de2f93474a9f432058742cdf4674bd43f309e69778a26969372310135be97eb183d91c492154176d455b8/asset_icons/9d67b728b6c8f457717154b3a35f9ddc702eae7e76c4684ee39302c4d7fd0bb8.png",
+  },
+];
+
+export const BscTokens: Token[] = [
+  {
+    address: NATIVE_TOKEN_ADDRESS,
+    chainId: 56,
+    decimals: 18,
+    name: "Binance Smart Chain",
+    payable: false,
+    symbol: "ETH",
+    image:
+      "https://dynamic-assets.coinbase.com/dbb4b4983bde81309ddab83eb598358eb44375b930b94687ebe38bc22e52c3b2125258ffb8477a5ef22e33d6bd72e32a506c391caa13af64c00e46613c3e5806/asset_icons/4113b082d21cc5fab17fc8f2d19fb996165bcce635e6900f7fc2d57c4ef33ae9.png",
+  },
+  {
+    address: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d" as Hex,
+    chainId: 56,
+    decimals: 18,
+    name: "USDC",
+    payable: true,
+    symbol: "USDC",
+    image:
+      "https://dynamic-assets.coinbase.com/3c15df5e2ac7d4abbe9499ed9335041f00c620f28e8de2f93474a9f432058742cdf4674bd43f309e69778a26969372310135be97eb183d91c492154176d455b8/asset_icons/9d67b728b6c8f457717154b3a35f9ddc702eae7e76c4684ee39302c4d7fd0bb8.png",
+  },
+];
+
+export const OptimismTokens: Token[] = [
+  {
+    address: NATIVE_TOKEN_ADDRESS,
+    chainId: 10,
+    decimals: 18,
+    name: "Ethereum",
+    payable: false,
+    symbol: "ETH",
+    image:
+      "https://dynamic-assets.coinbase.com/dbb4b4983bde81309ddab83eb598358eb44375b930b94687ebe38bc22e52c3b2125258ffb8477a5ef22e33d6bd72e32a506c391caa13af64c00e46613c3e5806/asset_icons/4113b082d21cc5fab17fc8f2d19fb996165bcce635e6900f7fc2d57c4ef33ae9.png",
+  },
+  {
+    address: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85" as Hex,
+    chainId: 10,
+    decimals: 6,
+    name: "USDC",
+    payable: true,
+    symbol: "USDC",
+    image:
+      "https://dynamic-assets.coinbase.com/3c15df5e2ac7d4abbe9499ed9335041f00c620f28e8de2f93474a9f432058742cdf4674bd43f309e69778a26969372310135be97eb183d91c492154176d455b8/asset_icons/9d67b728b6c8f457717154b3a35f9ddc702eae7e76c4684ee39302c4d7fd0bb8.png",
+  },
+];
+
+export const ZkSyncTokens: Token[] = [
+  {
+    address: NATIVE_TOKEN_ADDRESS,
+    chainId: 324,
+    decimals: 18,
+    name: "Ethereum",
+    payable: false,
+    symbol: "ETH",
+    image:
+      "https://dynamic-assets.coinbase.com/dbb4b4983bde81309ddab83eb598358eb44375b930b94687ebe38bc22e52c3b2125258ffb8477a5ef22e33d6bd72e32a506c391caa13af64c00e46613c3e5806/asset_icons/4113b082d21cc5fab17fc8f2d19fb996165bcce635e6900f7fc2d57c4ef33ae9.png",
+  },
+  {
+    address: "0x1d17CBcF0D6D143135aE902365D2E5e2A16538D4" as Hex,
+    chainId: 324,
+    decimals: 6,
+    name: "USDC",
+    payable: true,
+    symbol: "USDC",
+    image:
+      "https://dynamic-assets.coinbase.com/3c15df5e2ac7d4abbe9499ed9335041f00c620f28e8de2f93474a9f432058742cdf4674bd43f309e69778a26969372310135be97eb183d91c492154176d455b8/asset_icons/9d67b728b6c8f457717154b3a35f9ddc702eae7e76c4684ee39302c4d7fd0bb8.png",
+  },
+];
+
+export const ZkSyncSepoliaTokens: Token[] = [
+  {
+    address: NATIVE_TOKEN_ADDRESS,
+    chainId: 300,
+    decimals: 18,
+    name: "Ethereum",
+    payable: false,
+    symbol: "ETH",
+    image:
+      "https://dynamic-assets.coinbase.com/dbb4b4983bde81309ddab83eb598358eb44375b930b94687ebe38bc22e52c3b2125258ffb8477a5ef22e33d6bd72e32a506c391caa13af64c00e46613c3e5806/asset_icons/4113b082d21cc5fab17fc8f2d19fb996165bcce635e6900f7fc2d57c4ef33ae9.png",
+  },
+  {
+    address: "0xAe045DE5638162fa134807Cb558E15A3F5A7F853" as Hex,
+    chainId: 300,
     decimals: 6,
     name: "USDC",
     payable: true,
@@ -152,4 +246,8 @@ export const allTokens = [
   ...AvalancheTokens,
   ...ArbitrumTokens,
   ...ArbitrumSepoliaTokens,
+  ...BscTokens,
+  ...OptimismTokens,
+  ...ZkSyncTokens,
+  ...ZkSyncSepoliaTokens,
 ];

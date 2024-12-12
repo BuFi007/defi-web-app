@@ -434,11 +434,14 @@ export interface Translations {
 
 export type ChainList =
   | 8453
-  | 42161
+  | 84532
   | 43114
   | 43113
-  | 84532
-  | 421614
+  | 42161
+  | 324
+  | 300
+  | 10
+  | 56
   | undefined;
 
 export interface Chain {

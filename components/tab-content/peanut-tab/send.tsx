@@ -16,6 +16,7 @@ export default function LinkForm() {
   const currentChainId = useNetworkManager();
   const chainId = currentChainId as number;
   const availableTokens = useGetTokensOrChain(chainId, "tokens");
+  console.log(availableTokens, "daksklasdlasdlasdlds");
 
   const {
     createPayLink,

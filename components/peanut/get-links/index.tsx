@@ -43,6 +43,9 @@ export interface ClaimData {
 
 export default function ClaimsDisplay() {
   const [claims, setClaims] = useState<ClaimData[]>([]);
+  const [claimStatuses, setClaimStatuses] = useState<{ [key: string]: string }>(
+    {}
+  );
   const { primaryWallet } = useDynamicContext();
   const { copyToClipboard } = usePeanut();
   const translations = useAppTranslations("HistoryTab");
@@ -71,7 +74,22 @@ export default function ClaimsDisplay() {
     }
   }, [primaryWallet?.address]);
 
-  if (claims.length === 0) {
+  useEffect(() => {
+    const fetchClaimStatuses = async () => {
+      const statuses: { [key: string]: string } = {};
+      for (const claim of claims) {
+        const data = await fetchLinkDetail(claim.link);
+        statuses[claim.link] = data?.claimed
+          ? translations.tabClaimed
+          : "Unclaimed";
+      }
+      setClaimStatuses(statuses);
+    };
+
+    fetchClaimStatuses();
+  }, [claims, translations.tabClaimed]);
+
+  if (claims?.length === 0) {
     return (
       <Card className="w-full h-[400px]">
         <CardContent className="pt-6">
@@ -88,11 +106,6 @@ export default function ClaimsDisplay() {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
-
-  const getClaimed = async (link: string) => {
-    const data = await fetchLinkDetail(link);
-    return data?.claimed ? translations.tabClaimed : "Unclaimed";
-  };
 
   return (
     <div className="space-y-4">
@@ -189,7 +202,9 @@ export default function ClaimsDisplay() {
                     }
                   >
                     <Badge variant="outline" className="text-xs">
-                      {getClaimed(claim.link)}
+                      {claimStatuses[claim.link] || (
+                        <Skeleton className="w-16 h-4" />
+                      )}
                     </Badge>
                   </Suspense>
                 </TableCell>

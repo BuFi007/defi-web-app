@@ -7,6 +7,10 @@ import {
   base,
   arbitrum,
   arbitrumSepolia,
+  zksyncSepoliaTestnet,
+  zksync,
+  optimism,
+  bsc,
 } from "wagmi/chains";
 import { useMemo } from "react";
 import { providers } from "ethers";
@@ -16,10 +20,13 @@ export const config = createConfig({
   chains: [
     avalancheFuji,
     baseSepolia,
-    arbitrumSepolia,
     avalanche,
     base,
     arbitrum,
+    zksyncSepoliaTestnet,
+    zksync,
+    optimism,
+    bsc,
   ],
   transports: {
     [base.id]: http(),
@@ -28,6 +35,10 @@ export const config = createConfig({
     [avalancheFuji.id]: http(),
     [baseSepolia.id]: http(),
     [arbitrumSepolia.id]: http(),
+    [zksyncSepoliaTestnet.id]: http(),
+    [zksync.id]: http(),
+    [optimism.id]: http(),
+    [bsc.id]: http(),
   },
 });
 
