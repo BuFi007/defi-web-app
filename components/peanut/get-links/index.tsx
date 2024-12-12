@@ -71,7 +71,7 @@ export default function ClaimsDisplay() {
     }
   }, [primaryWallet?.address]);
 
-  if (claims.length === 0) {
+  if (claims?.length === 0) {
     return (
       <Card className="w-full h-[400px]">
         <CardContent className="pt-6">
