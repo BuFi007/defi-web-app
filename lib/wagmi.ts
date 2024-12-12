@@ -20,7 +20,6 @@ export const config = createConfig({
   chains: [
     avalancheFuji,
     baseSepolia,
-    arbitrumSepolia,
     avalanche,
     base,
     arbitrum,

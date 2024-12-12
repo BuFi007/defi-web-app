@@ -133,11 +133,11 @@ export const ZkSync = {
 };
 
 export const ZkSyncSepolia = {
-  chainId: 1101,
+  chainId: 300,
   name: "ZkSync Sepolia",
   rpcUrls: ["https://sepolia.era.zksync.dev"],
   isMainnet: false,
-  networkId: 1101,
+  networkId: 300,
   nativeCurrency: {
     name: "Ether",
     symbol: "ETH",

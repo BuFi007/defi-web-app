@@ -109,7 +109,8 @@ export const ArbitrumTokens: Token[] = [
     name: "Ethereum",
     payable: false,
     symbol: "ETH",
-    image: "https://app.dynamic.xyz/assets/networks/arbitrum.svg",
+    image:
+      "https://dynamic-assets.coinbase.com/dbb4b4983bde81309ddab83eb598358eb44375b930b94687ebe38bc22e52c3b2125258ffb8477a5ef22e33d6bd72e32a506c391caa13af64c00e46613c3e5806/asset_icons/4113b082d21cc5fab17fc8f2d19fb996165bcce635e6900f7fc2d57c4ef33ae9.png",
   },
   {
     address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831" as Hex,
@@ -131,7 +132,8 @@ export const ArbitrumSepoliaTokens: Token[] = [
     name: "Ethereum",
     payable: false,
     symbol: "ETH",
-    image: "https://app.dynamic.xyz/assets/networks/arbitrum.svg",
+    image:
+      "https://dynamic-assets.coinbase.com/dbb4b4983bde81309ddab83eb598358eb44375b930b94687ebe38bc22e52c3b2125258ffb8477a5ef22e33d6bd72e32a506c391caa13af64c00e46613c3e5806/asset_icons/4113b082d21cc5fab17fc8f2d19fb996165bcce635e6900f7fc2d57c4ef33ae9.png",
   },
   {
     address: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d" as Hex,
@@ -152,8 +154,9 @@ export const BscTokens: Token[] = [
     decimals: 18,
     name: "Binance Smart Chain",
     payable: false,
-    symbol: "BNB",
-    image: "https://app.dynamic.xyz/assets/networks/bnb.svg",
+    symbol: "ETH",
+    image:
+      "https://dynamic-assets.coinbase.com/dbb4b4983bde81309ddab83eb598358eb44375b930b94687ebe38bc22e52c3b2125258ffb8477a5ef22e33d6bd72e32a506c391caa13af64c00e46613c3e5806/asset_icons/4113b082d21cc5fab17fc8f2d19fb996165bcce635e6900f7fc2d57c4ef33ae9.png",
   },
   {
     address: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d" as Hex,
@@ -175,7 +178,8 @@ export const OptimismTokens: Token[] = [
     name: "Ethereum",
     payable: false,
     symbol: "ETH",
-    image: "https://app.dynamic.xyz/assets/networks/optimism.svg",
+    image:
+      "https://dynamic-assets.coinbase.com/dbb4b4983bde81309ddab83eb598358eb44375b930b94687ebe38bc22e52c3b2125258ffb8477a5ef22e33d6bd72e32a506c391caa13af64c00e46613c3e5806/asset_icons/4113b082d21cc5fab17fc8f2d19fb996165bcce635e6900f7fc2d57c4ef33ae9.png",
   },
   {
     address: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85" as Hex,
@@ -197,7 +201,8 @@ export const ZkSyncTokens: Token[] = [
     name: "Ethereum",
     payable: false,
     symbol: "ETH",
-    image: "https://app.dynamic.xyz/assets/networks/zksync.svg",
+    image:
+      "https://dynamic-assets.coinbase.com/dbb4b4983bde81309ddab83eb598358eb44375b930b94687ebe38bc22e52c3b2125258ffb8477a5ef22e33d6bd72e32a506c391caa13af64c00e46613c3e5806/asset_icons/4113b082d21cc5fab17fc8f2d19fb996165bcce635e6900f7fc2d57c4ef33ae9.png",
   },
   {
     address: "0x1d17CBcF0D6D143135aE902365D2E5e2A16538D4" as Hex,
@@ -214,16 +219,17 @@ export const ZkSyncTokens: Token[] = [
 export const ZkSyncSepoliaTokens: Token[] = [
   {
     address: NATIVE_TOKEN_ADDRESS,
-    chainId: 324,
+    chainId: 300,
     decimals: 18,
     name: "Ethereum",
     payable: false,
     symbol: "ETH",
-    image: "https://app.dynamic.xyz/assets/networks/zksync.svg",
+    image:
+      "https://dynamic-assets.coinbase.com/dbb4b4983bde81309ddab83eb598358eb44375b930b94687ebe38bc22e52c3b2125258ffb8477a5ef22e33d6bd72e32a506c391caa13af64c00e46613c3e5806/asset_icons/4113b082d21cc5fab17fc8f2d19fb996165bcce635e6900f7fc2d57c4ef33ae9.png",
   },
   {
     address: "0xAe045DE5638162fa134807Cb558E15A3F5A7F853" as Hex,
-    chainId: 324,
+    chainId: 300,
     decimals: 6,
     name: "USDC",
     payable: true,

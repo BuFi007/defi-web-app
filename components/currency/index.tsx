@@ -17,7 +17,7 @@ import * as chains from "@/constants/Chains";
 import { TokenChip } from "../token-chip";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { useTokenBalance } from "@/hooks/use-user-balance";
-import { NATIVE_TOKEN_ADDRESS } from "@/constants/Tokens";
+import { AvalancheTokens, NATIVE_TOKEN_ADDRESS } from "@/constants/Tokens";
 import { toast } from "../ui/use-toast";
 import { sizeStyles } from "@/lib/utils";
 import { Button } from "../ui/button";
@@ -172,7 +172,7 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   const getTokenValue = (token: Token) => token.address || token.symbol;
 
   if (!selectedToken) {
-    return <div>Loading...</div>;
+    setSelectedToken(AvalancheTokens[0] as Token);
   }
 
   return (
@@ -203,7 +203,7 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
       <div className="w-full">
         <Select
           onValueChange={handleSelectChange}
-          value={selectedToken.address}
+          value={selectedToken?.address}
         >
           <SelectTrigger className="w-full border-transparent flex justify-between">
             <SelectValue>
