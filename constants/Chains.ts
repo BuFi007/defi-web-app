@@ -129,7 +129,9 @@ export const ZkSync = {
   blockExplorerUrls: ["https://explorer.zksync.io"],
   vanityName: "ZkSync",
   chainName: "ZkSync",
-  iconUrls: ["https://app.dynamic.xyz/assets/networks/zksync.svg"],
+  iconUrls: [
+    "https://assets.coingecko.com/coins/images/38043/standard/ZKTokenBlack.png?1718614502",
+  ],
 };
 
 export const ZkSyncSepolia = {
@@ -147,7 +149,9 @@ export const ZkSyncSepolia = {
   blockExplorerUrls: ["https://sepolia.explorer.zksync.io"],
   vanityName: "ZkSync Sepolia",
   chainName: "ZkSyncSepolia",
-  iconUrls: ["https://app.dynamic.xyz/assets/networks/zksync.svg"],
+  iconUrls: [
+    "https://assets.coingecko.com/coins/images/38043/standard/ZKTokenBlack.png?1718614502",
+  ],
 };
 
 export const Optimism = {

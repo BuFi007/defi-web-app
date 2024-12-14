@@ -21,7 +21,6 @@ export const chainIcons = Object.values(Chains).reduce((icons, chain) => {
   return icons;
 }, {} as Record<number, string>);
 
-
 const PaymentDetails: React.FC<PaymentInfoProps> = ({ paymentInfo }) => {
   const { toast } = useToast();
 
@@ -31,8 +30,9 @@ const PaymentDetails: React.FC<PaymentInfoProps> = ({ paymentInfo }) => {
   };
 
   const originChainInfo = getChainInfoByChainId(paymentInfo.chainId);
-  const destinationChainInfo = paymentInfo.destinationChainId ? 
-    getChainInfoByChainId(paymentInfo.destinationChainId) : null;
+  const destinationChainInfo = paymentInfo.destinationChainId
+    ? getChainInfoByChainId(paymentInfo.destinationChainId)
+    : null;
 
   const handleCopy = (text: string, label: string) => {
     copyToClipboard(text.toLowerCase());
@@ -52,20 +52,22 @@ const PaymentDetails: React.FC<PaymentInfoProps> = ({ paymentInfo }) => {
       <div className="w-full max-w-md py-6 grid gap-6 border-t border-gray-200">
         <div className="flex items-center gap-4">
           <div className="bg-muted rounded-md flex items-center justify-center aspect-square w-12">
-          <Image
-            src={originChainInfo?.chainIcon || ''}
-            width={24}
-            height={24}
-            priority
-            alt={`${originChainInfo?.chainName || 'Chain'} Logo`}
-            className="aspect-square object-contain"
-          />
+            <Image
+              src={originChainInfo?.chainIcon || ""}
+              width={24}
+              height={24}
+              priority
+              alt={`${originChainInfo?.chainName || "Chain"} Logo`}
+              className="aspect-square object-contain"
+            />
           </div>
           <div className="flex-1">
             <h3 className="text-2xl font-semibold">
               {paymentInfo.tokenSymbol}
             </h3>
-            <p className="text-muted-foreground text-xs">{originChainInfo?.chainName}</p>
+            <p className="text-muted-foreground text-xs">
+              {originChainInfo?.chainName}
+            </p>
           </div>
           <div className="text-right">
             <p className="text-2xl font-bold">{paymentInfo.tokenAmount} 👻</p>
@@ -76,13 +78,15 @@ const PaymentDetails: React.FC<PaymentInfoProps> = ({ paymentInfo }) => {
           <div className="mt-4 flex items-center gap-2 text-xs">
             <div className="flex items-center">
               <Image
-                src={destinationChainInfo?.chainIcon || ''}
+                src={destinationChainInfo?.chainIcon || ""}
                 width={16}
                 height={16}
-                alt={`${destinationChainInfo?.chainName || 'Chain'} Logo`}
+                alt={`${destinationChainInfo?.chainName || "Chain"} Logo`}
                 className="mr-2"
               />
-              <span className="font-medium">{destinationChainInfo?.chainName}</span>
+              <span className="font-medium">
+                {destinationChainInfo?.chainName}
+              </span>
             </div>
             <span className="text-xs text-muted-foreground">
               Destination Chain

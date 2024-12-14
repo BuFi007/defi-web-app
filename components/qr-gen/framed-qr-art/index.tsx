@@ -6,12 +6,6 @@ import { FramedQRCodeProps } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { defaultQRSize } from "@/lib/utils";
 
-/**
- * FramedQRCode Component
- *
- * Renders a framed QR code with an optional label and allows
- * clicking the QR code to copy the link to the clipboard.
- */
 export const FramedQRCode = ({
   image,
   link,

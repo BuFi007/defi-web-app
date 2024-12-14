@@ -22,7 +22,7 @@ import { toast } from "../ui/use-toast";
 import { sizeStyles } from "@/lib/utils";
 import { Button } from "../ui/button";
 
-const MAX_DECIMALS = 18; // Configurable máximo de decimales
+const MAX_DECIMALS = 18;
 
 const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   tokenAmount,

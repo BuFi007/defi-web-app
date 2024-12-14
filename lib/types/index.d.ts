@@ -134,7 +134,6 @@ export interface CurrencyInfo {
   spokeABI?: Abi[];
 }
 
-// Specific function names for each action
 export type LendFunctionNames = "depositCollateral" | "depositCollateralNative";
 export type WithdrawFunctionNames =
   | "withdrawCollateral"
