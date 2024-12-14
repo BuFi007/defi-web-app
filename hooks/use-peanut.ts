@@ -1,7 +1,6 @@
 import { useCallback, useState } from "react";
 import peanut, {
   getRandomString,
-  interfaces as peanutInterfaces,
   claimLinkGasless,
   claimLinkXChainGasless,
 } from "@squirrel-labs/peanut-sdk";

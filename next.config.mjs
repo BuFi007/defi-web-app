@@ -18,6 +18,15 @@ const config = {
         hostname: "dynamic-assets.coinbase.com",
         pathname: "**",
       },
+      {
+        protocol: "https",
+        hostname: "**.coingecko.com",
+        pathname: "**",
+      },
+      {
+        protocol: "https",
+        hostname: "**.coingecko.com",
+      },
     ],
   },
   experimental: {},

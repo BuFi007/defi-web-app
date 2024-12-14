@@ -9,7 +9,6 @@ import { getBlockExplorerUrlByChainId } from "@/utils";
 import { Suspense } from "react";
 import { useNetworkStore } from "@/store";
 import { useAppTranslations } from "@/context/TranslationContext";
-import { EnhancedQRCode } from "@/components/qr-gen/enhanced-qr-art";
 
 export default function TransactionDetailsDisplay({
   transactionDetails,

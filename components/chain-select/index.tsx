@@ -6,8 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChainSelectProps, Token } from "@/lib/types";
-import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
+import { ChainSelectProps } from "@/lib/types";
 
 export const ChainSelect: React.FC<ChainSelectProps> = ({
   value,
