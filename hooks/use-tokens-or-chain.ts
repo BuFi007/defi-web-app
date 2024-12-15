@@ -9,6 +9,7 @@ import {
   ZkSyncSepoliaTokens,
   BscTokens,
   ZkSyncTokens,
+  SepoliaOptimismTokens,
 } from "@/constants/Tokens";
 import {
   Avalanche,
@@ -21,6 +22,7 @@ import {
   Bsc,
   ZkSync,
   Optimism,
+  SepoliaOptimism,
 } from "@/constants/Chains";
 import { IS_MAINNET as isMainnet } from "@/constants/Env";
 
@@ -39,6 +41,7 @@ export const useGetTokensOrChain = (
     if (chainId === 84532) return BaseSepoliaTokens;
     if (chainId === 421614) return ArbitrumSepoliaTokens;
     if (chainId === 10) return OptimismTokens;
+    if (chainId === 11155420) return SepoliaOptimismTokens;
     if (chainId === 11155111) return ZkSyncSepoliaTokens;
     if (chainId === 59144) return BscTokens;
     if (chainId === 42161) return ArbitrumTokens;
@@ -50,6 +53,7 @@ export const useGetTokensOrChain = (
     if (chainId === 42161) return ArbitrumTokens;
     if (chainId === 56) return BscTokens;
     if (chainId === 10) return OptimismTokens;
+    if (chainId === 11155420) return SepoliaOptimismTokens;
     if (chainId === 361) return ZkSyncTokens;
     if (chainId === 43113) return AvalancheFujiTokens;
     if (chainId === 84532) return BaseSepoliaTokens;
@@ -66,6 +70,7 @@ export const useGetTokensOrChain = (
     if (chainId === 421614) return ArbitrumSepolia;
     if (chainId === 11155111) return ZkSyncSepolia;
     if (chainId === 59144) return Bsc;
+    if (chainId === 11155420) return SepoliaOptimism;
     if (chainId === 42161) return Arbitrum;
     if (chainId === 361) return ZkSync;
     if (chainId === 8453) return Base;
@@ -81,6 +86,7 @@ export const useGetTokensOrChain = (
     if (chainId === 421614) return ArbitrumSepolia;
     if (chainId === 11155111) return ZkSyncSepolia;
     if (chainId === 59144) return Bsc;
+    if (chainId === 11155420) return SepoliaOptimism;
     if (chainId === 42161) return Arbitrum;
     if (chainId === 361) return ZkSync;
     if (chainId === 8453) return Base;

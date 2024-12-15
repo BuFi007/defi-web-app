@@ -11,24 +11,22 @@ import { DYNAMIC_ENVIRONMENT_ID } from "@/constants/Env";
 import {
   Avalanche,
   Base,
-  Arbitrum,
   BaseSepolia,
-  ArbitrumSepolia,
   AvalancheFuji,
   ZkSyncSepolia,
   ZkSync,
   Optimism,
   Bsc,
+  SepoliaOptimism,
 } from "@/constants/Chains";
 
 const queryClient = new QueryClient();
 const evmNetworks = [
   Avalanche,
   Base,
-  // Arbitrum,
   BaseSepolia,
-  // ArbitrumSepolia,
   AvalancheFuji,
+  SepoliaOptimism,
   ZkSyncSepolia,
   ZkSync,
   Optimism,

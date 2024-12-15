@@ -172,6 +172,24 @@ export const Optimism = {
   iconUrls: ["https://app.dynamic.xyz/assets/networks/optimism.svg"],
 };
 
+export const SepoliaOptimism = {
+  chainId: 11155420,
+  name: "Sepolia Optimism",
+  rpcUrls: ["https://sepolia.optimism.io"],
+  isMainnet: false,
+  networkId: 11155420,
+  nativeCurrency: {
+    name: "Ether",
+    symbol: "ETH",
+    decimals: 18,
+    iconUrls: ["https://app.dynamic.xyz/assets/networks/optimism.svg"],
+  },
+  blockExplorerUrls: ["https://sepolia-optimism.etherscan.io/"],
+  vanityName: "Optimism Sepolia",
+  chainName: "OptimismSepolia",
+  iconUrls: ["https://app.dynamic.xyz/assets/networks/optimism.svg"],
+};
+
 export const Bsc = {
   chainId: 56,
   name: "BSC",
