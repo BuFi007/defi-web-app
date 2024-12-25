@@ -11,34 +11,21 @@ import {
   zksync,
   optimism,
   bsc,
+  bscTestnet,
 } from "wagmi/chains";
 import { useMemo } from "react";
 import { providers } from "ethers";
 import type { Account, Chain, Client, Transport } from "viem";
 
 export const config = createConfig({
-  chains: [
-    avalancheFuji,
-    baseSepolia,
-    avalanche,
-    base,
-    arbitrum,
-    zksyncSepoliaTestnet,
-    zksync,
-    optimism,
-    bsc,
-  ],
+  chains: [avalancheFuji, baseSepolia, avalanche, base, bsc, bscTestnet],
   transports: {
     [base.id]: http(),
-    [arbitrum.id]: http(),
     [avalanche.id]: http(),
     [avalancheFuji.id]: http(),
     [baseSepolia.id]: http(),
-    [arbitrumSepolia.id]: http(),
-    [zksyncSepoliaTestnet.id]: http(),
-    [zksync.id]: http(),
-    [optimism.id]: http(),
     [bsc.id]: http(),
+    [bscTestnet.id]: http(),
   },
 });
 

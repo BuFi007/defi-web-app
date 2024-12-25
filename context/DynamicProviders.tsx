@@ -14,10 +14,18 @@ import {
   BaseSepolia,
   AvalancheFuji,
   Bsc,
+  BscTestnet,
 } from "@/constants/Chains";
 
 const queryClient = new QueryClient();
-const evmNetworks = [Avalanche, Base, BaseSepolia, AvalancheFuji, Bsc];
+const evmNetworks = [
+  Avalanche,
+  Base,
+  BaseSepolia,
+  AvalancheFuji,
+  Bsc,
+  BscTestnet,
+];
 
 export default function Providers({ children }: { children: ReactNode }) {
   return (
