@@ -2,14 +2,8 @@ import { http, createConfig, useConnectorClient, Config } from "wagmi";
 import {
   avalancheFuji,
   baseSepolia,
-  optimismSepolia,
   avalanche,
   base,
-  arbitrum,
-  arbitrumSepolia,
-  zksyncSepoliaTestnet,
-  zksync,
-  optimism,
   bsc,
   bscTestnet,
 } from "wagmi/chains";
