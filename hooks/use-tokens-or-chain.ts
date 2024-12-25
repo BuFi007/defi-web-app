@@ -10,6 +10,7 @@ import {
   BscTokens,
   ZkSyncTokens,
   SepoliaOptimismTokens,
+  BscTestnetTokens,
 } from "@/constants/Tokens";
 import {
   Avalanche,
@@ -23,6 +24,7 @@ import {
   ZkSync,
   Optimism,
   SepoliaOptimism,
+  BscTestnet,
 } from "@/constants/Chains";
 import { IS_MAINNET as isMainnet } from "@/constants/Env";
 
@@ -46,6 +48,7 @@ export const useGetTokensOrChain = (
     if (chainId === 59144) return BscTokens;
     if (chainId === 42161) return ArbitrumTokens;
     if (chainId === 361) return ZkSyncTokens;
+    if (chainId === 97) return BscTestnetTokens;
   }
   if (type === "tokens" && isMainnet) {
     if (chainId === 8453) return BaseTokens;
@@ -63,6 +66,7 @@ export const useGetTokensOrChain = (
     if (chainId === 59144) return BscTokens;
     if (chainId === 42161) return ArbitrumTokens;
     if (chainId === 361) return ZkSyncTokens;
+    if (chainId === 97) return BscTestnetTokens;
   }
   if (type === "chain" && !isMainnet) {
     if (chainId === 43113) return AvalancheFuji;
@@ -79,6 +83,7 @@ export const useGetTokensOrChain = (
     if (chainId === 56) return Bsc;
     if (chainId === 10) return Optimism;
     if (chainId === 361) return ZkSync;
+    if (chainId === 97) return BscTestnet;
   }
   if (type === "chain" && isMainnet) {
     if (chainId === 43113) return AvalancheFuji;
@@ -95,5 +100,6 @@ export const useGetTokensOrChain = (
     if (chainId === 56) return Bsc;
     if (chainId === 10) return Optimism;
     if (chainId === 361) return ZkSync;
+    if (chainId === 97) return BscTestnet;
   }
 };
