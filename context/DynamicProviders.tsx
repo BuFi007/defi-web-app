@@ -13,25 +13,11 @@ import {
   Base,
   BaseSepolia,
   AvalancheFuji,
-  ZkSyncSepolia,
-  ZkSync,
-  Optimism,
   Bsc,
-  SepoliaOptimism,
 } from "@/constants/Chains";
 
 const queryClient = new QueryClient();
-const evmNetworks = [
-  Avalanche,
-  Base,
-  BaseSepolia,
-  AvalancheFuji,
-  SepoliaOptimism,
-  ZkSyncSepolia,
-  ZkSync,
-  Optimism,
-  Bsc,
-];
+const evmNetworks = [Avalanche, Base, BaseSepolia, AvalancheFuji, Bsc];
 
 export default function Providers({ children }: { children: ReactNode }) {
   return (
