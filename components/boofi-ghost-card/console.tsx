@@ -50,7 +50,7 @@ const USDC_CONTRACT_ADDRESS = "0x036cbd53842c5426634e7929541ec2318f3dcf7e";
 const BLOCKSCOUT_URL = "https://base-sepolia.blockscout.com";
 
 export function BooFiConsole() {
-  const translations = useAppTranslations('MoneyMarketBento3');
+  const translations = useAppTranslations("MoneyMarketBento3");
   const { address } = useAccount();
   const { data: balance } = useBalance({ address });
   const { sendTransaction } = useSendTransaction();
