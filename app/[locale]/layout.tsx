@@ -10,7 +10,7 @@ import GridPattern from "@/components/magicui/grid-pattern";
 import { cn } from "@/utils";
 import Providers from "@/context/DynamicProviders";
 import dynamic from "next/dynamic";
-import { NextIntlClientProvider, useMessages } from 'next-intl';
+import { NextIntlClientProvider, useMessages } from "next-intl";
 import { TranslationProvider } from "@/context/TranslationContext";
 import Loading from "./loading";
 import { RootLayoutProps } from "@/lib/types";
@@ -27,7 +27,6 @@ const Header = dynamic(() => import("@/components/header"), {
   loading: () => <HeaderSkeleton />,
 });
 
-
 export async function generateMetadata({
   params: { locale },
 }: RootLayoutProps): Promise<Metadata> {
@@ -39,7 +38,7 @@ export default function RootLayout({
   params: { locale },
 }: RootLayoutProps) {
   const messages = useMessages();
-  
+
   return (
     <html
       lang={locale}
@@ -70,15 +69,15 @@ export default function RootLayout({
                     <Header />
                     <div className="custom-scrollbar">
                       <div className="mx-auto px-4 relative flex flex-col justify-center overflow-hidden">
-                      <Container>
-                        <div className="relative">
-                          <div className="w-full flex flex-col items-center">
-                            {children}
+                        <Container>
+                          <div className="relative">
+                            <div className="w-full flex flex-col items-center">
+                              {children}
+                            </div>
                           </div>
-                        </div>
-                      </Container>
+                        </Container>
+                      </div>
                     </div>
-                  </div>
                   </Suspense>
                   <br />
                   <LayoutMusic />

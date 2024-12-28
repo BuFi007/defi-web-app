@@ -432,7 +432,13 @@ export interface Translations {
 }
 
 export type ChainList = 8453 | 84532 | 43114 | 43113 | 56 | undefined;
-
+export interface WriteButtonProps {
+  label: string;
+  contractAddress: string;
+  abi: any;
+  functionName: string;
+  args: any[];
+}
 export interface Chain {
   chainId: number;
   isMainnet: boolean;
