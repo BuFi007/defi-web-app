@@ -431,17 +431,7 @@ export interface Translations {
   };
 }
 
-export type ChainList =
-  | 8453
-  | 84532
-  | 43114
-  | 43113
-  | 42161
-  | 324
-  | 300
-  | 10
-  | 56
-  | undefined;
+export type ChainList = 8453 | 84532 | 43114 | 43113 | 56 | undefined;
 
 export interface Chain {
   chainId: number;
