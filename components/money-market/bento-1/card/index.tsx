@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAccount, useReadContract } from "wagmi";
+import { useAccount, useBalance, useReadContract } from "wagmi";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import TransferWrapper from "@/components/money-market/transfer-wrapper";
@@ -12,16 +12,19 @@ import {
   useSwitchNetwork,
   useDynamicContext,
 } from "@dynamic-labs/sdk-react-core";
-import { erc20Abi, formatUnits, Hex } from "viem";
+import { erc20Abi, formatUnits, Hex, parseUnits } from "viem";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { useUsdcChain } from "@/hooks/use-usdc-chain";
 import { useToast } from "@/components/ui/use-toast";
 import { Chain } from "@/lib/types";
 import { useAppTranslations } from "@/context/TranslationContext";
+import WriteButton from "@/components/blockchainButtons/writeButton";
+import { SPOKE_BSC_CONTRACT_ADDRESS } from "@/constants/Contracts";
+import { spokeAbi } from "@/constants/ABI";
 
 export function MoneyMarketCard() {
-  const translations = useAppTranslations('MoneyMarketBento1');
+  const translations = useAppTranslations("MoneyMarketBento1");
   const { address } = useAccount();
   const {
     currentViewTab,
@@ -54,10 +57,11 @@ export function MoneyMarketCard() {
     ? formatUnits(usdcBalance, USDC_ADDRESS?.decimals!)
     : "0";
 
-  console.log(formattedBalance, "formattedBalance");
-
   const transferActions = {
-    lend: { functionName: "depositCollateral", buttonText: translations.depositUSDC },
+    lend: {
+      functionName: "depositCollateral",
+      buttonText: translations.depositUSDC,
+    },
     withdraw: {
       functionName: "withdrawCollateral",
       buttonText: translations.withdrawUSDC,
@@ -105,12 +109,14 @@ export function MoneyMarketCard() {
       network: Number(value),
     });
   }
+
+  console.log(currentViewTab, "currentViewTab");
   return (
     <div className="w-full max-w-3xl mx-auto">
       <div className="flex flex-col space-y-4 w-full">
-      <Separator />
+        <Separator />
         <div className="flex flex-col sm:flex-row items-center gap-4">
-        <ChainSelect
+          <ChainSelect
             value={
               fromChain?.chainId?.toString()
                 ? fromChain?.chainId?.toString()
@@ -137,17 +143,27 @@ export function MoneyMarketCard() {
         <Separator />
         <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
           <div className="w-full sm:w-1/2 sm:pr-2 pt-2">
-          <Input
+            <Input
               type="number"
               placeholder="0.00"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               className="text-2xl sm:text-4xl font-bold h-16 w-full"
             />
+
             <BalanceDisplay
               balance={formattedBalance || "0"}
               isLoading={!formattedBalance}
               symbol="USDC"
+            />
+            <WriteButton
+              label={`${currentViewTab} ${amount} Native`}
+              contractAddress={SPOKE_BSC_CONTRACT_ADDRESS}
+              abi={spokeAbi}
+              functionName={"depositCollateralNative"}
+              args={[]}
+              isNative={true}
+              nativeAmount={amount}
             />
           </div>
           <div className="w-full sm:w-1/2 p-4">

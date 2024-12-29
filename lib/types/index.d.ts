@@ -438,6 +438,8 @@ export interface WriteButtonProps {
   abi: any;
   functionName: string;
   args: any[];
+  isNative?: boolean;
+  nativeAmount?: string;
 }
 export interface Chain {
   chainId: number;

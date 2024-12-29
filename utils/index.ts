@@ -143,23 +143,9 @@ export const getFromChains = (
     case "lend":
       // Supply from spokes only (isHub: false)
       if (isMainnet) {
-        return [
-          Chains.Arbitrum,
-          Chains.Base,
-          Chains.Avalanche,
-          Chains.Bsc,
-          Chains.Optimism,
-          Chains.ZkSync,
-        ];
+        return [Chains.Avalanche, Chains.Bsc, Chains.ZkSync];
       } else {
-        return [
-          Chains.ArbitrumSepolia,
-          Chains.BaseSepolia,
-          Chains.AvalancheFuji,
-          Chains.Bsc,
-          Chains.Optimism,
-          Chains.ZkSyncSepolia,
-        ];
+        return [Chains.AvalancheFuji, Chains.Bsc, Chains.ZkSyncSepolia];
       }
     case "borrow":
       if (isMainnet) {
@@ -175,34 +161,15 @@ export const getFromChains = (
       }
     case "repay":
       if (isMainnet) {
-        return [
-          Chains.Arbitrum,
-          Chains.Base,
-          Chains.Avalanche,
-          Chains.Bsc,
-          Chains.Optimism,
-          Chains.ZkSync,
-        ];
+        return [Chains.Avalanche, Chains.Bsc, Chains.Optimism, Chains.ZkSync];
       } else {
-        return [
-          Chains.ArbitrumSepolia,
-          Chains.BaseSepolia,
-          Chains.AvalancheFuji,
-          Chains.Bsc,
-          Chains.Optimism,
-          Chains.ZkSyncSepolia,
-        ];
+        return [Chains.AvalancheFuji, Chains.Bsc, Chains.ZkSyncSepolia];
       }
     default:
       return [
-        Chains.Arbitrum,
         Chains.Avalanche,
-        Chains.Base,
-        Chains.BaseSepolia,
         Chains.AvalancheFuji,
-        Chains.ArbitrumSepolia,
         Chains.Bsc,
-        Chains.Optimism,
         Chains.ZkSync,
       ];
   }
