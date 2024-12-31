@@ -143,9 +143,9 @@ export const getFromChains = (
     case "lend":
       // Supply from spokes only (isHub: false)
       if (isMainnet) {
-        return [Chains.Avalanche, Chains.Bsc, Chains.ZkSync];
+        return [Chains.Avalanche, Chains.BscTestnet];
       } else {
-        return [Chains.AvalancheFuji, Chains.Bsc, Chains.ZkSyncSepolia];
+        return [Chains.AvalancheFuji, Chains.BscTestnet];
       }
     case "borrow":
       if (isMainnet) {
@@ -161,17 +161,12 @@ export const getFromChains = (
       }
     case "repay":
       if (isMainnet) {
-        return [Chains.Avalanche, Chains.Bsc, Chains.Optimism, Chains.ZkSync];
+        return [Chains.Avalanche, Chains.BscTestnet];
       } else {
-        return [Chains.AvalancheFuji, Chains.Bsc, Chains.ZkSyncSepolia];
+        return [Chains.AvalancheFuji, Chains.BscTestnet];
       }
     default:
-      return [
-        Chains.Avalanche,
-        Chains.AvalancheFuji,
-        Chains.Bsc,
-        Chains.ZkSync,
-      ];
+      return [Chains.Avalanche, Chains.AvalancheFuji, Chains.BscTestnet];
   }
 };
 

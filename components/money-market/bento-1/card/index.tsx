@@ -22,6 +22,7 @@ import { useAppTranslations } from "@/context/TranslationContext";
 import WriteButton from "@/components/blockchainButtons/writeButton";
 import { SPOKE_BSC_CONTRACT_ADDRESS } from "@/constants/Contracts";
 import { spokeAbi } from "@/constants/ABI";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function MoneyMarketCard() {
   const translations = useAppTranslations("MoneyMarketBento1");
@@ -52,6 +53,13 @@ export function MoneyMarketCard() {
     functionName: "balanceOf",
     args: [address as `0x${string}`],
   });
+
+  const { data: nativeBalance } = useBalance({
+    address: address as `0x${string}`,
+  });
+
+  console.log(nativeBalance, "nativeBalance");
+  const formattedNativeBalance = nativeBalance?.formatted;
 
   const formattedBalance = usdcBalance
     ? formatUnits(usdcBalance, USDC_ADDRESS?.decimals!)
@@ -141,7 +149,7 @@ export function MoneyMarketCard() {
           />
         </div>
         <Separator />
-        <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="w-full sm:w-1/2 sm:pr-2 pt-2">
             <Input
               type="number"
@@ -151,21 +159,30 @@ export function MoneyMarketCard() {
               className="text-2xl sm:text-4xl font-bold h-16 w-full"
             />
 
-            <BalanceDisplay
+            {/* <BalanceDisplay
               balance={formattedBalance || "0"}
               isLoading={!formattedBalance}
-              symbol="USDC"
-            />
-            <WriteButton
-              label={`${currentViewTab} ${amount} Native`}
-              contractAddress={SPOKE_BSC_CONTRACT_ADDRESS}
-              abi={spokeAbi}
-              functionName={"depositCollateralNative"}
-              args={[]}
-              isNative={true}
-              nativeAmount={amount}
-            />
+              //symbol="USDC"
+              symbol="BNB"
+            /> */}
+            <span className="text-sm text-gray-500 mt-2 block justify-start text-left">
+              BALANCE:
+              {formattedNativeBalance ? (
+                `${formattedNativeBalance.substring(0, 10)} BNB`
+              ) : (
+                <Skeleton className="inline-block ml-2 h-4 w-16" />
+              )}
+            </span>
           </div>
+          <WriteButton
+            label={`${currentViewTab} Native`}
+            contractAddress={SPOKE_BSC_CONTRACT_ADDRESS}
+            abi={spokeAbi}
+            functionName={"depositCollateralNative"}
+            args={[]}
+            isNative={true}
+            nativeAmount={amount}
+          />
           <div className="w-full sm:w-1/2 p-4">
             <TransferWrapper
               amount={amount}

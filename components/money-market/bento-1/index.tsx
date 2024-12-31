@@ -19,7 +19,6 @@ import { useAppTranslations } from "@/context/TranslationContext";
 function LendBorrowActionCard() {
   const { currentViewTab, setCurrentViewTab } = useMarketStore();
   const chainId = useNetworkManager();
-  // const [usdcToken, setUsdcToken] = useState<Token | null>(null);
   const handleTabChange = (tab: "lend" | "borrow" | "withdraw" | "repay") => {
     setCurrentViewTab(tab);
   };

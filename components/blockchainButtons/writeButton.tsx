@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { cn } from "@/utils/index";
 import { Button } from "../ui/button";
-import { toast } from "../ui/use-toast";
+import { useToast } from "../ui/use-toast";
 import { WriteButtonProps } from "@/lib/types";
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseEther } from "viem";
@@ -16,16 +16,25 @@ const WriteButton = ({
   nativeAmount,
 }: WriteButtonProps) => {
   const { writeContract, data: hash, isPending } = useWriteContract();
-
+  const { toast } = useToast();
   const { isLoading, error, isSuccess, isError, data } =
     useWaitForTransactionReceipt({
       hash,
     });
-  console.log(functionName, "functionName");
+
+  useEffect(() => {
+    if (isSuccess) {
+      toast({
+        title: "Transaction successful",
+        description: "Your transaction has been successfully completed.",
+      });
+    }
+  }, [isSuccess]);
 
   return (
     <Button
-      variant={"paez"}
+      variant={"fito"}
+      className=""
       onClick={() =>
         writeContract({
           abi,
@@ -38,7 +47,7 @@ const WriteButton = ({
       }
       disabled={isLoading || isPending}
     >
-      {isLoading || isPending ? `Processing... ${label}` : label}
+      {isLoading || isPending ? `Processing...` : label}
     </Button>
   );
 };

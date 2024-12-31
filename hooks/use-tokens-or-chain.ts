@@ -20,7 +20,6 @@ import {
   Arbitrum,
   ArbitrumSepolia,
   ZkSyncSepolia,
-  Bsc,
   ZkSync,
   Optimism,
   SepoliaOptimism,
@@ -73,14 +72,14 @@ export const useGetTokensOrChain = (
     if (chainId === 84532) return BaseSepolia;
     if (chainId === 421614) return ArbitrumSepolia;
     if (chainId === 11155111) return ZkSyncSepolia;
-    if (chainId === 59144) return Bsc;
+
     if (chainId === 11155420) return SepoliaOptimism;
     if (chainId === 42161) return Arbitrum;
     if (chainId === 361) return ZkSync;
     if (chainId === 8453) return Base;
     if (chainId === 43114) return Avalanche;
     if (chainId === 42161) return Arbitrum;
-    if (chainId === 56) return Bsc;
+
     if (chainId === 10) return Optimism;
     if (chainId === 361) return ZkSync;
     if (chainId === 97) return BscTestnet;
@@ -90,14 +89,13 @@ export const useGetTokensOrChain = (
     if (chainId === 84532) return BaseSepolia;
     if (chainId === 421614) return ArbitrumSepolia;
     if (chainId === 11155111) return ZkSyncSepolia;
-    if (chainId === 59144) return Bsc;
+
     if (chainId === 11155420) return SepoliaOptimism;
     if (chainId === 42161) return Arbitrum;
     if (chainId === 361) return ZkSync;
     if (chainId === 8453) return Base;
     if (chainId === 43114) return Avalanche;
     if (chainId === 42161) return Arbitrum;
-    if (chainId === 56) return Bsc;
     if (chainId === 10) return Optimism;
     if (chainId === 361) return ZkSync;
     if (chainId === 97) return BscTestnet;
