@@ -12,12 +12,26 @@ By leveraging a **Hub and Spoke Money Market** model, Bu Finance facilitates sec
 
 ### **Technical Stack**
 
-- **Blockchain Protocols:** Avalanche, Base, CCIP, Wormhole
+- **Blockchain Protocols:** Avalanche, Bsc, CCIP, Wormhole
 - **AI Integration:** OpenAI Realtime API
 - **Frontend:** Next.js 14, TailwindCSS, Shadcn UI components
 - **Liquidator:** Rust flash-loan liquidator for over collateralized loan liquidation with AAVE and Uniswap liquidity.
 - **AI Voice Relayer:** AI voice relayer connected to OpenAi's Realtime API for voice assistance.
 - **Backend:** Node.js, Supabase
+
+## 📝 Deployed Contracts
+
+### **Production Addresses**
+
+| Network   | Contract Type | Address                                      |
+| --------- | ------------- | -------------------------------------------- |
+| BSC       | Spoke         | `0x2A97438Acf6f1c0745171C8DA7e199F5061a0C3b` |
+| Avalanche | Hub           | `0x6958d698e0399C82e9e9f32f0cfEE48cE5952DF3` |
+
+### **Contract Verification**
+
+- [BSC Spoke Contract on BscScan](https://testnet.bscscan.com/address/0x2A97438Acf6f1c0745171C8DA7e199F5061a0C3b)
+- [Avalanche Hub Contract on SnowTrace](https://testnet.snowtrace.io/address/0x6958d698e0399C82e9e9f32f0cfEE48cE5952DF3)
 
 ## 🔧 Getting Started
 
