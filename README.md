@@ -8,6 +8,8 @@ By leveraging a **Hub and Spoke Money Market** model, Bu Finance facilitates sec
 
 ## 🛠 Architecture
 
+![Bu Finance Architecture](protocol_diagram.png)
+
 ### **Technical Stack**
 
 - **Blockchain Protocols:** Avalanche, Base, CCIP, Wormhole
@@ -45,7 +47,7 @@ The AI Console enhances user experience through intelligent assistance:
 
 BooFi’s payment and bridging solutions ensure seamless and secure transactions:
 
-- **ENS-Based Payments:** Simplifies USDC transactions using `base.ens.names` via Wormhole.
+- **ENS-Based Payments:** Simplifies USDC transactions using `ens.names` via Wormhole.
 - **QR Code Art Generator:** Enhances payment link sharing with customizable QR codes.
 - **Peanut Protocol Integration:** Facilitates easy USDC payments through shareable links.
 - **CCIP Bridge:** Ensures reliable USDC transfers across different blockchain ecosystems.
