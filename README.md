@@ -15,6 +15,10 @@ By leveraging a **Hub and Spoke Money Market** model, Bu Finance facilitates sec
 - **Blockchain Protocols:** Avalanche, Bsc, CCIP, Wormhole
 - **AI Integration:** OpenAI Realtime API
 - **Frontend:** Next.js 14, TailwindCSS, Shadcn UI components
+- ### **Smart Contracts**
+
+The core smart contracts for the money market protocol can be found in our [GitHub repository](https://github.com/BuFi007/desk-v1/tree/lending/tomi/apps/money-market-contracts/EVM).
+
 - **Liquidator:** Rust flash-loan liquidator for over collateralized loan liquidation with AAVE and Uniswap liquidity.
 - **AI Voice Relayer:** AI voice relayer connected to OpenAi's Realtime API for voice assistance.
 - **Backend:** Node.js, Supabase
