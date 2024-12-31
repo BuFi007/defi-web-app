@@ -21,7 +21,7 @@ By leveraging a **Hub and Spoke Money Market** model, Bu Finance facilitates sec
 
 ## 📝 Deployed Contracts
 
-### **Production Addresses**
+### **Testnet Addresses**
 
 | Network   | Contract Type | Address                                      |
 | --------- | ------------- | -------------------------------------------- |
