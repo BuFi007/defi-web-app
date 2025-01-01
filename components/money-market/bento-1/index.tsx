@@ -19,14 +19,13 @@ import { useAppTranslations } from "@/context/TranslationContext";
 function LendBorrowActionCard() {
   const { currentViewTab, setCurrentViewTab } = useMarketStore();
   const chainId = useNetworkManager();
-  // const [usdcToken, setUsdcToken] = useState<Token | null>(null);
   const handleTabChange = (tab: "lend" | "borrow" | "withdraw" | "repay") => {
     setCurrentViewTab(tab);
   };
 
   const token = useUsdcChain();
   console.log(token, "token");
-  const translations = useAppTranslations('MoneyMarketBento1');
+  const translations = useAppTranslations("MoneyMarketBento1");
 
   return (
     <Tabs
@@ -38,7 +37,10 @@ function LendBorrowActionCard() {
       className="flex w-full flex-col mb-2 gap-2 uppercase z-10"
     >
       <div className="flex justify-start items-center w-full">
-        <TabsList stackBehavior="stacked-2" className="gap-2 flex-grow justify-start">
+        <TabsList
+          stackBehavior="stacked-2"
+          className="gap-2 flex-grow justify-start"
+        >
           <TabsTriggerAlt value="lend">
             <Button size="sm" variant="paez" tabValue="lend" storeType="market">
               {translations.tabLend}

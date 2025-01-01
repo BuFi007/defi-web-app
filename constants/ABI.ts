@@ -52,13 +52,6 @@ export const spokeAbi = [
     type: "function",
   },
   {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "costForReturnDelivery",
-        type: "uint256",
-      },
-    ],
     name: "depositCollateralNative",
     outputs: [{ internalType: "uint64", name: "sequence", type: "uint64" }],
     stateMutability: "payable",
@@ -154,7 +147,6 @@ export const spokeAbi = [
   },
 ] as const;
 
-// /abis/hubAbi.ts
 export const hubAbi = [
   {
     type: "function",

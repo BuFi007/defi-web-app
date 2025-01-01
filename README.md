@@ -8,14 +8,34 @@ By leveraging a **Hub and Spoke Money Market** model, Bu Finance facilitates sec
 
 ## 🛠 Architecture
 
+![Bu Finance Architecture](protocol_diagram.png)
+
 ### **Technical Stack**
 
-- **Blockchain Protocols:** Avalanche, Base, CCIP, Wormhole
+- **Blockchain Protocols:** Avalanche, Bsc, CCIP, Wormhole
 - **AI Integration:** OpenAI Realtime API
 - **Frontend:** Next.js 14, TailwindCSS, Shadcn UI components
+- ### **Smart Contracts**
+
+The core smart contracts for the money market protocol can be found in our [GitHub repository](https://github.com/BuFi007/desk-v1/tree/lending/tomi/apps/money-market-contracts/EVM).
+
 - **Liquidator:** Rust flash-loan liquidator for over collateralized loan liquidation with AAVE and Uniswap liquidity.
 - **AI Voice Relayer:** AI voice relayer connected to OpenAi's Realtime API for voice assistance.
 - **Backend:** Node.js, Supabase
+
+## 📝 Deployed Contracts
+
+### **Testnet Addresses**
+
+| Network   | Contract Type | Address                                      |
+| --------- | ------------- | -------------------------------------------- |
+| BSC       | Spoke         | `0x2A97438Acf6f1c0745171C8DA7e199F5061a0C3b` |
+| Avalanche | Hub           | `0x6958d698e0399C82e9e9f32f0cfEE48cE5952DF3` |
+
+### **Contract Verification**
+
+- [BSC Spoke Contract on BscScan](https://testnet.bscscan.com/address/0x2A97438Acf6f1c0745171C8DA7e199F5061a0C3b)
+- [Avalanche Hub Contract on SnowTrace](https://testnet.snowtrace.io/address/0x6958d698e0399C82e9e9f32f0cfEE48cE5952DF3)
 
 ## 🔧 Getting Started
 
@@ -45,7 +65,7 @@ The AI Console enhances user experience through intelligent assistance:
 
 BooFi’s payment and bridging solutions ensure seamless and secure transactions:
 
-- **ENS-Based Payments:** Simplifies USDC transactions using `base.ens.names` via Wormhole.
+- **ENS-Based Payments:** Simplifies USDC transactions using `ens.names` via Wormhole.
 - **QR Code Art Generator:** Enhances payment link sharing with customizable QR codes.
 - **Peanut Protocol Integration:** Facilitates easy USDC payments through shareable links.
 - **CCIP Bridge:** Ensures reliable USDC transfers across different blockchain ecosystems.

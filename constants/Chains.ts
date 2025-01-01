@@ -207,3 +207,21 @@ export const Bsc = {
   chainName: "BSC",
   iconUrls: ["https://app.dynamic.xyz/assets/networks/bnb.svg"],
 };
+
+export const BscTestnet = {
+  chainId: 97,
+  name: "BSC Testnet",
+  rpcUrls: ["https://data-seed-prebsc-1-s1.binance.org:8545"],
+  isMainnet: false,
+  networkId: 97,
+  nativeCurrency: {
+    name: "Binance Smart Chain",
+    symbol: "BNB",
+    decimals: 18,
+    iconUrls: ["https://app.dynamic.xyz/assets/networks/bsc.svg"],
+  },
+  blockExplorerUrls: ["https://bscscan.com"],
+  vanityName: "BSC Testnet",
+  chainName: "BscTestnet",
+  iconUrls: ["https://app.dynamic.xyz/assets/networks/bnb.svg"],
+};
