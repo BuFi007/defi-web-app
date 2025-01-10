@@ -16,7 +16,6 @@ export default function LinkForm() {
   const currentChainId = useNetworkManager();
   const chainId = currentChainId as number;
   const availableTokens = useGetTokensOrChain(chainId, "tokens");
-  console.log(availableTokens, "daksklasdlasdlasdlds");
 
   const {
     createPayLink,
@@ -29,7 +28,6 @@ export default function LinkForm() {
   const [tokenAmount, setTokenAmount] = useState<number>(0);
   const [transactionDetails, setTransactionDetails] =
     useState<TransactionDetails | null>(null);
-  const [showSentTable, setShowSentTable] = useState(false);
   const [selectedToken, setSelectedToken] = useState<string>("");
   const [currentText, setCurrentText] = useState<string>("");
 
@@ -38,10 +36,10 @@ export default function LinkForm() {
   ) => {
     e.preventDefault();
     setOverlayVisible(true);
-
     try {
       const tokenAddress = selectedToken;
       setCurrentText(translations.currentTextProgress);
+      console.log(selectedToken, "this is the selectedToken");
 
       const linkResponse = await createPayLink(
         tokenAmount.toString(),
@@ -52,7 +50,6 @@ export default function LinkForm() {
           setCurrentText(`${translations.currentTextFailed} ${error.message}`),
         () => setCurrentText(translations.currentTextSpooky)
       );
-      // Assuming linkResponse has the structure { paymentLink: string, transactionHash: string }
       if (linkResponse) {
         setTransactionDetails(linkResponse as TransactionDetails);
 

@@ -28,7 +28,6 @@ export default function LinkUiForm({
             availableTokens={availableTokens}
             onTokenSelect={setSelectedToken}
             currentNetwork={chainId || 1}
-            // defaultToken={availableTokens[0]}
             size="lg"
             action="default"
           />

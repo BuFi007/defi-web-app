@@ -21,7 +21,6 @@ export const usePeanut = () => {
   const { toast } = useToast();
   const chainId = useChainId();
   const signer = useEthersSigner({ chainId });
-
   const generatePassword = async () => {
     try {
       return await getRandomString(16);
@@ -86,6 +85,10 @@ export const usePeanut = () => {
         throw new Error("Wallet not connected or signer unavailable");
       }
 
+      if (!tokenAddress) {
+        tokenAddress = NATIVE_TOKEN_ADDRESS;
+      }
+
       const actualTokenAddress =
         typeof tokenAddress === "string" ? tokenAddress : tokenAddress.address;
 
@@ -96,14 +99,14 @@ export const usePeanut = () => {
 
       const password = await generatePassword();
 
-      // First prepare the transactions which includes approval tx
       const preparedTransactions = await peanut.prepareTxs({
         address: primaryWallet.address as `0x${string}`,
         linkDetails: linkDetails,
         passwords: [password],
       });
 
-      // Handle ERC20 approval if needed
+      console.log("this is the preparedTransactions", preparedTransactions);
+
       if (actualTokenAddress !== NATIVE_TOKEN_ADDRESS) {
         try {
           // Execute approval transaction first
@@ -138,6 +141,7 @@ export const usePeanut = () => {
         structSigner: {
           signer: signer,
         },
+
         linkDetails: linkDetails,
         password: password,
       });
@@ -170,7 +174,6 @@ export const usePeanut = () => {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
 
-      // Handle user rejection separately
       if (
         error.code === "ACTION_REJECTED" ||
         errorMessage.includes("user rejected")
