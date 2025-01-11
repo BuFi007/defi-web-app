@@ -21,7 +21,6 @@ export const usePeanut = () => {
   const { toast } = useToast();
   const chainId = useChainId();
   const signer = useEthersSigner({ chainId });
-
   const generatePassword = async () => {
     try {
       return await getRandomString(16);
@@ -86,6 +85,10 @@ export const usePeanut = () => {
         throw new Error("Wallet not connected or signer unavailable");
       }
 
+      if (!tokenAddress) {
+        tokenAddress = NATIVE_TOKEN_ADDRESS;
+      }
+
       const actualTokenAddress =
         typeof tokenAddress === "string" ? tokenAddress : tokenAddress.address;
 
@@ -96,14 +99,14 @@ export const usePeanut = () => {
 
       const password = await generatePassword();
 
-      // First prepare the transactions which includes approval tx
       const preparedTransactions = await peanut.prepareTxs({
         address: primaryWallet.address as `0x${string}`,
         linkDetails: linkDetails,
         passwords: [password],
       });
 
-      // Handle ERC20 approval if needed
+      console.log("this is the preparedTransactions", preparedTransactions);
+
       if (actualTokenAddress !== NATIVE_TOKEN_ADDRESS) {
         try {
           // Execute approval transaction first
@@ -138,9 +141,11 @@ export const usePeanut = () => {
         structSigner: {
           signer: signer,
         },
+
         linkDetails: linkDetails,
         password: password,
       });
+
       const getLinksFromTxResponse = await peanut.getLinksFromTx({
         linkDetails,
         txHash: txHash,
@@ -170,7 +175,6 @@ export const usePeanut = () => {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
 
-      // Handle user rejection separately
       if (
         error.code === "ACTION_REJECTED" ||
         errorMessage.includes("user rejected")
@@ -199,22 +203,29 @@ export const usePeanut = () => {
     onInProgress?: () => void,
     onSuccess?: () => void,
     onFailed?: (error: Error) => void,
-    onFinished?: () => void
+    onFinished?: () => void,
+    walletAddress?: string
   ) => {
     setIsLoading(true);
     setLoading(true);
     setError(null);
 
     try {
+      let wallet;
       if (!primaryWallet?.address) {
         throw new Error("Wallet not connected");
       }
-      console.log("this is the link 2", link);
+
+      if (walletAddress !== "" && walletAddress !== undefined) {
+        wallet = walletAddress;
+      } else {
+        wallet = primaryWallet.address;
+      }
 
       const claimedLinkResponse = await claimLinkGasless({
         link,
         APIKey: PEANUTAPIKEY!,
-        recipientAddress: primaryWallet.address as `0x${string}`,
+        recipientAddress: wallet as `0x${string}`,
         baseUrl: `https://api.peanut.to/claim-v2`,
       });
 
