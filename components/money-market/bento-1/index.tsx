@@ -24,7 +24,6 @@ function LendBorrowActionCard() {
   };
 
   const token = useUsdcChain();
-  console.log(token, "token");
   const translations = useAppTranslations("MoneyMarketBento1");
 
   return (

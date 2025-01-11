@@ -7,7 +7,6 @@ export function useTokenBalance({
   address,
   setBalance: externalSetBalance,
 }: UseTokenBalanceProps): UseBalanceReturnType {
-  console.log(tokenAddress, "tokenAddress");
   let balance;
   if (tokenAddress !== "0x0000000000000000000000000000000000000000") {
     balance = useBalance({

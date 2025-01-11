@@ -105,8 +105,6 @@ export const usePeanut = () => {
         passwords: [password],
       });
 
-      console.log("this is the preparedTransactions", preparedTransactions);
-
       if (actualTokenAddress !== NATIVE_TOKEN_ADDRESS) {
         try {
           // Execute approval transaction first
@@ -283,8 +281,6 @@ export const usePeanut = () => {
       if (!primaryWallet?.address) {
         throw new Error("Wallet not connected");
       }
-
-      console.log("this is the destinationTokenAddress 1", destinationToken);
 
       const claimedLinkResponse = await claimLinkXChainGasless({
         link,

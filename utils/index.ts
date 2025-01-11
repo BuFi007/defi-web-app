@@ -329,8 +329,6 @@ export const saveClaimedLinkToLocalStorage = ({
     dataArr.push(data);
 
     localStorage.setItem(key, JSON.stringify(dataArr));
-
-    console.log("Saved claimed link to localStorage:", data);
   } catch (error) {
     console.error("Error adding data to localStorage:", error);
   }
@@ -373,8 +371,6 @@ export const saveCreatedLinkToLocalStorage = ({
     dataArr?.push(data);
 
     localStorage.setItem(key, JSON.stringify(dataArr));
-
-    console.log("Saved created link to localStorage:", data);
   } catch (error) {
     console.error("Error adding data to localStorage:", error);
   }

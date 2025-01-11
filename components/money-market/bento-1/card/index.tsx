@@ -58,7 +58,6 @@ export function MoneyMarketCard() {
     address: address as `0x${string}`,
   });
 
-  console.log(nativeBalance, "nativeBalance");
   const formattedNativeBalance = nativeBalance?.formatted;
 
   const formattedBalance = usdcBalance
@@ -118,7 +117,6 @@ export function MoneyMarketCard() {
     });
   }
 
-  console.log(currentViewTab, "currentViewTab");
   return (
     <div className="w-full max-w-3xl mx-auto">
       <div className="flex flex-col space-y-4 w-full">

@@ -1,8 +1,8 @@
-import { Token } from "@/lib/types";
+import { NATIVE_TOKEN_ADDRESS } from "@/constants/Tokens";
+import { Chain, Token } from "@/lib/types";
 import { cn } from "@/utils";
 import { pressable } from "@/utils/theme";
 import Image from "next/image";
-
 /**
  * Small button that display a given token symbol and image.
  *
@@ -14,6 +14,7 @@ interface TokenChipProps {
   onClick?: (token: Token) => void;
   className?: string;
   amount?: string;
+  chain?: Chain;
 }
 
 export function TokenChip({
@@ -21,6 +22,7 @@ export function TokenChip({
   onClick,
   className,
   amount,
+  chain,
 }: TokenChipProps) {
   return (
     <button
@@ -34,9 +36,22 @@ export function TokenChip({
       )}
       onClick={() => onClick?.(token)}
     >
-      <Image src={token?.image} alt={token?.symbol} width={24} height={24} />
+      {token?.address !== NATIVE_TOKEN_ADDRESS ? (
+        <Image src={token?.image} alt={token?.symbol} width={24} height={24} />
+      ) : (
+        <Image
+          src={chain?.nativeCurrency?.iconUrls[0]!}
+          alt={token?.symbol}
+          width={24}
+          height={24}
+        />
+      )}
       {amount && <span>{amount}</span>}
-      <span>{token?.symbol}</span>
+      {token?.address === NATIVE_TOKEN_ADDRESS ? (
+        <>{chain && <span>{chain.nativeCurrency.symbol}</span>}</>
+      ) : (
+        <span>{token?.symbol}</span>
+      )}
     </button>
   );
 }

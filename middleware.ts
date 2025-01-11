@@ -30,14 +30,11 @@ export default async function middleware(
   const i18nResponse = i18nMiddleware(req);
   if (i18nResponse) return i18nResponse;
 
-  console.log("Inside middleware");
-
   // Geolocation-based blocking
   const { country } = geolocation(req);
   const countryCode = country || "UNKNOWN";
 
   if (BLOCKED_COUNTRIES.includes(countryCode)) {
-    console.log(`Country ${countryCode} is blocked`);
     return new Response("AI agent app not available in your country", {
       status: 403,
     });

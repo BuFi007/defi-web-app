@@ -35,7 +35,6 @@ const PositionSummary: React.FC = () => {
     address: address.address as `0x${string}`,
     chain: base,
   });
-  console.log({ ensName });
 
   useEffect(() => {
     const fetchPositions = async () => {
@@ -66,9 +65,7 @@ const PositionSummary: React.FC = () => {
 
   const renderSkeleton = () => (
     <div
-      className={cn(
-        "rounded-lg shadow p-2 space-y-2 text-xs bg-background",
-      )}
+      className={cn("rounded-lg shadow p-2 space-y-2 text-xs bg-background")}
     >
       <div className="flex justify-between items-center">
         <Skeleton className="h-4 w-24" />
@@ -88,14 +85,14 @@ const PositionSummary: React.FC = () => {
 
   return (
     <div
-      className={cn(
-        "rounded-lg shadow p-4 space-y-4 text-xs bg-background",
-      )}
+      className={cn("rounded-lg shadow p-4 space-y-4 text-xs bg-background")}
     >
       <div className="flex justify-between items-center">
         <h2 className="text-sm font-medium">Your Positions</h2>
         {ensName && (
-          <span className="text-xs text-muted-foreground">{truncateAddress(ensName)}</span>
+          <span className="text-xs text-muted-foreground">
+            {truncateAddress(ensName)}
+          </span>
         )}
       </div>
 

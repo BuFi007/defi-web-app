@@ -22,22 +22,28 @@ const NetworkSelector: React.FC<NetworkSelectorProps> = ({
   destinationChainId,
   onSelect,
 }) => {
-  const [selectedChain, setSelectedChain] = useState<string>(destinationChainId || "");
+  const [selectedChain, setSelectedChain] = useState<string>(
+    destinationChainId || ""
+  );
 
   const currentChain = Object.values(Chains).find(
-    chain => chain.chainId.toString() === currentChainId
+    (chain) => chain.chainId.toString() === currentChainId
   );
-  
-  const supportedChains = Object.values(Chains).filter(chain => {
-    return chain.chainId.toString() !== currentChainId && 
-           chain.isMainnet === currentChain?.isMainnet;
+
+  const supportedChains = Object.values(Chains).filter((chain) => {
+    return (
+      chain.chainId.toString() !== currentChainId &&
+      chain.isMainnet === currentChain?.isMainnet
+    );
   });
 
-  const handleChainSelect = useCallback((value: string) => {
-    console.log("Selecting chain:", value);
-    setSelectedChain(value);
-    onSelect(value);
-  }, [onSelect]);
+  const handleChainSelect = useCallback(
+    (value: string) => {
+      setSelectedChain(value);
+      onSelect(value);
+    },
+    [onSelect]
+  );
 
   // Set initial destination chain if none selected
   useEffect(() => {
@@ -62,29 +68,25 @@ const NetworkSelector: React.FC<NetworkSelectorProps> = ({
 
   return (
     <div className="w-fit justify-center items-center">
-      <Select
-        value={selectedChain}
-        onValueChange={handleChainSelect}
-      >
+      <Select value={selectedChain} onValueChange={handleChainSelect}>
         <SelectTrigger className="w-full">
           <SelectValue placeholder="Select destination chain">
-            {selectedChain ? (
-              renderChainOption(supportedChains.find(c => c.chainId.toString() === selectedChain)!)
-            ) : (
-              "Select destination chain"
-            )}
+            {selectedChain
+              ? renderChainOption(
+                  supportedChains.find(
+                    (c) => c.chainId.toString() === selectedChain
+                  )!
+                )
+              : "Select destination chain"}
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
             <SelectLabel>
-              Available {currentChain?.isMainnet ? 'Mainnet' : 'Testnet'} Chains
+              Available {currentChain?.isMainnet ? "Mainnet" : "Testnet"} Chains
             </SelectLabel>
             {supportedChains.map((chain) => (
-              <SelectItem
-                key={chain.chainId}
-                value={chain.chainId.toString()}
-              >
+              <SelectItem key={chain.chainId} value={chain.chainId.toString()}>
                 {renderChainOption(chain)}
               </SelectItem>
             ))}

@@ -29,6 +29,7 @@ import { useAppTranslations } from "@/context/TranslationContext";
 import { fetchLinkDetail, triggerConfetti } from "@/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { getAllChains } from "@/utils";
 
 export interface ClaimData {
   link: string;
@@ -106,6 +107,10 @@ export default function ClaimsDisplay() {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+  function getChainName(chainId: number) {
+    const chain = getAllChains().find((c) => c.chainId === chainId);
+    return chain;
+  }
 
   return (
     <div className="space-y-4">
@@ -192,6 +197,7 @@ export default function ClaimsDisplay() {
                       allTokens.find((t) => t?.address === claim?.tokenAddress)!
                     }
                     amount={claim?.tokenAmount?.toString()}
+                    chain={getChainName(Number(claim.chainId))}
                   />
                 </TableCell>
 
