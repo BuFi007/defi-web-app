@@ -145,6 +145,7 @@ export const usePeanut = () => {
         linkDetails: linkDetails,
         password: password,
       });
+
       const getLinksFromTxResponse = await peanut.getLinksFromTx({
         linkDetails,
         txHash: txHash,
@@ -202,22 +203,29 @@ export const usePeanut = () => {
     onInProgress?: () => void,
     onSuccess?: () => void,
     onFailed?: (error: Error) => void,
-    onFinished?: () => void
+    onFinished?: () => void,
+    walletAddress?: string
   ) => {
     setIsLoading(true);
     setLoading(true);
     setError(null);
 
     try {
+      let wallet;
       if (!primaryWallet?.address) {
         throw new Error("Wallet not connected");
       }
-      console.log("this is the link 2", link);
+
+      if (walletAddress !== "" && walletAddress !== undefined) {
+        wallet = walletAddress;
+      } else {
+        wallet = primaryWallet.address;
+      }
 
       const claimedLinkResponse = await claimLinkGasless({
         link,
         APIKey: PEANUTAPIKEY!,
-        recipientAddress: primaryWallet.address as `0x${string}`,
+        recipientAddress: wallet as `0x${string}`,
         baseUrl: `https://api.peanut.to/claim-v2`,
       });
 

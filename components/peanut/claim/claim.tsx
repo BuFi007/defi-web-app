@@ -65,7 +65,8 @@ export default function ClaimInfo({
           () => setCurrentText(translations.currentTextProgress),
           () => setCurrentText(translations.currentTextClaimSuccess),
           (error: Error) => setCurrentText(`Error: ${error.message}`),
-          () => setCurrentText(translations.currentTextClaimComplete)
+          () => setCurrentText(translations.currentTextClaimComplete),
+          otherWalletAddress
         );
         setTransactionDetails(txHash);
         setPaymentInfo({
@@ -115,6 +116,7 @@ export default function ClaimInfo({
       }
     }
   };
+
   return (
     <section className="flex w-full h-auto flex-col justify-between rounded-2xl border bg-background p-5">
       <div className="flex w-full md:h-[200px] lg:h-[300px] flex-col justify-between rounded-2xl">
