@@ -39,7 +39,6 @@ export default function LinkForm() {
     try {
       const tokenAddress = selectedToken;
       setCurrentText(translations.currentTextProgress);
-      console.log(selectedToken, "this is the selectedToken");
 
       const linkResponse = await createPayLink(
         tokenAmount.toString(),
@@ -52,8 +51,6 @@ export default function LinkForm() {
       );
       if (linkResponse) {
         setTransactionDetails(linkResponse as TransactionDetails);
-
-        console.log("Payment link created successfully:", linkResponse);
 
         triggerConfetti("👻");
       } else {

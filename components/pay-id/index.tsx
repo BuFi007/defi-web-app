@@ -109,7 +109,7 @@ export default function PayId() {
               }
               onTokenSelect={setSelectedToken}
               currentNetwork={chainId!}
-              defaultToken={tokenParam ? tokenFind?.[0] : undefined}
+              // defaultToken={tokenParam ? tokenFind?.[0] : undefined}
               action="pay"
             />
 

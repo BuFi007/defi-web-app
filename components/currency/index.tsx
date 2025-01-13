@@ -21,7 +21,7 @@ import { AvalancheTokens, NATIVE_TOKEN_ADDRESS } from "@/constants/Tokens";
 import { toast } from "../ui/use-toast";
 import { sizeStyles } from "@/lib/utils";
 import { Button } from "../ui/button";
-
+import { getAllChains } from "@/utils";
 const MAX_DECIMALS = 18;
 
 const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
@@ -38,16 +38,22 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   const chainId = useChainId();
   const tokens =
     useGetTokensOrChain(currentNetwork, "tokens") || availableTokens;
-  const ETH = Array.isArray(tokens)
-    ? tokens.find((token: Token) => token?.symbol === "ETH")
-    : undefined;
+
   const { address } = useAccount();
+
   const [selectedToken, setSelectedToken] = useState<Token | null>(
-    defaultToken || null
+    availableTokens[0] || null
   );
+
   const [inputValue, setInputValue] = useState<string>(
     initialAmount.toFixed(3)
   );
+
+  useEffect(() => {
+    if (availableTokens.length > 0) {
+      setSelectedToken(availableTokens[0]);
+    }
+  }, [availableTokens]);
 
   const balance = useTokenBalance({
     address: address || "0x0",
@@ -57,13 +63,17 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
     decimals: selectedToken?.decimals ?? 18,
   });
 
-  useEffect(() => {
-    if (ETH && !selectedToken && !defaultToken) {
-      setSelectedToken(ETH);
-    } else if (defaultToken) {
-      setSelectedToken(defaultToken);
-    }
-  }, [ETH, defaultToken]);
+  const actualChain = getAllChains().find(
+    (chain) => chain.chainId === currentNetwork
+  );
+
+  // useEffect(() => {
+  //   if (ETH && !selectedToken && !defaultToken) {
+  //     setSelectedToken(ETH);
+  //   } else if (defaultToken) {
+  //     setSelectedToken(defaultToken);
+  //   }
+  // }, [ETH, defaultToken]);
 
   useEffect(() => {
     if (tokenAmount !== undefined) {
@@ -126,7 +136,10 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
           Available balance (Max):
         </Button>
         <Button variant={"link"} className="text-xs" onClick={handleMaxClick}>
-          {displayBalance} {selectedToken?.symbol}
+          {displayBalance}{" "}
+          {selectedToken
+            ? selectedToken.symbol
+            : actualChain?.nativeCurrency.symbol}
         </Button>
       </>
     );
@@ -164,7 +177,6 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
         }
       }
 
-      // Llamar al callback con los valores numéricos
       onValueChange(numericValue, numericValue);
     }
   };
@@ -207,7 +219,7 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
         >
           <SelectTrigger className="w-full border-transparent flex justify-between">
             <SelectValue>
-              {selectedToken && currentNetwork && (
+              {/* {selectedToken && currentNetwork && (
                 <div className="flex items-center">
                   <img
                     src={selectedToken.image}
@@ -220,7 +232,7 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
                   />
                   {selectedToken.symbol}
                 </div>
-              )}
+              )} */}
             </SelectValue>
           </SelectTrigger>
           <SelectContent className="w-full justify-between">
@@ -234,7 +246,7 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
                       key={token.address}
                       value={getTokenValue(token)}
                     >
-                      <TokenChip token={token} />
+                      <TokenChip token={token} chain={actualChain} />
                     </SelectItem>
                   ))}
               </SelectGroup>

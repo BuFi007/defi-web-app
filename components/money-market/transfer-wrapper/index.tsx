@@ -19,7 +19,7 @@ const TransferWrapper: React.FC<TransferWrapperProps> = ({
 }) => {
   const { writeContract, error, data, isIdle, isError } = useWriteContract();
   const chain = Object.values(chains).find((c) => c.name === "Base Sepolia");
-  
+
   if (!chain) {
     console.error("Chain 'Base Sepolia' not found in chains configuration.");
     return null;
@@ -57,8 +57,6 @@ const TransferWrapper: React.FC<TransferWrapperProps> = ({
     functionName: "getDeliveryCostRoundtrip",
     args: [costForReturnDelivery || 1n, true],
   });
-
-  console.log({ isLoading, msgValueAmount, errorAmount, errorA });
 
   // Encode function data for the contract call
   const encodedData = encodeFunctionData({

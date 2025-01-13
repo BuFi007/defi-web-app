@@ -49,10 +49,10 @@ const ShareableQRCard = ({
   currentNetwork,
 }: ShareableQRCardProps) => {
   const qrCodeRef = useRef(null);
-  const {setAmount, setToken, token } = usePayLinkStore();
-  const { isSharing, shareOnWhatsApp, shareOnTelegram, shareOnDownload } = useQRCodeSharing();
+  const { setAmount, setToken, token } = usePayLinkStore();
+  const { isSharing, shareOnWhatsApp, shareOnTelegram, shareOnDownload } =
+    useQRCodeSharing();
   const [paymentLink, setPaymentLink] = useState(link);
-  console.log("Here is the token", token?.symbol);
 
   const handleAmountChange = (newAmount: number) => {
     setAmount(newAmount.toString());
@@ -77,7 +77,7 @@ const ShareableQRCard = ({
         shareOnWhatsApp(qrCodeRef.current, shareOptions);
       } else if (platform === "telegram") {
         shareOnTelegram(qrCodeRef.current, shareOptions);
-      } else if (platform === 'download') {
+      } else if (platform === "download") {
         shareOnDownload(qrCodeRef.current);
       }
     }

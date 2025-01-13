@@ -39,7 +39,6 @@ export default function ApproveUsdcWrapper({
   // };
 
   // const handleSuccess = (response: TransactionResponse) => {
-  //   console.log("USDC approval successful", response);
   // };
 
   return (
