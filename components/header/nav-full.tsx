@@ -44,7 +44,7 @@ const HeaderFull: React.FC = () => {
             <div className="flex items-center z-100">
               <SparklesText>
                 <Image
-                  src="/images/BooFi-icon.png"
+                  src="/images/iso-logo.png"
                   alt="Bu Logo"
                   width={100}
                   height={100}

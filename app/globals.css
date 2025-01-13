@@ -58,6 +58,12 @@ a {
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
+    /* BuFI brand */
+    --violeta: #cab0fe;
+    --lila: #e2d0fc;
+    --agnus-dei: #ffecb4;
+    --belanova: #feadec;
+    --purpura: #6854cf;
   }
   .dark {
     --background: 240 10% 3.9%;

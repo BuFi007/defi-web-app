@@ -51,12 +51,18 @@ const config: Config = {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        'clr-cyan': 'var(--clr-cyan)',
-				'clr-green': 'var(--clr-2-green)',
-				'clr-yellow': 'var(--clr-3-yellow)',
-				'clr-pink': 'var(--clr-4-pink)',
-				'clr-blue': 'var(--clr-5-blue)',
-				'clr-patito': 'var(--clr-6-yellow-bg)',
+        "clr-cyan": "var(--clr-cyan)",
+        "clr-green": "var(--clr-2-green)",
+        "clr-yellow": "var(--clr-3-yellow)",
+        "clr-pink": "var(--clr-4-pink)",
+        "clr-blue": "var(--clr-5-blue)",
+        "clr-patito": "var(--clr-6-yellow-bg)",
+        // BuFI brand
+        violeta: "var(--violeta)",
+        lila: "var(--lila)",
+        agnusDei: "var(--agnus-dei)",
+        belanova: "var(--belanova)",
+        purpura: "var(--purpura)",
         indigo: {
           500: "#6172f3",
           700: "#3538cd",
@@ -97,20 +103,20 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        main: '#FFDC58',
-        mainAccent: '#ffc800',
-        overlay: 'rgba(0,0,0,0.8)',
-  
+        main: "#FFDC58",
+        mainAccent: "#ffc800",
+        overlay: "rgba(0,0,0,0.8)",
+
         // light mode
-        bg: '#FEF2E8',
-        text: '#000',
-        border: '#000',
-  
+        bg: "#FEF2E8",
+        text: "#000",
+        border: "#000",
+
         // dark mode
-        darkBg: '#374151',
-        darkText: '#eeefe9',
-        darkBorder: '#000',
-        secondaryBlack: '#212121',
+        darkBg: "#374151",
+        darkText: "#eeefe9",
+        darkBorder: "#000",
+        secondaryBlack: "#212121",
       },
       backgroundImage: {
         "bank-gradient": "linear-gradient(90deg, #0179FE 0%, #4893FF 100%)",
@@ -120,8 +126,8 @@ const config: Config = {
       },
       boxShadow: {
         form: "0px 1px 2px 0px rgba(16, 24, 40, 0.05)",
-        light: '4px 4px 0px 0px #000',
-        dark: '4px 4px 0px 0px #000',
+        light: "4px 4px 0px 0px #000",
+        dark: "4px 4px 0px 0px #000",
         chart:
           "0px 1px 3px 0px rgba(16, 24, 40, 0.10), 0px 1px 2px 0px rgba(16, 24, 40, 0.06)",
         profile:
@@ -139,20 +145,20 @@ const config: Config = {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
-        base: '10px'
+        base: "10px",
       },
       zIndex: {
         100: "100",
       },
       translate: {
-        boxShadowX: '4px',
-        boxShadowY: '4px',
-        reverseBoxShadowX: '-4px',
-        reverseBoxShadowY: '-4px',
+        boxShadowX: "4px",
+        boxShadowY: "4px",
+        reverseBoxShadowX: "-4px",
+        reverseBoxShadowY: "-4px",
       },
       fontWeight: {
-        base: '500',
-        heading: '800',
+        base: "500",
+        heading: "800",
       },
       keyframes: {
         "accordion-down": {

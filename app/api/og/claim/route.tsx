@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
         }}
       >
         <img
-          src={`${baseUrl}/images/BooFi-icon.png`}
+          src={`${baseUrl}/images/iso-logo.png`}
           alt="Bu.fi"
           width="128"
           height="128"

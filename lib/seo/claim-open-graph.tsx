@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { headers } from "next/headers";
 import { IGetLinkDetailsResponse } from "@/lib/types";
 import { getLinkDetails } from "@squirrel-labs/peanut-sdk";
-import { getTranslations } from 'next-intl/server';
+import { getTranslations } from "next-intl/server";
 
 type Props = {
   params: { locale: string };
@@ -36,7 +36,7 @@ export async function generateMetadata({
     : process.env.NEXT_PUBLIC_TESTNET_URL;
 
   // Get translations
-  const t = await getTranslations('OpenGraphClaim');
+  const t = await getTranslations("OpenGraphClaim");
 
   try {
     const linkCode = searchParams.l;
@@ -52,8 +52,10 @@ export async function generateMetadata({
       amount
     )}&token=${encodeURIComponent(token)}&chain=${encodeURIComponent(chain)}`;
 
-    const title = `${t('claimTitle')} ${amount} ${token} ${t('claimTitle2')}`;
-    const description = `${t('description')} ${amount} ${token}. ${t('description2')}`;
+    const title = `${t("claimTitle")} ${amount} ${token} ${t("claimTitle2")}`;
+    const description = `${t("description")} ${amount} ${token}. ${t(
+      "description2"
+    )}`;
 
     return {
       title,
@@ -75,9 +77,9 @@ export async function generateMetadata({
     };
   } catch (error) {
     console.error("Error generating metadata:", error);
-    const fallbackTitle = t('fallbackTitle');
-    const fallbackDescription = t('fallbackDescription');
-    const fallbackImage = `${baseUrl}/images/BooFi-icon.png`;
+    const fallbackTitle = t("fallbackTitle");
+    const fallbackDescription = t("fallbackDescription");
+    const fallbackImage = `${baseUrl}/images/iso-logo.png`;
 
     return {
       title: fallbackTitle,

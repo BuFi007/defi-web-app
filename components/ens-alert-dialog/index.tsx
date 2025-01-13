@@ -90,7 +90,7 @@ export const BaseNameDialogAlert = ({ address }: AddressProps) => {
                 <ShareableQRCard
                   link={link}
                   title="Bu.fi Payment Link"
-                  image="/images/BooFi-icon.png"
+                  image="/images/iso-logo.png"
                   shareMessage="Check out my Bu payment link!"
                   onCopy={copyLink}
                   handleToggleOverlay={handleToggleOverlay}
