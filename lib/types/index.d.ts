@@ -228,11 +228,12 @@ export interface TransactionDetailsDisplayProps {
 }
 
 export interface CurrencyDisplayerProps {
-  onValueChange: (value: number, formattedValue: number) => void;
+  onValueChange?: (value: number, formattedValue: number) => void;
   initialAmount?: number;
   availableTokens: Token[];
   onTokenSelect: (token: Token) => void;
-  currentNetwork: number;
+  currentNetwork?: number;
+  token?: Token;
   tokenAmount?: number | string;
   size?: "sm" | "base" | "lg";
   action?: "default" | "pay";

@@ -218,22 +218,7 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
           value={selectedToken?.address}
         >
           <SelectTrigger className="w-full border-transparent flex justify-between">
-            <SelectValue>
-              {/* {selectedToken && currentNetwork && (
-                <div className="flex items-center">
-                  <img
-                    src={selectedToken.image}
-                    alt={
-                      Object.values(chains).find(
-                        (chain) => chain.chainId === currentNetwork
-                      )?.name || "Ethereum"
-                    }
-                    className="inline-block w-4 h-4 mr-2"
-                  />
-                  {selectedToken.symbol}
-                </div>
-              )} */}
-            </SelectValue>
+            <SelectValue></SelectValue>
           </SelectTrigger>
           <SelectContent className="w-full justify-between">
             {availableTokens?.length > 0 && (

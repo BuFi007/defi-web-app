@@ -2,12 +2,11 @@ import { useState } from "react";
 import { useAccount, useBalance, useReadContract } from "wagmi";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import TransferWrapper from "@/components/money-market/transfer-wrapper";
-import { TransactionHistoryItem } from "@/lib/types";
+import { TransactionHistoryItem, Token } from "@/lib/types";
+
 import { useTokenBalance } from "@/hooks/use-user-balance";
 import { useChainSelection } from "@/hooks/use-chain-selection";
 import { ChainSelect } from "@/components/chain-select";
-import { BalanceDisplay } from "@/components/balance-display";
 import {
   useSwitchNetwork,
   useDynamicContext,
@@ -23,6 +22,8 @@ import WriteButton from "@/components/blockchainButtons/writeButton";
 import { SPOKE_BSC_CONTRACT_ADDRESS } from "@/constants/Contracts";
 import { spokeAbi } from "@/constants/ABI";
 import { Skeleton } from "@/components/ui/skeleton";
+import CurrencyDisplayer from "@/components/currency";
+import TokenSelector from "@/components/token-selector";
 
 export function MoneyMarketCard() {
   const translations = useAppTranslations("MoneyMarketBento1");
@@ -40,11 +41,14 @@ export function MoneyMarketCard() {
   const [transactionHistory, setTransactionHistory] = useState<
     TransactionHistoryItem[]
   >([]);
+  const [selectedToken, setSelectedToken] = useState<Token | null>(null);
+
   const { primaryWallet } = useDynamicContext();
   const chainId = useNetworkManager();
   const USDC_ADDRESS = useUsdcChain();
   const switchNetwork = useSwitchNetwork();
   const { toast } = useToast();
+  const availableTokens = useGetTokensOrChain(chainId as number, "tokens");
 
   const { data: usdcBalance } = useReadContract({
     address: USDC_ADDRESS?.address as Hex,
@@ -54,11 +58,19 @@ export function MoneyMarketCard() {
     args: [address as `0x${string}`],
   });
 
+  const { data: tokenBalance } = useTokenBalance({
+    address: address as `0x${string}`,
+    chainId: chainId,
+    tokenAddress: selectedToken?.address as `0x${string}`,
+    decimals: selectedToken?.decimals ?? 18,
+  });
+
   const { data: nativeBalance } = useBalance({
     address: address as `0x${string}`,
   });
 
   const formattedNativeBalance = nativeBalance?.formatted;
+  const formattedTokenBalance = tokenBalance?.formatted ?? "0";
 
   const formattedBalance = usdcBalance
     ? formatUnits(usdcBalance, USDC_ADDRESS?.decimals!)
@@ -103,8 +115,6 @@ export function MoneyMarketCard() {
     ]);
   };
 
-  console.log(fromChain, "adjsdjakjdaskjdsak from chain");
-
   function handleToggle(value: string) {
     toast({
       title: translations.toastSwitchTitle,
@@ -138,14 +148,11 @@ export function MoneyMarketCard() {
           />
           <Separator orientation="vertical" className="hidden sm:block h-8" />
           <Separator className="w-full sm:hidden" />
-          <ChainSelect
-            value={toChain?.chainId?.toString()}
-            onChange={(value) => {
-              const chain = useGetTokensOrChain(Number(value), "chain");
-              setToChain(chain as Chain);
-            }}
-            chains={toChains}
-            label={translations.labelTo}
+
+          <TokenSelector
+            token={selectedToken!}
+            availableTokens={availableTokens as Token[]}
+            onTokenSelect={setSelectedToken}
           />
         </div>
         <Separator />
@@ -159,15 +166,13 @@ export function MoneyMarketCard() {
               className="text-2xl sm:text-4xl font-bold h-16 w-full"
             />
 
-            {/* <BalanceDisplay
-              balance={formattedBalance || "0"}
-              isLoading={!formattedBalance}
-              //symbol="USDC"
-              symbol="BNB"
-            /> */}
             <span className="text-sm text-gray-500 mt-2 block justify-start text-left">
-              BALANCE:
-              {formattedNativeBalance ? (
+              BALANCE:{" "}
+              {selectedToken ? (
+                `${formattedTokenBalance.substring(0, 10)} ${
+                  selectedToken.symbol
+                }`
+              ) : formattedNativeBalance ? (
                 `${formattedNativeBalance.substring(0, 10)} ${
                   fromChain
                     ? fromChain?.nativeCurrency?.name
@@ -181,22 +186,17 @@ export function MoneyMarketCard() {
           </div>
           <WriteButton
             label={`${currentViewTab}`}
-            contractAddress={SPOKE_BSC_CONTRACT_ADDRESS}
+            contractAddress={
+              selectedToken?.address ?? SPOKE_BSC_CONTRACT_ADDRESS
+            }
             abi={spokeAbi}
-            functionName={"depositCollateralNative"}
+            functionName={
+              selectedToken ? functionName : "depositCollateralNative"
+            }
             args={[]}
-            isNative={true}
+            isNative={!selectedToken}
             nativeAmount={amount}
           />
-          {/* <div className="w-full sm:w-1/2 p-4">
-            <TransferWrapper
-              amount={amount}
-              onSuccess={handleTransactionSuccess}
-              onError={handleTransactionError}
-              functionName={functionName}
-              buttonText={buttonText}
-            />
-          </div> */}
         </div>
         <Separator />
       </div>
