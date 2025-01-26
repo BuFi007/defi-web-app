@@ -65,28 +65,6 @@ const TransferWrapper: React.FC<TransferWrapperProps> = ({
 
   return (
     <div className="flex w-full">
-      {/* <Transaction
-        chainId={chainId}
-        calls={calls}
-        // onError={onError}
-        onSuccess={(response: TransactionResponse) => {
-          const transactionHash =
-            response?.transactionReceipts?.[0]?.transactionHash;
-          if (transactionHash) {
-            onSuccess(transactionHash);
-          }
-        }}
-      >
-        <TransactionButton
-          text={buttonText}
-          className="bg-clr-blue text-black dark:text-black hover:bg-blue-600/80 border-2 border-border dark:border-darkBorder shadow-light dark:shadow-dark hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:shadow-none dark:hover:shadow-none"
-        />
-        <TransactionStatus>
-          <TransactionStatusLabel />
-          <TransactionStatusAction />
-        </TransactionStatus>
-      </Transaction> */}
-
       <Button
         variant="brutalism"
         className="w-full p-4 justify-center bg-clr-blue text-black dark:text-black hover:bg-blue-600/80 border-2 border-border dark:border-darkBorder shadow-light dark:shadow-dark hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:shadow-none dark:hover:shadow-none"

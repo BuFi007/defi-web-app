@@ -10,7 +10,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
-import { useMarketStore } from "@/store";
 import * as Chains from "@/constants/Chains";
 import { CurrencyDisplayerProps, CurrencyInfo, Token } from "@/lib/types";
 import { useNetworkStore } from "@/store";
@@ -24,11 +23,7 @@ function getChainInfoByChainId(chainId: number | string) {
   return { isMainnet };
 }
 
-const TokenSelector = ({
-  token,
-  onValueChange,
-  onTokenSelect,
-}: CurrencyDisplayerProps) => {
+const TokenSelector = ({ token, onTokenSelect }: CurrencyDisplayerProps) => {
   const chainId = useChainId();
   const { currentChainId } = useNetworkStore();
 
@@ -64,7 +59,6 @@ const TokenSelector = ({
     return <div>No tokens available for this network</div>;
   }
 
-  console.log(token, "token");
   return (
     <Select
       onValueChange={handleTokenSelect}
