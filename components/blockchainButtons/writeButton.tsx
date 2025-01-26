@@ -33,8 +33,8 @@ const WriteButton = ({
 
   return (
     <Button
-      variant={"fito"}
-      className=""
+      variant={"brutalism"}
+      className="w-6/12"
       onClick={() =>
         writeContract({
           abi,

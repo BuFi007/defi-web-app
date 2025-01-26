@@ -29,8 +29,6 @@ const TransferWrapper: React.FC<TransferWrapperProps> = ({
 
   const chainId = chain.chainId;
 
-  // Retrieve spoke contract address
-  // const spokeContract = currencyAddresses[chainId]?.USDC?.spokeContract;
   const spokeContract = "0xA8f6Db88D79bcA5F1990C93b6a6eA5866722d198"; /// todo remove this
   if (!spokeContract) {
     console.error(`Spoke contract address for chain ID ${chainId} not found.`);
@@ -67,28 +65,6 @@ const TransferWrapper: React.FC<TransferWrapperProps> = ({
 
   return (
     <div className="flex w-full">
-      {/* <Transaction
-        chainId={chainId}
-        calls={calls}
-        // onError={onError}
-        onSuccess={(response: TransactionResponse) => {
-          const transactionHash =
-            response?.transactionReceipts?.[0]?.transactionHash;
-          if (transactionHash) {
-            onSuccess(transactionHash);
-          }
-        }}
-      >
-        <TransactionButton
-          text={buttonText}
-          className="bg-clr-blue text-black dark:text-black hover:bg-blue-600/80 border-2 border-border dark:border-darkBorder shadow-light dark:shadow-dark hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:shadow-none dark:hover:shadow-none"
-        />
-        <TransactionStatus>
-          <TransactionStatusLabel />
-          <TransactionStatusAction />
-        </TransactionStatus>
-      </Transaction> */}
-
       <Button
         variant="brutalism"
         className="w-full p-4 justify-center bg-clr-blue text-black dark:text-black hover:bg-blue-600/80 border-2 border-border dark:border-darkBorder shadow-light dark:shadow-dark hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:shadow-none dark:hover:shadow-none"

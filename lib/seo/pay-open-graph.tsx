@@ -24,17 +24,13 @@ export async function generateMetadata(
     const token = searchParams.token || "ETH";
     const chain = searchParams.chain || "base";
 
-    // Generate OG image URL
-    // const ogImageUrl = `${baseUrl}/api/${params.id}?amount=${amount}&token=${token}&chain=${chain}`;
+
     const ogImageUrl = `${baseUrl}/api/${encodeURIComponent(
       params.id
     )}?amount=${encodeURIComponent(amount)}&token=${encodeURIComponent(
       token
     )}&chain=${encodeURIComponent(chain)}`;
 
-    console.log("here is the ogImageUrl", ogImageUrl);
-
-    // Construct metadata
     const title = `${t("paymentTitle")} ${amount} ${token}`;
     const description = `${t("paymentDescription")} ${amount} ${token} ${t(
       "paymentDescription2"
@@ -62,6 +58,7 @@ export async function generateMetadata(
     console.error("Error generating metadata:", error);
     const fallbackTitle = t("paymentFallbackTitle");
     const fallbackDescription = t("paymentFallbackDescription");
+
     const fallbackImage = `${baseUrl}/images/iso-logo.png`;
 
     return {

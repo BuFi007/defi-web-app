@@ -11,10 +11,10 @@ import CardSkeleton from "@/components/ui/card-skeleton";
 import { Button } from "@/components/ui/button";
 import { useMarketStore } from "@/store";
 import { MoneyMarketCard } from "@/components/money-market/bento-1/card/index";
-import { TokenChip } from "@/components/token-chip";
-import { useUsdcChain } from "@/hooks/use-usdc-chain";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { useAppTranslations } from "@/context/TranslationContext";
+import { Label } from "@/components/ui/label";
+import Image from "next/image";
 
 function LendBorrowActionCard() {
   const { currentViewTab, setCurrentViewTab } = useMarketStore();
@@ -23,7 +23,6 @@ function LendBorrowActionCard() {
     setCurrentViewTab(tab);
   };
 
-  const token = useUsdcChain();
   const translations = useAppTranslations("MoneyMarketBento1");
 
   return (
@@ -76,9 +75,18 @@ function LendBorrowActionCard() {
             </Button>
           </TabsTriggerAlt>
         </TabsList>
-        <div className="ml-auto">
-          <TokenChip token={token!} />
-        </div>
+        {/* <div className="flex items-center justify-center">
+          <Label className="text-[12px] flex items-center gap-1 text-[#628fbb]">
+            Powered by Avalanche
+            <Image
+              src="https://app.dynamic.xyz/assets/networks/avax.svg"
+              alt="Avalanche"
+              width={20}
+              height={20}
+              className="inline-block"
+            />
+          </Label>
+        </div> */}
       </div>
       <TabsContent value={currentViewTab} className="flex-col flex-1">
         <MoneyMarketCard />

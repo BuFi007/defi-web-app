@@ -1,5 +1,5 @@
-import React from 'react';
-import { useChainId } from 'wagmi';
+import React from "react";
+import { useChainId } from "wagmi";
 import {
   Select,
   SelectContent,
@@ -10,12 +10,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
-import { useMarketStore } from "@/store";
 import * as Chains from "@/constants/Chains";
-import { CurrencyInfo, Token } from "@/lib/types";
+import { CurrencyDisplayerProps, CurrencyInfo, Token } from "@/lib/types";
 import { useNetworkStore } from "@/store";
-import Image from 'next/image';
-
+import Image from "next/image";
 
 function getChainInfoByChainId(chainId: number | string) {
   const id = Number(chainId);
@@ -25,57 +23,71 @@ function getChainInfoByChainId(chainId: number | string) {
   return { isMainnet };
 }
 
-const TokenSelector = () => {
+const TokenSelector = ({ token, onTokenSelect }: CurrencyDisplayerProps) => {
   const chainId = useChainId();
-  const { selectedAsset, setSelectedAsset } = useMarketStore();
   const { currentChainId } = useNetworkStore();
-  
-  // Get available tokens from the hook
-  const tokens = useGetTokensOrChain(
-    Number(currentChainId), 
-    "tokens"
-  );
 
-  // Filter tokens based on mainnet/testnet status
+  const tokens = useGetTokensOrChain(Number(currentChainId), "tokens");
+
   const filteredTokens = React.useMemo(() => {
     if (!tokens || !Array.isArray(tokens)) return [];
-    
+
     const currentChainInfo = getChainInfoByChainId(currentChainId || chainId);
-    
+
     return tokens.filter((token: Token) => {
       const tokenChainInfo = getChainInfoByChainId(token.chainId);
-      // Only show tokens that match the current chain's mainnet/testnet status
       return tokenChainInfo.isMainnet === currentChainInfo.isMainnet;
     });
   }, [tokens, currentChainId, chainId]);
 
   const handleTokenSelect = (value: string) => {
-    const selectedToken = filteredTokens.find((token: CurrencyInfo) => token.address === value);
+    const selectedToken = filteredTokens.find(
+      (token: CurrencyInfo) => token.address === value
+    );
     if (selectedToken) {
-      setSelectedAsset(selectedToken);
+      onTokenSelect(selectedToken);
     }
   };
+
+  React.useEffect(() => {
+    if (!token && filteredTokens.length > 0) {
+      onTokenSelect(filteredTokens[0]);
+    }
+  }, [token, filteredTokens, onTokenSelect]);
 
   if (!filteredTokens || filteredTokens.length === 0) {
     return <div>No tokens available for this network</div>;
   }
 
   return (
-    <Select 
-      onValueChange={handleTokenSelect} 
-      value={selectedAsset?.address || ''}
-      defaultValue={selectedAsset?.address || filteredTokens[0]?.address}
+    <Select
+      onValueChange={handleTokenSelect}
+      value={token?.address || ""}
+      defaultValue={token?.address || filteredTokens[0]?.address}
     >
-      <SelectTrigger className="w-40 border-transparent">
+      <SelectTrigger className="w-40  bg-white">
         <SelectValue>
-          {selectedAsset && (
+          {token ? (
             <div className="flex items-center">
               <Image
-                src={selectedAsset.image || ''}
-                alt={selectedAsset.symbol}
+                src={token.image || ""}
+                alt={token.symbol}
+                width={16}
+                height={16}
                 className="inline-block w-4 h-4 mr-2"
               />
-              {selectedAsset.symbol}
+              {token.symbol}
+            </div>
+          ) : (
+            <div className="flex items-center">
+              <Image
+                src={filteredTokens[0].image || ""}
+                alt={filteredTokens[0].symbol}
+                width={16}
+                height={16}
+                className="inline-block w-4 h-4 mr-2"
+              />
+              {filteredTokens[0].symbol}
             </div>
           )}
         </SelectValue>
@@ -83,17 +95,20 @@ const TokenSelector = () => {
       <SelectContent>
         <SelectGroup>
           <SelectLabel>
-            Available Assets on {getChainInfoByChainId(currentChainId || chainId).isMainnet ? 'Mainnet' : 'Testnet'}
+            Available Assets on{" "}
+            {getChainInfoByChainId(currentChainId || chainId).isMainnet
+              ? "Mainnet"
+              : "Testnet"}
           </SelectLabel>
-          {filteredTokens.map((token: Token) => (
-            <SelectItem key={token.address} value={token.address}>
+          {filteredTokens.map((tokens: Token) => (
+            <SelectItem key={tokens.address} value={tokens.address}>
               <div className="flex items-center">
                 <img
-                  src={token.image || ''}
-                  alt={token.symbol}
+                  src={tokens.image || ""}
+                  alt={tokens.symbol}
                   className="inline-block w-4 h-4 mr-2"
                 />
-                {token.name}
+                {tokens.symbol}
               </div>
             </SelectItem>
           ))}
