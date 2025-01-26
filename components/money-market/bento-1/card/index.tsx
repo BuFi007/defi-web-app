@@ -103,6 +103,8 @@ export function MoneyMarketCard() {
     ]);
   };
 
+  console.log(fromChain, "adjsdjakjdaskjdsak from chain");
+
   function handleToggle(value: string) {
     toast({
       title: translations.toastSwitchTitle,
@@ -147,8 +149,8 @@ export function MoneyMarketCard() {
           />
         </div>
         <Separator />
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="w-full sm:w-1/2 sm:pr-2 pt-2">
+        <div className="flex flex-col sm:flex-row items-center justify-between w-full gap-4">
+          <div className="w-6/12 sm:w-1/2 sm:pr-2 pt-2">
             <Input
               type="number"
               placeholder="0.00"
@@ -166,14 +168,19 @@ export function MoneyMarketCard() {
             <span className="text-sm text-gray-500 mt-2 block justify-start text-left">
               BALANCE:
               {formattedNativeBalance ? (
-                `${formattedNativeBalance.substring(0, 10)} BNB`
+                `${formattedNativeBalance.substring(0, 10)} ${
+                  fromChain
+                    ? fromChain?.nativeCurrency?.name
+                    : (useGetTokensOrChain(Number(chainId), "chain") as Chain)
+                        ?.nativeCurrency?.symbol
+                }`
               ) : (
                 <Skeleton className="inline-block ml-2 h-4 w-16" />
               )}
             </span>
           </div>
           <WriteButton
-            label={`${currentViewTab} Native`}
+            label={`${currentViewTab}`}
             contractAddress={SPOKE_BSC_CONTRACT_ADDRESS}
             abi={spokeAbi}
             functionName={"depositCollateralNative"}
@@ -181,7 +188,7 @@ export function MoneyMarketCard() {
             isNative={true}
             nativeAmount={amount}
           />
-          <div className="w-full sm:w-1/2 p-4">
+          {/* <div className="w-full sm:w-1/2 p-4">
             <TransferWrapper
               amount={amount}
               onSuccess={handleTransactionSuccess}
@@ -189,7 +196,7 @@ export function MoneyMarketCard() {
               functionName={functionName}
               buttonText={buttonText}
             />
-          </div>
+          </div> */}
         </div>
         <Separator />
       </div>
