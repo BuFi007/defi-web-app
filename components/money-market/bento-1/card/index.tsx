@@ -24,6 +24,7 @@ import { spokeAbi } from "@/constants/ABI";
 import { Skeleton } from "@/components/ui/skeleton";
 import CurrencyDisplayer from "@/components/currency";
 import TokenSelector from "@/components/token-selector";
+import { Label } from "@/components/ui/label";
 
 export function MoneyMarketCard() {
   const translations = useAppTranslations("MoneyMarketBento1");
@@ -93,28 +94,6 @@ export function MoneyMarketCard() {
     transferActions[currentViewTab as keyof typeof transferActions] || {};
   const { functionName, buttonText } = action;
 
-  const handleTransactionSuccess = (txHash: string) => {
-    setTransactionHistory((prev) => [
-      ...prev,
-      {
-        date: new Date().toLocaleString(),
-        amount: parseFloat(amount),
-        status: "Success",
-      },
-    ]);
-  };
-
-  const handleTransactionError = (error: any) => {
-    setTransactionHistory((prev) => [
-      ...prev,
-      {
-        date: new Date().toLocaleString(),
-        amount: parseFloat(amount),
-        status: "Failed",
-      },
-    ]);
-  };
-
   function handleToggle(value: string) {
     toast({
       title: translations.toastSwitchTitle,
@@ -133,21 +112,25 @@ export function MoneyMarketCard() {
     <div className="w-full max-w-3xl mx-auto">
       <div className="flex flex-col space-y-4 w-full">
         <Separator />
-        <div className="flex flex-col sm:flex-row items-center gap-4">
-          <ChainSelect
-            value={
-              fromChain?.chainId?.toString()
-                ? fromChain?.chainId?.toString()
-                : chainId?.toString()!
-            }
-            onChange={(value) => {
-              handleToggle(value);
-            }}
-            chains={fromChains}
-            label={translations.labelFrom}
-          />
+        <div className="flex flex-col sm:flex-row items-center gap-2">
+          <div className="flex items-center gap-1">
+            <Label className="text-xs flex items-center">From</Label>
+            <ChainSelect
+              value={
+                fromChain?.chainId?.toString()
+                  ? fromChain?.chainId?.toString()
+                  : chainId?.toString()!
+              }
+              onChange={(value) => {
+                handleToggle(value);
+              }}
+              chains={fromChains}
+              label={translations.labelFrom}
+            />
+          </div>
           <Separator orientation="vertical" className="hidden sm:block h-8" />
           <Separator className="w-full sm:hidden" />
+          <Label className="text-xs flex items-center gap-1">Token</Label>
 
           <TokenSelector
             token={selectedToken!}

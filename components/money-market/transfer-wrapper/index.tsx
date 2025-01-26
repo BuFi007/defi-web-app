@@ -29,8 +29,6 @@ const TransferWrapper: React.FC<TransferWrapperProps> = ({
 
   const chainId = chain.chainId;
 
-  // Retrieve spoke contract address
-  // const spokeContract = currencyAddresses[chainId]?.USDC?.spokeContract;
   const spokeContract = "0xA8f6Db88D79bcA5F1990C93b6a6eA5866722d198"; /// todo remove this
   if (!spokeContract) {
     console.error(`Spoke contract address for chain ID ${chainId} not found.`);

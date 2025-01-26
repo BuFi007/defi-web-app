@@ -15,6 +15,8 @@ import { TokenChip } from "@/components/token-chip";
 import { useUsdcChain } from "@/hooks/use-usdc-chain";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { useAppTranslations } from "@/context/TranslationContext";
+import { Label } from "@/components/ui/label";
+import Image from "next/image";
 
 function LendBorrowActionCard() {
   const { currentViewTab, setCurrentViewTab } = useMarketStore();
@@ -23,7 +25,6 @@ function LendBorrowActionCard() {
     setCurrentViewTab(tab);
   };
 
-  const token = useUsdcChain();
   const translations = useAppTranslations("MoneyMarketBento1");
 
   return (
@@ -76,8 +77,17 @@ function LendBorrowActionCard() {
             </Button>
           </TabsTriggerAlt>
         </TabsList>
-        <div className="ml-auto">
-          <TokenChip token={token!} />
+        <div className="flex items-center justify-center">
+          <Label className="text-[12px] flex items-center gap-1 text-[#628fbb]">
+            Powered by Avalanche
+            <Image
+              src="https://app.dynamic.xyz/assets/networks/avax.svg"
+              alt="Avalanche"
+              width={20}
+              height={20}
+              className="inline-block"
+            />
+          </Label>
         </div>
       </div>
       <TabsContent value={currentViewTab} className="flex-col flex-1">
