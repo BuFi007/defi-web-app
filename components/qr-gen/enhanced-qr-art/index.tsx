@@ -1,15 +1,15 @@
-import React, { forwardRef } from 'react';
+import React, { forwardRef } from "react";
 import { FramedQRCode } from "@/components/qr-gen/framed-qr-art";
 import { Card, CardContent } from "@/components/ui/card";
-import { DollarSign } from 'lucide-react';
+import { DollarSign } from "lucide-react";
 import { truncateAddress } from "@/utils";
-import Image from 'next/image';
+import Image from "next/image";
 
 interface EnhancedQRCodeProps {
   link: string;
   image: string;
   frameText?: string;
-  action: 'pay' | 'request';
+  action: "pay" | "request";
   copyLink: () => void;
   amount?: string;
   ensName?: string;
@@ -18,8 +18,22 @@ interface EnhancedQRCodeProps {
   title?: string;
 }
 
-export const  EnhancedQRCode = forwardRef<HTMLDivElement, EnhancedQRCodeProps>(
-  ({ link, image, frameText, action, copyLink, amount, ensName, userAddress, token, title }, ref) => {
+export const EnhancedQRCode = forwardRef<HTMLDivElement, EnhancedQRCodeProps>(
+  (
+    {
+      link,
+      image,
+      frameText,
+      action,
+      copyLink,
+      amount,
+      ensName,
+      userAddress,
+      token,
+      title,
+    },
+    ref
+  ) => {
     const actionConfig = {
       pay: {
         icon: <DollarSign className="w-6 h-6 text-green-500 mr-2" />,
@@ -41,17 +55,28 @@ export const  EnhancedQRCode = forwardRef<HTMLDivElement, EnhancedQRCodeProps>(
       <Card className="w-full" ref={ref}>
         <CardContent className="p-6">
           <div className="flex items-center justify-center mb-4">
-            <Image src="/images/BooFi-icon.png" alt="BooFi" width={64} height={64} />
+            <Image
+              src="/images/iso-logo.png"
+              alt="BooFi"
+              width={64}
+              height={64}
+            />
             <span className="inline-block font-clash bg-gradient-to-r text-xl from-indigo-300 via-purple-400 to-cyan-300 bg-clip-text text-transparent">
               bu.fi
             </span>
           </div>
-          <div className={`rounded-lg ${config.bgColor} p-2 items-center justify-center inline-flex`}>
+          <div
+            className={`rounded-lg ${config.bgColor} p-2 items-center justify-center inline-flex`}
+          >
             {config.icon}
-            <span className={`font-semibold ${config.textColor}`}>{config.text}</span>
+            <span className={`font-semibold ${config.textColor}`}>
+              {config.text}
+            </span>
             {amount && (
-              <span className="inline-block font-clash bg-gradient-to-r text-xl from-indigo-300 via-purple-400 to-cyan-300 bg-clip-text text-transparent ml-4">{amount} {token || 'ETH'}</span>
-          )}
+              <span className="inline-block font-clash bg-gradient-to-r text-xl from-indigo-300 via-purple-400 to-cyan-300 bg-clip-text text-transparent ml-4">
+                {amount} {token || "ETH"}
+              </span>
+            )}
           </div>
           <div className="relative">
             <FramedQRCode
@@ -60,14 +85,16 @@ export const  EnhancedQRCode = forwardRef<HTMLDivElement, EnhancedQRCodeProps>(
               frameText={frameText}
               copyLink={copyLink}
             />
-         
           </div>
           <p className="text-center text-sm text-gray-500">
-            Scan this QR code to {action === 'pay' ? 'pay' : 'request payment from'} this Bu user:
+            Scan this QR code to{" "}
+            {action === "pay" ? "pay" : "request payment from"} this Bu user:
           </p>
           {(ensName || userAddress) && (
             <p className="text-center text-sm text-gray-500">
-              {ensName && ensName.length > 12 ? truncateAddress(ensName) : truncateAddress(userAddress || '')}
+              {ensName && ensName.length > 12
+                ? truncateAddress(ensName)
+                : truncateAddress(userAddress || "")}
             </p>
           )}
         </CardContent>
@@ -76,5 +103,4 @@ export const  EnhancedQRCode = forwardRef<HTMLDivElement, EnhancedQRCodeProps>(
   }
 );
 
-EnhancedQRCode.displayName = 'EnhancedQRCode';
-
+EnhancedQRCode.displayName = "EnhancedQRCode";

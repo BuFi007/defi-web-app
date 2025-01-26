@@ -33,8 +33,8 @@ export async function generateMetadata({
 }: Props): Promise<Metadata> {
   const headersList = headers();
   const origin = headersList.get("origin") || "";
-  const baseUrl = origin.startsWith("https") 
-    ? process.env.NEXT_PUBLIC_MAINNET_URL 
+  const baseUrl = origin.startsWith("https")
+    ? process.env.NEXT_PUBLIC_MAINNET_URL
     : process.env.NEXT_PUBLIC_TESTNET_URL;
 
   try {
@@ -76,7 +76,7 @@ export async function generateMetadata({
     const fallbackTitle = "Reclama tus tokens en Bu.fi";
     const fallbackDescription =
       "Alguien te envió tokens. ¡Haz clic para reclamarlos!";
-    const fallbackImage = `${baseUrl}/images/BooFi-icon.png`;
+    const fallbackImage = `${baseUrl}/images/iso-logo.png`;
 
     return {
       title: fallbackTitle,

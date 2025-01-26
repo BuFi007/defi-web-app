@@ -43,7 +43,7 @@ export default function TransactionDetailsDisplay({
           {isValidPaymentLink ? (
             <Suspense fallback={<Skeleton className="w-32 h-32" />}>
               <FramedQRCode
-                image="/images/BooFi-icon.png"
+                image="/images/iso-logo.png"
                 link={paymentLink}
                 frameText={translations.frameText}
                 copyLink={() =>

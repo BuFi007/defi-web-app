@@ -24,6 +24,7 @@ export async function generateMetadata(
     const token = searchParams.token || "ETH";
     const chain = searchParams.chain || "base";
 
+
     const ogImageUrl = `${baseUrl}/api/${encodeURIComponent(
       params.id
     )}?amount=${encodeURIComponent(amount)}&token=${encodeURIComponent(
@@ -57,7 +58,8 @@ export async function generateMetadata(
     console.error("Error generating metadata:", error);
     const fallbackTitle = t("paymentFallbackTitle");
     const fallbackDescription = t("paymentFallbackDescription");
-    const fallbackImage = `${baseUrl}/images/BooFi-icon.png`;
+
+    const fallbackImage = `${baseUrl}/images/iso-logo.png`;
 
     return {
       title: fallbackTitle,
