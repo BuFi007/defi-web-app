@@ -77,7 +77,7 @@ function LendBorrowActionCard() {
             </Button>
           </TabsTriggerAlt>
         </TabsList>
-        <div className="flex items-center justify-center">
+        {/* <div className="flex items-center justify-center">
           <Label className="text-[12px] flex items-center gap-1 text-[#628fbb]">
             Powered by Avalanche
             <Image
@@ -88,7 +88,7 @@ function LendBorrowActionCard() {
               className="inline-block"
             />
           </Label>
-        </div>
+        </div> */}
       </div>
       <TabsContent value={currentViewTab} className="flex-col flex-1">
         <MoneyMarketCard />
