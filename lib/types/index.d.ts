@@ -435,6 +435,7 @@ export interface Translations {
 export type ChainList = 43114 | 43113 | 919 | undefined;
 export interface WriteButtonProps {
   label: string;
+  tokenAddress?: string;
   contractAddress: string;
   abi: any;
   functionName: string;

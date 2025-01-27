@@ -18,6 +18,9 @@ import { useAccount } from "wagmi";
 import { base } from "viem/chains";
 import { useEnsName } from "@/hooks/use-ens-name";
 import { truncateAddress } from "@/utils";
+import { useMarketData } from "@/components/blockchain-data";
+import { useBlockchain } from "@/context/BlockchainContext";
+import { allTokens } from "@/constants/Tokens";
 interface Position {
   asset: string;
   amount: number;
@@ -27,8 +30,31 @@ interface Position {
 
 const PositionSummary: React.FC = () => {
   const currentViewTab = useMarketStore((state) => state.currentViewTab);
-  const [positions, setPositions] = useState<Position[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const { fetchMarketData, loading } = useMarketData();
+
+  useEffect(() => {
+    console.log(loading, "loading");
+    fetchMarketData();
+  }, [loading]);
+
+  const { positions } = useBlockchain();
+
+  const cleanPositions = positions.map((position) => {
+    const token = allTokens.find((token) => token.address === position.asset);
+    return {
+      asset: token?.name,
+      amount:
+        currentViewTab === "lend"
+          ? position.deposited
+          : position.borrowed
+          ? position.borrowed
+          : position.deposited,
+      value: position.value,
+      apy: position.apy,
+    };
+  });
+
+  // const [positions, setPositions] = useState<Position[]>([]);
   const [error, setError] = useState<string | null>(null);
   const address = useAccount();
   const { ensName } = useEnsName({
@@ -36,32 +62,7 @@ const PositionSummary: React.FC = () => {
     chain: base,
   });
 
-  useEffect(() => {
-    const fetchPositions = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        // Simulating API call
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        // Mock data - replace with actual API call
-        const mockPositions: Position[] =
-          currentViewTab === "lend" || currentViewTab === "withdraw"
-            ? [
-                { asset: "USDC", amount: 1000, value: 1000, apy: 5.2 },
-                { asset: "ETH", amount: 0.5, value: 1250, apy: 3.8 },
-              ]
-            : [];
-        setPositions(mockPositions);
-      } catch (error) {
-        console.error("Error fetching positions:", error);
-        setError("Failed to load positions.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPositions();
-  }, [currentViewTab]);
+  console.log(positions, "positions");
 
   const renderSkeleton = () => (
     <div
@@ -111,20 +112,22 @@ const PositionSummary: React.FC = () => {
                 <TableHead className="text-xs text-right">APY</TableHead>
               </TableRow>
             </TableHeader>
+
             <TableBody>
-              {positions.map((position) => (
+              {cleanPositions?.map((position) => (
                 <TableRow key={position.asset}>
                   <TableCell className="text-xs font-medium">
                     {position.asset}
                   </TableCell>
                   <TableCell className="text-xs text-right">
-                    {position.amount.toFixed(2)}
+                    {position.amount}
                   </TableCell>
                   <TableCell className="text-xs text-right">
-                    ${position.value.toFixed(2)}
+                    ${position.value}
                   </TableCell>
                   <TableCell className="text-xs text-right">
-                    {position.apy.toFixed(2)}%
+                    {/* {position.apy}% */}
+                    10%
                   </TableCell>
                 </TableRow>
               ))}
