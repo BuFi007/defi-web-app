@@ -281,6 +281,27 @@ export const BscTestnetTokens: Token[] = [
   },
 ];
 
+export const ModeTestnetTokens: Token[] = [
+  {
+    address: NATIVE_TOKEN_ADDRESS,
+    chainId: 919,
+    decimals: 18,
+    name: "Mode",
+    payable: false,
+    symbol: "ETH",
+    image: "https://app.dynamic.xyz/assets/networks/mode.svg",
+  },
+  {
+    address: "0x6e1180674368878f6b67E1DCB6E4DFd0C102703A" as Hex,
+    chainId: 919,
+    decimals: 18,
+    name: "BUFI",
+    payable: true,
+    symbol: "BUFI",
+    image: "/images/iso-logo.png",
+  },
+];
+
 export const allTokens = [
   ...AvalancheFujiTokens,
   ...BaseSepoliaTokens,
@@ -293,4 +314,5 @@ export const allTokens = [
   ...OptimismTokens,
   ...ZkSyncTokens,
   ...ZkSyncSepoliaTokens,
+  ...ModeTestnetTokens,
 ];

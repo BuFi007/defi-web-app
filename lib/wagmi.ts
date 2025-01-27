@@ -6,20 +6,18 @@ import {
   base,
   bsc,
   bscTestnet,
+  modeTestnet,
 } from "wagmi/chains";
 import { useMemo } from "react";
 import { providers } from "ethers";
 import type { Account, Chain, Client, Transport } from "viem";
 
 export const config = createConfig({
-  chains: [avalancheFuji, baseSepolia, avalanche, base, bsc, bscTestnet],
+  chains: [avalancheFuji, avalanche, modeTestnet],
   transports: {
-    [base.id]: http(),
     [avalanche.id]: http(),
     [avalancheFuji.id]: http(),
-    [baseSepolia.id]: http(),
-    [bsc.id]: http(),
-    [bscTestnet.id]: http(),
+    [modeTestnet.id]: http(),
   },
 });
 

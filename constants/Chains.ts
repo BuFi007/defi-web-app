@@ -231,3 +231,21 @@ export const BscTestnet = {
   chainName: "BscTestnet",
   iconUrls: ["https://app.dynamic.xyz/assets/networks/bnb.svg"],
 };
+
+export const ModeTestnet = {
+  chainId: 919,
+  name: "Mode Testnet",
+  rpcUrls: ["https://sepolia.mode.network"],
+  isMainnet: false,
+  networkId: 919,
+  nativeCurrency: {
+    name: "Mode",
+    symbol: "ETH",
+    decimals: 18,
+    iconUrls: ["https://app.dynamic.xyz/assets/networks/mode.svg"],
+  },
+  blockExplorerUrls: ["https://sepolia.explorer.mode.network"],
+  vanityName: "Mode Testnet",
+  chainName: "ModeTestnet",
+  iconUrls: ["https://app.dynamic.xyz/assets/networks/mode.svg"],
+};
