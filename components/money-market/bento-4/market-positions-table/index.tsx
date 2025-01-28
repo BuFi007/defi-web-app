@@ -18,15 +18,13 @@ import { useAccount } from "wagmi";
 import { base } from "viem/chains";
 import { useEnsName } from "@/hooks/use-ens-name";
 import { truncateAddress } from "@/utils";
-import { useMarketData } from "@/components/blockchain-data";
 import { useBlockchain } from "@/context/BlockchainContext";
 import { allTokens } from "@/constants/Tokens";
-
+import { calculateAPY } from "@/utils";
 const PositionSummary: React.FC = () => {
   const currentViewTab = useMarketStore((state) => state.currentViewTab);
-  const { moneyMarketData } = useMarketData();
 
-  const { positions } = useBlockchain();
+  const { positions, moneyMarketData } = useBlockchain();
 
   const cleanPositions = positions.map((position) => {
     const token = allTokens.find((token) => token.address === position.asset);
@@ -64,6 +62,12 @@ const PositionSummary: React.FC = () => {
   if (positions.length === 0) {
     return renderSkeleton();
   }
+
+  console.log(moneyMarketData, "moneyMarketData");
+
+  const fixInterestRateModel = (interestRateModel: any) => {
+    return interestRateModel?.toString();
+  };
 
   return (
     <div
@@ -107,21 +111,11 @@ const PositionSummary: React.FC = () => {
                     ${position.value}
                   </TableCell>
                   <TableCell className="text-xs text-right">
-                    {/* {currentViewTab === "lend"
-                      ? calculateAPY(
-                          moneyMarketData.find(
-                            (m) => m.asset === position.asset
-                          )?.interestRateModel,
-                          position.collateralizationRatioBorrow,
-                          position.collateralizationRatioDeposit
-                        ).depositAPY + "%"
-                      : calculateAPY(
-                          moneyMarketData.find(
-                            (m) => m.asset === position.asset
-                          )?.interestRateModel,
-                          position.collateralizationRatioBorrow,
-                          position.collateralizationRatioDeposit
-                        ).borrowAPY + "%"} */}
+                    {calculateAPY(
+                      position.asset === moneyMarketData[0].asset
+                        ? moneyMarketData[0]
+                        : moneyMarketData[1]
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
