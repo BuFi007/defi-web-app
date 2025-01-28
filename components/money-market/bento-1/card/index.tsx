@@ -19,8 +19,11 @@ import { useToast } from "@/components/ui/use-toast";
 import { Chain } from "@/lib/types";
 import { useAppTranslations } from "@/context/TranslationContext";
 import WriteButton from "@/components/blockchainButtons/writeButton";
-import { SPOKE_BSC_CONTRACT_ADDRESS } from "@/constants/Contracts";
-import { spokeAbi } from "@/constants/ABI";
+import {
+  HUB_AVALANCHE_CONTRACT_ADDRESS,
+  SPOKE_BSC_CONTRACT_ADDRESS,
+} from "@/constants/Contracts";
+import { hubAbi, spokeAbi } from "@/constants/ABI";
 import { Skeleton } from "@/components/ui/skeleton";
 import CurrencyDisplayer from "@/components/currency";
 import TokenSelector from "@/components/token-selector";
@@ -108,6 +111,22 @@ export function MoneyMarketCard() {
     });
   }
 
+  const payload = {
+    action:
+      currentViewTab === "lend"
+        ? BigInt(0)
+        : currentViewTab === "borrow"
+        ? BigInt(1)
+        : currentViewTab === "repay"
+        ? BigInt(2)
+        : currentViewTab === "withdraw"
+        ? BigInt(3)
+        : BigInt(4),
+    sender: address as `0x${string}`,
+    assetAddress: selectedToken?.address as `0x${string}`,
+    assetAmount: BigInt(parseUnits(amount, selectedToken?.decimals ?? 18)),
+  };
+
   return (
     <div className="w-full max-w-3xl mx-auto">
       <div className="flex flex-col space-y-4 w-full">
@@ -170,14 +189,13 @@ export function MoneyMarketCard() {
           <WriteButton
             label={`${currentViewTab}`}
             contractAddress={
-              selectedToken?.address ?? SPOKE_BSC_CONTRACT_ADDRESS
+              selectedToken?.address ?? HUB_AVALANCHE_CONTRACT_ADDRESS
             }
-            abi={spokeAbi}
-            functionName={
-              selectedToken ? functionName : "depositCollateralNative"
-            }
-            args={[]}
-            isNative={!selectedToken}
+            abi={hubAbi}
+            functionName={"localCompleteAction"}
+            args={[payload]}
+            tokenAddress={selectedToken?.address}
+            isNative={false}
             nativeAmount={amount}
           />
         </div>

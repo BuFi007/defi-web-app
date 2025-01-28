@@ -16,6 +16,7 @@ import Loading from "./loading";
 import { RootLayoutProps } from "@/lib/types";
 import { Suspense } from "react";
 import { HeaderSkeleton } from "@/components/skeleton-card";
+import { BlockchainProvider } from "@/context/BlockchainContext";
 
 const Container = dynamic(() => import("@/components/container"), {
   ssr: false,
@@ -55,33 +56,35 @@ export default function RootLayout({
           <NextIntlClientProvider messages={messages} locale={locale}>
             <TranslationProvider>
               <Providers>
-                <main className="rounded-md">
-                  <GridPattern
-                    width={20}
-                    height={20}
-                    x={-1}
-                    y={-1}
-                    className={cn(
-                      "[mask-image:linear-gradient(to_bottom_right,white,transparent,transparent)]"
-                    )}
-                  />
-                  <Suspense fallback={<Loading />}>
-                    <Header />
-                    <div className="custom-scrollbar">
-                      <div className="mx-auto px-4 relative flex flex-col justify-center overflow-hidden">
-                        <Container>
-                          <div className="relative">
-                            <div className="w-full flex flex-col items-center">
-                              {children}
+                <BlockchainProvider>
+                  <main className="rounded-md">
+                    <GridPattern
+                      width={20}
+                      height={20}
+                      x={-1}
+                      y={-1}
+                      className={cn(
+                        "[mask-image:linear-gradient(to_bottom_right,white,transparent,transparent)]"
+                      )}
+                    />
+                    <Suspense fallback={<Loading />}>
+                      <Header />
+                      <div className="custom-scrollbar">
+                        <div className="mx-auto px-4 relative flex flex-col justify-center overflow-hidden">
+                          <Container>
+                            <div className="relative">
+                              <div className="w-full flex flex-col items-center">
+                                {children}
+                              </div>
                             </div>
-                          </div>
-                        </Container>
+                          </Container>
+                        </div>
                       </div>
-                    </div>
-                  </Suspense>
-                  <br />
-                  <LayoutMusic />
-                </main>
+                    </Suspense>
+                    <br />
+                    <LayoutMusic />
+                  </main>
+                </BlockchainProvider>
                 <Toaster />
               </Providers>
             </TranslationProvider>

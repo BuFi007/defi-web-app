@@ -12,6 +12,10 @@ import { useAccount } from "wagmi";
 interface BlockchainContextProps {
   address: Address | string | undefined;
   isConnected?: boolean;
+  positions: any[];
+  setPositions: (positions: any[]) => void;
+  moneyMarketData: any[];
+  setMoneyMarketData: (moneyMarketData: any[]) => void;
 }
 
 const BlockchainContext = createContext<BlockchainContextProps | undefined>(
@@ -30,7 +34,8 @@ export const useBlockchain = () => {
 
 export const BlockchainProvider = ({ children }: { children: ReactNode }) => {
   const [address, setAddress] = useState<string | null | undefined>();
-
+  const [positions, setPositions] = useState<any[]>([]);
+  const [moneyMarketData, setMoneyMarketData] = useState<any[]>([]);
   const { address: addressFromWagmi, isConnected: isConnectedWagmi } =
     useAccount();
 
@@ -46,6 +51,10 @@ export const BlockchainProvider = ({ children }: { children: ReactNode }) => {
       value={{
         address: address || "",
         isConnected,
+        positions,
+        setPositions,
+        moneyMarketData,
+        setMoneyMarketData,
       }}
     >
       {children}

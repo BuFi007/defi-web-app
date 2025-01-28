@@ -18,50 +18,36 @@ import { useAccount } from "wagmi";
 import { base } from "viem/chains";
 import { useEnsName } from "@/hooks/use-ens-name";
 import { truncateAddress } from "@/utils";
-interface Position {
-  asset: string;
-  amount: number;
-  value: number;
-  apy: number;
-}
+import { useMarketData } from "@/components/blockchain-data";
+import { useBlockchain } from "@/context/BlockchainContext";
+import { allTokens } from "@/constants/Tokens";
 
 const PositionSummary: React.FC = () => {
   const currentViewTab = useMarketStore((state) => state.currentViewTab);
-  const [positions, setPositions] = useState<Position[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const { moneyMarketData } = useMarketData();
+
+  const { positions } = useBlockchain();
+
+  const cleanPositions = positions.map((position) => {
+    const token = allTokens.find((token) => token.address === position.asset);
+    return {
+      asset: token?.name,
+      amount:
+        currentViewTab === "lend" ? position.deposited : position.borrowed,
+      value: currentViewTab === "lend" ? position.deposit : position.borrow,
+      apy: position.apy,
+      collateralizationRatioBorrow: position.collateralizationRatioBorrow,
+      collateralizationRatioDeposit: position.collateralizationRatioDeposit,
+    };
+  });
+
   const address = useAccount();
   const { ensName } = useEnsName({
     address: address.address as `0x${string}`,
     chain: base,
   });
 
-  useEffect(() => {
-    const fetchPositions = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        // Simulating API call
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        // Mock data - replace with actual API call
-        const mockPositions: Position[] =
-          currentViewTab === "lend" || currentViewTab === "withdraw"
-            ? [
-                { asset: "USDC", amount: 1000, value: 1000, apy: 5.2 },
-                { asset: "ETH", amount: 0.5, value: 1250, apy: 3.8 },
-              ]
-            : [];
-        setPositions(mockPositions);
-      } catch (error) {
-        console.error("Error fetching positions:", error);
-        setError("Failed to load positions.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPositions();
-  }, [currentViewTab]);
+  console.log(positions, "positions");
 
   const renderSkeleton = () => (
     <div
@@ -75,12 +61,8 @@ const PositionSummary: React.FC = () => {
     </div>
   );
 
-  if (loading) {
+  if (positions.length === 0) {
     return renderSkeleton();
-  }
-
-  if (error) {
-    return <div className="text-xs text-red-500">{error}</div>;
   }
 
   return (
@@ -111,20 +93,35 @@ const PositionSummary: React.FC = () => {
                 <TableHead className="text-xs text-right">APY</TableHead>
               </TableRow>
             </TableHeader>
+
             <TableBody>
-              {positions.map((position) => (
+              {cleanPositions?.map((position) => (
                 <TableRow key={position.asset}>
                   <TableCell className="text-xs font-medium">
                     {position.asset}
                   </TableCell>
                   <TableCell className="text-xs text-right">
-                    {position.amount.toFixed(2)}
+                    {position.amount}
                   </TableCell>
                   <TableCell className="text-xs text-right">
-                    ${position.value.toFixed(2)}
+                    ${position.value}
                   </TableCell>
                   <TableCell className="text-xs text-right">
-                    {position.apy.toFixed(2)}%
+                    {/* {currentViewTab === "lend"
+                      ? calculateAPY(
+                          moneyMarketData.find(
+                            (m) => m.asset === position.asset
+                          )?.interestRateModel,
+                          position.collateralizationRatioBorrow,
+                          position.collateralizationRatioDeposit
+                        ).depositAPY + "%"
+                      : calculateAPY(
+                          moneyMarketData.find(
+                            (m) => m.asset === position.asset
+                          )?.interestRateModel,
+                          position.collateralizationRatioBorrow,
+                          position.collateralizationRatioDeposit
+                        ).borrowAPY + "%"} */}
                   </TableCell>
                 </TableRow>
               ))}

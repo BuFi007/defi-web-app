@@ -8,16 +8,10 @@ import { config } from "@/lib/wagmi";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 import { ReactNode } from "react";
 import { DYNAMIC_ENVIRONMENT_ID } from "@/constants/Env";
-import {
-  Avalanche,
-  Base,
-  BaseSepolia,
-  AvalancheFuji,
-  BscTestnet,
-} from "@/constants/Chains";
+import { Avalanche, AvalancheFuji, ModeTestnet } from "@/constants/Chains";
 
 const queryClient = new QueryClient();
-const evmNetworks = [Avalanche, Base, BaseSepolia, AvalancheFuji, BscTestnet];
+const evmNetworks = [Avalanche, AvalancheFuji, ModeTestnet];
 
 export default function Providers({ children }: { children: ReactNode }) {
   return (
