@@ -150,7 +150,7 @@ export const spokeAbi = [
 export const hubAbi = [
   {
     type: "constructor",
-    inputs: [
+    inputs: [ 
       { name: "wormholeRelayer", type: "address", internalType: "address" },
       { name: "wormhole", type: "address", internalType: "address" },
       { name: "tokenBridge", type: "address", internalType: "address" },

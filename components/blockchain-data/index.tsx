@@ -1,116 +1,125 @@
-import { useReadContract, useAccount } from "wagmi";
+import { ethers } from "ethers";
 import { hubAbi } from "@/constants/ABI";
 import { ModeTestnetTokens } from "@/constants/Tokens";
 import { HUB_AVALANCHE_CONTRACT_ADDRESS } from "@/constants/Contracts";
 import { useBlockchain } from "@/context/BlockchainContext";
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useAccount } from "wagmi";
 
 export const useMarketData = () => {
-  const { address: userAddress } = useAccount();
-  const [loading, setLoading] = useState(false);
-  const { positions, setPositions } = useBlockchain();
+  const { positions, setPositions, moneyMarketData, setMoneyMarketData } =
+    useBlockchain();
+  const { address: userAddress, isConnected } = useAccount();
 
-  const assetsToCheck = [
-    ModeTestnetTokens[1].address as `0x${string}`,
-    ModeTestnetTokens[2].address as `0x${string}`,
-  ];
+  // Add polling interval constant
+  const POLLING_INTERVAL = 15000; // 15 seconds
 
-  // Obtener información del activo usando useReadContract
-  const { data: assetInfo1 } = useReadContract({
-    address: HUB_AVALANCHE_CONTRACT_ADDRESS,
-    abi: hubAbi,
-    functionName: "getAssetInfo",
-    args: [assetsToCheck[0]],
-  });
+  // Initialize provider and contract
+  const provider = useMemo(() => {
+    const provider = new ethers.providers.JsonRpcProvider(
+      "https://sepolia.mode.network"
+    );
+    provider.pollingInterval = POLLING_INTERVAL;
+    return provider;
+  }, []);
 
-  const { data: assetInfo2 } = useReadContract({
-    address: HUB_AVALANCHE_CONTRACT_ADDRESS,
-    abi: hubAbi,
-    functionName: "getAssetInfo",
-    args: [assetsToCheck[1]],
-  });
-
-  // Obtener balances del usuario usando useReadContract
-  const { data: userBalance1 } = useReadContract({
-    address: HUB_AVALANCHE_CONTRACT_ADDRESS,
-    abi: hubAbi,
-    functionName: "getUserBalance",
-    args: [userAddress as `0x${string}`, assetsToCheck[0]],
-  });
-
-  const { data: userBalance2 } = useReadContract({
-    address: HUB_AVALANCHE_CONTRACT_ADDRESS,
-    abi: hubAbi,
-    functionName: "getUserBalance",
-    args: [userAddress as `0x${string}`, assetsToCheck[1]],
-  });
-
-  // Función para actualizar las posiciones con la información del activo
-  const updateAssetInfo = (assetInfo: any, asset: `0x${string}`) => {
-    if (assetInfo) {
-      console.log(assetInfo, "assetInfo");
-      setPositions([
-        ...positions,
-        {
-          asset: asset,
-          collateralizationRatioDeposit:
-            assetInfo.collateralizationRatioDeposit,
-          collateralizationRatioBorrow: assetInfo.collateralizationRatioBorrow,
-        },
-      ]);
-    }
-  };
-
-  // Función para actualizar las posiciones con los balances del usuario
-  const updateUserPositions = (userBalance: any, asset: `0x${string}`) => {
-    if (
-      userBalance &&
-      (userBalance.deposited > 0 || userBalance.borrowed > 0)
-    ) {
-      const existingPosition = positions.find(
-        (position) => position.asset === asset
+  const contract = useMemo(() => {
+    if (provider) {
+      return new ethers.Contract(
+        HUB_AVALANCHE_CONTRACT_ADDRESS,
+        hubAbi,
+        provider
       );
-
-      if (existingPosition) {
-        // Si la posición existe, actualizar sumando solo los deposits
-        setPositions(
-          positions.map((position) =>
-            position.asset === asset
-              ? {
-                  ...position,
-                  deposited: (
-                    BigInt(position.deposited || 0) +
-                    BigInt(userBalance.deposited)
-                  ).toString(),
-                  borrowed: userBalance.borrowed.toString(), // Reemplazar en lugar de sumar
-                }
-              : position
-          )
-        );
-      } else {
-        // Si la posición no existe, crear una nueva
-        setPositions([
-          ...positions,
-          {
-            asset: asset,
-            deposited: userBalance.deposited.toString(),
-            borrowed: userBalance.borrowed.toString(),
-          },
-        ]);
-      }
     }
-  };
+    return null;
+  }, [provider]);
 
-  const fetchMarketData = () => {
-    setLoading(true);
+  const assetsToCheck = useMemo(
+    () => [ModeTestnetTokens[1].address, ModeTestnetTokens[2].address],
+    [ModeTestnetTokens]
+  );
 
-    if (assetInfo1) updateAssetInfo(assetInfo1, assetsToCheck[0]);
-    if (assetInfo2) updateAssetInfo(assetInfo2, assetsToCheck[1]);
+  // Modify data fetching effect to include interval and proper dependencies
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!contract || !isConnected || !userAddress) return;
 
-    if (userBalance1) updateUserPositions(userBalance1, assetsToCheck[0]);
-    if (userBalance2) updateUserPositions(userBalance2, assetsToCheck[1]);
-    setLoading(false);
-  };
+      try {
+        // Fetch asset info
+        const [assetInfo1, assetInfo2] = await Promise.all([
+          contract.getAssetInfo(assetsToCheck[0]),
+          contract.getAssetInfo(assetsToCheck[1]),
+        ]);
 
-  return { fetchMarketData, loading };
+        // Fetch user balances
+        const [userBalance1, userBalance2] = await Promise.all([
+          contract.getUserBalance(userAddress, assetsToCheck[0]),
+          contract.getUserBalance(userAddress, assetsToCheck[1]),
+        ]);
+
+        // Update money market data
+        const newMoneyMarketData = [];
+        if (assetInfo1) {
+          newMoneyMarketData.push({
+            asset: assetsToCheck[0],
+            collateralizationRatioDeposit:
+              assetInfo1.collateralizationRatioDeposit,
+            collateralizationRatioBorrow:
+              assetInfo1.collateralizationRatioBorrow,
+          });
+        }
+
+        if (assetInfo2) {
+          newMoneyMarketData.push({
+            asset: assetsToCheck[1],
+            collateralizationRatioDeposit:
+              assetInfo2.collateralizationRatioDeposit,
+            collateralizationRatioBorrow:
+              assetInfo2.collateralizationRatioBorrow,
+          });
+        }
+
+        setMoneyMarketData(newMoneyMarketData);
+
+        // Update positions
+        const newPositions = [];
+        if (
+          userBalance1 &&
+          (userBalance1.deposited > 0 || userBalance1.borrowed > 0)
+        ) {
+          newPositions.push({
+            asset: assetsToCheck[0],
+            deposited: userBalance1.deposited.toString(),
+            borrowed: userBalance1.borrowed.toString(),
+          });
+        }
+
+        if (
+          userBalance2 &&
+          (userBalance2.deposited > 0 || userBalance2.borrowed > 0)
+        ) {
+          newPositions.push({
+            asset: assetsToCheck[1],
+            deposited: userBalance2.deposited.toString(),
+            borrowed: userBalance2.borrowed.toString(),
+          });
+        }
+
+        setPositions(newPositions);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+
+    // Initial fetch
+    fetchData();
+
+    // Set up polling interval
+    const interval = setInterval(fetchData, POLLING_INTERVAL);
+
+    // Cleanup interval on unmount
+    return () => clearInterval(interval);
+  }, [contract, userAddress, isConnected, setMoneyMarketData, setPositions]);
+
+  return { moneyMarketData, positions };
 };

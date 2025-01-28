@@ -501,3 +501,49 @@ export function playAudio(audioFilePath: string): void {
 export const getAllChains = () => {
   return Object.values(Chains);
 };
+
+// export function calculateAPY(
+//   interestRateModel: any,
+//   collateralizationRatioBorrow: bigint,
+//   collateralizationRatioDeposit: bigint
+// ) {
+//   // Convert BigInt values to numbers for calculations
+//   const kinks = interestRateModel.kinks.map((k) => Number(k));
+//   const rates = interestRateModel.rates.map((r) => Number(r));
+//   const ratePrecision = Number(interestRateModel.ratePrecision);
+//   const reserveFactor = Number(interestRateModel.reserveFactor);
+//   const reservePrecision = Number(interestRateModel.reservePrecision);
+
+//   // Convert collateralization ratios to numbers
+//   const borrowRatio = Number(collateralizationRatioBorrow);
+//   const depositRatio = Number(collateralizationRatioDeposit);
+
+//   const getNetInterestRate = (collateralizationRatio: number) => {
+//     // Determine which rate to use based on the collateralization ratio
+//     let applicableRate;
+//     if (collateralizationRatio <= kinks[1]) {
+//       applicableRate = rates[0];
+//     } else {
+//       applicableRate = rates[1];
+//     }
+
+//     // Convert to decimal (divide by precision)
+//     const interestRate = applicableRate / ratePrecision;
+
+//     // Apply reserve factor
+//     const reserveFactorDecimal = reserveFactor / reservePrecision;
+//     const netInterestRate = interestRate * (1 - reserveFactorDecimal);
+
+//     return netInterestRate;
+//   };
+
+//   // Calculate APY (convert to percentage)
+//   const borrowAPY = getNetInterestRate(borrowRatio) * 100;
+//   const depositAPY = getNetInterestRate(depositRatio) * 100;
+
+//   // Return formatted values with 2 decimal places
+//   return {
+//     borrowAPY: borrowAPY.toFixed(2),
+//     depositAPY: depositAPY.toFixed(2),
+//   };
+// }

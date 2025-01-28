@@ -21,21 +21,10 @@ import { truncateAddress } from "@/utils";
 import { useMarketData } from "@/components/blockchain-data";
 import { useBlockchain } from "@/context/BlockchainContext";
 import { allTokens } from "@/constants/Tokens";
-interface Position {
-  asset: string;
-  amount: number;
-  value: number;
-  apy: number;
-}
 
 const PositionSummary: React.FC = () => {
   const currentViewTab = useMarketStore((state) => state.currentViewTab);
-  const { fetchMarketData, loading } = useMarketData();
-
-  useEffect(() => {
-    console.log(loading, "loading");
-    fetchMarketData();
-  }, [loading]);
+  const { moneyMarketData } = useMarketData();
 
   const { positions } = useBlockchain();
 
@@ -44,18 +33,14 @@ const PositionSummary: React.FC = () => {
     return {
       asset: token?.name,
       amount:
-        currentViewTab === "lend"
-          ? position.deposited
-          : position.borrowed
-          ? position.borrowed
-          : position.deposited,
-      value: position.value,
+        currentViewTab === "lend" ? position.deposited : position.borrowed,
+      value: currentViewTab === "lend" ? position.deposit : position.borrow,
       apy: position.apy,
+      collateralizationRatioBorrow: position.collateralizationRatioBorrow,
+      collateralizationRatioDeposit: position.collateralizationRatioDeposit,
     };
   });
 
-  // const [positions, setPositions] = useState<Position[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const address = useAccount();
   const { ensName } = useEnsName({
     address: address.address as `0x${string}`,
@@ -76,12 +61,8 @@ const PositionSummary: React.FC = () => {
     </div>
   );
 
-  if (loading) {
+  if (positions.length === 0) {
     return renderSkeleton();
-  }
-
-  if (error) {
-    return <div className="text-xs text-red-500">{error}</div>;
   }
 
   return (
@@ -126,8 +107,21 @@ const PositionSummary: React.FC = () => {
                     ${position.value}
                   </TableCell>
                   <TableCell className="text-xs text-right">
-                    {/* {position.apy}% */}
-                    10%
+                    {/* {currentViewTab === "lend"
+                      ? calculateAPY(
+                          moneyMarketData.find(
+                            (m) => m.asset === position.asset
+                          )?.interestRateModel,
+                          position.collateralizationRatioBorrow,
+                          position.collateralizationRatioDeposit
+                        ).depositAPY + "%"
+                      : calculateAPY(
+                          moneyMarketData.find(
+                            (m) => m.asset === position.asset
+                          )?.interestRateModel,
+                          position.collateralizationRatioBorrow,
+                          position.collateralizationRatioDeposit
+                        ).borrowAPY + "%"} */}
                   </TableCell>
                 </TableRow>
               ))}
