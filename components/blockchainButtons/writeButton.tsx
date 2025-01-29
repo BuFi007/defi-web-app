@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Button } from "../ui/button";
 import { useToast } from "../ui/use-toast";
 import { WriteButtonProps } from "@/lib/types";
-import { useAccount, useWriteContract } from "wagmi";
+import { useAccount, useWriteContract, usePublicClient } from "wagmi";
 import { hubAbi } from "@/constants/ABI";
 import { erc20Abi } from "viem";
 import { HUB_AVALANCHE_CONTRACT_ADDRESS } from "@/constants/Contracts";
@@ -29,6 +29,7 @@ const WriteButton = ({
   const [isPending, setIsPending] = useState(false);
   const { address } = useAccount();
   const { writeContractAsync } = useWriteContract();
+  const publicClient = usePublicClient();
   const { refreshData } = useBlockchain();
   const handleTransaction = async () => {
     if (!address) {
@@ -58,7 +59,8 @@ const WriteButton = ({
         description: `Transaction hash: ${approveTxHash}`,
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 10000));
+      await publicClient.waitForTransactionReceipt({ hash: approveTxHash });
+
       await refreshData();
       const payload: ActionPayloadN = {
         action: args.action,
@@ -74,12 +76,12 @@ const WriteButton = ({
         args: [payload] as const,
       });
 
+      await publicClient.waitForTransactionReceipt({ hash: txHash });
+
       await refreshData();
 
-      console.log("Transaction sent:", txHash);
-
       toast({
-        title: "Transaction sent",
+        title: "Transaction sent successfully",
         description: `Transaction hash: ${txHash}`,
       });
     } catch (error: any) {
