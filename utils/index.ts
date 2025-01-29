@@ -508,7 +508,6 @@ export const getAllChains = () => {
  * @returns The calculated APY as a percentage
  */
 export function calculateAPY(marketData: any) {
-  console.log("marketData:", marketData);
   if (!marketData?.interestRateModel) {
     console.warn("No market data or interest rate model available");
     return "0%";
@@ -516,10 +515,8 @@ export function calculateAPY(marketData: any) {
 
   try {
     const interestRateModel = marketData.interestRateModel;
-    console.log("Raw interestRateModel:", interestRateModel);
 
     const baseRate = Number(interestRateModel[0]) / 1e6;
-    console.log("baseRate:", baseRate);
 
     const slope1 = Number(interestRateModel[1][1]) / 1e6;
 
