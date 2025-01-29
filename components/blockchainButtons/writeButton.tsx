@@ -6,6 +6,7 @@ import { useAccount, useWriteContract } from "wagmi";
 import { hubAbi } from "@/constants/ABI";
 import { erc20Abi } from "viem";
 import { HUB_AVALANCHE_CONTRACT_ADDRESS } from "@/constants/Contracts";
+import { useBlockchain } from "@/context/BlockchainContext";
 interface ActionPayloadN {
   action: number;
   sender: string;
@@ -28,7 +29,7 @@ const WriteButton = ({
   const [isPending, setIsPending] = useState(false);
   const { address } = useAccount();
   const { writeContractAsync } = useWriteContract();
-
+  const { refreshData } = useBlockchain();
   const handleTransaction = async () => {
     if (!address) {
       toast({
@@ -52,6 +53,13 @@ const WriteButton = ({
         ],
       });
 
+      toast({
+        title: "Approve transaction sent",
+        description: `Transaction hash: ${approveTxHash}`,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 10000));
+      await refreshData();
       const payload: ActionPayloadN = {
         action: args.action,
         sender: address,
@@ -59,14 +67,14 @@ const WriteButton = ({
         assetAmount: args.assetAmount,
       };
 
-      // console.log("args", args);
-
       const txHash = await writeContractAsync({
         address: HUB_AVALANCHE_CONTRACT_ADDRESS,
         abi: abi,
         functionName: "localCompleteAction",
         args: [payload] as const,
       });
+
+      await refreshData();
 
       console.log("Transaction sent:", txHash);
 
