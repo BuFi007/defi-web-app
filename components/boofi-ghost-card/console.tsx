@@ -493,7 +493,7 @@ export function BooFiConsole() {
           const transaction = await sendTransaction({
             to: recipientAddress as `0x${string}`,
             value: amountInWei,
-            chainId: baseSepolia.id,
+            // chainId: baseSepolia.id,
           });
 
           return {

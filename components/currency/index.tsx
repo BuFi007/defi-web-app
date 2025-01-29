@@ -22,7 +22,6 @@ import { toast } from "../ui/use-toast";
 import { sizeStyles } from "@/lib/utils";
 import { Button } from "../ui/button";
 import { getAllChains } from "@/utils";
-const MAX_DECIMALS = 18;
 
 const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   tokenAmount,
@@ -37,7 +36,7 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
 }) => {
   const chainId = useChainId();
   const tokens =
-    useGetTokensOrChain(currentNetwork, "tokens") || availableTokens;
+    useGetTokensOrChain(currentNetwork!, "tokens") || availableTokens;
 
   const { address } = useAccount();
 
@@ -67,14 +66,6 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
     (chain) => chain.chainId === currentNetwork
   );
 
-  // useEffect(() => {
-  //   if (ETH && !selectedToken && !defaultToken) {
-  //     setSelectedToken(ETH);
-  //   } else if (defaultToken) {
-  //     setSelectedToken(defaultToken);
-  //   }
-  // }, [ETH, defaultToken]);
-
   useEffect(() => {
     if (tokenAmount !== undefined) {
       setInputValue(tokenAmount.toString());
@@ -95,9 +86,9 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   const updateValues = (value: string) => {
     const numericValue = parseFloat(value);
     if (!isNaN(numericValue)) {
-      onValueChange(0, numericValue);
+      onValueChange?.(0, numericValue);
     } else {
-      onValueChange(0, 0);
+      onValueChange?.(0, 0);
     }
   };
 
@@ -151,7 +142,7 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
     // Permitir valores vacíos
     if (value === "") {
       setInputValue("");
-      onValueChange(0, 0);
+      onValueChange?.(0, 0);
       return;
     }
 
@@ -177,7 +168,7 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
         }
       }
 
-      onValueChange(numericValue, numericValue);
+      onValueChange?.(numericValue, numericValue);
     }
   };
 

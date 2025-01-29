@@ -18,15 +18,13 @@ import { useAccount } from "wagmi";
 import { base } from "viem/chains";
 import { useEnsName } from "@/hooks/use-ens-name";
 import { truncateAddress } from "@/utils";
-import { useMarketData } from "@/components/blockchain-data";
 import { useBlockchain } from "@/context/BlockchainContext";
 import { allTokens } from "@/constants/Tokens";
-
+import { calculateAPY } from "@/utils";
 const PositionSummary: React.FC = () => {
   const currentViewTab = useMarketStore((state) => state.currentViewTab);
-  const { moneyMarketData } = useMarketData();
-
-  const { positions } = useBlockchain();
+  const address = useAccount();
+  const { positions, moneyMarketData } = useBlockchain();
 
   const cleanPositions = positions.map((position) => {
     const token = allTokens.find((token) => token.address === position.asset);
@@ -41,13 +39,10 @@ const PositionSummary: React.FC = () => {
     };
   });
 
-  const address = useAccount();
   const { ensName } = useEnsName({
     address: address.address as `0x${string}`,
     chain: base,
   });
-
-  console.log(positions, "positions");
 
   const renderSkeleton = () => (
     <div
@@ -70,7 +65,9 @@ const PositionSummary: React.FC = () => {
       className={cn("rounded-lg shadow p-4 space-y-4 text-xs bg-background")}
     >
       <div className="flex justify-between items-center">
-        <h2 className="text-sm font-medium">Your Positions</h2>
+        <h2 className="text-sm font-medium">
+          Your {currentViewTab.toUpperCase()} Positions
+        </h2>
         {ensName && (
           <span className="text-xs text-muted-foreground">
             {truncateAddress(ensName)}
@@ -98,30 +95,23 @@ const PositionSummary: React.FC = () => {
               {cleanPositions?.map((position) => (
                 <TableRow key={position.asset}>
                   <TableCell className="text-xs font-medium">
-                    {position.asset}
+                    {position?.asset}
                   </TableCell>
                   <TableCell className="text-xs text-right">
-                    {position.amount}
+                    {position?.amount?.toString().substring(0, 4)}
                   </TableCell>
                   <TableCell className="text-xs text-right">
-                    ${position.value}
+                    ${"  "}
+                    {position?.asset === "USDC"
+                      ? position?.amount?.toString().substring(0, 4)
+                      : position?.amount?.toString().substring(0, 3) * 20}
                   </TableCell>
                   <TableCell className="text-xs text-right">
-                    {/* {currentViewTab === "lend"
-                      ? calculateAPY(
-                          moneyMarketData.find(
-                            (m) => m.asset === position.asset
-                          )?.interestRateModel,
-                          position.collateralizationRatioBorrow,
-                          position.collateralizationRatioDeposit
-                        ).depositAPY + "%"
-                      : calculateAPY(
-                          moneyMarketData.find(
-                            (m) => m.asset === position.asset
-                          )?.interestRateModel,
-                          position.collateralizationRatioBorrow,
-                          position.collateralizationRatioDeposit
-                        ).borrowAPY + "%"} */}
+                    {calculateAPY(
+                      position.asset === moneyMarketData[0].asset
+                        ? moneyMarketData[0]
+                        : moneyMarketData[1]
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -130,7 +120,7 @@ const PositionSummary: React.FC = () => {
         </ScrollArea>
       )}
 
-      {positions.length > 0 && (
+      {/* {positions.length > 0 && (
         <>
           <Separator />
           <div className="flex justify-between items-center">
@@ -140,7 +130,7 @@ const PositionSummary: React.FC = () => {
             </span>
           </div>
         </>
-      )}
+      )} */}
     </div>
   );
 };

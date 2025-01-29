@@ -19,13 +19,9 @@ import { useToast } from "@/components/ui/use-toast";
 import { Chain } from "@/lib/types";
 import { useAppTranslations } from "@/context/TranslationContext";
 import WriteButton from "@/components/blockchainButtons/writeButton";
-import {
-  HUB_AVALANCHE_CONTRACT_ADDRESS,
-  SPOKE_BSC_CONTRACT_ADDRESS,
-} from "@/constants/Contracts";
-import { hubAbi, spokeAbi } from "@/constants/ABI";
+import { HUB_AVALANCHE_CONTRACT_ADDRESS } from "@/constants/Contracts";
+import { hubAbi } from "@/constants/ABI";
 import { Skeleton } from "@/components/ui/skeleton";
-import CurrencyDisplayer from "@/components/currency";
 import TokenSelector from "@/components/token-selector";
 import { Label } from "@/components/ui/label";
 
@@ -114,17 +110,16 @@ export function MoneyMarketCard() {
   const payload = {
     action:
       currentViewTab === "lend"
-        ? BigInt(0)
+        ? 0
         : currentViewTab === "borrow"
-        ? BigInt(1)
+        ? 1
         : currentViewTab === "repay"
-        ? BigInt(2)
+        ? 2
         : currentViewTab === "withdraw"
-        ? BigInt(3)
-        : BigInt(4),
-    sender: address as `0x${string}`,
+        ? 3
+        : 4,
     assetAddress: selectedToken?.address as `0x${string}`,
-    assetAmount: BigInt(parseUnits(amount, selectedToken?.decimals ?? 18)),
+    assetAmount: BigInt(parseUnits(amount, selectedToken?.decimals!)),
   };
 
   return (
@@ -191,9 +186,10 @@ export function MoneyMarketCard() {
             contractAddress={
               selectedToken?.address ?? HUB_AVALANCHE_CONTRACT_ADDRESS
             }
+            amount={amount}
             abi={hubAbi}
             functionName={"localCompleteAction"}
-            args={[payload]}
+            args={payload}
             tokenAddress={selectedToken?.address}
             isNative={false}
             nativeAmount={amount}

@@ -3,17 +3,26 @@ import { Button } from "../ui/button";
 import { useToast } from "../ui/use-toast";
 import { WriteButtonProps } from "@/lib/types";
 import { useAccount, useWriteContract } from "wagmi";
-import { hubAbi } from "@/constants/ABI"; // Import your ABI
-import { erc20Abi, parseUnits } from "viem"; // Use viem for utility functions
+import { hubAbi } from "@/constants/ABI";
+import { erc20Abi } from "viem";
+import { HUB_AVALANCHE_CONTRACT_ADDRESS } from "@/constants/Contracts";
+interface ActionPayloadN {
+  action: number;
+  sender: string;
+  assetAddress: `0x${string}`;
+  assetAmount: bigint;
+}
 
 const WriteButton = ({
   label,
   contractAddress,
-  abi = hubAbi, // Use the imported ABI
+  abi = hubAbi,
   functionName,
   isNative,
   nativeAmount,
+  args,
   tokenAddress,
+  amount,
 }: WriteButtonProps) => {
   const { toast } = useToast();
   const [isPending, setIsPending] = useState(false);
@@ -37,24 +46,26 @@ const WriteButton = ({
         address: tokenAddress as `0x${string}`,
         abi: erc20Abi,
         functionName: "approve",
-        args: [contractAddress as `0x${string}`, BigInt(parseUnits("3", 18))],
+        args: [
+          HUB_AVALANCHE_CONTRACT_ADDRESS as `0x${string}`,
+          args.assetAmount,
+        ],
       });
 
-      console.log("Approval transaction sent:", approveTxHash);
+      const payload: ActionPayloadN = {
+        action: args.action,
+        sender: address,
+        assetAddress: tokenAddress as `0x${string}`,
+        assetAmount: args.assetAmount,
+      };
 
-      // Llamar a localCompleteAction
+      // console.log("args", args);
+
       const txHash = await writeContractAsync({
-        address: contractAddress as `0x${string}`,
+        address: HUB_AVALANCHE_CONTRACT_ADDRESS,
         abi: abi,
         functionName: "localCompleteAction",
-        args: [
-          {
-            action: 0,
-            sender: address,
-            assetAddress: tokenAddress!,
-            assetAmount: BigInt(parseUnits("3", 18)),
-          },
-        ],
+        args: [payload] as const,
       });
 
       console.log("Transaction sent:", txHash);

@@ -502,48 +502,43 @@ export const getAllChains = () => {
   return Object.values(Chains);
 };
 
-// export function calculateAPY(
-//   interestRateModel: any,
-//   collateralizationRatioBorrow: bigint,
-//   collateralizationRatioDeposit: bigint
-// ) {
-//   // Convert BigInt values to numbers for calculations
-//   const kinks = interestRateModel.kinks.map((k) => Number(k));
-//   const rates = interestRateModel.rates.map((r) => Number(r));
-//   const ratePrecision = Number(interestRateModel.ratePrecision);
-//   const reserveFactor = Number(interestRateModel.reserveFactor);
-//   const reservePrecision = Number(interestRateModel.reservePrecision);
+/**
+ * Calculates the APY based on the interest rate model parameters
+ * @param marketData The market data containing the interest rate model
+ * @returns The calculated APY as a percentage
+ */
+export function calculateAPY(marketData: any) {
+  if (!marketData?.interestRateModel) {
+    console.warn("No market data or interest rate model available");
+    return "0%";
+  }
 
-//   // Convert collateralization ratios to numbers
-//   const borrowRatio = Number(collateralizationRatioBorrow);
-//   const depositRatio = Number(collateralizationRatioDeposit);
+  try {
+    const interestRateModel = marketData.interestRateModel;
 
-//   const getNetInterestRate = (collateralizationRatio: number) => {
-//     // Determine which rate to use based on the collateralization ratio
-//     let applicableRate;
-//     if (collateralizationRatio <= kinks[1]) {
-//       applicableRate = rates[0];
-//     } else {
-//       applicableRate = rates[1];
-//     }
+    const baseRate = Number(interestRateModel[0]) / 1e6;
 
-//     // Convert to decimal (divide by precision)
-//     const interestRate = applicableRate / ratePrecision;
+    const slope1 = Number(interestRateModel[1][1]) / 1e6;
 
-//     // Apply reserve factor
-//     const reserveFactorDecimal = reserveFactor / reservePrecision;
-//     const netInterestRate = interestRate * (1 - reserveFactorDecimal);
+    const slope2 = Number(interestRateModel[2][1]) / 1e6;
 
-//     return netInterestRate;
-//   };
+    const maxAPY = baseRate + slope1 + slope2;
+    console.log("maxAPY:", maxAPY);
 
-//   // Calculate APY (convert to percentage)
-//   const borrowAPY = getNetInterestRate(borrowRatio) * 100;
-//   const depositAPY = getNetInterestRate(depositRatio) * 100;
+    // Calculate APY with daily compounding
+    const dailyRate = maxAPY / 365;
+    const apy = (Math.pow(1 + dailyRate, 365) - 1) * 100;
 
-//   // Return formatted values with 2 decimal places
-//   return {
-//     borrowAPY: borrowAPY.toFixed(2),
-//     depositAPY: depositAPY.toFixed(2),
-//   };
-// }
+    if (isNaN(apy)) {
+      console.warn("APY calculation resulted in NaN, returning default value");
+      return "0%";
+    }
+
+    console.log("apy:", apy);
+
+    return `${apy.toFixed(2)}%`;
+  } catch (error) {
+    console.error("Error calculating APY:", error);
+    return "0%";
+  }
+}
