@@ -439,10 +439,16 @@ export interface WriteButtonProps {
   contractAddress: string;
   abi: any;
   functionName: string;
-  args: any[];
+  args: {
+    action: number;
+    assetAddress: string;
+    assetAmount: bigint;
+  };
   isNative?: boolean;
   nativeAmount?: string;
+  amount?: string;
 }
+
 export interface Chain {
   chainId: number;
   isMainnet: boolean;

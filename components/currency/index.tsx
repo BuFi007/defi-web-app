@@ -66,14 +66,6 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
     (chain) => chain.chainId === currentNetwork
   );
 
-  // useEffect(() => {
-  //   if (ETH && !selectedToken && !defaultToken) {
-  //     setSelectedToken(ETH);
-  //   } else if (defaultToken) {
-  //     setSelectedToken(defaultToken);
-  //   }
-  // }, [ETH, defaultToken]);
-
   useEffect(() => {
     if (tokenAmount !== undefined) {
       setInputValue(tokenAmount.toString());

@@ -5,6 +5,7 @@ import { WriteButtonProps } from "@/lib/types";
 import { useAccount, useWriteContract } from "wagmi";
 import { hubAbi } from "@/constants/ABI";
 import { erc20Abi } from "viem";
+import { HUB_AVALANCHE_CONTRACT_ADDRESS } from "@/constants/Contracts";
 interface ActionPayloadN {
   action: number;
   sender: string;
@@ -19,7 +20,9 @@ const WriteButton = ({
   functionName,
   isNative,
   nativeAmount,
+  args,
   tokenAddress,
+  amount,
 }: WriteButtonProps) => {
   const { toast } = useToast();
   const [isPending, setIsPending] = useState(false);
@@ -39,32 +42,30 @@ const WriteButton = ({
     try {
       setIsPending(true);
 
-      // const approveTxHash = await writeContractAsync({
-      //   address: tokenAddress as `0x${string}`,
-      //   abi: erc20Abi,
-      //   functionName: "approve",
-      //   args: [contractAddress as `0x${string}`, BigInt(100000000000000)],
-      // });
+      const approveTxHash = await writeContractAsync({
+        address: tokenAddress as `0x${string}`,
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [
+          HUB_AVALANCHE_CONTRACT_ADDRESS as `0x${string}`,
+          args.assetAmount,
+        ],
+      });
 
       const payload: ActionPayloadN = {
-        action: 1,
+        action: args.action,
         sender: address,
         assetAddress: tokenAddress as `0x${string}`,
-        assetAmount: BigInt(2),
+        assetAmount: args.assetAmount,
       };
 
+      // console.log("args", args);
+
       const txHash = await writeContractAsync({
-        address: contractAddress as `0x${string}`,
+        address: HUB_AVALANCHE_CONTRACT_ADDRESS,
         abi: abi,
         functionName: "localCompleteAction",
-        args: [
-          [
-            payload.action,
-            payload.sender,
-            payload.assetAddress,
-            payload.assetAmount,
-          ],
-        ],
+        args: [payload] as const,
       });
 
       console.log("Transaction sent:", txHash);
