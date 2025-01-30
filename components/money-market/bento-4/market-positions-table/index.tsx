@@ -21,6 +21,7 @@ import { truncateAddress } from "@/utils";
 import { useBlockchain } from "@/context/BlockchainContext";
 import { allTokens } from "@/constants/Tokens";
 import { calculateAPY } from "@/utils";
+import { ethers } from "ethers";
 const PositionSummary: React.FC = () => {
   const currentViewTab = useMarketStore((state) => state.currentViewTab);
   const address = useAccount();
@@ -98,13 +99,15 @@ const PositionSummary: React.FC = () => {
                     {position?.asset}
                   </TableCell>
                   <TableCell className="text-xs text-right">
-                    {position?.amount?.toString().substring(0, 4)}
+                    {ethers.utils
+                      .formatEther(position?.amount?.toString())
+                      .substring(0, 8)}
                   </TableCell>
                   <TableCell className="text-xs text-right">
                     ${"  "}
                     {position?.asset === "USDC"
-                      ? position?.amount?.toString().substring(0, 4)
-                      : position?.amount?.toString().substring(0, 3) * 20}
+                      ? position?.amount?.toString().substring(0, 6)
+                      : position?.amount?.toString().substring(0, 6) * 20}
                   </TableCell>
                   <TableCell className="text-xs text-right">
                     {calculateAPY(
