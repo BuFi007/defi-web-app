@@ -490,7 +490,7 @@ export function BooFiConsole() {
           // }
 
           const amountInWei = parseEther(amount);
-          const transaction = await sendTransaction({
+          const transaction = sendTransaction({
             to: recipientAddress as `0x${string}`,
             value: amountInWei,
             // chainId: baseSepolia.id,

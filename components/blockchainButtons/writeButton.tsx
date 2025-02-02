@@ -44,23 +44,24 @@ const WriteButton = ({
     try {
       setIsPending(true);
 
-      const approveTxHash = await writeContractAsync({
-        address: tokenAddress as `0x${string}`,
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [
-          HUB_AVALANCHE_CONTRACT_ADDRESS as `0x${string}`,
-          args.assetAmount,
-        ],
-      });
+      if (args.action === 0) {
+        const approveTxHash = await writeContractAsync({
+          address: tokenAddress as `0x${string}`,
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [
+            HUB_AVALANCHE_CONTRACT_ADDRESS as `0x${string}`,
+            args.assetAmount,
+          ],
+        });
 
-      toast({
-        title: "Approve transaction sent",
-        description: `Transaction hash: ${approveTxHash}`,
-      });
+        toast({
+          title: "Approve transaction sent",
+          description: `Transaction hash: ${approveTxHash}`,
+        });
 
-      await publicClient.waitForTransactionReceipt({ hash: approveTxHash });
-
+        await publicClient.waitForTransactionReceipt({ hash: approveTxHash });
+      }
       await refreshData();
       const payload: ActionPayloadN = {
         action: args.action,
