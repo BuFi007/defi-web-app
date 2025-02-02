@@ -113,9 +113,9 @@ export function MoneyMarketCard() {
         ? 0
         : currentViewTab === "borrow"
         ? 1
-        : currentViewTab === "repay"
-        ? 2
         : currentViewTab === "withdraw"
+        ? 2
+        : currentViewTab === "repay"
         ? 3
         : 4,
     assetAddress: selectedToken?.address as `0x${string}`,

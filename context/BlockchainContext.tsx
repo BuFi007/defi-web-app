@@ -20,6 +20,7 @@ interface BlockchainContextProps {
   positions: any[];
   moneyMarketData: any[];
   refreshData: () => Promise<void>;
+  isLoadingPositions: boolean;
 }
 
 const BlockchainContext = createContext<BlockchainContextProps | undefined>(
@@ -40,6 +41,7 @@ export const BlockchainProvider = ({ children }: { children: ReactNode }) => {
   const [address, setAddress] = useState<string | null | undefined>();
   const [positions, setPositions] = useState<any[]>([]);
   const [moneyMarketData, setMoneyMarketData] = useState<any[]>([]);
+  const [isLoadingPositions, setIsLoadingPositions] = useState(false);
   const { address: addressFromWagmi, isConnected: isConnectedWagmi } =
     useAccount();
   const [isConnected, setIsConnected] = useState(false);
@@ -97,7 +99,7 @@ export const BlockchainProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchPositions = async () => {
     if (!contract || !isConnected || !address) return;
-
+    setIsLoadingPositions(true);
     try {
       const [userBalance1, userBalance2] = await Promise.all([
         contract.getUserBalance(address, assetsToCheck[0]),
@@ -129,7 +131,9 @@ export const BlockchainProvider = ({ children }: { children: ReactNode }) => {
       }
 
       setPositions(newPositions);
+      setIsLoadingPositions(false);
     } catch (error) {
+      setIsLoadingPositions(false);
       console.error("Error fetching positions:", error);
     }
   };
@@ -157,6 +161,7 @@ export const BlockchainProvider = ({ children }: { children: ReactNode }) => {
         positions,
         moneyMarketData,
         refreshData,
+        isLoadingPositions,
       }}
     >
       {children}

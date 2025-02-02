@@ -25,7 +25,7 @@ import { ethers } from "ethers";
 const PositionSummary: React.FC = () => {
   const currentViewTab = useMarketStore((state) => state.currentViewTab);
   const address = useAccount();
-  const { positions, moneyMarketData } = useBlockchain();
+  const { positions, moneyMarketData, isLoadingPositions } = useBlockchain();
 
   const cleanPositions = positions.map((position) => {
     const token = allTokens.find((token) => token.address === position.asset);
@@ -57,7 +57,7 @@ const PositionSummary: React.FC = () => {
     </div>
   );
 
-  if (positions.length === 0) {
+  if (isLoadingPositions) {
     return renderSkeleton();
   }
 
@@ -76,7 +76,7 @@ const PositionSummary: React.FC = () => {
         )}
       </div>
 
-      {positions.length === 0 ? (
+      {isLoadingPositions ? (
         <div className="text-center py-8 bg-gray-100 dark:bg-gray-800 rounded-lg">
           <p className="text-gray-500">No positions</p>
         </div>
@@ -96,7 +96,7 @@ const PositionSummary: React.FC = () => {
               {cleanPositions?.map((position) => (
                 <TableRow key={position.asset}>
                   <TableCell className="text-xs font-medium">
-                    {position?.asset}
+                    {position.asset || "0"}
                   </TableCell>
                   <TableCell className="text-xs text-right">
                     {ethers.utils

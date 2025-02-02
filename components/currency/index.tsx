@@ -13,7 +13,6 @@ import { InputMoney } from "../ui/input";
 import { useAccount, useChainId } from "wagmi";
 import { formatUnits } from "viem";
 import { CurrencyDisplayerProps, Token } from "@/lib/types";
-import * as chains from "@/constants/Chains";
 import { TokenChip } from "../token-chip";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { useTokenBalance } from "@/hooks/use-user-balance";
