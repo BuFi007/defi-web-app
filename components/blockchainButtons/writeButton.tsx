@@ -44,7 +44,7 @@ const WriteButton = ({
     try {
       setIsPending(true);
 
-      if (args.action === 0) {
+      if (args.action === 0 || args.action === 3) {
         const approveTxHash = await writeContractAsync({
           address: tokenAddress as `0x${string}`,
           abi: erc20Abi,
