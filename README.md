@@ -12,14 +12,14 @@ By leveraging a **Hub and Spoke Money Market** model, Bu Finance facilitates sec
 
 ### **Technical Stack**
 
-- **Blockchain Protocols:** Avalanche, Bsc, CCIP, Wormhole
+- **Blockchain Protocols:** Mode, CCIP, Wormhole
 - **AI Integration:** OpenAI Realtime API
 - **Frontend:** Next.js 14, TailwindCSS, Shadcn UI components
 - ### **Smart Contracts**
 
 The core smart contracts for the money market protocol can be found in our [GitHub repository](https://github.com/BuFi007/desk-v1/tree/lending/tomi/apps/money-market-contracts/EVM).
 
-- **Liquidator:** Rust flash-loan liquidator for over collateralized loan liquidation with AAVE and Uniswap liquidity.
+- **AI Liquidator Bot:** Automated AI-powered liquidator bot for managing over-collateralized loan liquidations with AAVE and Uniswap liquidity.
 - **AI Voice Relayer:** AI voice relayer connected to OpenAi's Realtime API for voice assistance.
 - **Backend:** Node.js, Supabase
 
@@ -27,15 +27,13 @@ The core smart contracts for the money market protocol can be found in our [GitH
 
 ### **Testnet Addresses**
 
-| Network   | Contract Type | Address                                      |
-| --------- | ------------- | -------------------------------------------- |
-| BSC       | Spoke         | `0x2A97438Acf6f1c0745171C8DA7e199F5061a0C3b` |
-| Avalanche | Hub           | `0x6958d698e0399C82e9e9f32f0cfEE48cE5952DF3` |
+| Network | Contract Type | Address                                      |
+| ------- | ------------- | -------------------------------------------- |
+| Mode    | Hub           | `0x495DECD85AEcc787d5caAf1A8A4C115E4445171a` |
 
 ### **Contract Verification**
 
-- [BSC Spoke Contract on BscScan](https://testnet.bscscan.com/address/0x2A97438Acf6f1c0745171C8DA7e199F5061a0C3b)
-- [Avalanche Hub Contract on SnowTrace](https://testnet.snowtrace.io/address/0x6958d698e0399C82e9e9f32f0cfEE48cE5952DF3)
+- [Mode Hub Contract on Mode Explorer](https://sepolia.explorer.mode.network/address/0x495DECD85AEcc787d5caAf1A8A4C115E4445171a)
 
 ## 🔧 Getting Started
 
@@ -58,12 +56,12 @@ Buemploys a **Hub and Spoke** architecture to manage liquidity and consensus acr
 
 The AI Console enhances user experience through intelligent assistance:
 
-- **Real-Time API Integration:** Utilizes OpenAI’s Realtime API to provide instant insights and management tools.
+- **Real-Time API Integration:** Utilizes OpenAI's Realtime API to provide instant insights and management tools.
 - **Smart Wallet Management:** Assists users in managing Coinbase smart wallets, offering tailored financial advice and automated transactions.
 
 ### **Payments & Bridge**
 
-BooFi’s payment and bridging solutions ensure seamless and secure transactions:
+BooFi's payment and bridging solutions ensure seamless and secure transactions:
 
 - **ENS-Based Payments:** Simplifies USDC transactions using `ens.names` via Wormhole.
 - **QR Code Art Generator:** Enhances payment link sharing with customizable QR codes.
