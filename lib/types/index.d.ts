@@ -432,7 +432,7 @@ export interface Translations {
   };
 }
 
-export type ChainList = 43114 | 43113 | 919 | undefined;
+export type ChainList = 43113 | 919 | undefined;
 export interface WriteButtonProps {
   label: string;
   tokenAddress?: string;

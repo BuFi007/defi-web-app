@@ -11,8 +11,11 @@ import { Address } from "viem";
 import { useAccount } from "wagmi";
 import { ethers } from "ethers";
 import { hubAbi } from "@/constants/ABI";
-import { ModeTestnetTokens } from "@/constants/Tokens";
+import { AvalancheFujiTokens, ModeTestnetTokens } from "@/constants/Tokens";
 import { HUB_AVALANCHE_CONTRACT_ADDRESS } from "@/constants/Contracts";
+import { useNetworkManager } from "@/hooks/use-dynamic-network";
+import { getAllChains } from "@/utils";
+import { AvalancheFuji } from "@/constants/Chains";
 
 interface BlockchainContextProps {
   address: Address | string | undefined;
@@ -45,9 +48,8 @@ export const BlockchainProvider = ({ children }: { children: ReactNode }) => {
   const { address: addressFromWagmi, isConnected: isConnectedWagmi } =
     useAccount();
   const [isConnected, setIsConnected] = useState(false);
-
   const provider = new ethers.providers.JsonRpcProvider(
-    "https://sepolia.mode.network"
+    AvalancheFuji.rpcUrls[0]
   );
 
   const contract = useMemo(() => {
@@ -62,7 +64,7 @@ export const BlockchainProvider = ({ children }: { children: ReactNode }) => {
   }, [provider]);
 
   const assetsToCheck = useMemo(
-    () => [ModeTestnetTokens[1].address, ModeTestnetTokens[2].address],
+    () => [AvalancheFujiTokens[1]?.address, AvalancheFujiTokens[2]?.address],
     []
   );
 
@@ -74,6 +76,7 @@ export const BlockchainProvider = ({ children }: { children: ReactNode }) => {
         contract.getAssetInfo(assetsToCheck[0]),
         contract.getAssetInfo(assetsToCheck[1]),
       ]);
+      console.log(assetInfo1, "assetInfo1");
 
       const newMoneyMarketData = [];
 

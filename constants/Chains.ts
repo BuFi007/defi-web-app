@@ -69,7 +69,7 @@ export const AvalancheFuji = {
     decimals: 18,
     iconUrls: ["https://app.dynamic.xyz/assets/networks/avax.svg"],
   },
-  rpcUrls: ["https://rpc.ankr.com/avalanche_fuji"],
+  rpcUrls: ["https://api.avax-test.network/ext/bc/C/rpc"],
   vanityName: "Avalanche Fuji",
   chainName: "AvalancheFuji",
   networkId: 43113,

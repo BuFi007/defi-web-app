@@ -13,9 +13,8 @@ import { providers } from "ethers";
 import type { Account, Chain, Client, Transport } from "viem";
 
 export const config = createConfig({
-  chains: [avalancheFuji, avalanche, modeTestnet],
+  chains: [avalancheFuji, modeTestnet],
   transports: {
-    [avalanche.id]: http(),
     [avalancheFuji.id]: http(),
     [modeTestnet.id]: http(),
   },
