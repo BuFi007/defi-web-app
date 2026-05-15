@@ -62,7 +62,7 @@ const CurrencyDisplayer: React.FC<CurrencyDisplayerProps> = ({
   });
 
   const actualChain = getAllChains().find(
-    (chain) => chain.chainId === currentNetwork
+    (chain: any) => chain.chainId === currentNetwork
   );
 
   useEffect(() => {

@@ -11,7 +11,7 @@ import { DYNAMIC_ENVIRONMENT_ID } from "@/constants/Env";
 import { Avalanche, AvalancheFuji, ModeTestnet } from "@/constants/Chains";
 
 const queryClient = new QueryClient();
-const evmNetworks = [Avalanche, AvalancheFuji, ModeTestnet];
+const evmNetworks = [AvalancheFuji, ModeTestnet];
 
 export default function Providers({ children }: { children: ReactNode }) {
   return (
