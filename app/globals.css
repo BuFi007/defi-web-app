@@ -159,3 +159,21 @@ a {
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes bufiLiquidDrift {
+  from {
+    transform: translate3d(-1.5%, -1%, 0) rotate(0deg) scale(1.02);
+  }
+  to {
+    transform: translate3d(2%, 1.5%, 0) rotate(9deg) scale(1.08);
+  }
+}
+
+@keyframes bufiLiquidFloat {
+  from {
+    transform: translate3d(2%, 1%, 0) rotate(-4deg) scale(1.02);
+  }
+  to {
+    transform: translate3d(-2%, -1.5%, 0) rotate(7deg) scale(1.08);
+  }
+}

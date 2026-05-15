@@ -18,18 +18,6 @@
   isolation: isolate;
 }
 
-.referenceWash {
-  position: absolute;
-  inset: 0;
-  z-index: -4;
-  pointer-events: none;
-  background-image: url("/assets/alpha-reference-bg.png");
-  background-size: cover;
-  background-position: center;
-  opacity: 0.24;
-  filter: saturate(1.15) blur(0.3px);
-  transform: scale(1.01);
-}
 
 .referenceWash::after {
   content: "";
@@ -74,6 +62,8 @@
   width: min(58vw, 900px);
   padding-left: clamp(44px, 7.5vw, 145px);
   padding-top: clamp(72px, 15vh, 166px);
+  transform-origin: 34% 42%;
+  will-change: transform, opacity, filter;
 }
 
 .wordmarkWrap {
@@ -124,12 +114,17 @@
 
 .title {
   width: max-content;
+  min-height: 1em;
   margin: -2px 0 0;
   color: var(--alpha-purple);
   font-size: clamp(72px, 5.85vw, 113px);
   font-weight: 700;
   line-height: 0.94;
   letter-spacing: -0.064em;
+}
+
+.title span {
+  display: inline-block;
 }
 
 .form {
@@ -160,7 +155,7 @@
   outline: 0;
   border-radius: inherit;
   background: transparent;
-  padding: 0 clamp(34px, 9vw, 170px);
+  padding: 0 clamp(34px, 7.2vw, 138px);
   color: var(--alpha-purple-dark);
   text-align: center;
   font: inherit;
@@ -219,15 +214,49 @@
   top: clamp(-250px, -14vw, -146px);
   right: clamp(-520px, -26vw, -430px);
   width: clamp(1120px, 76vw, 1500px);
+  height: clamp(820px, 56.25vw, 1080px);
   opacity: 0;
+  overflow: hidden;
   will-change: transform, opacity, filter;
 }
 
 .heroGhostImage {
   display: block;
   width: 100%;
-  height: auto;
-  filter: drop-shadow(-28px 34px 46px rgba(72, 49, 177, 0.18));
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+
+.successLoader {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.loaderRing {
+  display: grid;
+  place-items: center;
+  width: clamp(58px, 5.4vw, 86px);
+  height: clamp(58px, 5.4vw, 86px);
+  border-radius: 999px;
+  color: var(--alpha-purple-dark);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.48), rgba(255, 255, 255, 0.2)),
+    rgba(249, 244, 255, 0.58);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 24px 58px rgba(93, 67, 205, 0.2);
+  backdrop-filter: blur(12px);
+}
+
+.loaderRing svg {
+  width: 46%;
+  height: 46%;
+  stroke-width: 2.5;
 }
 
 @keyframes fogDrift {
@@ -250,65 +279,80 @@
 
 @media (max-width: 1180px) {
   .content {
-    width: min(66vw, 760px);
+    width: min(58vw, 700px);
     padding-left: clamp(28px, 6vw, 80px);
   }
 
   .form {
-    width: min(56vw, 700px);
+    width: min(48vw, 620px);
   }
 
   .heroGhost {
-    right: -390px;
-    width: 850px;
+    top: -120px;
+    right: -410px;
+    width: 940px;
+    height: 720px;
   }
 }
 
 @media (max-width: 860px) {
+  .referenceWash {
+    opacity: 0;
+  }
+
   .content {
     width: 100%;
-    padding: 72px 24px 0;
+    padding: 62px 22px 0;
   }
 
   .wordmarkWrap {
-    width: min(82vw, 450px);
+    width: min(86vw, 430px);
+    margin-bottom: 28px;
   }
 
   .headlineRow {
     align-items: flex-start;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
   }
 
   .alphaLabel {
-    font-size: clamp(64px, 18vw, 92px);
+    font-size: clamp(56px, 16vw, 82px);
+    line-height: 0.9;
   }
 
   .title {
     width: auto;
-    font-size: clamp(58px, 15vw, 84px);
+    max-width: 8.2ch;
+    font-size: clamp(54px, 14.2vw, 78px);
+    line-height: 0.9;
+    text-wrap: balance;
   }
 
   .protocol {
     min-height: 48px;
-    font-size: 18px;
+    font-size: clamp(14px, 4.3vw, 18px);
+    letter-spacing: -0.04em;
   }
 
   .form {
     width: min(100%, 650px);
+    margin-top: 24px;
   }
 
   .input {
-    padding: 0 28px;
-    font-size: clamp(22px, 6.2vw, 34px);
+    padding: 0 22px;
+    font-size: clamp(20px, 5.4vw, 30px);
+    letter-spacing: -0.035em;
   }
 
   .heroGhost {
     top: auto;
-    right: -220px;
-    bottom: -165px;
-    width: 590px;
-    opacity: 0.38;
+    right: -250px;
+    bottom: -225px;
+    width: 610px;
+    height: 610px;
+    opacity: 0.28;
   }
 }
 
@@ -324,17 +368,22 @@
 
   .protocol {
     font-size: 15px;
-    padding: 0 18px;
+    padding: 0 16px;
   }
 
   .passwordPill {
     height: 64px;
   }
 
+  .input {
+    font-size: clamp(18px, 5vw, 22px);
+  }
+
   .heroGhost {
-    right: -238px;
-    bottom: -128px;
-    width: 520px;
+    right: -292px;
+    bottom: -226px;
+    width: 560px;
+    height: 560px;
   }
 }
 

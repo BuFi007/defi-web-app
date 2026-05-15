@@ -1,9 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import { motion, useReducedMotion, Variants } from "framer-motion";
+import {
+  AnimatePresence,
+  motion,
+  type Variants,
+  useReducedMotion,
+} from "framer-motion";
+import { Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { TypingAnimation } from "@/components/magicui/typing-animation";
 import styles from "./alpha-form.module.css";
 
 const getSafeNextPath = (value: string | null) => {
@@ -39,6 +46,7 @@ export const AlphaForm = () => {
   const reduceMotion = useReducedMotion();
   const shellRef = useRef<HTMLElement>(null);
   const ghostRef = useRef<HTMLDivElement>(null);
+  const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const next = useMemo(
     () => getSafeNextPath(searchParams.get("next")),
     [searchParams],
@@ -47,6 +55,7 @@ export const AlphaForm = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(false);
 
   useEffect(() => {
     if (reduceMotion || !ghostRef.current) {
@@ -99,10 +108,23 @@ export const AlphaForm = () => {
     };
   }, [reduceMotion]);
 
+  useEffect(() => {
+    return () => {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSubmitting || isUnlocked) {
+      return;
+    }
+
     setError("");
     setIsSubmitting(true);
+    let unlocked = false;
 
     try {
       const response = await fetch("/api/alpha-gate", {
@@ -118,12 +140,18 @@ export const AlphaForm = () => {
         return;
       }
 
-      router.replace(next);
-      router.refresh();
+      setIsUnlocked(true);
+      unlocked = true;
+      redirectTimeoutRef.current = setTimeout(() => {
+        router.replace(next);
+        router.refresh();
+      }, reduceMotion ? 0 : 850);
     } catch {
       setError("Could not unlock alpha access");
     } finally {
-      setIsSubmitting(false);
+      if (!unlocked) {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -135,16 +163,24 @@ export const AlphaForm = () => {
 
       <div ref={ghostRef} className={styles.heroGhost} aria-hidden="true">
         <Image
-          src="/assets/sticker-bu.png"
+          src="/assets/sticker-bu-hero.png"
           alt=""
-          width={984}
-          height={1024}
+          fill
           priority
           className={styles.heroGhostImage}
         />
       </div>
 
-      <section className={styles.content} aria-label="BUFI alpha password">
+      <motion.section
+        className={styles.content}
+        aria-label="BUFI alpha password"
+        animate={
+          isUnlocked
+            ? { opacity: 0, scale: 0.94, y: -10, filter: "blur(10px)" }
+            : { opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }
+        }
+        transition={{ duration: 0.5, ease: easeOut }}
+      >
         <motion.div
           className={styles.wordmarkWrap}
           variants={reveal}
@@ -170,7 +206,7 @@ export const AlphaForm = () => {
           custom={0.2}
         >
           <p className={styles.alphaLabel}>Alpha</p>
-          <span className={styles.protocol}>fx-telaraña-protocol v.0.!</span>
+          <span className={styles.protocol}>fx-telaraña-protocol v.0.1</span>
         </motion.div>
 
         <motion.h1
@@ -180,7 +216,9 @@ export const AlphaForm = () => {
           animate="visible"
           custom={0.26}
         >
-          Enter password
+          <TypingAnimation delay={560} duration={34}>
+            Enter password
+          </TypingAnimation>
         </motion.h1>
 
         <motion.form
@@ -204,14 +242,41 @@ export const AlphaForm = () => {
               aria-describedby={error ? "alpha-error" : undefined}
             />
           </label>
-          <button className={styles.submit} type="submit" disabled={isSubmitting}>
+          <button className={styles.submit} type="submit" disabled={isSubmitting || isUnlocked}>
             {isSubmitting ? "Unlocking" : "Unlock alpha"}
           </button>
           <p id="alpha-error" className={styles.feedback} aria-live="polite">
             {error}
           </p>
         </motion.form>
-      </section>
+      </motion.section>
+
+      <AnimatePresence>
+        {isUnlocked ? (
+          <motion.div
+            className={styles.successLoader}
+            initial={{ opacity: 0, scale: 0.86, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: -8 }}
+            transition={{ duration: 0.42, ease: easeOut }}
+            role="status"
+            aria-live="polite"
+            aria-label="Unlocking alpha"
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{
+                duration: 0.82,
+                ease: "linear",
+                repeat: Infinity,
+              }}
+              className={styles.loaderRing}
+            >
+              <Loader2 aria-hidden="true" />
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </main>
   );
 };
