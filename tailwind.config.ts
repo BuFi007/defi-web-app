@@ -7,7 +7,7 @@ const svgToDataUri = require("mini-svg-data-uri");
 function addVariablesForColors({ addBase, theme }: any) {
   const allColors = flattenColorPalette(theme("colors"));
   const newVars = Object.fromEntries(
-    Object.entries(allColors).map(([key, val]) => [`--${key}`, val])
+    Object.entries(allColors).map(([key, val]) => [`--${key}`, val]),
   );
 
   addBase({
@@ -61,7 +61,7 @@ const config: Config = {
         "clr-pink": "var(--clr-4-pink)",
         "clr-blue": "var(--clr-5-blue)",
         "clr-patito": "var(--clr-6-yellow-bg)",
-        // BuFI brand
+        // BUFI brand
         violeta: "var(--violeta)",
         lila: "var(--lila)",
         agnusDei: "var(--agnus-dei)",
@@ -110,6 +110,8 @@ const config: Config = {
         main: "#FFDC58",
         mainAccent: "#ffc800",
         overlay: "rgba(0,0,0,0.8)",
+        borderFine: "#E2D0FD",
+        purpleDanis: "#6954CF",
 
         // light mode
         bg: "#FEF2E8",
@@ -305,17 +307,17 @@ const config: Config = {
         {
           "bg-grid": (value: any) => ({
             backgroundImage: `url("${svgToDataUri(
-              `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" stroke="${value}" fill="none"><path d="M64 0H0V64"/></svg>`
+              `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" stroke="${value}" fill="none"><path d="M64 0H0V64"/></svg>`,
             )}")`,
           }),
           "bg-dot": (value: any) => ({
             backgroundImage: `url("${svgToDataUri(
-              `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="16" height="16" fill="none"><circle fill="${value}" id="pattern-circle" cx="10" cy="10" r="1.6257413380501518"></circle></svg>`
+              `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="16" height="16" fill="none"><circle fill="${value}" id="pattern-circle" cx="10" cy="10" r="1.6257413380501518"></circle></svg>`,
             )}")`,
           }),
           "bg-grid-small": (value: any) => ({
             backgroundImage: `url("${svgToDataUri(
-              `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="8" height="8" fill="none" stroke="${value}"><path d="M0 .5H31.5V32"/></svg>`
+              `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="8" height="8" fill="none" stroke="${value}"><path d="M0 .5H31.5V32"/></svg>`,
             )}")`,
           }),
           "text-shadow": (value: any) => ({
@@ -328,7 +330,7 @@ const config: Config = {
             ...theme("textShadow"),
           },
           type: ["color"],
-        }
+        },
       );
 
       matchUtilities(
@@ -340,7 +342,7 @@ const config: Config = {
         {
           values: theme("spacing"),
           type: ["number", "length", "any"],
-        }
+        },
       );
     }),
   ],

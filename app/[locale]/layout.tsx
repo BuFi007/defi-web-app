@@ -1,6 +1,3 @@
-import "@/css/global.scss";
-import { GeistMono } from "geist/font/mono";
-import { GeistSans } from "geist/font/sans";
 import type { Metadata } from "next";
 import { generateBuMetadata } from "@/lib/seo/landing-layout";
 import { Toaster } from "@/components/ui/toaster";
@@ -34,56 +31,51 @@ export default async function RootLayout({
   const messages = await getMessages();
 
   return (
-    <html
-      lang={locale}
-      className={`${GeistSans.variable} ${GeistMono.variable} scroll-smooth antialiased`}
-      suppressHydrationWarning
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="light"
+      enableSystem
+      disableTransitionOnChange
     >
-      <body className="bg-gradient-to-br from-indigo-100 via-violet-200 to-cyan-300 bg-no-repeat font-poppins dark:bg-gradient-to-r dark:from-gray-900 dark:via-indigo-400 dark:to-gray-800 min-h-screen">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <NextIntlClientProvider messages={messages} locale={locale}>
-            <TranslationProvider>
-              <Providers>
-                <BlockchainProvider>
-                  <main className="rounded-md">
-                    <GridPattern
-                      width={20}
-                      height={20}
-                      x={-1}
-                      y={-1}
-                      className={cn(
-                        "[mask-image:linear-gradient(to_bottom_right,white,transparent,transparent)]"
-                      )}
-                    />
-                    <Suspense fallback={<Loading />}>
-                      <Header />
-                      <div className="custom-scrollbar">
-                        <div className="mx-auto px-4 relative flex flex-col justify-center overflow-hidden">
-                          <Container>
-                            <div className="relative">
-                              <div className="w-full flex flex-col items-center">
-                                {children}
-                              </div>
-                            </div>
-                          </Container>
+      <NextIntlClientProvider messages={messages} locale={locale}>
+        <TranslationProvider>
+          <Providers>
+            <BlockchainProvider>
+              <main className="rounded-md h-screen flex flex-col overflow-hidden relative bg-gradient-to-br from-indigo-100 via-violet-200 to-cyan-300">
+                <GridPattern
+                  width={20}
+                  height={20}
+                  x={-1}
+                  y={-1}
+                  className={cn(
+                    "[mask-image:linear-gradient(to_bottom_right,white,transparent,transparent)] fixed inset-0 pointer-events-none opacity-30"
+                  )}
+                />
+                <Suspense fallback={<Loading />}>
+                  <div className="shrink-0 relative z-30 bg-transparent">
+                    <Header />
+                  </div>
+                  <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
+                    <div className="container mx-auto py-4 relative flex flex-col overflow-hidden h-full">
+                      <Container>
+                        <div className="relative h-full w-full">
+                          <div className="w-full h-full flex flex-col items-center justify-center">
+                            {children}
+                          </div>
                         </div>
-                      </div>
-                    </Suspense>
-                    <br />
-                    <LayoutMusic />
-                  </main>
-                </BlockchainProvider>
-                <Toaster />
-              </Providers>
-            </TranslationProvider>
-          </NextIntlClientProvider>
-        </ThemeProvider>
-      </body>
-    </html>
+                      </Container>
+                    </div>
+                  </div>
+                </Suspense>
+                <div className="shrink-0 relative z-30 bg-transparent">
+                  <LayoutMusic />
+                </div>
+              </main>
+            </BlockchainProvider>
+            <Toaster />
+          </Providers>
+        </TranslationProvider>
+      </NextIntlClientProvider>
+    </ThemeProvider>
   );
 }

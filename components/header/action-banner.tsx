@@ -35,7 +35,7 @@ export default function ActionBanner() {
           <div className="absolute inset-0 bg-gradient-to-bl from-purple-700/60 to-teal-600/80 dark:from-indigo-900 dark:via-purple-900 dark:to-cyan-900  opacity-50 blur-xl dark:bg-gradient-to-r"></div>
           <div className="relative z-10 px-3 py-2 flex items-center justify-between backdrop-blur-md bg-white/10">
             <Link
-              href="https://discord.gg/"
+              href="https://discord.gg/GnbJByDqrM"
               target="_blank"
               rel="noopener noreferrer"
               className="group flex-1 flex items-center justify-center gap-2 text-background no-underline transition-all duration-300 rounded-lg py-1 mr-10"
