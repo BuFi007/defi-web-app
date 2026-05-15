@@ -11,21 +11,91 @@
   color: var(--alpha-purple);
   font-family: var(--font-poppins), Poppins, system-ui, sans-serif;
   background:
-    linear-gradient(90deg, rgba(241, 238, 255, 0.96) 0%, rgba(240, 230, 255, 0.72) 50%, rgba(245, 240, 255, 0.9) 100%),
-    radial-gradient(circle at 54% 52%, rgba(207, 142, 255, 0.35), transparent 26%),
-    radial-gradient(circle at 18% 12%, rgba(255, 232, 160, 0.38), transparent 18%),
+    linear-gradient(
+      90deg,
+      rgba(241, 238, 255, 0.96) 0%,
+      rgba(240, 230, 255, 0.72) 50%,
+      rgba(245, 240, 255, 0.9) 100%
+    ),
+    radial-gradient(
+      circle at 54% 52%,
+      rgba(207, 142, 255, 0.35),
+      transparent 26%
+    ),
+    radial-gradient(
+      circle at 18% 12%,
+      rgba(255, 232, 160, 0.38),
+      transparent 18%
+    ),
     #f1eeff;
   isolation: isolate;
 }
 
+.referenceWash {
+  position: absolute;
+  inset: 0;
+  z-index: -4;
+  pointer-events: none;
+  background-image: url("/assets/alpha-reference-bg.png");
+  background-position: center;
+  background-size: cover;
+  opacity: 0.16;
+  filter: saturate(1.05);
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 38%,
+    #000 49%,
+    #000 58%,
+    transparent 66%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 38%,
+    #000 49%,
+    #000 58%,
+    transparent 66%,
+    transparent 100%
+  );
+}
+
+.referenceWash::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(245, 242, 255, 0.72) 0%,
+      rgba(245, 239, 255, 0.4) 43%,
+      rgba(246, 242, 255, 0.08) 100%
+    ),
+    radial-gradient(
+      circle at 48% 48%,
+      rgba(244, 226, 255, 0.1),
+      rgba(240, 231, 255, 0.52) 44%,
+      rgba(241, 236, 255, 0.18) 100%
+    );
+}
 
 .referenceWash::after {
   content: "";
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgba(247, 244, 255, 0.36) 0%, rgba(241, 232, 255, 0.2) 46%, rgba(241, 235, 255, 0.5) 100%),
-    radial-gradient(circle at 52% 50%, rgba(209, 111, 255, 0.26), transparent 32%);
+    linear-gradient(
+      90deg,
+      rgba(247, 244, 255, 0.36) 0%,
+      rgba(241, 232, 255, 0.2) 46%,
+      rgba(241, 235, 255, 0.5) 100%
+    ),
+    radial-gradient(
+      circle at 52% 50%,
+      rgba(209, 111, 255, 0.26),
+      transparent 32%
+    );
 }
 
 .fogOne,
@@ -41,18 +111,45 @@
 .fogOne {
   opacity: 0.58;
   background:
-    radial-gradient(ellipse at 23% 20%, rgba(255, 237, 173, 0.5), transparent 28%),
-    radial-gradient(ellipse at 55% 58%, rgba(218, 106, 255, 0.45), transparent 30%),
-    conic-gradient(from 80deg at 48% 54%, transparent 0deg, rgba(182, 132, 255, 0.44) 65deg, transparent 130deg, rgba(255, 209, 245, 0.34) 230deg, transparent 320deg);
+    radial-gradient(
+      ellipse at 23% 20%,
+      rgba(255, 237, 173, 0.5),
+      transparent 28%
+    ),
+    radial-gradient(
+      ellipse at 55% 58%,
+      rgba(218, 106, 255, 0.45),
+      transparent 30%
+    ),
+    conic-gradient(
+      from 80deg at 48% 54%,
+      transparent 0deg,
+      rgba(182, 132, 255, 0.44) 65deg,
+      transparent 130deg,
+      rgba(255, 209, 245, 0.34) 230deg,
+      transparent 320deg
+    );
   animation: fogDrift 18s var(--ease-in-out) infinite alternate;
 }
 
 .fogTwo {
   opacity: 0.42;
   background:
-    radial-gradient(ellipse at 8% 52%, rgba(174, 235, 255, 0.46), transparent 24%),
-    radial-gradient(ellipse at 82% 22%, rgba(199, 168, 255, 0.48), transparent 30%),
-    radial-gradient(ellipse at 62% 83%, rgba(255, 194, 242, 0.34), transparent 28%);
+    radial-gradient(
+      ellipse at 8% 52%,
+      rgba(174, 235, 255, 0.46),
+      transparent 24%
+    ),
+    radial-gradient(
+      ellipse at 82% 22%,
+      rgba(199, 168, 255, 0.48),
+      transparent 30%
+    ),
+    radial-gradient(
+      ellipse at 62% 83%,
+      rgba(255, 194, 242, 0.34),
+      transparent 28%
+    );
   animation: fogDriftSlow 23s linear infinite alternate;
 }
 
@@ -140,7 +237,11 @@
   border: 1px solid rgba(255, 255, 255, 0.92);
   border-radius: 999px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0.16)),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.38),
+      rgba(255, 255, 255, 0.16)
+    ),
     rgba(247, 242, 255, 0.46);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.82) inset,
@@ -176,16 +277,6 @@
     0 20px 50px rgba(101, 81, 206, 0.1);
 }
 
-.submit {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
 .feedback {
   position: absolute;
   left: 34px;
@@ -211,13 +302,19 @@
   position: absolute;
   z-index: 1;
   pointer-events: none;
-  top: clamp(-250px, -14vw, -146px);
-  right: clamp(-520px, -26vw, -430px);
-  width: clamp(1120px, 76vw, 1500px);
-  height: clamp(820px, 56.25vw, 1080px);
+  top: clamp(-300px, -15.6vw, -150px);
+  right: clamp(-605px, -31.5vw, -420px);
+  width: clamp(1280px, 87vw, 1670px);
+  height: clamp(940px, 62.5vw, 1200px);
   opacity: 0;
   overflow: hidden;
   will-change: transform, opacity, filter;
+}
+
+.heroGhostBacklight,
+.heroGhostBacklight > div {
+  position: absolute;
+  inset: 0;
 }
 
 .heroGhostImage {
@@ -245,7 +342,11 @@
   border-radius: 999px;
   color: var(--alpha-purple-dark);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.48), rgba(255, 255, 255, 0.2)),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.48),
+      rgba(255, 255, 255, 0.2)
+    ),
     rgba(249, 244, 255, 0.58);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.9) inset,
@@ -257,6 +358,98 @@
   width: 46%;
   height: 46%;
   stroke-width: 2.5;
+}
+
+.introShell {
+  --alpha-purple: #6b57d6;
+  --alpha-purple-dark: #5941c8;
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 100svh;
+  overflow: hidden;
+  color: var(--alpha-purple);
+  font-family: var(--font-poppins), Poppins, system-ui, sans-serif;
+  isolation: isolate;
+
+  [data-abyss-hide] {
+    transition:
+      opacity 500ms cubic-bezier(0.23, 1, 0.32, 1),
+      transform 500ms cubic-bezier(0.23, 1, 0.32, 1),
+      filter 500ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  &.abyss [data-abyss-hide] {
+    opacity: 0;
+    transform: scale(0.96);
+    filter: blur(8px);
+    pointer-events: none;
+  }
+}
+
+.introBackground {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.introContent {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(28px, 4vh, 44px);
+  padding: clamp(32px, 6vw, 64px);
+  text-align: center;
+}
+
+.introTelarana {
+  width: clamp(220px, 26vw, 380px);
+  height: auto;
+  filter: drop-shadow(0 24px 38px rgba(72, 50, 170, 0.25));
+}
+
+.introTitle {
+  margin: 0;
+  color: var(--alpha-purple);
+  font-size: clamp(36px, 4.6vw, 72px);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.introHint {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px clamp(20px, 2vw, 28px);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(10px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.72) inset,
+    0 18px 40px rgba(101, 81, 206, 0.12);
+  color: var(--alpha-purple-dark);
+  font-size: clamp(15px, 1.15vw, 18px);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.introKbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--alpha-cream, #fff0b7);
+  color: var(--alpha-purple-dark);
+  font-family: var(--font-poppins), Poppins, system-ui, sans-serif;
+  font-size: 0.92em;
+  font-weight: 700;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.82) inset,
+    0 2px 0 rgba(101, 81, 206, 0.18);
 }
 
 @keyframes fogDrift {
@@ -288,10 +481,10 @@
   }
 
   .heroGhost {
-    top: -120px;
-    right: -410px;
-    width: 940px;
-    height: 720px;
+    top: -150px;
+    right: -430px;
+    width: 1040px;
+    height: 800px;
   }
 }
 
