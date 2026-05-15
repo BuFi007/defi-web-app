@@ -1,17 +1,19 @@
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
-import { useAppTranslations } from "@/context/TranslationContext";
+import { getTranslations } from "next-intl/server";
 
 export const runtime = "edge";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  await params;
+
   const searchParams = request.nextUrl.searchParams;
   const amount = searchParams.get("amount") || "0";
   const token = searchParams.get("token") || "ETH";
-  const translations = useAppTranslations("OpenGraphClaim");
+  const t = await getTranslations("OpenGraphClaim");
 
   return new ImageResponse(
     (
@@ -34,7 +36,7 @@ export async function GET(
           height="128"
         />
         <h1 style={{ fontSize: 60, margin: "20px 0" }}>
-          {translations.paymentRequest}
+          {t("paymentRequest")}
         </h1>
         <h2 style={{ fontSize: 48, margin: "0 0 20px" }}>
           {amount} {token}

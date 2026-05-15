@@ -12,10 +12,11 @@ import ShareableQRCard from "@/components/qr-gen/share-qr-card";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { usePayLinkStore } from "@/store";
+import { NEXT_PUBLIC_URL } from "@/constants";
 
 export const BaseNameDialogAlert = ({ address }: AddressProps) => {
   const translations = useAppTranslations("EnsAlertDialog");
-  const [copiedText, copy] = useCopyToClipboard();
+  const [, copy] = useCopyToClipboard();
   const [overlayVisible, setOverlayVisible] = useState(false);
   const chainId = useNetworkManager();
   const { ensName, ensNotFound } = useEnsName({
@@ -24,13 +25,13 @@ export const BaseNameDialogAlert = ({ address }: AddressProps) => {
   });
   const locale = useLocale();
   const availableTokens = useGetTokensOrChain(chainId!, "tokens");
-  const { amount, token, chainId: chainIdStore } = usePayLinkStore();
+  const { amount, token } = usePayLinkStore();
 
   const getBaseUrl = () => {
     if (typeof window !== "undefined") {
       return `${window.location.protocol}//${window.location.host}/${locale}`;
     }
-    return `https://defi.boofi.xyz/${locale}`;
+    return `${NEXT_PUBLIC_URL}/${locale}`;
   };
 
   const link = `${getBaseUrl()}/${ensName}?amount=${amount}&token=${

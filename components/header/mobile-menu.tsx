@@ -8,6 +8,7 @@ import { ModeToggle } from "@/components/theme-toggle";
 import LocalSwitcher from "@/components/locale-switcher";
 import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
 import dynamic from "next/dynamic";
+import WalletModule from "@/components/wallet-module";
 
 const AnimatedBackground = dynamic(
   () => import("@/components/lottie-wrapper"),
@@ -77,6 +78,7 @@ const MobileMenu: React.FC = () => {
                 <ModeToggle />
                 <LocalSwitcher />
               </div>
+              <WalletModule />
               <DynamicWidget />
             </div>
           </motion.div>

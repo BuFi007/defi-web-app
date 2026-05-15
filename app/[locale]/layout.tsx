@@ -9,36 +9,29 @@ import { ThemeProvider } from "@/components/theme-provider";
 import GridPattern from "@/components/magicui/grid-pattern";
 import { cn } from "@/utils";
 import Providers from "@/context/DynamicProviders";
-import dynamic from "next/dynamic";
-import { NextIntlClientProvider, useMessages } from "next-intl";
+import { NextIntlClientProvider } from "next-intl";
+import { getMessages } from "next-intl/server";
 import { TranslationProvider } from "@/context/TranslationContext";
 import Loading from "./loading";
 import { RootLayoutProps } from "@/lib/types";
 import { Suspense } from "react";
-import { HeaderSkeleton } from "@/components/skeleton-card";
 import { BlockchainProvider } from "@/context/BlockchainContext";
-
-const Container = dynamic(() => import("@/components/container"), {
-  ssr: false,
-  loading: () => <Loading />,
-});
-
-const Header = dynamic(() => import("@/components/header"), {
-  ssr: false,
-  loading: () => <HeaderSkeleton />,
-});
+import Container from "@/components/container";
+import Header from "@/components/header";
 
 export async function generateMetadata({
-  params: { locale },
+  params,
 }: RootLayoutProps): Promise<Metadata> {
+  const { locale } = await params;
   return generateBuMetadata(locale);
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
-  params: { locale },
+  params,
 }: RootLayoutProps) {
-  const messages = useMessages();
+  const { locale } = await params;
+  const messages = await getMessages();
 
   return (
     <html
@@ -46,7 +39,7 @@ export default function RootLayout({
       className={`${GeistSans.variable} ${GeistMono.variable} scroll-smooth antialiased`}
       suppressHydrationWarning
     >
-      <body className="bg-gradient-to-br from-indigo-100 via-violet-200 to-cyan-300 bg-no-repeat font-nubase dark:bg-gradient-to-r dark:from-gray-900 dark:via-indigo-400 dark:to-gray-800 min-h-screen">
+      <body className="bg-gradient-to-br from-indigo-100 via-violet-200 to-cyan-300 bg-no-repeat font-poppins dark:bg-gradient-to-r dark:from-gray-900 dark:via-indigo-400 dark:to-gray-800 min-h-screen">
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

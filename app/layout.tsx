@@ -1,4 +1,3 @@
-"use client";
 import { Viewport } from "next";
 import "./globals.css";
 

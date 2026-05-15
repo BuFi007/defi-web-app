@@ -249,3 +249,21 @@ export const ModeTestnet = {
   chainName: "ModeTestnet",
   iconUrls: ["https://app.dynamic.xyz/assets/networks/mode.svg"],
 };
+
+export const ArcTestnet = {
+  chainId: 5042002,
+  name: "Arc Testnet",
+  rpcUrls: ["https://rpc.testnet.arc.network"],
+  isMainnet: false,
+  networkId: 5042002,
+  nativeCurrency: {
+    name: "USDC",
+    symbol: "USDC",
+    decimals: 18,
+    iconUrls: ["https://www.arc.network/favicon.ico"],
+  },
+  blockExplorerUrls: ["https://testnet.arcscan.app"],
+  vanityName: "Arc Testnet",
+  chainName: "ArcTestnet",
+  iconUrls: ["https://www.arc.network/favicon.ico"],
+};

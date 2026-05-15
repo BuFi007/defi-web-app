@@ -35,9 +35,13 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
-        clash: ["Clash Display", "sans-serif"],
-        nubase: ["BaseNeue", "sans-serif"],
-        nupower: ["PowerNeue", "sans-serif"],
+        sans: ["Poppins", "system-ui", "sans-serif"],
+        poppins: ["Poppins", "system-ui", "sans-serif"],
+        knicknack: ["Knicknack", "Poppins", "system-ui", "sans-serif"],
+        knick: ["Knicknack", "Poppins", "system-ui", "sans-serif"],
+        clash: ["Knicknack", "Poppins", "sans-serif"],
+        nubase: ["Poppins", "sans-serif"],
+        nupower: ["Poppins", "sans-serif"],
         belgro: ["Belgro", "sans-serif"],
         aeonik: ["Aeonik", "sans-serif"],
       },

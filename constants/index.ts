@@ -1,4 +1,5 @@
-export const NEXT_PUBLIC_URL = "https://defi.boofi.xyz";
+export const NEXT_PUBLIC_URL =
+  process.env.NEXT_PUBLIC_URL ?? "https://fx.bu.finance";
 export const BASE_ENS_ABI = "0x03c4738Ee98aE44591e1A4A4F3CaB6641d95DD9a";
 export const ZAMA_SEPOLIA_PAYMENTS_CONTRACT_ADDRESS =
   "0x29926e231b3AEC585D93Ad9cD47D833607D87C28";

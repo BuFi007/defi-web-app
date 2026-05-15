@@ -4,9 +4,9 @@ import * as chains from "wagmi/chains";
 
 export interface RootLayoutProps {
   children: React.ReactNode;
-  params: {
+  params: Promise<{
     locale: string;
-  };
+  }>;
 }
 
 export interface CurrencyInfo {
@@ -432,7 +432,7 @@ export interface Translations {
   };
 }
 
-export type ChainList = 43113 | 919 | undefined;
+export type ChainList = 43113 | 919 | 5042002 | undefined;
 export interface WriteButtonProps {
   label: string;
   tokenAddress?: string;

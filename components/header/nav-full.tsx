@@ -12,14 +12,15 @@ import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
 import { useHoverAudio } from "@/utils/audio-hover";
 import { ActionBannerSkeleton } from "@/components/skeleton-card";
 import dynamic from "next/dynamic";
+import WalletModule from "@/components/wallet-module";
 
 const ActionBanner = dynamic(() => import("./action-banner"), {
   loading: () => <ActionBannerSkeleton />,
 });
 const song = "/sounds/anime-wow-sound-effect.mp3";
+const MotionLink = motion(Link);
 
 const HeaderFull: React.FC = () => {
-  const MotionLink = motion(Link);
   const { playHoverSound, resetHoverSound } = useHoverAudio(song);
 
   return (
@@ -63,6 +64,7 @@ const HeaderFull: React.FC = () => {
           <span className="h-px flex-grow bg-border"></span>
           <Suspense fallback={<Skeleton className="h-4 w-[250px]" />}>
             <div className="flex items-center gap-3 z-20">
+              <WalletModule />
               <DynamicWidget />
             </div>
           </Suspense>

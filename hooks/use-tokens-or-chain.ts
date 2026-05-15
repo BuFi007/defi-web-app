@@ -1,15 +1,14 @@
 import {
-  AvalancheTokens,
   AvalancheFujiTokens,
+  ArcTestnetTokens,
   ModeTestnetTokens,
 } from "@/constants/Tokens";
-import { Avalanche, AvalancheFuji, ModeTestnet } from "@/constants/Chains";
-import { IS_MAINNET as isMainnet } from "@/constants/Env";
+import { ArcTestnet, AvalancheFuji, ModeTestnet } from "@/constants/Chains";
 
 const CHAIN_CONFIG = {
-  // 43114: { chain: Avalanche, tokens: AvalancheTokens },
   43113: { chain: AvalancheFuji, tokens: AvalancheFujiTokens },
   919: { chain: ModeTestnet, tokens: ModeTestnetTokens },
+  5042002: { chain: ArcTestnet, tokens: ArcTestnetTokens },
 };
 
 export const useGetTokensOrChain = (

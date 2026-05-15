@@ -1,11 +1,7 @@
 import { http, createConfig, useConnectorClient, Config } from "wagmi";
 import {
   avalancheFuji,
-  baseSepolia,
-  avalanche,
-  base,
-  bsc,
-  bscTestnet,
+  arcTestnet,
   modeTestnet,
 } from "wagmi/chains";
 import { useMemo } from "react";
@@ -13,10 +9,11 @@ import { providers } from "ethers";
 import type { Account, Chain, Client, Transport } from "viem";
 
 export const config = createConfig({
-  chains: [avalancheFuji, modeTestnet],
+  chains: [avalancheFuji, modeTestnet, arcTestnet],
   transports: {
     [avalancheFuji.id]: http(),
     [modeTestnet.id]: http(),
+    [arcTestnet.id]: http("https://rpc.testnet.arc.network"),
   },
 });
 

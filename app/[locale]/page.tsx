@@ -2,34 +2,36 @@ import { HomeContent } from "@/components/home";
 import { Suspense } from "react";
 import { MoneyMarketSkeleton } from "@/components/skeleton-card";
 import { Metadata } from "next";
+import { NEXT_PUBLIC_URL } from "@/constants";
 
 export const generateMetadata = (): Metadata => {
   return {
-    title: "Boofi DeFi | Web3 Financial Solutions",
+    metadataBase: new URL(NEXT_PUBLIC_URL),
+    title: "Bufi | Web3 Financial Solutions",
     description:
-      "Boofi DeFi provides innovative Web3 financial solutions for decentralized finance. Explore our platform for secure and efficient DeFi services.",
+      "Bufi provides innovative Web3 financial solutions for decentralized finance. Explore our platform for secure and efficient DeFi services.",
     openGraph: {
-      title: "Boofi DeFi | Web3 Financial Solutions",
+      title: "Bufi | Web3 Financial Solutions",
       description:
-        "Boofi DeFi provides innovative Web3 financial solutions for decentralized finance. Explore our platform for secure and efficient DeFi services.",
+        "Bufi provides innovative Web3 financial solutions for decentralized finance. Explore our platform for secure and efficient DeFi services.",
       images: [
         {
           url: "/images/iso-logo.png",
           width: 800,
           height: 600,
-          alt: "Boofi DeFi Logo",
+          alt: "Bufi Logo",
         },
       ],
       type: "website",
-      siteName: "Boofi DeFi",
+      siteName: "Bufi",
     },
     twitter: {
       card: "summary_large_image",
-      title: "Boofi DeFi | Web3 Financial Solutions",
+      title: "Bufi | Web3 Financial Solutions",
       description:
-        "Boofi DeFi provides innovative Web3 financial solutions for decentralized finance. Explore our platform for secure and efficient DeFi services.",
+        "Bufi provides innovative Web3 financial solutions for decentralized finance. Explore our platform for secure and efficient DeFi services.",
       images: ["/images/iso-logo.png"],
-      creator: "@BoofiDeFi",
+      creator: "@bufi",
     },
     keywords: [
       "DeFi",
@@ -37,7 +39,7 @@ export const generateMetadata = (): Metadata => {
       "Blockchain",
       "Cryptocurrency",
       "Decentralized Finance",
-      "Boofi",
+      "Bufi",
       "Financial Solutions",
       "Digital Assets",
       "Smart Contracts",

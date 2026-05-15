@@ -5,12 +5,12 @@ import { getLinkDetails } from "@squirrel-labs/peanut-sdk";
 import { getTranslations } from "next-intl/server";
 
 type Props = {
-  params: { locale: string };
-  searchParams: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{
     v?: string;
     l?: string;
     chain?: string;
-  };
+  }>;
 };
 
 async function getClaimDetails(
@@ -29,7 +29,11 @@ export async function generateMetadata({
   params,
   searchParams,
 }: Props): Promise<Metadata> {
-  const headersList = headers();
+  const [{ locale }, { l, chain }, headersList] = await Promise.all([
+    params,
+    searchParams,
+    headers(),
+  ]);
   const origin = headersList.get("origin") || "";
   const baseUrl = origin.startsWith("https")
     ? process.env.NEXT_PUBLIC_MAINNET_URL
@@ -39,18 +43,18 @@ export async function generateMetadata({
   const t = await getTranslations("OpenGraphClaim");
 
   try {
-    const linkCode = searchParams.l;
+    const linkCode = l;
     if (!linkCode) throw new Error("No link code provided");
 
     const details = await getClaimDetails(linkCode);
 
     const amount = details.tokenAmount?.toString() ?? "0";
     const token = details.tokenSymbol?.toString() ?? "ETH";
-    const chain = searchParams.chain ?? "1";
+    const chainId = chain ?? "1";
 
     const ogImageUrl = `${baseUrl}/api/og/claim?amount=${encodeURIComponent(
       amount
-    )}&token=${encodeURIComponent(token)}&chain=${encodeURIComponent(chain)}`;
+    )}&token=${encodeURIComponent(token)}&chain=${encodeURIComponent(chainId)}`;
 
     const title = `${t("claimTitle")} ${amount} ${token} ${t("claimTitle2")}`;
     const description = `${t("description")} ${amount} ${token}. ${t(
@@ -64,7 +68,7 @@ export async function generateMetadata({
         title,
         description,
         images: [{ url: ogImageUrl }],
-        url: `${baseUrl}/${params.locale}/claim`,
+        url: `${baseUrl}/${locale}/claim`,
         siteName: "Bu.fi",
         type: "website",
       },
@@ -88,7 +92,7 @@ export async function generateMetadata({
         title: fallbackTitle,
         description: fallbackDescription,
         images: [{ url: fallbackImage }],
-        url: `${baseUrl}/${params.locale}/claim`,
+        url: `${baseUrl}/${locale}/claim`,
         siteName: "Bu.fi",
         type: "website",
       },

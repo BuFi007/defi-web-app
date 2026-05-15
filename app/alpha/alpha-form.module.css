@@ -1,0 +1,352 @@
+.shell {
+  --alpha-purple: #6b57d6;
+  --alpha-purple-dark: #5941c8;
+  --alpha-cream: #fff0b7;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+  position: relative;
+  min-height: 100svh;
+  overflow: hidden;
+  color: var(--alpha-purple);
+  font-family: var(--font-poppins), Poppins, system-ui, sans-serif;
+  background:
+    linear-gradient(90deg, rgba(241, 238, 255, 0.96) 0%, rgba(240, 230, 255, 0.72) 50%, rgba(245, 240, 255, 0.9) 100%),
+    radial-gradient(circle at 54% 52%, rgba(207, 142, 255, 0.35), transparent 26%),
+    radial-gradient(circle at 18% 12%, rgba(255, 232, 160, 0.38), transparent 18%),
+    #f1eeff;
+  isolation: isolate;
+}
+
+.referenceWash {
+  position: absolute;
+  inset: 0;
+  z-index: -4;
+  pointer-events: none;
+  background-image: url("/assets/alpha-reference-bg.png");
+  background-size: cover;
+  background-position: center;
+  opacity: 0.24;
+  filter: saturate(1.15) blur(0.3px);
+  transform: scale(1.01);
+}
+
+.referenceWash::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(247, 244, 255, 0.36) 0%, rgba(241, 232, 255, 0.2) 46%, rgba(241, 235, 255, 0.5) 100%),
+    radial-gradient(circle at 52% 50%, rgba(209, 111, 255, 0.26), transparent 32%);
+}
+
+.fogOne,
+.fogTwo {
+  position: absolute;
+  inset: -22%;
+  z-index: -3;
+  pointer-events: none;
+  filter: blur(48px);
+  transform: translate3d(0, 0, 0);
+}
+
+.fogOne {
+  opacity: 0.58;
+  background:
+    radial-gradient(ellipse at 23% 20%, rgba(255, 237, 173, 0.5), transparent 28%),
+    radial-gradient(ellipse at 55% 58%, rgba(218, 106, 255, 0.45), transparent 30%),
+    conic-gradient(from 80deg at 48% 54%, transparent 0deg, rgba(182, 132, 255, 0.44) 65deg, transparent 130deg, rgba(255, 209, 245, 0.34) 230deg, transparent 320deg);
+  animation: fogDrift 18s var(--ease-in-out) infinite alternate;
+}
+
+.fogTwo {
+  opacity: 0.42;
+  background:
+    radial-gradient(ellipse at 8% 52%, rgba(174, 235, 255, 0.46), transparent 24%),
+    radial-gradient(ellipse at 82% 22%, rgba(199, 168, 255, 0.48), transparent 30%),
+    radial-gradient(ellipse at 62% 83%, rgba(255, 194, 242, 0.34), transparent 28%);
+  animation: fogDriftSlow 23s linear infinite alternate;
+}
+
+.content {
+  position: relative;
+  z-index: 2;
+  width: min(58vw, 900px);
+  padding-left: clamp(44px, 7.5vw, 145px);
+  padding-top: clamp(72px, 15vh, 166px);
+}
+
+.wordmarkWrap {
+  width: clamp(340px, 30.7vw, 590px);
+  margin-bottom: clamp(28px, 3.95vh, 43px);
+}
+
+.wordmark {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 12px 14px rgba(72, 50, 170, 0.09));
+}
+
+.headlineRow {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-width: 0;
+}
+
+.alphaLabel {
+  margin: 0;
+  color: var(--alpha-purple);
+  font-size: clamp(58px, 5.25vw, 101px);
+  font-weight: 700;
+  line-height: 0.92;
+  letter-spacing: -0.055em;
+}
+
+.protocol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: clamp(58px, 4.45vw, 84px);
+  border-radius: 999px;
+  background: var(--alpha-cream);
+  padding: 0 clamp(24px, 1.9vw, 34px);
+  color: var(--alpha-purple);
+  font-size: clamp(19px, 1.46vw, 28px);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.72) inset,
+    0 14px 30px rgba(115, 82, 202, 0.07);
+}
+
+.title {
+  width: max-content;
+  margin: -2px 0 0;
+  color: var(--alpha-purple);
+  font-size: clamp(72px, 5.85vw, 113px);
+  font-weight: 700;
+  line-height: 0.94;
+  letter-spacing: -0.064em;
+}
+
+.form {
+  position: relative;
+  margin-top: clamp(18px, 2.55vh, 28px);
+  width: min(45.8vw, 880px);
+}
+
+.passwordPill {
+  display: flex;
+  width: 100%;
+  height: clamp(66px, 4.58vw, 88px);
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0.16)),
+    rgba(247, 242, 255, 0.46);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.82) inset,
+    0 20px 50px rgba(101, 81, 206, 0.08);
+  backdrop-filter: blur(7px);
+}
+
+.input {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  border-radius: inherit;
+  background: transparent;
+  padding: 0 clamp(34px, 9vw, 170px);
+  color: var(--alpha-purple-dark);
+  text-align: center;
+  font: inherit;
+  font-size: clamp(25px, 2.05vw, 40px);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+}
+
+.input::placeholder {
+  color: var(--alpha-purple);
+  opacity: 1;
+}
+
+.passwordPill:focus-within {
+  box-shadow:
+    0 0 0 5px rgba(154, 122, 255, 0.18),
+    0 1px 0 rgba(255, 255, 255, 0.84) inset,
+    0 20px 50px rgba(101, 81, 206, 0.1);
+}
+
+.submit {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.feedback {
+  position: absolute;
+  left: 34px;
+  top: calc(100% + 12px);
+  min-height: 22px;
+  margin: 0;
+  color: #b5477b;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.heroGhost {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  top: clamp(-250px, -14vw, -146px);
+  right: clamp(-520px, -26vw, -430px);
+  width: clamp(1120px, 76vw, 1500px);
+  opacity: 0;
+  will-change: transform, opacity, filter;
+}
+
+.heroGhostImage {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(-28px 34px 46px rgba(72, 49, 177, 0.18));
+}
+
+@keyframes fogDrift {
+  from {
+    transform: translate3d(-1.6%, -1%, 0) rotate(0deg) scale(1.02);
+  }
+  to {
+    transform: translate3d(2%, 1.4%, 0) rotate(10deg) scale(1.09);
+  }
+}
+
+@keyframes fogDriftSlow {
+  from {
+    transform: translate3d(2%, 1%, 0) rotate(-2deg) scale(1.04);
+  }
+  to {
+    transform: translate3d(-2%, -1.5%, 0) rotate(7deg) scale(1.1);
+  }
+}
+
+@media (max-width: 1180px) {
+  .content {
+    width: min(66vw, 760px);
+    padding-left: clamp(28px, 6vw, 80px);
+  }
+
+  .form {
+    width: min(56vw, 700px);
+  }
+
+  .heroGhost {
+    right: -390px;
+    width: 850px;
+  }
+}
+
+@media (max-width: 860px) {
+  .content {
+    width: 100%;
+    padding: 72px 24px 0;
+  }
+
+  .wordmarkWrap {
+    width: min(82vw, 450px);
+  }
+
+  .headlineRow {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .alphaLabel {
+    font-size: clamp(64px, 18vw, 92px);
+  }
+
+  .title {
+    width: auto;
+    font-size: clamp(58px, 15vw, 84px);
+  }
+
+  .protocol {
+    min-height: 48px;
+    font-size: 18px;
+  }
+
+  .form {
+    width: min(100%, 650px);
+  }
+
+  .input {
+    padding: 0 28px;
+    font-size: clamp(22px, 6.2vw, 34px);
+  }
+
+  .heroGhost {
+    top: auto;
+    right: -220px;
+    bottom: -165px;
+    width: 590px;
+    opacity: 0.38;
+  }
+}
+
+@media (max-width: 520px) {
+  .content {
+    padding: 56px 20px 0;
+  }
+
+  .wordmarkWrap {
+    width: min(86vw, 350px);
+    margin-bottom: 34px;
+  }
+
+  .protocol {
+    font-size: 15px;
+    padding: 0 18px;
+  }
+
+  .passwordPill {
+    height: 64px;
+  }
+
+  .heroGhost {
+    right: -238px;
+    bottom: -128px;
+    width: 520px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fogOne,
+  .fogTwo {
+    animation: none;
+  }
+
+  .heroGhost {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}

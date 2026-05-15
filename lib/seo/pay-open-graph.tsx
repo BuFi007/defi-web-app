@@ -3,15 +3,16 @@ import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 
 type Props = {
-  params: { id: string; locale: string };
-  searchParams: { amount?: string; token?: string; chain?: string };
+  params: Promise<{ id: string; locale: string }>;
+  searchParams: Promise<{ amount?: string; token?: string; chain?: string }>;
 };
 
 export async function generateMetadata(
   { params, searchParams }: Props,
   parent: ResolvingMetadata
 ): Promise<Metadata> {
-  const headersList = headers();
+  const [{ id, locale }, { amount, token, chain }, headersList] =
+    await Promise.all([params, searchParams, headers()]);
   const origin = headersList.get("origin") || "";
   const baseUrl = origin.startsWith("https")
     ? process.env.NEXT_PUBLIC_MAINNET_URL
@@ -20,21 +21,18 @@ export async function generateMetadata(
   const t = await getTranslations("OpenGraphPayment");
 
   try {
-    const amount = searchParams.amount || "0";
-    const token = searchParams.token || "ETH";
-    const chain = searchParams.chain || "base";
-
-
     const ogImageUrl = `${baseUrl}/api/${encodeURIComponent(
-      params.id
-    )}?amount=${encodeURIComponent(amount)}&token=${encodeURIComponent(
-      token
-    )}&chain=${encodeURIComponent(chain)}`;
+      id
+    )}?amount=${encodeURIComponent(amount || "0")}&token=${encodeURIComponent(
+      token || "ETH"
+    )}&chain=${encodeURIComponent(chain || "base")}`;
 
-    const title = `${t("paymentTitle")} ${amount} ${token}`;
-    const description = `${t("paymentDescription")} ${amount} ${token} ${t(
+    const title = `${t("paymentTitle")} ${amount || "0"} ${token || "ETH"}`;
+    const description = `${t("paymentDescription")} ${amount || "0"} ${
+      token || "ETH"
+    } ${t(
       "paymentDescription2"
-    )}${params.id} ${t("paymentDescription3")}`;
+    )}${id} ${t("paymentDescription3")}`;
 
     return {
       title,
@@ -42,7 +40,7 @@ export async function generateMetadata(
       openGraph: {
         title,
         description,
-        url: `${baseUrl}/${params.locale}/${params.id}`,
+        url: `${baseUrl}/${locale}/${id}`,
         images: [ogImageUrl],
         siteName: "Bu.fi",
         type: "website",
@@ -68,7 +66,7 @@ export async function generateMetadata(
         title: fallbackTitle,
         description: fallbackDescription,
         images: [{ url: fallbackImage }],
-        url: `${baseUrl}/${params.locale}/${params.id}`,
+        url: `${baseUrl}/${locale}/${id}`,
         siteName: "Bu.fi",
         type: "website",
       },
