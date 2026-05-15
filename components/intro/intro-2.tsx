@@ -4,6 +4,7 @@ import Image from "next/image";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ReactTyped } from "react-typed";
 import {
   useEffect,
   useMemo,
@@ -254,12 +255,22 @@ export default function Intro2() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="We make spooky things easy"
               autoFocus
               className={styles.input}
               aria-invalid={Boolean(error)}
               aria-describedby={error ? "alpha-error" : undefined}
             />
+            {password.length === 0 && (
+              <span className={styles.typedPlaceholder} aria-hidden="true">
+                <ReactTyped
+                  strings={["We make spooky things easy"]}
+                  typeSpeed={55}
+                  startDelay={1000}
+                  showCursor
+                  cursorChar="|"
+                />
+              </span>
+            )}
           </label>
           <p id="alpha-error" className={styles.feedback} aria-live="polite">
             {error}

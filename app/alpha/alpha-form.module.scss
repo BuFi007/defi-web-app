@@ -263,11 +263,38 @@
   font-size: clamp(25px, 2.05vw, 40px);
   font-weight: 600;
   letter-spacing: -0.045em;
+  caret-color: transparent;
 }
 
 .input::placeholder {
   color: var(--alpha-purple);
   opacity: 1;
+}
+
+.typedPlaceholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  color: var(--alpha-purple);
+  font: inherit;
+  font-size: clamp(25px, 2.05vw, 40px);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+}
+
+.typedPlaceholder :global(.typed-cursor) {
+  display: inline-block;
+  margin-left: 2px;
+  color: var(--alpha-purple-dark);
+  animation: typedCursorBlink 0.9s ease-in-out infinite;
+}
+
+@keyframes typedCursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
 .passwordPill:focus-within {
@@ -302,12 +329,12 @@
   position: absolute;
   z-index: 1;
   pointer-events: none;
-  top: clamp(-300px, -15.6vw, -150px);
-  right: clamp(-605px, -31.5vw, -420px);
-  width: clamp(1280px, 87vw, 1670px);
-  height: clamp(940px, 62.5vw, 1200px);
+  top: calc(50% - clamp(220px, 19vw, 310px));
+  right: clamp(24px, 4vw, 80px);
+  width: clamp(440px, 38vw, 620px);
+  height: clamp(440px, 38vw, 620px);
   opacity: 0;
-  overflow: hidden;
+  overflow: visible;
   will-change: transform, opacity, filter;
 }
 
@@ -391,11 +418,22 @@
   position: absolute;
   inset: 0;
   z-index: 0;
+
+  // Strip the white veil + soften the radial overlay so the WebGL canvas
+  // shows through vibrantly. AnimatedBackground renders 3 children — the
+  // tinted blur overlay (1st), the canvas (2nd), and the white wash (3rd).
+  > div:first-child {
+    opacity: 0.35;
+  }
+  > div:last-child {
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+  }
 }
 
 .introContent {
   position: relative;
-  z-index: 2;
+  z-index: 3;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -404,19 +442,45 @@
   text-align: center;
 }
 
+.introTelaranaLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0.72;
+  mix-blend-mode: screen;
+  mask-image: radial-gradient(
+    ellipse 75% 55% at center,
+    transparent 0%,
+    rgba(0, 0, 0, 0.35) 38%,
+    #000 70%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 75% 55% at center,
+    transparent 0%,
+    rgba(0, 0, 0, 0.35) 38%,
+    #000 70%
+  );
+}
+
 .introTelarana {
-  width: clamp(220px, 26vw, 380px);
-  height: auto;
+  object-fit: cover;
+  object-position: center;
   filter: drop-shadow(0 24px 38px rgba(72, 50, 170, 0.25));
 }
 
 .introTitle {
   margin: 0;
   color: var(--alpha-purple);
-  font-size: clamp(36px, 4.6vw, 72px);
+  font-family: "Knicknack", "Poppins", system-ui, sans-serif;
+  font-size: clamp(48px, 6.2vw, 96px);
   font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.05em;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6),
+    0 14px 30px rgba(101, 81, 206, 0.18);
 }
 
 .introHint {
@@ -481,10 +545,10 @@
   }
 
   .heroGhost {
-    top: -150px;
-    right: -430px;
-    width: 1040px;
-    height: 800px;
+    top: calc(50% - 220px);
+    right: 16px;
+    width: 440px;
+    height: 440px;
   }
 }
 
@@ -541,11 +605,11 @@
 
   .heroGhost {
     top: auto;
-    right: -250px;
-    bottom: -225px;
-    width: 610px;
-    height: 610px;
-    opacity: 0.28;
+    right: -80px;
+    bottom: -60px;
+    width: 320px;
+    height: 320px;
+    opacity: 0.4;
   }
 }
 
@@ -573,10 +637,10 @@
   }
 
   .heroGhost {
-    right: -292px;
-    bottom: -226px;
-    width: 560px;
-    height: 560px;
+    right: -60px;
+    bottom: -40px;
+    width: 260px;
+    height: 260px;
   }
 }
 

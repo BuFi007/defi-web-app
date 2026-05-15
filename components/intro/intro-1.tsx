@@ -21,16 +21,18 @@ export default function Intro1({ abyss = false }: Intro1Props) {
     >
       <AnimatedBackground className={styles.introBackground} />
 
-      <div className={styles.introContent}>
+      <div className={styles.introTelaranaLayer} data-abyss-hide>
         <Image
           src={telaranaImgSrc}
           alt={telaranaImgAlt}
-          width={520}
-          height={520}
+          fill
           priority
-          data-abyss-hide
+          sizes="100vw"
           className={styles.introTelarana}
         />
+      </div>
+
+      <div className={styles.introContent}>
         <h1 className={styles.introTitle} data-abyss-hide>
           Welcome to Telaraña
         </h1>
