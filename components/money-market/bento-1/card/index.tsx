@@ -14,6 +14,7 @@ import {
 import { erc20Abi, formatUnits, Hex, parseUnits } from "viem";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
+import { toWagmiChainId } from "@/utils/chain";
 import { useUsdcChain } from "@/hooks/use-usdc-chain";
 import { useToast } from "@/components/ui/use-toast";
 import { Chain } from "@/lib/types";
@@ -53,15 +54,14 @@ export function MoneyMarketCard() {
   const { data: usdcBalance } = useReadContract({
     address: USDC_ADDRESS?.address as Hex,
     abi: erc20Abi,
-    // ChainList is wider than wagmi's configured chain union; widen here.
-    chainId: chainId as any,
+    chainId: toWagmiChainId(chainId),
     functionName: "balanceOf",
     args: [address as `0x${string}`],
   });
 
   const { data: tokenBalance } = useTokenBalance({
     address: address as `0x${string}`,
-    chainId: chainId as any,
+    chainId: toWagmiChainId(chainId),
     tokenAddress: selectedToken?.address as `0x${string}`,
     decimals: selectedToken?.decimals ?? 18,
   });
