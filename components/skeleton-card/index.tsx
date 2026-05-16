@@ -179,7 +179,6 @@ const HeaderSkeleton: React.FC = () => {
               alt="Bu Logo"
               width={100}
               height={100}
-              priority
               className="animate-pulse"
             />
           </div>

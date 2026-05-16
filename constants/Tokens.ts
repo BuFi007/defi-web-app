@@ -307,7 +307,7 @@ export const ModeTestnetTokens: Token[] = [
     name: "BUFI",
     payable: true,
     symbol: "BUFI",
-    image: "/images/bufi-coin.svg",
+    image: "/images/BUFI-coin.svg",
   },
   {
     address: "0x9336257211006c935c8A0351fDF1FFB8e1cdAF08" as Hex,

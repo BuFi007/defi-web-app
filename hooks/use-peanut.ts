@@ -14,6 +14,31 @@ import { Token } from "@/lib/types";
 import { PEANUTAPIKEY } from "@/constants/Env";
 import { playAudio, saveCreatedLinkToLocalStorage } from "@/utils";
 
+const getPeanutApiKey = () => {
+  if (!PEANUTAPIKEY) {
+    throw new Error("NEXT_PUBLIC_DEEZ_NUTS_API_KEY is not set");
+  }
+
+  return PEANUTAPIKEY;
+};
+
+const toError = (error: unknown) =>
+  error instanceof Error ? error : new Error(String(error));
+
+const isUserRejectedError = (error: unknown) => {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+
+  const maybeWalletError = error as { code?: unknown; message?: unknown };
+
+  return (
+    maybeWalletError.code === "ACTION_REJECTED" ||
+    (typeof maybeWalletError.message === "string" &&
+      maybeWalletError.message.includes("user rejected"))
+  );
+};
+
 export const usePeanut = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const { primaryWallet } = useDynamicContext();
@@ -123,11 +148,8 @@ export const usePeanut = () => {
               await txHash.wait();
             }
           }
-        } catch (error: any) {
-          if (
-            error.code === "ACTION_REJECTED" ||
-            error.message.includes("user rejected")
-          ) {
+        } catch (error: unknown) {
+          if (isUserRejectedError(error)) {
             onFinished?.();
             return null;
           }
@@ -149,7 +171,7 @@ export const usePeanut = () => {
         txHash: txHash,
         passwords: [password],
       });
-      let links: string[] = getLinksFromTxResponse.links;
+      const links: string[] = getLinksFromTxResponse.links;
 
       toast({
         title: "Link created successfully",
@@ -168,15 +190,12 @@ export const usePeanut = () => {
 
       onSuccess?.();
       return { transactionHash: txHash, paymentLink: link };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error creating pay link:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const normalizedError = toError(error);
+      const errorMessage = normalizedError.message;
 
-      if (
-        error.code === "ACTION_REJECTED" ||
-        errorMessage.includes("user rejected")
-      ) {
+      if (isUserRejectedError(error)) {
         onFinished?.();
         return null;
       }
@@ -187,8 +206,8 @@ export const usePeanut = () => {
         description: errorMessage,
         variant: "destructive",
       });
-      onFailed?.(error);
-      throw error;
+      onFailed?.(normalizedError);
+      throw normalizedError;
     } finally {
       setIsLoading(false);
       setLoading(false);
@@ -222,7 +241,7 @@ export const usePeanut = () => {
 
       const claimedLinkResponse = await claimLinkGasless({
         link,
-        APIKey: PEANUTAPIKEY!,
+        APIKey: getPeanutApiKey(),
         recipientAddress: wallet as `0x${string}`,
         baseUrl: `https://api.peanut.to/claim-v2`,
       });
@@ -244,18 +263,18 @@ export const usePeanut = () => {
       onInProgress?.();
       onSuccess?.();
       return claimedLinkResponse.txHash;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error claiming paylink:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const normalizedError = toError(error);
+      const errorMessage = normalizedError.message;
       setError(errorMessage);
       toast({
         title: "Error claiming link",
         description: errorMessage,
         variant: "destructive",
       });
-      onFailed?.(error);
-      throw error;
+      onFailed?.(normalizedError);
+      throw normalizedError;
     } finally {
       setIsLoading(false);
       setLoading(false);
@@ -287,7 +306,7 @@ export const usePeanut = () => {
         recipientAddress: primaryWallet.address as `0x${string}`,
         destinationChainId: Number(destinationChainId).toString(),
         destinationToken: destinationToken,
-        APIKey: PEANUTAPIKEY!,
+        APIKey: getPeanutApiKey(),
         isMainnet: isMainnet || false,
         slippage: 10,
       });
@@ -308,18 +327,18 @@ export const usePeanut = () => {
       onInProgress?.();
       onSuccess?.();
       return claimedLinkResponse.txHash;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error claiming cross-chain paylink:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const normalizedError = toError(error);
+      const errorMessage = normalizedError.message;
       setError(errorMessage);
       toast({
         title: "Error claiming cross-chain link",
         description: errorMessage,
         variant: "destructive",
       });
-      onFailed?.(error);
-      throw error;
+      onFailed?.(normalizedError);
+      throw normalizedError;
     } finally {
       setIsLoading(false);
       setLoading(false);

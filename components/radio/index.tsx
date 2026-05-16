@@ -19,8 +19,9 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/utils";
-import { CHANNELS, type Channel } from "./channels";
+import { type Channel } from "./channels";
 import { useChannelAvailability } from "./use-channel-availability";
+import { useChannelDiscovery, type ResolvedChannel } from "./use-channel-discovery";
 import { useYouTubePlayer } from "./use-yt-player";
 
 type View = "idle" | "expanded";
@@ -45,37 +46,59 @@ export default function RadioBar() {
   } | null>(null);
 
   const { unavailable, markUnavailable } = useChannelAvailability();
+  const { channels: discoveredChannels } = useChannelDiscovery();
 
-  const visibleChannels = useMemo(
-    () => CHANNELS.filter((c) => !unavailable.has(c.id)),
-    [unavailable],
+  // A channel is "playable" when (a) we have an effective videoId for it
+  // (verified static or resolved from search) AND (b) it hasn't been
+  // marked dead by oEmbed/onError. This is the canonical visible list.
+  const playableChannels = useMemo(
+    () =>
+      discoveredChannels.filter(
+        (c) => c.effectiveVideoId && !unavailable.has(c.id),
+      ),
+    [discoveredChannels, unavailable],
   );
 
-  // Find next/prev channel index in CHANNELS that skips dead ones.
-  const findNextAvailable = useCallback(
+  // Find next/prev playable channel index. Hops over dead ones.
+  const findNextPlayable = useCallback(
     (fromIdx: number, direction: 1 | -1) => {
-      const len = CHANNELS.length;
-      for (let i = 1; i <= len; i++) {
-        const idx = ((fromIdx + direction * i) % len + len) % len;
-        if (!unavailable.has(CHANNELS[idx].id)) return idx;
-      }
-      return fromIdx;
+      const len = playableChannels.length;
+      if (len === 0) return fromIdx;
+      const currentId = discoveredChannels[fromIdx]?.id;
+      const currentInPlayable = playableChannels.findIndex(
+        (c) => c.id === currentId,
+      );
+      const start = currentInPlayable >= 0 ? currentInPlayable : 0;
+      const next = ((start + direction + len) % len + len) % len;
+      const nextId = playableChannels[next].id;
+      return discoveredChannels.findIndex((c) => c.id === nextId);
     },
-    [unavailable],
+    [discoveredChannels, playableChannels],
   );
 
-  // If the current channel just became unavailable, hop to the next live one.
+  // If the current channel just became unplayable, hop to the next live one.
   useEffect(() => {
-    if (unavailable.has(CHANNELS[channelIdx].id)) {
-      const nextIdx = findNextAvailable(channelIdx, 1);
-      if (nextIdx !== channelIdx) setChannelIdx(nextIdx);
+    const current = discoveredChannels[channelIdx];
+    if (!current) return;
+    const stillPlayable =
+      current.effectiveVideoId && !unavailable.has(current.id);
+    if (!stillPlayable && playableChannels.length > 0) {
+      const nextIdx = findNextPlayable(channelIdx, 1);
+      if (nextIdx >= 0 && nextIdx !== channelIdx) setChannelIdx(nextIdx);
     }
-  }, [unavailable, channelIdx, findNextAvailable]);
+  }, [
+    discoveredChannels,
+    channelIdx,
+    unavailable,
+    playableChannels,
+    findNextPlayable,
+  ]);
 
-  const channel = CHANNELS[channelIdx];
+  const channel: ResolvedChannel | undefined = discoveredChannels[channelIdx];
+  const videoIdToPlay = channel?.effectiveVideoId ?? null;
 
   const { mountRef, player } = useYouTubePlayer({
-    videoId: channel.videoId,
+    videoId: videoIdToPlay ?? "",
     onStateChange: (state) => {
       if (state === 1) setPlaying(true);
       else if (state === 2 || state === 0) setPlaying(false);
@@ -83,9 +106,11 @@ export default function RadioBar() {
     onError: (code) => {
       // 2 = invalid id, 100 = not found, 101/150 = embedding disallowed
       if (code === 2 || code === 100 || code === 101 || code === 150) {
-        markUnavailable(channel.id);
-        const nextIdx = findNextAvailable(channelIdx, 1);
-        if (nextIdx !== channelIdx) setChannelIdx(nextIdx);
+        if (channel) {
+          markUnavailable(channel.id);
+          const nextIdx = findNextPlayable(channelIdx, 1);
+          if (nextIdx >= 0 && nextIdx !== channelIdx) setChannelIdx(nextIdx);
+        }
       }
     },
   });
@@ -96,31 +121,36 @@ export default function RadioBar() {
     else player.playVideo();
   }, [player, playing]);
 
-  const goToChannelId = useCallback((id: string) => {
-    const idx = CHANNELS.findIndex((c) => c.id === id);
-    if (idx < 0) return;
-    setChannelIdx(idx);
-    requestAnimationFrame(() => {
-      const node = scrollerRef.current?.querySelector<HTMLElement>(
-        `[data-channel-id="${id}"]`,
-      );
-      node?.scrollIntoView({
-        behavior: "smooth",
-        inline: "center",
-        block: "nearest",
+  const goToChannelId = useCallback(
+    (id: string) => {
+      const idx = discoveredChannels.findIndex((c) => c.id === id);
+      if (idx < 0) return;
+      setChannelIdx(idx);
+      requestAnimationFrame(() => {
+        const node = scrollerRef.current?.querySelector<HTMLElement>(
+          `[data-channel-id="${id}"]`,
+        );
+        node?.scrollIntoView({
+          behavior: "smooth",
+          inline: "center",
+          block: "nearest",
+        });
       });
-    });
-  }, []);
+    },
+    [discoveredChannels],
+  );
 
   const prev = useCallback(() => {
-    const idx = findNextAvailable(channelIdx, -1);
-    goToChannelId(CHANNELS[idx].id);
-  }, [channelIdx, findNextAvailable, goToChannelId]);
+    const idx = findNextPlayable(channelIdx, -1);
+    const target = discoveredChannels[idx];
+    if (target) goToChannelId(target.id);
+  }, [channelIdx, findNextPlayable, goToChannelId, discoveredChannels]);
 
   const next = useCallback(() => {
-    const idx = findNextAvailable(channelIdx, 1);
-    goToChannelId(CHANNELS[idx].id);
-  }, [channelIdx, findNextAvailable, goToChannelId]);
+    const idx = findNextPlayable(channelIdx, 1);
+    const target = discoveredChannels[idx];
+    if (target) goToChannelId(target.id);
+  }, [channelIdx, findNextPlayable, goToChannelId, discoveredChannels]);
 
   // ⌘B / Ctrl+B — toggle the radio dynamic island (BUFX Radio hotkey)
   useHotkeys(
@@ -242,7 +272,7 @@ export default function RadioBar() {
                 >
                   <ExpandedView
                     channel={channel}
-                    channels={visibleChannels}
+                    channels={playableChannels}
                     playing={playing}
                     videoSlotRef={videoSlotRef}
                     scrollerRef={scrollerRef}
@@ -339,12 +369,18 @@ function IdleView({
         className="flex items-center gap-1.5 min-w-0 focus-visible:outline-none rounded-full flex-1 text-left"
         aria-label="Open radio"
       >
-        <span className="text-[11px] leading-none shrink-0" aria-hidden>
-          {channel.emoji}
-        </span>
-        <span className="text-[11px] font-semibold tracking-tight truncate text-purpleDanis dark:text-white">
-          {channel.name}
-        </span>
+        <div
+          className="overflow-hidden flex-1 min-w-0 [mask-image:linear-gradient(to_right,transparent,black_10%,black_88%,transparent)]"
+          aria-label={`Now playing: ${channel.name}`}
+        >
+          <div
+            className="inline-flex whitespace-nowrap will-change-transform animate-marquee"
+            style={{ animationDuration: "16s", animationPlayState: playing ? "running" : "paused" }}
+          >
+            <MarqueeRow channel={channel} />
+            <MarqueeRow channel={channel} />
+          </div>
+        </div>
         <motion.span
           className="ml-auto shrink-0 text-purpleDanis/50 dark:text-white/55"
           animate={{ opacity: playing ? [0.4, 1, 0.4] : 0.4 }}
@@ -408,7 +444,7 @@ function ExpandedView({
               On Air
             </span>
           </div>
-          <div className="mt-0.5 text-[13px] font-semibold leading-tight truncate text-purpleDanis dark:text-white">
+          <div className="mt-0.5 font-knick text-[15px] leading-tight truncate text-purpleDanis dark:text-white">
             {channel.emoji} {channel.name}
           </div>
           <div className="text-[10.5px] truncate text-purpleDanis/60 dark:text-white/55">
@@ -436,6 +472,21 @@ function ExpandedView({
         onSelect={onChannelSelect}
       />
     </div>
+  );
+}
+
+function MarqueeRow({ channel }: { channel: Channel }) {
+  return (
+    <span className="font-knick text-[11px] tracking-[0.08em] text-purpleDanis dark:text-white shrink-0 pr-6">
+      BUFI Radio
+      <span className="mx-2 opacity-45">·</span>
+      <span aria-hidden>{channel.emoji}</span>{" "}
+      <span className="text-purpleDanis dark:text-white">{channel.name}</span>
+      <span className="mx-2 opacity-45">·</span>
+      <span className="text-rose-500 dark:text-rose-400 font-knick">LIVE</span>
+      <span className="mx-1.5 opacity-45">on</span>
+      <span className="opacity-80">YouTube</span>
+    </span>
   );
 }
 
@@ -568,7 +619,7 @@ const ChannelScroller = ({
                 >
                   {c.emoji}
                 </span>
-                <span className="leading-tight text-center px-1 line-clamp-2">
+                <span className="font-knick leading-tight text-center px-1 line-clamp-2">
                   {c.name}
                 </span>
               </motion.button>

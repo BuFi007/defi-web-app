@@ -39,7 +39,7 @@ const getStringField = (payload: unknown, field: string) => {
 export const GET = () =>
   NextResponse.json({
     ok: true,
-    service: "bufi-dynamic-webhook",
+    service: "BUFI-dynamic-webhook",
   });
 
 export const POST = async (request: NextRequest) => {
@@ -71,7 +71,10 @@ export const POST = async (request: NextRequest) => {
   try {
     payload = JSON.parse(rawBody);
   } catch {
-    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid JSON payload" },
+      { status: 400 },
+    );
   }
 
   const eventName =

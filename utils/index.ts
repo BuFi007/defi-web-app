@@ -11,6 +11,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const telaranaProtocolVersion = "0.1";
+export const telaranaAccessLabel = `fx-telaraña-protocol v.${telaranaProtocolVersion}`;
+export const telaranaImgAlt = `Illustration representing the fx-telaraña-protocol version ${telaranaProtocolVersion}`;
+export const telaranaImgSrc = "/assets/telarana-intro.webp";
+
 const BLOCKSCOUT_EXPLORERS: Record<number, string> = {
   1: "https://eth.blockscout.com",
   10: "https://optimism.blockscout.com",
@@ -22,6 +27,9 @@ const BLOCKSCOUT_EXPLORERS: Record<number, string> = {
   34443: "https://mode.blockscout.com",
   919: "https://mode-testnet.blockscout.com",
   11155111: "https://sepolia.blockscout.com",
+  5042002: "https://testnet.arcscan.app/",
+  43113: "https://testnet.snowtrace.io",
+  43114: "https://snowtrace.io",
 };
 
 export function getBlockExplorerUrl(chain: Chain): string {
@@ -137,7 +145,7 @@ export const placeholder = {
 
 export const getFromChains = (
   action: "lend" | "borrow" | "withdraw" | "repay",
-  isMainnet: boolean
+  isMainnet: boolean,
 ): Chain[] => {
   switch (action) {
     case "lend":
@@ -178,7 +186,7 @@ export const getFromChains = (
  */
 export const getToChains = (
   action: "lend" | "borrow" | "withdraw" | "repay",
-  isMainnet: boolean
+  isMainnet: boolean,
 ): Chain[] => {
   switch (action) {
     case "lend":
@@ -228,7 +236,7 @@ export const getToChains = (
 
 export const formatCurrency = (
   value: bigint | number,
-  options?: Intl.NumberFormatOptions
+  options?: Intl.NumberFormatOptions,
 ) => {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -240,7 +248,7 @@ export const formatCurrency = (
 
 export const formatToken = (
   value: bigint | number,
-  options?: Intl.NumberFormatOptions
+  options?: Intl.NumberFormatOptions,
 ) => {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -253,7 +261,7 @@ export const fetchLinkDetails = async (
   link: string,
   setDetails: (details: IGetLinkDetailsResponse) => void,
   setPaymentInfo: (paymentInfo: ExtendedPaymentInfo) => void,
-  translations: Translations["PeanutTab"]
+  translations: Translations["PeanutTab"],
 ) => {
   try {
     const details = (await getLinkDetails({
@@ -282,7 +290,7 @@ export const fetchLinkDetails = async (
 
 export const fetchLinkDetail = async (
   link: string,
-  translations?: Translations["PeanutTab"]
+  translations?: Translations["PeanutTab"],
 ) => {
   try {
     const details = (await getLinkDetails({

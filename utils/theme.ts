@@ -1,3 +1,11 @@
+export const bufiColors = [
+  "#cab0fe",
+  "#feadec",
+  "#ffecb4",
+  "#e2d0fc",
+  "#6854cf",
+];
+
 export const text = {
   body: "font-sans text-ock-foreground text-base leading-normal",
   caption: "font-sans text-ock-foreground text-bold text-xs leading-4",

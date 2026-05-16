@@ -25,7 +25,8 @@ const loadEnvLocal = () => {
 
 loadEnvLocal();
 
-const apiBase = process.env.DYNAMIC_API_BASE ?? "https://app.dynamic.xyz/api/v0";
+const apiBase =
+  process.env.DYNAMIC_API_BASE ?? "https://app.dynamic.xyz/api/v0";
 const apiToken = process.env.DYNAMIC_API_TOKEN;
 const environmentId =
   process.env.DYNAMIC_ENVIRONMENT_ID ??
@@ -39,10 +40,8 @@ const previewUrl =
   "https://defi-web-app-preview-bu-finance-007.vercel.app/api/dynamic-webhook";
 const localUrl =
   process.env.DYNAMIC_WEBHOOK_LOCAL_URL ??
-  "https://sendero-dev-bufi.ngrok.app/api/dynamic-webhook";
-const defaultEvents = (
-  process.env.DYNAMIC_WEBHOOK_EVENTS ?? "user.created"
-)
+  "https://sendero-dev-BUFI.ngrok.app/api/dynamic-webhook";
+const defaultEvents = (process.env.DYNAMIC_WEBHOOK_EVENTS ?? "user.created")
   .split(",")
   .map((event) => event.trim())
   .filter(Boolean);
@@ -82,14 +81,18 @@ const dynamicFetch = async (path, init = {}) => {
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(`${init.method ?? "GET"} ${path} failed: ${response.status} ${body}`);
+    throw new Error(
+      `${init.method ?? "GET"} ${path} failed: ${response.status} ${body}`,
+    );
   }
 
   return response.json();
 };
 
 const listWebhooks = async () => {
-  const response = await dynamicFetch(`/environments/${environmentId}/webhooks`);
+  const response = await dynamicFetch(
+    `/environments/${environmentId}/webhooks`,
+  );
   return Array.isArray(response.data) ? response.data : [];
 };
 
@@ -97,13 +100,10 @@ const webhookBody = ({ events, isEnabled = true, url }) =>
   JSON.stringify({ events, isEnabled, url });
 
 const updateWebhook = async (webhook, url, events, isEnabled = true) =>
-  dynamicFetch(
-    `/environments/${environmentId}/webhooks/${webhook.webhookId}`,
-    {
-      method: "PUT",
-      body: webhookBody({ events, isEnabled, url }),
-    },
-  );
+  dynamicFetch(`/environments/${environmentId}/webhooks/${webhook.webhookId}`, {
+    method: "PUT",
+    body: webhookBody({ events, isEnabled, url }),
+  });
 
 const createWebhook = async (url, events) =>
   dynamicFetch(`/environments/${environmentId}/webhooks`, {

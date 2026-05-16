@@ -35,7 +35,7 @@ export const POST = async (req: Request) => {
       : undefined;
 
   if (!isSafePassword(password) || password !== configuredPassword) {
-    return NextResponse.json({ ok: false }, { status: 401 });
+    return NextResponse.json({ ok: false });
   }
 
   const cookieStore = await cookies();

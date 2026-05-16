@@ -1,11 +1,12 @@
 "use client";
 
-import { HTMLAttributes, useEffect, useState } from "react";
+import { HTMLAttributes, ReactNode, useEffect, useState } from "react";
 
 type TypingAnimationProps = HTMLAttributes<HTMLSpanElement> & {
   children: string;
   delay?: number;
   duration?: number;
+  renderText?: (text: string) => ReactNode;
 };
 
 export function TypingAnimation({
@@ -13,6 +14,7 @@ export function TypingAnimation({
   className,
   delay = 220,
   duration = 42,
+  renderText,
   ...props
 }: TypingAnimationProps) {
   const [displayedText, setDisplayedText] = useState("");
@@ -42,7 +44,9 @@ export function TypingAnimation({
 
   return (
     <span className={className} aria-label={children} {...props}>
-      <span aria-hidden="true">{displayedText}</span>
+      <span aria-hidden="true">
+        {renderText ? renderText(displayedText) : displayedText}
+      </span>
     </span>
   );
 }

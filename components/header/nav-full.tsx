@@ -58,7 +58,7 @@ const HeaderFull: React.FC = () => {
                     alt="BU.FI"
                     width={743}
                     height={256}
-                    className="h-auto w-[140px] ml-3 select-none"
+                    className="h-auto w-[140px] -ml-1.5 select-none"
                     priority={false}
                   />
                 </div>
