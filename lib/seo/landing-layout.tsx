@@ -15,32 +15,31 @@ interface LocalizedMetadata {
 
 const localizedMetadata: Record<Locale, LocalizedMetadata> = {
   en: {
-    title: 'Bu | Spooky Crypto-Finance Made Easy',
+    title: 'BUFI | Spooky Crypto-Finance Made Easy',
     description:
-      'Where spooky crypto-finance becomes easy! Bu is a friendly ghost guiding you through the world of savings, payments, remittances, loans and DeFi, tailored for emerging markets.',
-    ogTitle: 'Bu - Spooky Crypto-Finance Made Easy',
+      'Where spooky crypto-finance becomes easy! BUFI is a friendly ghost guiding you through the world of savings, payments, remittances, loans and DeFi, tailored for emerging markets.',
+    ogTitle: 'BUFI - Spooky Crypto-Finance Made Easy',
     ogDescription:
-      'Where spooky crypto-finance becomes easy! Bu is a friendly ghost guiding you through the world of savings, payments, remittances, loans and DeFi, tailored for emerging markets.',
+      'Where spooky crypto-finance becomes easy! BUFI is a friendly ghost guiding you through the world of savings, payments, remittances, loans and DeFi, tailored for emerging markets.',
   },
   es: {
-    title: 'Bu | Finanzas Cripto Espeluznantes Fáciles',
+    title: 'BUFI | Finanzas Cripto Espeluznantes Fáciles',
     description:
-      '¡Donde las finanzas cripto espeluznantes se vuelven fáciles! Bu es un fantasma amigable que te guía por el mundo de los ahorros, pagos, remesas, préstamos y DeFi, adaptado para mercados emergentes.',
-    ogTitle: 'Bu - Finanzas Cripto Espeluznantes Fáciles',
+      '¡Donde las finanzas cripto espeluznantes se vuelven fáciles! BUFI es un fantasma amigable que te guía por el mundo de los ahorros, pagos, remesas, préstamos y DeFi, adaptado para mercados emergentes.',
+    ogTitle: 'BUFI - Finanzas Cripto Espeluznantes Fáciles',
     ogDescription:
-      '¡Donde las finanzas cripto espeluznantes se vuelven fáciles! Bu es un fantasma amigable que te guía por el mundo de los ahorros, pagos, remesas, préstamos y DeFi, adaptado para mercados emergentes.',
+      '¡Donde las finanzas cripto espeluznantes se vuelven fáciles! BUFI es un fantasma amigable que te guía por el mundo de los ahorros, pagos, remesas, préstamos y DeFi, adaptado para mercados emergentes.',
   },
   pt: {
-    title: 'Bu | Finanças Cripto Assustadoras Feitas Fáceis',
+    title: 'BUFI | Finanças Cripto Assustadoras Feitas Fáceis',
     description:
-      'Onde as finanças cripto assustadoras se tornam fáceis! Bu é um fantasma amigável que te guia pelo mundo de poupanças, pagamentos, remessas, empréstimos e DeFi, adaptado para mercados emergentes.',
-    ogTitle: 'Bu - Finanças Cripto Assustadoras Feitas Fáceis',
+      'Onde as finanças cripto assustadoras se tornam fáceis! BUFI é um fantasma amigável que te guia pelo mundo de poupanças, pagamentos, remessas, empréstimos e DeFi, adaptado para mercados emergentes.',
+    ogTitle: 'BUFI - Finanças Cripto Assustadoras Feitas Fáceis',
     ogDescription:
-      'Onde as finanças cripto assustadoras se tornam fáceis! Bu é um fantasma amigável que te guia pelo mundo de poupanças, pagamentos, remessas, empréstimos e DeFi, adaptado para mercados emergentes.',
+      'Onde as finanças cripto assustadoras se tornam fáceis! BUFI é um fantasma amigável que te guia pelo mundo de poupanças, pagamentos, remessas, empréstimos e DeFi, adaptado para mercados emergentes.',
   },
 };
 
-// Cached metadata generation for performance
 const getMetadata = cache((locale: string): Metadata => {
   if (!locales.includes(locale as Locale)) notFound();
 
@@ -50,23 +49,14 @@ const getMetadata = cache((locale: string): Metadata => {
   return {
     title: {
       default: meta.title,
-      template: `%s | Bu`,
+      template: `%s | BUFI`,
     },
     description: meta.description,
     metadataBase: new URL(NEXT_PUBLIC_URL),
-    icons: [
-      {
-        rel: 'icon',
-        url: '/favicon.ico',
-      },
-      {
-        rel: 'apple-touch-icon',
-        url: '/apple-touch-icon.png',
-      },
-    ],
     manifest: '/site.webmanifest',
     referrer: 'origin-when-cross-origin',
     keywords: [
+      'BUFI',
       'crypto',
       'finance',
       'remittances',
@@ -94,7 +84,7 @@ const getMetadata = cache((locale: string): Metadata => {
       locale: safeLocale,
       alternateLocale: locales.filter((l) => l !== safeLocale),
       url: NEXT_PUBLIC_URL,
-      siteName: 'Bu',
+      siteName: 'BUFI',
       title: meta.ogTitle,
       description: meta.ogDescription,
       images: [
@@ -102,7 +92,7 @@ const getMetadata = cache((locale: string): Metadata => {
           url: `${NEXT_PUBLIC_URL}/og-image.jpg`,
           width: 1200,
           height: 630,
-          alt: 'Bu - Spooky Crypto-Finance',
+          alt: 'BUFI - Spooky Crypto-Finance',
         },
       ],
     },
@@ -110,8 +100,8 @@ const getMetadata = cache((locale: string): Metadata => {
       card: 'summary_large_image',
       title: meta.title,
       description: meta.description,
-      creator: '@Bu_finance',
-      site: '@Bu_finance',
+      creator: '@BUFI_finance',
+      site: '@BUFI_finance',
       images: `${NEXT_PUBLIC_URL}/og-image.jpg`,
     },
   };

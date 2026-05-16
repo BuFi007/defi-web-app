@@ -24,13 +24,13 @@ export default function LocaleSwitcher() {
 
   return (
     <Select onValueChange={handleLocaleChange} value={selectedLocale}>
-      <SelectTrigger className="w-fit bg-white dark:bg-foreground shadow-xl rounded-md text-indigo-600 font-bold dark:text-black">
+      <SelectTrigger className="w-fit bg-white dark:bg-foreground shadow-xl rounded-md text-purpleDanis font-bold">
         <SelectValue />
       </SelectTrigger>
-      <SelectContent className="bg-white dark:bg-foreground shadow-xl rounded-md text-black dark:text-black">
-        <SelectItem value="en">English</SelectItem>
-        <SelectItem value="es">Español</SelectItem>
-        <SelectItem value="pt">Português</SelectItem>
+      <SelectContent className="bg-white dark:bg-foreground shadow-xl rounded-md text-purpleDanis [&_[data-radix-select-viewport]]:text-purpleDanis">
+        <SelectItem value="en" className="text-purpleDanis focus:text-purpleDanis">English</SelectItem>
+        <SelectItem value="es" className="text-purpleDanis focus:text-purpleDanis">Español</SelectItem>
+        <SelectItem value="pt" className="text-purpleDanis focus:text-purpleDanis">Português</SelectItem>
       </SelectContent>
     </Select>
   );

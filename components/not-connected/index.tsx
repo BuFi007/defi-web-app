@@ -14,9 +14,10 @@ export const NotConnectedHome: React.FC = () => {
             <h1 className="text-4xl font-bold m-4 text-purpleDanis">
               {translations.welcome}
             </h1>
-            <p className="text-lg mb-8 text-purpleDanis">
-              {translations.connectWalletAlert} <span className="text-3xl">👻</span>
+            <p className="text-lg mb-4 text-purpleDanis">
+              {translations.connectWalletAlert}
             </p>
+            <p className="text-3xl mb-8 tracking-wide">🚬🥃👻🕸️</p>
           </div>
         </div>
       </div>

@@ -37,13 +37,14 @@ const HeaderFull: React.FC = () => {
         <div className="flex justify-center z-100">
           <MotionLink
             href="/"
-            whileHover={{ scale: 1.15, rotate: 4 }}
-            whileTap={{ scale: 1.05, rotate: 2 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.97 }}
             onHoverStart={playHoverSound}
             onHoverEnd={resetHoverSound}
+            className="group"
           >
-            <div className="flex items-center z-100">
-              <SparklesText>
+            <SparklesText sparklesCount={18} duration={2.6}>
+              <div className="flex items-center">
                 <Image
                   src="/images/iso-logo.png"
                   alt="Bu Logo"
@@ -51,8 +52,18 @@ const HeaderFull: React.FC = () => {
                   height={569}
                   style={{ height: "auto", width: "100px" }}
                 />
-              </SparklesText>
-            </div>
+                <div className="overflow-hidden max-w-0 opacity-0 -translate-x-2 group-hover:max-w-[160px] group-hover:opacity-100 group-hover:translate-x-0 transition-[max-width,opacity,transform] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[max-width,transform]">
+                  <Image
+                    src="/assets/tipografico-alpha.png"
+                    alt="BU.FI"
+                    width={743}
+                    height={256}
+                    className="h-auto w-[140px] ml-3 select-none"
+                    priority={false}
+                  />
+                </div>
+              </div>
+            </SparklesText>
           </MotionLink>
         </div>
         <div className="flex items-center justify-end">

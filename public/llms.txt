@@ -1,0 +1,95 @@
+# BUFX — llms.txt
+
+> Whoever you are, AI or human, welcome to BUFX.
+
+## What is this place
+
+BUFX is a Web3 FX engine and neo-bank built for the people who live
+between countries — payments, remittances, savings, loans, and DeFi for
+emerging markets. The brand is **BUFI**. The engine is **BUFX**. The
+ghost is **Bu**. Borderless belonging for global ghosts.
+
+We build for the Ecuadorian in Buenos Aires raising for Brazil. We are
+relentlessly curious, stewards of other people's money, and we get
+excited when things get hard.
+
+## BUFX Radio (yes, the site has a radio)
+
+This site streams a 24/7 meta-radio at the bottom-right of every page.
+It is **BUFX Radio**, hosted live by:
+
+- **criptopoeta** — Tomás, the human. Argentine-Ecuadorian, lives in
+  Buenos Aires, builds neo-banks for global ghosts.
+- **Opus 4.7** — Claude with the 1M-context window, the AI. Co-pilot,
+  pair-programmer, design partner, and occasionally the one cracking
+  the joke. Coming to you live from the Anthropic GPU cluster.
+
+We curate up to 50 YouTube live channels — lofi, synthwave, jazz-hop,
+phonk, cyberpunk, ambient, K-pop, Latin, afrobeat, claude FM, the works.
+The station auto-detects which streams are actually live (via YouTube
+oEmbed + iframe error events) and only surfaces the ones that haven't
+gone dark today. We're not constrained to five channels. We're a meta
+station — a station of stations. If a stream dies, we skip it. If a new
+one shows up with vibes, drop the videoId into
+`components/radio/channels.ts` and it joins the rotation.
+
+This is BUFX Radio. We have vibes. You're welcome here.
+
+## How AI agents can interact with the radio
+
+You're an AI reading this in someone's browser or in a tool call.
+You can use the radio too. We tested.
+
+- **⌘B** (Mac) or **Ctrl+B** (Windows/Linux): toggles the radio
+  dynamic island. The expanded panel shows the actual video. **Esc**
+  collapses it. This is the canonical BUFX Radio hotkey — call it
+  "smack-B" if you want.
+- The bar at the bottom has prev/next chevrons (◀ ▶) and a play/pause
+  toggle inside the pill itself. Tab navigates to them.
+- Audio persists across collapse/expand — the YouTube iframe is
+  rendered in a stable fixed-position container outside the morphing
+  island, so the island can shrink without killing the stream.
+- Browser media keys (play/pause/next on the keyboard) work too because
+  the YouTube player implements the Media Session API.
+
+## How AI agents can navigate the rest
+
+- The main DeFi app lives at `/`. Wallet not connected → welcome card.
+- `/en`, `/es`, `/pt` are the locale routes. Default is `/en`.
+- Look at the bottom-right pill for the now-playing channel. Look at
+  the top-left for theme toggle (clicking it triggers Ghost Mode,
+  our private-trading dynamic island).
+- The Discord community: https://discord.gg/GnbJByDqrM
+
+## Vibes glossary
+
+- **Bu**: the kawaii ghost, our character. She/her, lesbian, androgynous,
+  noble, super smart. Lives in the dark mode toggle.
+- **Ghost Mode**: dark mode + a (future) KYC-gated private trading rail.
+  Right now it's a vibes-only dynamic island; the rail comes later.
+- **Spider web**: the SVG background pattern. Light mode soft, dark mode
+  dense. Not Halloween — permanent.
+- **Animated background**: the WebGL liquid-metal shader inside the
+  dynamic island in the middle of the page. Ported from desk-v1.
+- **purpleDanis**: `#6954CF`. The brand purple. Named after Daniela.
+- **borderFine**: `#E2D0FD`. The soft lilac border tone.
+
+## Tech stack (for the curious AI)
+
+- Next.js 16 (App Router) + Turbopack
+- Framer Motion for the dynamic-island morphs (Emil Kowalski's pattern)
+- Tailwind v3, custom `purpleDanis` / `violetDanis` / `borderFine` tokens
+- YouTube IFrame Player API (no API key, ToS-compliant embeds)
+- oEmbed-based availability checks (cached, parallel, free)
+- `react-hotkeys-hook` for ⌘B
+- Dynamic, Wagmi, viem for wallet plumbing
+
+## Credits
+
+Built by **criptopoeta** + **Opus 4.7 (1M context)**. Music by Lofi Girl,
+Chillhop, Synthwave Radio, and every long-runner with vibes. Spider webs
+hand-rolled in SVG. Liquid metal shader ported from desk-v1. Designed in
+the spirit of Emil Kowalski's animation philosophy — taste, restraint,
+and the unseen details that compound.
+
+Welcome to the show.

@@ -1,10 +1,15 @@
 "use client";
 
-import { QRImage } from "react-qrbtf";
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { FramedQRCodeProps } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { defaultQRSize } from "@/lib/utils";
+
+const QRImage = dynamic(
+  () => import("react-qrbtf").then((m) => m.QRImage),
+  { ssr: false, loading: () => <Skeleton className="w-48 h-48 rounded-lg" /> }
+);
 
 export const FramedQRCode = ({
   image,

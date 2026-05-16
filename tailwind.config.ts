@@ -112,6 +112,11 @@ const config: Config = {
         overlay: "rgba(0,0,0,0.8)",
         borderFine: "#E2D0FD",
         purpleDanis: "#6954CF",
+        violetDanis: "#CBB0FF",
+        darkTextSecondary: "var(--dark-text-secondary)",
+        darkTextTertiary: "var(--dark-text-tertiary)",
+        darkCard: "var(--dark-card)",
+        darkNavBorder: "var(--dark-nav-border)",
 
         // light mode
         bg: "#FEF2E8",

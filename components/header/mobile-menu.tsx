@@ -24,10 +24,13 @@ const MobileMenu: React.FC = () => {
     <div className="container mx-auto px-4">
       <div className="flex justify-between items-center py-4">
         <Link href="/">
-          <Image src="/images/iso-logo.png" alt="Logo" width={50} height={50} />
-          <span className="inline-block pl-4 font-clash bg-gradient-to-r text-3xl from-indigo-300 via-purple-400 to-cyan-300 bg-clip-text text-transparent">
-            bu.fi
-          </span>
+          <Image
+            src="/images/iso-logo.png"
+            alt="Logo"
+            width={574}
+            height={569}
+            style={{ height: "auto", width: "50px" }}
+          />
         </Link>
         <button
           onClick={toggleMenu}
