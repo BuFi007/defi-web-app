@@ -29,6 +29,7 @@ const MobileMenu: React.FC = () => {
             alt="Logo"
             width={574}
             height={569}
+            priority
             style={{ height: "auto", width: "50px" }}
           />
         </Link>

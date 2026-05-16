@@ -50,6 +50,7 @@ const HeaderFull: React.FC = () => {
                   alt="Bu Logo"
                   width={574}
                   height={569}
+                  priority
                   style={{ height: "auto", width: "100px" }}
                 />
                 <div className="overflow-hidden max-w-0 opacity-0 -translate-x-2 group-hover:max-w-[160px] group-hover:opacity-100 group-hover:translate-x-0 transition-[max-width,opacity,transform] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[max-width,transform]">
