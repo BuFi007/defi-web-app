@@ -53,14 +53,15 @@ export function MoneyMarketCard() {
   const { data: usdcBalance } = useReadContract({
     address: USDC_ADDRESS?.address as Hex,
     abi: erc20Abi,
-    chainId: chainId,
+    // ChainList is wider than wagmi's configured chain union; widen here.
+    chainId: chainId as any,
     functionName: "balanceOf",
     args: [address as `0x${string}`],
   });
 
   const { data: tokenBalance } = useTokenBalance({
     address: address as `0x${string}`,
-    chainId: chainId,
+    chainId: chainId as any,
     tokenAddress: selectedToken?.address as `0x${string}`,
     decimals: selectedToken?.decimals ?? 18,
   });
