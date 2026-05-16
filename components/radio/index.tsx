@@ -412,7 +412,7 @@ function ExpandedView({
   channels: Channel[];
   playing: boolean;
   videoSlotRef: React.MutableRefObject<HTMLDivElement | null>;
-  scrollerRef: React.RefObject<HTMLDivElement>;
+  scrollerRef: React.RefObject<HTMLDivElement | null>;
   onTogglePlay: () => void;
   onChannelSelect: (id: string) => void;
   onClose: () => void;
@@ -563,7 +563,7 @@ const ChannelScroller = ({
   channels: Channel[];
   activeChannelId: string;
   onSelect: (id: string) => void;
-  ref: React.RefObject<HTMLDivElement>;
+  ref: React.RefObject<HTMLDivElement | null>;
 }) => {
   return (
     <div className="relative">

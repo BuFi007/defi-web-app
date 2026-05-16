@@ -3,10 +3,10 @@ import { CHANNELS } from "@/components/radio/channels";
 
 // Cache the entire discovery result for 6 hours. With ~50 query-based
 // channels, one discovery run costs ~5000 YouTube Data API units; 4 runs
-// per day = ~20k units. Adjust REVALIDATE_SECONDS to fit your quota.
-const REVALIDATE_SECONDS = 6 * 60 * 60;
-
-export const revalidate = REVALIDATE_SECONDS;
+// per day = ~20k units. Next.js requires `revalidate` to be a literal,
+// so 21600 = 6 * 60 * 60 is inlined here.
+export const revalidate = 21600;
+const REVALIDATE_SECONDS = 21600;
 
 type DiscoverResponse = {
   resolved: Record<string, string>;
