@@ -1,20 +1,13 @@
 /**
- * Event handler registrations live here once contract ABIs land in
- * ./abis and the ponder config references them. Pattern:
+ * Ponder entry. Each domain registers its handlers in its own file under
+ * ./handlers; this index just imports them so ponder picks them up.
  *
- *   import { ponder } from "ponder:registry";
- *   import { arcadeRoom } from "../ponder.schema";
- *
- *   ponder.on("Bento:RoomCreated", async ({ event, context }) => {
- *     await context.db.insert(arcadeRoom).values({
- *       roomId: event.args.roomId,
- *       chainId: context.chain.id,
- *       ...
- *     });
- *   });
- *
- * The scaffold ships empty so `ponder dev` can boot against pglite with
- * no events to index, ready for the first contract.
+ * After a worktree adds a contract address to ponder.config.ts and an
+ * ABI to ./abis, uncomment the matching import below.
  */
+
+// import "./handlers/perps";
+// import "./handlers/bento";
+// import "./handlers/telarana";
 
 export {};
