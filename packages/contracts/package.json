@@ -1,0 +1,20 @@
+{
+  "name": "@bufi/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ABI registry + per-chain contract addresses. Source of truth for what's deployed where.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "viem": "2.45.3"
+  },
+  "devDependencies": {
+    "typescript": "5"
+  }
+}

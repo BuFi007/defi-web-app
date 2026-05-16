@@ -1,0 +1,26 @@
+{
+  "name": "@bufi/ponder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Ponder indexer for BUFI contracts — perps, fx-bento, fx-telarana. GraphQL read layer.",
+  "scripts": {
+    "dev": "PONDER_PGLITE_DIR=${PONDER_PGLITE_DIR:-.ponder/pglite} ponder dev --port ${PONDER_PORT:-42069}",
+    "start": "ponder start",
+    "build": "ponder codegen",
+    "codegen": "ponder codegen",
+    "serve": "ponder serve",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@bufi/contracts": "workspace:*",
+    "@bufi/shared-types": "workspace:*",
+    "hono": "4.12.0",
+    "ponder": "0.16.6",
+    "viem": "2.45.3"
+  },
+  "devDependencies": {
+    "@types/node": "20",
+    "typescript": "5"
+  }
+}

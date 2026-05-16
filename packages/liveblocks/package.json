@@ -1,0 +1,27 @@
+{
+  "name": "@bufi/liveblocks",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Realtime rooms for perps markets, FX² Arcade rooms, FX Telaraña markets, and MCP workflows. Wallet-scoped session tokens.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts",
+    "./client": "./src/client.tsx",
+    "./rooms": "./src/rooms.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@liveblocks/client": "2.24.4",
+    "@liveblocks/node": "2.24.4",
+    "@liveblocks/react": "2.24.4",
+    "viem": "2.45.3"
+  },
+  "devDependencies": {
+    "typescript": "5"
+  }
+}
