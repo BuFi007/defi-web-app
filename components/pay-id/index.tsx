@@ -13,6 +13,7 @@ import {
 } from "@dynamic-labs/sdk-react-core";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
+import { toWagmiChainId } from "@/utils/chain";
 import { Chain, ChainList, Token } from "@/lib/types";
 import { getAllChains } from "@/utils";
 import { useEnsName } from "wagmi";
@@ -43,8 +44,9 @@ export default function PayId() {
 
   const ensNameEthers = useEnsName({
     address: id as Hex,
-    chainId: (useGetTokensOrChain(chainId!, "chain") as Chain)
-      ?.chainId as ChainList,
+    chainId: toWagmiChainId(
+      (useGetTokensOrChain(chainId!, "chain") as Chain)?.chainId as ChainList,
+    ),
   });
 
   async function getEnsAddress() {
