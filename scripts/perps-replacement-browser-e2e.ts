@@ -18,7 +18,7 @@ const DEBUG_PORT = Number(process.env.CHROME_DEBUG_PORT ?? 9227);
 const CHROME_PATH =
   process.env.CHROME_PATH ??
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const RESET_DB = process.env.SMOKE_RESET_DB !== "0";
+const RESET_DB = process.env.SMOKE_RESET_DB === "1";
 
 if (!process.env.BUFI_DB_PATH) {
   throw new Error(

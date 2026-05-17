@@ -2,6 +2,20 @@
 // Minimal Phase E ABI from fx-telarana/docs/CODEX_BRIEF_PHASES_B_TO_E.md.
 export const FxOrderSettlementAbi = [
   {
+    type: "error",
+    name: "ZeroAmount",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "InsufficientFreeMargin",
+    inputs: [
+      { name: "trader", type: "address", internalType: "address" },
+      { name: "amount", type: "uint256", internalType: "uint256" },
+      { name: "free", type: "uint256", internalType: "uint256" },
+    ],
+  },
+  {
     type: "function",
     name: "settleMatch",
     inputs: [

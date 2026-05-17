@@ -28,4 +28,27 @@ export const FxMarginAccountAbi = [
     outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
     stateMutability: "view",
   },
+  {
+    type: "function",
+    name: "reservedMarginOf",
+    inputs: [{ name: "trader", type: "address", internalType: "address" }],
+    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "freeMarginOf",
+    inputs: [{ name: "trader", type: "address", internalType: "address" }],
+    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "error",
+    name: "InsufficientFreeMargin",
+    inputs: [
+      { name: "trader", type: "address", internalType: "address" },
+      { name: "amount", type: "uint256", internalType: "uint256" },
+      { name: "free", type: "uint256", internalType: "uint256" },
+    ],
+  },
 ] as const;

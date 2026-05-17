@@ -202,6 +202,9 @@ bun run smoke:perps-replacement:api
 Run the browser toast harness with a dev-only mock wallet:
 
 ```bash
+BUFI_DB_PATH="$PWD/.bufi/perps-replacement-browser.sqlite"
+rm -f "$BUFI_DB_PATH" "$BUFI_DB_PATH-wal" "$BUFI_DB_PATH-shm"
+
 BUFI_DB_PATH="$PWD/.bufi/perps-replacement-browser.sqlite" \
 NODE_ENV=development \
 PORT=3002 \
@@ -219,6 +222,51 @@ bun run smoke:perps-replacement:browser
 ```
 
 The browser harness launches headless Chrome, waits for the replacement toast, clicks `Sign`, and then verifies the residual order is back in the pending matcher book.
+
+Run the PR-safe local matcher canary:
+
+```bash
+bun run canary:perps-replacement:local
+```
+
+The local canary starts API + matcher on isolated ports with `PERPS_MATCHER_SETTLEMENT_MODE=mock`, uses a fresh SQLite DB, seeds crossing partial-fill orders, verifies the matcher emits `bufx.perps.replacement_needed`, calls the replacement prepare/submit API, seeds the residual counterparty order, and waits for the replacement to fill. This is the default pull-request regression gate in `.github/workflows/perps-canaries.yml`.
+
+Run the live Arc replacement-fill canary against the real matcher keeper:
+
+```bash
+ARC_OPERATOR_PRIVATE_KEY="$ARC_OPERATOR_PRIVATE_KEY" \
+ARC_RPC_URL=https://rpc.testnet.arc.network \
+bun run canary:perps-replacement:arc
+```
+
+The canary starts a local API and matcher on isolated ports, creates a fresh SQLite DB, seeds free margin for the smoke traders, submits the initial partial fill through the keeper, consumes the emitted replacement-needed event, submits the signed residual replacement, waits for the replacement fill to settle on-chain, closes the incremental canary positions, and tears the local services down. This is the pre-integration regression gate for matcher replacement behavior.
+
+CI behavior:
+- Pull requests run `bun run typecheck`, `bun test packages/perps packages/db packages/mcp`, and `bun run canary:perps-replacement:local`.
+- Manual workflow dispatch can set `run_live_arc=true` to run `bun run canary:perps-replacement:arc` after local checks pass. Configure `ARC_OPERATOR_PRIVATE_KEY` as a GitHub secret; optionally set `ARC_RPC_URL` as a GitHub Actions variable.
+
+If you already have API + matcher running and want only the smoke body:
+
+```bash
+BUFI_DB_PATH="$PWD/.bufi/perps-live-arc.sqlite"
+rm -f "$BUFI_DB_PATH" "$BUFI_DB_PATH-wal" "$BUFI_DB_PATH-shm"
+
+BUFI_DB_PATH="$PWD/.bufi/perps-live-arc.sqlite" \
+NODE_ENV=development \
+PORT=3002 \
+bun run dev:api
+
+BUFI_DB_PATH="$PWD/.bufi/perps-live-arc.sqlite" \
+KEEPER_PRIVATE_KEY="$ARC_OPERATOR_PRIVATE_KEY" \
+ARC_RPC_URL=https://rpc.testnet.arc.network \
+bun run keeper:perps-matcher
+
+BUFI_DB_PATH="$PWD/.bufi/perps-live-arc.sqlite" \
+BUFI_API_URL=http://localhost:3002 \
+ARC_RPC_URL=https://rpc.testnet.arc.network \
+SMOKE_MARGIN_SEEDER_PRIVATE_KEY="$ARC_OPERATOR_PRIVATE_KEY" \
+bun run smoke:perps-replacement:arc
+```
 
 ## Mental model
 

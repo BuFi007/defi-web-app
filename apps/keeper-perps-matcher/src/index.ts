@@ -8,10 +8,14 @@ import {
   type PriceTimeMatch,
 } from "@bufi/perps";
 import type { PerpIntent } from "@bufi/shared-types";
-import type { Hex } from "viem";
+import { keccak256, toHex, type Hex, type PublicClient, type WalletClient } from "viem";
 
 const ARC_CHAIN_ID = 5042002;
 const db = createTradingMachineDbFromEnv();
+const SETTLEMENT_MODE = process.env.PERPS_MATCHER_SETTLEMENT_MODE ?? "live";
+if (SETTLEMENT_MODE === "mock" && process.env.NODE_ENV === "production") {
+  throw new Error("PERPS_MATCHER_SETTLEMENT_MODE=mock is not allowed in production");
+}
 
 await runKeeper({
   name: "@bufi/keeper-perps-matcher",
@@ -43,20 +47,11 @@ await runKeeper({
 
     for (const match of matches) {
       try {
-        const hash = await wallet.writeContract({
-          chain: null,
-          account: wallet.account!,
-          address: orderSettlement,
-          abi: FxOrderSettlementAbi,
-          functionName: "settleMatch",
-          args: [
-            intentToSignedOrder(match.maker),
-            match.maker.signature,
-            intentToSignedOrder(match.taker),
-            match.taker.signature,
-            match.fillSizeE18,
-            match.fillPriceE18,
-          ],
+        const hash = await settleMatch({
+          publicClient: ctx.clients.arc,
+          wallet,
+          orderSettlement,
+          match,
         });
         const maker = await db.perpsIntents.recordFill(match.maker.intentId, match.makerFillSizeDelta);
         const taker = await db.perpsIntents.recordFill(match.taker.intentId, match.takerFillSizeDelta);
@@ -92,9 +87,55 @@ await runKeeper({
       replacementNeeded,
       settled,
       failed,
+      settlementMode: SETTLEMENT_MODE,
     });
   },
 });
+
+async function settleMatch(args: {
+  publicClient: PublicClient;
+  wallet: WalletClient;
+  orderSettlement: Hex;
+  match: PriceTimeMatch;
+}): Promise<Hex> {
+  if (SETTLEMENT_MODE === "mock") {
+    return keccak256(
+      toHex(
+        [
+          "mock-settleMatch",
+          args.match.maker.intentId,
+          args.match.taker.intentId,
+          args.match.fillSizeE18.toString(),
+          args.match.fillPriceE18.toString(),
+        ].join(":"),
+      ),
+    );
+  }
+  if (SETTLEMENT_MODE !== "live") {
+    throw new Error(`unknown PERPS_MATCHER_SETTLEMENT_MODE: ${SETTLEMENT_MODE}`);
+  }
+
+  const hash = await args.wallet.writeContract({
+    chain: null,
+    account: args.wallet.account!,
+    address: args.orderSettlement,
+    abi: FxOrderSettlementAbi,
+    functionName: "settleMatch",
+    args: [
+      intentToSignedOrder(args.match.maker),
+      args.match.maker.signature,
+      intentToSignedOrder(args.match.taker),
+      args.match.taker.signature,
+      args.match.fillSizeE18,
+      args.match.fillPriceE18,
+    ],
+  });
+  const receipt = await args.publicClient.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") {
+    throw new Error(`settleMatch reverted: ${hash}`);
+  }
+  return hash;
+}
 
 function intentToSignedOrder(intent: PerpIntent) {
   return {
