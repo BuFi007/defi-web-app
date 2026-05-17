@@ -1,0 +1,12 @@
+/* Trade Island design import bundle — porting Bufi Trade Island.html
+ * (claude design handoff: defi-web-app-forex-kawaii). CSS kept verbatim;
+ * order matters because of CSS specificity carry-over.
+ *
+ * Wire from a top-level layout via `import "@/css/trade-island/index.css"`.
+ */
+@import "./styles.css";
+@import "./island.css";
+@import "./hint.css";
+@import "./loan.css";
+@import "./arcade.css";
+@import "./arcade-mp.css";

@@ -2,6 +2,27 @@
 // Minimal Phase E ABI from fx-telarana/docs/CODEX_BRIEF_PHASES_B_TO_E.md.
 export const FxOrderSettlementAbi = [
   {
+    type: "event",
+    name: "MatchSettled",
+    inputs: [
+      { name: "marketId", type: "bytes32", indexed: true, internalType: "bytes32" },
+      { name: "maker", type: "address", indexed: true, internalType: "address" },
+      { name: "taker", type: "address", indexed: true, internalType: "address" },
+      { name: "fillSizeE18", type: "uint256", indexed: false, internalType: "uint256" },
+      { name: "fillPriceE18", type: "uint256", indexed: false, internalType: "uint256" },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "OrderCancelled",
+    inputs: [
+      { name: "trader", type: "address", indexed: true, internalType: "address" },
+      { name: "nonce", type: "uint64", indexed: false, internalType: "uint64" },
+    ],
+    anonymous: false,
+  },
+  {
     type: "error",
     name: "ZeroAmount",
     inputs: [],

@@ -5,7 +5,9 @@ import {
   CONTRACTS,
   DEFAULT_RPC_URLS,
   FxHubMessageReceiverAbi,
+  FxOrderSettlementAbi,
   FxOracleAbi,
+  FxPerpClearinghouseAbi,
   TelaranaGatewayHubHookAbi,
   buFxTelaranaRequestRouterAbi,
   buFxVenueRequestRouterAbi,
@@ -33,6 +35,13 @@ const chains = {
 
 const fuji = CONTRACTS[43113];
 const arc = CONTRACTS[5042002];
+const perpsStartBlockArc = Number(process.env.PONDER_PERPS_START_BLOCK_ARC ?? 0);
+const fxOrderSettlementArc =
+  process.env.PONDER_PERPS_ORDER_SETTLEMENT_ADDRESS_ARC ??
+  process.env.PONDER_PERPS_ADDRESS_ARC ??
+  arc.perps.orderSettlement!;
+const fxPerpClearinghouseArc =
+  process.env.PONDER_PERPS_CLEARINGHOUSE_ADDRESS_ARC ?? arc.perps.clearinghouse!;
 
 export default createConfig({
   database,
@@ -86,14 +95,18 @@ export default createConfig({
       address: fuji.telarana.fxHubMessageReceiver!,
       startBlock: Number(process.env.PONDER_TELARANA_START_BLOCK_FUJI ?? 0),
     },
-    ...(process.env.PONDER_PERPS_ADDRESS_ARC && {
-      PerpsOrderSettlementArc: {
-        chain: "arcTestnet",
-        abi: [] as const,
-        address: process.env.PONDER_PERPS_ADDRESS_ARC as `0x${string}`,
-        startBlock: Number(process.env.PONDER_PERPS_START_BLOCK_ARC ?? 0),
-      },
-    }),
+    FxOrderSettlementArc: {
+      chain: "arcTestnet",
+      abi: FxOrderSettlementAbi,
+      address: fxOrderSettlementArc as `0x${string}`,
+      startBlock: perpsStartBlockArc,
+    },
+    FxPerpClearinghouseArc: {
+      chain: "arcTestnet",
+      abi: FxPerpClearinghouseAbi,
+      address: fxPerpClearinghouseArc as `0x${string}`,
+      startBlock: perpsStartBlockArc,
+    },
     ...(process.env.PONDER_BENTO_ADDRESS_FUJI && {
       BentoRoomFactoryFuji: {
         chain: "avalancheFuji",

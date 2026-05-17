@@ -2,6 +2,35 @@
 // Minimal Phase B ABI synced to fx-telarana/contracts/src/perp/FxPerpClearinghouse.sol.
 export const FxPerpClearinghouseAbi = [
   {
+    type: "event",
+    name: "PositionIncreased",
+    inputs: [
+      { name: "marketId", type: "bytes32", indexed: true, internalType: "bytes32" },
+      { name: "trader", type: "address", indexed: true, internalType: "address" },
+      { name: "sizeDeltaE18", type: "int256", indexed: false, internalType: "int256" },
+      { name: "resultingSizeE18", type: "int256", indexed: false, internalType: "int256" },
+      { name: "entryPriceE18", type: "uint256", indexed: false, internalType: "uint256" },
+      { name: "marginReserved", type: "uint256", indexed: false, internalType: "uint256" },
+      { name: "fee", type: "uint256", indexed: false, internalType: "uint256" },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "PositionDecreased",
+    inputs: [
+      { name: "marketId", type: "bytes32", indexed: true, internalType: "bytes32" },
+      { name: "trader", type: "address", indexed: true, internalType: "address" },
+      { name: "sizeDeltaE18", type: "int256", indexed: false, internalType: "int256" },
+      { name: "resultingSizeE18", type: "int256", indexed: false, internalType: "int256" },
+      { name: "priceE18", type: "uint256", indexed: false, internalType: "uint256" },
+      { name: "marginReleased", type: "uint256", indexed: false, internalType: "uint256" },
+      { name: "pnl", type: "int256", indexed: false, internalType: "int256" },
+      { name: "badDebt", type: "uint256", indexed: false, internalType: "uint256" },
+    ],
+    anonymous: false,
+  },
+  {
     type: "function",
     name: "marketConfig",
     inputs: [{ name: "marketId", type: "bytes32", internalType: "bytes32" }],

@@ -7,8 +7,8 @@
  */
 
 import "./handlers/bufx";
+import "./handlers/perps";
 
-// import "./handlers/perps";
 // import "./handlers/bento";
 // import "./handlers/telarana";
 
