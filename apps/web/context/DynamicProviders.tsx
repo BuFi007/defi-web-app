@@ -6,18 +6,27 @@ import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { config } from "@/lib/wagmi";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { DYNAMIC_ENVIRONMENT_ID } from "@/constants/Env";
-import { ArcTestnet, AvalancheFuji, ModeTestnet } from "@/constants/Chains";
+import { ArcTestnet, AvalancheFuji } from "@/constants/Chains";
+import {
+  DynamicErrorBoundary,
+  installDynamicRejectionFilter,
+} from "./DynamicErrorBoundary";
 
 const queryClient = new QueryClient();
-const evmNetworks = [AvalancheFuji, ModeTestnet, ArcTestnet];
+const evmNetworks = [AvalancheFuji, ArcTestnet];
 const walletConnectPreferredChains = evmNetworks.map(
   (network) => `eip155:${network.chainId}` as const
 );
 
 export default function Providers({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    installDynamicRejectionFilter();
+  }, []);
+
   return (
+    <DynamicErrorBoundary>
     <DynamicContextProvider
       settings={{
         environmentId: DYNAMIC_ENVIRONMENT_ID,
@@ -62,5 +71,6 @@ export default function Providers({ children }: { children: ReactNode }) {
         </QueryClientProvider>
       </WagmiProvider>
     </DynamicContextProvider>
+    </DynamicErrorBoundary>
   );
 }

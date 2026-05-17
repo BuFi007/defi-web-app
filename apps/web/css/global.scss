@@ -121,6 +121,18 @@ body:not(.user-is-tabbing) textarea:focus {
   visibility: hidden;
 }
 
+// Brand text selection — matches the custom scrollbar (#7c4dff).
+::selection {
+  background-color: #7c4dff;
+  color: #ffffff;
+  text-shadow: none;
+}
+::-moz-selection {
+  background-color: #7c4dff;
+  color: #ffffff;
+  text-shadow: none;
+}
+
 // Custom Scrollbar
 .custom-scrollbar {
   scrollbar-width: thin;

@@ -21,7 +21,6 @@ import {
 import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
 import { ModeToggle } from "@/components/theme-toggle";
 import LocalSwitcher from "@/components/locale-switcher";
-import WalletModule from "@/components/wallet-module";
 import { useAppTranslations } from "@/context/TranslationContext";
 import { cn } from "@/utils";
 
@@ -459,7 +458,6 @@ const MobileMenu: React.FC = () => {
                     <div className="[&>div]:w-full [&_button]:w-full">
                       <DynamicWidget />
                     </div>
-                    <WalletModule />
                   </div>
                 </motion.section>
 

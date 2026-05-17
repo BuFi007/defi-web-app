@@ -1,18 +1,14 @@
 import { createI18nServer } from "next-international/server";
 import {
   DEFAULT_LOCALE,
-  SUPPORTED_LOCALES,
   type SupportedLocale,
 } from "@bufi/location/supported-locales";
 
-// `next/root-params` ships with an empty .d.ts — the compiler substitutes
-// the real implementation per-app at build time based on the `[locale]`
-// dynamic segment. Declare the shape we use so tsc stays happy.
-declare module "next/root-params" {
-  export function locale(): Promise<string | undefined>;
-}
-
-import { locale as rootLocale } from "next/root-params";
+// `next/root-params` would let cached calls read the real route locale, but
+// it only works when `[locale]` is the root segment. This app keeps an
+// outer `app/layout.tsx` for the static <html> shell, so the loader sees
+// zero root params and generates an empty module. Until that's restructured,
+// cached fallbacks return DEFAULT_LOCALE instead.
 
 const LOCALE_LOADERS = {
   en: () => import("../messages/en.json"),
@@ -58,19 +54,10 @@ async function loadMessages(locale: SupportedLocale): Promise<Record<string, unk
   return (mod as { default: Record<string, unknown> }).default;
 }
 
-async function resolveLocaleFromRootParams(): Promise<SupportedLocale> {
-  const raw = await rootLocale();
-  if (raw && (SUPPORTED_LOCALES as readonly string[]).includes(raw)) {
-    return raw as SupportedLocale;
-  }
-  return DEFAULT_LOCALE;
-}
-
 /**
  * `'use cache'`-safe i18n getter. Tries next-international's request-aware
  * version first (which reads cookies / headers). Inside a cached function the
- * request APIs throw — we catch and resolve via `next/root-params` instead,
- * which IS cache-compatible because it's the dynamic route segment.
+ * request APIs throw — we fall back to DEFAULT_LOCALE for now.
  */
 export async function getI18n(): Promise<
   (key: string, params?: Record<string, unknown>) => string
@@ -79,8 +66,7 @@ export async function getI18n(): Promise<
     const t = await i18n.getI18n();
     return t as (key: string, params?: Record<string, unknown>) => string;
   } catch {
-    const locale = await resolveLocaleFromRootParams();
-    const messages = await loadMessages(locale);
+    const messages = await loadMessages(DEFAULT_LOCALE);
     return (key, params) => {
       const raw = resolvePath(messages, key);
       if (!raw) return key;
@@ -97,8 +83,7 @@ export async function getScopedI18n<S extends string>(scope: S) {
       params?: Record<string, unknown>,
     ) => string;
   } catch {
-    const locale = await resolveLocaleFromRootParams();
-    const messages = await loadMessages(locale);
+    const messages = await loadMessages(DEFAULT_LOCALE);
     return (key: string, params?: Record<string, unknown>) => {
       const fullKey = `${scope}.${key}`;
       const raw = resolvePath(messages, fullKey);
@@ -112,6 +97,6 @@ export async function getCurrentLocale(): Promise<SupportedLocale> {
   try {
     return (await i18n.getCurrentLocale()) as SupportedLocale;
   } catch {
-    return resolveLocaleFromRootParams();
+    return DEFAULT_LOCALE;
   }
 }

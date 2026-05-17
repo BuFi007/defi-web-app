@@ -97,10 +97,10 @@ export const HomeContent: React.FC = () => {
           </TabsList>
         </div>
 
-        <div className="p-10 overflow-hidden flex flex-col items-center justify-center w-full">
+        <div className="px-4 sm:px-6 py-4 overflow-hidden flex flex-col items-center justify-center w-full">
           <div className="relative flex flex-col items-center justify-center w-full h-full">
             <div
-              className={`relative z-1 text-center bg-background dark:bg-background rounded-lg shadow-lg px-8 py-4 w-full border-2 border-black dark:border-white transition-all duration-300 ease-in-out ${
+              className={`relative z-1 text-center bg-background dark:bg-background rounded-lg shadow-lg px-4 sm:px-5 py-3 w-full border-2 border-black dark:border-white transition-all duration-300 ease-in-out ${
                 activeTab === 'paymentLink' ? 'max-w-xl' : activeTab === 'tokenSwap' ? 'max-w-xl' : 'max-w-5xl'
               }`}
             >

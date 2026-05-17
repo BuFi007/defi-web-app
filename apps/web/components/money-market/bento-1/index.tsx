@@ -37,10 +37,10 @@ function LendBorrowActionCard() {
       <div className="flex justify-start items-center w-full">
         <TabsList
           stackBehavior="stacked-2"
-          className="gap-2 flex-grow justify-start"
+          className="gap-1 flex-grow justify-start p-0"
         >
           <TabsTriggerAlt value="lend">
-            <Button size="sm" variant="paez" tabValue="lend" storeType="market">
+            <Button size="sm" variant="paez" tabValue="lend" storeType="market" className="px-3 text-xs">
               {translations.tabLend}
             </Button>
           </TabsTriggerAlt>
@@ -50,6 +50,7 @@ function LendBorrowActionCard() {
               variant="paez"
               tabValue="borrow"
               storeType="market"
+              className="px-3 text-xs"
             >
               {translations.tabBorrow}
             </Button>
@@ -60,6 +61,7 @@ function LendBorrowActionCard() {
               variant="paez"
               tabValue="withdraw"
               storeType="market"
+              className="px-3 text-xs"
             >
               {translations.tabWithdraw}
             </Button>
@@ -70,6 +72,7 @@ function LendBorrowActionCard() {
               variant="paez"
               tabValue="repay"
               storeType="market"
+              className="px-3 text-xs"
             >
               {translations.tabRepay}
             </Button>

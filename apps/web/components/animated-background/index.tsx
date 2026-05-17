@@ -39,8 +39,12 @@ const AnimatedBackground = ({
   const FRAME_INTERVAL = 1000 / TARGET_FPS;
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Precomputed so the CSS gradient fallback on <canvas> can use it without
+  // waiting for the WebGL init effect to run.
+  const selectedColors = COLOR_PRESETS[variant] || COLOR_PRESETS.default;
+  const cssGradient = `linear-gradient(135deg, ${selectedColors[0]} 0%, ${selectedColors[1]} 35%, ${selectedColors[2]} 65%, ${selectedColors[3]} 100%)`;
+
   useEffect(() => {
-    const selectedColors = COLOR_PRESETS[variant] || COLOR_PRESETS.default;
     const colorValues = selectedColors.map(hex2rgb) as [
       number,
       number,
@@ -54,11 +58,9 @@ const AnimatedBackground = ({
       canvas.getContext("webgl") ||
       (canvas.getContext("experimental-webgl") as WebGLRenderingContext);
     if (!gl) {
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.fillStyle = selectedColors[0];
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
+      // Headless / GPU-disabled / WebGL-blocked: leave the canvas transparent
+      // so the CSS gradient on the element shows through. Was painting a
+      // solid first-color rect, which looked awful (e.g. #225ee1 slab).
       return;
     }
 
@@ -199,7 +201,7 @@ const AnimatedBackground = ({
       if (vertexShader) gl.deleteShader(vertexShader);
       if (fragmentShader) gl.deleteShader(fragmentShader);
     };
-  }, [isMac, variant, FRAME_INTERVAL, RESOLUTION_SCALE]);
+  }, [isMac, variant, FRAME_INTERVAL, RESOLUTION_SCALE, selectedColors]);
 
   return (
     <canvas
@@ -210,6 +212,7 @@ const AnimatedBackground = ({
         height: "100%",
         display: "block",
         imageRendering: "auto",
+        background: cssGradient,
       }}
     />
   );

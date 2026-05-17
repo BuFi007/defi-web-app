@@ -16,7 +16,6 @@ import {
   WalletControlsSkeleton,
 } from "@/components/skeleton-card";
 import dynamic from "next/dynamic";
-import WalletModule from "@/components/wallet-module";
 
 const ActionBanner = dynamic(() => import("./action-banner"), {
   loading: () => <ActionBannerSkeleton />,
@@ -83,7 +82,6 @@ const HeaderFull: React.FC = () => {
           <span className="h-px flex-grow bg-purpleDanis"></span>
           <Suspense fallback={<WalletControlsSkeleton />}>
             <div className="flex items-center gap-3 z-20">
-              <WalletModule />
               <DynamicWidget />
             </div>
           </Suspense>

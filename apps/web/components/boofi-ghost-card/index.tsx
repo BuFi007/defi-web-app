@@ -1,6 +1,6 @@
 
+import { Loader2 } from 'lucide-react';
 import useRealtimeClient from '@/hooks/realtime-open-ai/use-realtime-client';
-import { SkeletonGradient } from '@/components/ui/skeleton-gradient';
 import { BooFiConsole } from './console';
 import '@/components/boofi-ghost-card/styles.scss';
 
@@ -10,7 +10,11 @@ export default function BooFiGhostCard() {
   } = useRealtimeClient();
 
   if (!isReady) {
-    return <SkeletonGradient />;
+    return (
+      <div className="flex items-center justify-center h-full w-full py-6">
+        <Loader2 className="h-5 w-5 animate-spin text-purpleDanis/70" />
+      </div>
+    );
   }
 
   return (

@@ -90,10 +90,10 @@ async function LocalizedShell({
                   <Header />
                 </div>
                 <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
-                  <div className="container mx-auto py-4 relative flex flex-col overflow-hidden h-full">
+                  <div className="container mx-auto py-4 relative flex flex-col h-full">
                     <Container>
-                      <div className="relative h-full w-full">
-                        <div className="w-full h-full flex flex-col items-center justify-center">
+                      <div className="relative w-full">
+                        <div className="w-full flex flex-col items-center justify-start pt-2">
                           {children}
                         </div>
                       </div>
