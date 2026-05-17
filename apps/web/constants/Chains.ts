@@ -260,10 +260,10 @@ export const ArcTestnet = {
     name: "USDC",
     symbol: "USDC",
     decimals: 18,
-    iconUrls: ["https://www.arc.network/favicon.ico"],
+    iconUrls: ["/networks/arc.svg"],
   },
   blockExplorerUrls: ["https://testnet.arcscan.app"],
   vanityName: "Arc Testnet",
   chainName: "ArcTestnet",
-  iconUrls: ["https://www.arc.network/favicon.ico"],
+  iconUrls: ["/networks/arc.svg"],
 };

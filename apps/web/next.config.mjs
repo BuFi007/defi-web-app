@@ -41,8 +41,9 @@ const config = {
   async headers() {
     return [
       {
-        // Hash-busted public audio doesn't change — let CDNs hold it forever.
-        source: "/:dir(audio|sounds)/:path*",
+        // Hash-busted public assets that never change — let CDNs hold them
+        // forever. Covers audio (BGM + SFX) and network/chain icons.
+        source: "/:dir(audio|sounds|networks)/:path*",
         headers: [
           {
             key: "Cache-Control",

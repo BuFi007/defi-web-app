@@ -42,19 +42,19 @@ export default function LocaleSwitcher() {
       disabled={isPending}
     >
       <SelectTrigger
-        className="w-fit bg-white dark:bg-foreground shadow-xl rounded-md text-purpleDanis font-bold gap-2"
+        className="w-fit bg-white dark:bg-[#1B142D] shadow-xl rounded-md text-purpleDanis dark:text-[#E2D0FD] font-bold gap-2 border-purpleDanis/15 dark:border-white/10"
         aria-label="Change language"
       >
         <SelectValue />
       </SelectTrigger>
-      <SelectContent className="bg-white dark:bg-foreground shadow-xl border-none rounded-md text-purpleDanis [&_[data-radix-select-viewport]]:text-purpleDanis">
+      <SelectContent className="bg-white dark:bg-[#1B142D] shadow-xl border-none rounded-md text-purpleDanis dark:text-[#E2D0FD] [&_[data-radix-select-viewport]]:text-purpleDanis dark:[&_[data-radix-select-viewport]]:text-[#E2D0FD]">
         {SUPPORTED_LOCALES.map((code) => {
           const { emoji, nativeName } = localeFlags[code];
           return (
             <SelectItem
               key={code}
               value={code}
-              className="text-purpleDanis focus:text-purpleDanis"
+              className="text-purpleDanis focus:text-purpleDanis dark:text-[#E2D0FD] dark:focus:text-[#E2D0FD]"
             >
               <span className="inline-flex items-center gap-2">
                 <span aria-hidden className="text-base leading-none">

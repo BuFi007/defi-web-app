@@ -2,8 +2,6 @@ import { createHash, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-export const runtime = "nodejs";
-
 const ALPHA_COOKIE_NAME = "bu_alpha_access";
 const MAX_BODY_BYTES = 1024;
 

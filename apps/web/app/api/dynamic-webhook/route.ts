@@ -1,8 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = "nodejs";
-
 const MAX_BODY_BYTES = 1024 * 1024;
 
 const getDynamicSignature = (request: NextRequest) =>

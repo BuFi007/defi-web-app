@@ -1,4 +1,4 @@
-import { geolocation } from "@vercel/edge";
+import { geolocation } from "@vercel/functions";
 import { createI18nMiddleware } from "next-international/middleware";
 import { NextRequest, NextResponse } from "next/server";
 import {

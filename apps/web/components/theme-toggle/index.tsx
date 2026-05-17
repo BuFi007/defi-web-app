@@ -49,7 +49,9 @@ export function ModeToggle() {
   const currentSize = showNotice ? SIZES.notice : SIZES.idle;
   const backgroundColor = showNotice
     ? "rgba(10, 8, 18, 0.96)"
-    : "rgba(255, 255, 255, 1)";
+    : resolvedTheme === "dark"
+      ? "rgba(27, 20, 45, 0.96)"
+      : "rgba(255, 255, 255, 1)";
 
   return (
     <motion.button
@@ -130,7 +132,7 @@ export function ModeToggle() {
               filter: "blur(4px)",
               transition: { duration: 0.16 },
             }}
-            className="h-full w-full grid place-items-center text-purpleDanis"
+            className="h-full w-full grid place-items-center text-purpleDanis dark:text-[#E2D0FD]"
           >
             <AnimatePresence initial={false} mode="wait">
               {inGhostMode ? (

@@ -66,12 +66,16 @@ const TabsTrigger = React.forwardRef<
 ));
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName;
 
+// Every call site wraps a <Button>. We forward Radix props onto that child
+// via Slot (`asChild`), so the rendered DOM is a single <button> instead of
+// <button><button>...</button></button> (which would error on hydration).
 const TabsTriggerAlt = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.Trigger
     ref={ref}
+    asChild
     className={cn(
       "inline-flex items-center justify-start space-x-2",
       className

@@ -1,20 +1,20 @@
 import { http, createConfig, useConnectorClient, Config } from "wagmi";
-import {
-  avalancheFuji,
-  arcTestnet,
-  modeTestnet,
-} from "wagmi/chains";
+import { avalancheFuji, arcTestnet } from "wagmi/chains";
 import { useMemo } from "react";
 import { providers } from "ethers";
 import type { Account, Chain, Client, Transport } from "viem";
 
 export const config = createConfig({
-  chains: [avalancheFuji, modeTestnet, arcTestnet],
+  chains: [avalancheFuji, arcTestnet],
   transports: {
     [avalancheFuji.id]: http(),
-    [modeTestnet.id]: http(),
     [arcTestnet.id]: http("https://rpc.testnet.arc.network"),
   },
+  // Required for Next.js App Router + cacheComponents. Without it, wagmi
+  // hooks called during the server prerender pass throw
+  // `useConfig must be used within WagmiProvider` because the client
+  // provider's context isn't established yet.
+  ssr: true,
 });
 
 declare module "wagmi" {
