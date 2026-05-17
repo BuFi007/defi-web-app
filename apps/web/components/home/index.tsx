@@ -1,6 +1,7 @@
 "use client"
 
 import React, { Suspense, useState, useEffect } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAccount } from "wagmi";
 import { NotConnectedHome } from "@/components/not-connected";
 import { PaymentLinkTabContent } from "@/components/tab-content/payments-tab";
@@ -17,16 +18,31 @@ import { LottieWrapper } from "@/components/lottie-wrapper"
 import { PaymentLinkSkeleton, TokenSwapSkeleton, MoneyMarketBentoSkeleton } from "@/components/skeleton-card";
 import { useAppTranslations } from "@/context/TranslationContext";
 
+type ActiveTab = "moneyMarket" | "paymentLink" | "tokenSwap";
+
+const isValidTab = (value: string | null): value is ActiveTab =>
+  value === "moneyMarket" || value === "paymentLink" || value === "tokenSwap";
+
 export const HomeContent: React.FC = () => {
   const { isConnected } = useAccount()
   const { activeTab, setActiveTab, resetTab } = useTabStore()
   const [isTransitioning, setIsTransitioning] = useState(false)
   const address = useAccount();
   const translations = useAppTranslations('Home');
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
 
+  // URL ?tab= is the source of truth; falls back to store default. Runs on
+  // mount and whenever the query string changes (mobile drawer deep-links).
   useEffect(() => {
-    resetTab();
-  }, [resetTab, translations]);
+    const queryTab = searchParams?.get('tab') ?? null;
+    if (isValidTab(queryTab)) {
+      setActiveTab(queryTab);
+    } else {
+      resetTab();
+    }
+  }, [searchParams, setActiveTab, resetTab, translations]);
 
 
   useEffect(() => {
@@ -43,8 +59,12 @@ export const HomeContent: React.FC = () => {
   }
 
   const handleTabChange = (value: string) => {
+    if (!isValidTab(value)) return;
     setIsTransitioning(true)
-    setActiveTab(value as "paymentLink" | "moneyMarket" | "tokenSwap")
+    setActiveTab(value)
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set('tab', value);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
   return (

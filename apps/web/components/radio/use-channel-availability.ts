@@ -21,8 +21,12 @@ export function useChannelAvailability() {
     let cancelled = false;
 
     const check = async () => {
+      // Only verify channels with a hardcoded videoId; query-based channels
+      // resolve at play time via /api/radio/discover and shouldn't ping oEmbed
+      // with `v=undefined` (returns 400 + console noise).
+      const verifiable = CHANNELS.filter((c) => Boolean(c.videoId));
       const results = await Promise.allSettled(
-        CHANNELS.map(async (c) => {
+        verifiable.map(async (c) => {
           const url = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${c.videoId}&format=json`;
           const res = await fetch(url, { method: "GET", cache: "force-cache" });
           return { id: c.id, ok: res.ok };

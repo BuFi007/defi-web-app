@@ -6,8 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import SpiderwebPattern from "@/components/magicui/spiderweb-pattern";
 import { cn } from "@/utils";
 import Providers from "@/context/DynamicProviders";
-import { NextIntlClientProvider } from "next-intl";
-import { getMessages } from "next-intl/server";
+import { I18nProviderClient } from "@/locales/client";
 import { TranslationProvider } from "@/context/TranslationContext";
 import Loading from "./loading";
 import { RootLayoutProps } from "@/lib/types";
@@ -40,26 +39,23 @@ const VARIANT_TWO: BgVariant = resolveVariant(
 const pickVariantForDay = (): BgVariant =>
   new Date().getDay() % 2 === 0 ? VARIANT_ONE : VARIANT_TWO;
 
-export default async function RootLayout({
+async function LocalizedShell({
   children,
   params,
-}: RootLayoutProps) {
+  bgVariant,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ locale: string }>;
+  bgVariant: BgVariant;
+}) {
   const { locale } = await params;
-  const messages = await getMessages();
-  const bgVariant = pickVariantForDay();
 
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="light"
-      enableSystem
-      disableTransitionOnChange
-    >
-      <NextIntlClientProvider messages={messages} locale={locale}>
-        <TranslationProvider>
-          <GhostModeProvider>
-            <Providers>
-              <BlockchainProvider>
+    <I18nProviderClient locale={locale}>
+      <TranslationProvider>
+        <GhostModeProvider>
+          <Providers>
+            <BlockchainProvider>
               <main
                 className={cn(
                   "rounded-md h-screen flex flex-col overflow-hidden relative",
@@ -89,32 +85,43 @@ export default async function RootLayout({
                     "fixed inset-0 pointer-events-none opacity-95 hidden dark:block"
                   )}
                 />
-                <Suspense fallback={<Loading />}>
-                  <div className="shrink-0 relative z-30 bg-transparent">
-                    <Header />
-                  </div>
-                  <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
-                    <div className="container mx-auto py-4 relative flex flex-col overflow-hidden h-full">
-                      <Container>
-                        <div className="relative h-full w-full">
-                          <div className="w-full h-full flex flex-col items-center justify-center">
-                            {children}
-                          </div>
+                <div className="shrink-0 relative z-30 bg-transparent">
+                  <Header />
+                </div>
+                <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
+                  <div className="container mx-auto py-4 relative flex flex-col overflow-hidden h-full">
+                    <Container>
+                      <div className="relative h-full w-full">
+                        <div className="w-full h-full flex flex-col items-center justify-center">
+                          {children}
                         </div>
-                      </Container>
-                    </div>
+                      </div>
+                    </Container>
                   </div>
-                </Suspense>
+                </div>
                 <div className="shrink-0 relative z-30 bg-transparent">
                   <LayoutMusic />
                 </div>
               </main>
-              </BlockchainProvider>
-              <Toaster />
-            </Providers>
-          </GhostModeProvider>
-        </TranslationProvider>
-      </NextIntlClientProvider>
+            </BlockchainProvider>
+            <Toaster />
+          </Providers>
+        </GhostModeProvider>
+      </TranslationProvider>
+    </I18nProviderClient>
+  );
+}
+
+export default function RootLayout({ children, params }: RootLayoutProps) {
+  const bgVariant = pickVariantForDay();
+
+  return (
+    <ThemeProvider defaultTheme="light">
+      <Suspense fallback={<Loading />}>
+        <LocalizedShell params={params} bgVariant={bgVariant}>
+          {children}
+        </LocalizedShell>
+      </Suspense>
     </ThemeProvider>
   );
 }
