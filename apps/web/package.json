@@ -40,7 +40,6 @@
     "@radix-ui/react-toggle": "1.1.0",
     "@radix-ui/react-tooltip": "1.1.2",
     "@space-man/react-theme-animation": "^1.1.1",
-    "@squirrel-labs/peanut-sdk": "0.6.2",
     "@tanstack/react-query": "5.27.5",
     "@types/canvas-confetti": "1.6.4",
     "@types/styled-components": "5.1.34",

@@ -47,7 +47,6 @@ export const useTabStore = create<TabState>()(
     {
       name: 'tab-storage',
       onRehydrateStorage: () => (state) => {
-        // Reset state on page load
         if (state) {
           state.resetTab();
         }

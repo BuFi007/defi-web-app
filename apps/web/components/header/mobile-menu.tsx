@@ -11,13 +11,7 @@ import {
   useReducedMotion,
   type Variants,
 } from "framer-motion";
-import {
-  ArrowUpRight,
-  HandCoins,
-  Home as HomeIcon,
-  Landmark,
-  Send,
-} from "lucide-react";
+import { ArrowUpRight, Home as HomeIcon } from "lucide-react";
 import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
 import { ModeToggle } from "@/components/theme-toggle";
 import LocalSwitcher from "@/components/locale-switcher";
@@ -34,12 +28,6 @@ type NavItem = {
   href: string;
   label: string;
   caption: string;
-  icon: React.ComponentType<{ className?: string }>;
-};
-
-type TabShortcut = {
-  tab: "moneyMarket" | "paymentLink";
-  label: string;
   icon: React.ComponentType<{ className?: string }>;
 };
 
@@ -82,7 +70,6 @@ const MobileMenu: React.FC = () => {
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
   const homeTranslations = useAppTranslations("Home");
-  const peanutTranslations = useAppTranslations("PeanutTab");
 
   const close = useCallback(() => setIsOpen(false), []);
   const toggle = useCallback(() => setIsOpen((v) => !v), []);
@@ -134,31 +121,8 @@ const MobileMenu: React.FC = () => {
     {
       href: "/",
       label: homeTranslations.welcome ?? "Home",
-      caption: `${homeTranslations.moneyMarketTab ?? "Loan"} · ${
-        homeTranslations.paymentsTab ?? "Payments"
-      }`,
+      caption: homeTranslations.moneyMarketTab ?? "Money Market",
       icon: HomeIcon,
-    },
-    {
-      href: "/claim",
-      label: peanutTranslations.claimTitle ?? "Claim",
-      caption: peanutTranslations.claimDescription ?? "Redeem a payment link",
-      icon: HandCoins,
-    },
-  ];
-
-  // Deep-links into the home page's Zustand-driven tabs via ?tab=. Synced by
-  // HomeContent's useSearchParams effect.
-  const tabShortcuts: TabShortcut[] = [
-    {
-      tab: "moneyMarket",
-      label: homeTranslations.moneyMarketTab ?? "Money Market",
-      icon: Landmark,
-    },
-    {
-      tab: "paymentLink",
-      label: homeTranslations.paymentsTab ?? "Payments",
-      icon: Send,
     },
   ];
 
@@ -395,54 +359,8 @@ const MobileMenu: React.FC = () => {
                 </motion.nav>
 
                 <motion.section
-                  aria-label="Sections"
-                  custom={navItems.length}
-                  variants={reduceMotion ? overlayVariants : childVariants}
-                  className="px-6 pt-2"
-                >
-                  <div className="flex items-center justify-between pb-2">
-                    <span
-                      className="font-mono text-[10px] uppercase tracking-[0.18em] text-foreground/40"
-                      aria-hidden
-                    >
-                      Sections
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {tabShortcuts.map((shortcut) => {
-                      const Icon = shortcut.icon;
-                      return (
-                        <Link
-                          key={shortcut.tab}
-                          href={`/?tab=${shortcut.tab}`}
-                          onClick={close}
-                          className={cn(
-                            "group flex items-center gap-2 min-h-[48px] px-3 py-2 rounded-xl",
-                            "ring-1 ring-foreground/8 dark:ring-white/8",
-                            "bg-foreground/[0.02] dark:bg-white/[0.02]",
-                            "hover:bg-purpleDanis/8 dark:hover:bg-white/[0.05]",
-                            "transition-colors duration-200",
-                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purpleDanis/60",
-                          )}
-                        >
-                          <span
-                            aria-hidden
-                            className="grid place-items-center h-7 w-7 rounded-lg ring-1 ring-foreground/10 text-foreground/65 motion-safe:group-hover:text-purpleDanis transition-colors duration-200"
-                          >
-                            <Icon className="h-3.5 w-3.5" />
-                          </span>
-                          <span className="font-knicknack text-[15px] tracking-tight text-foreground truncate">
-                            {shortcut.label}
-                          </span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </motion.section>
-
-                <motion.section
                   aria-label="Account"
-                  custom={navItems.length + 1}
+                  custom={navItems.length}
                   variants={reduceMotion ? overlayVariants : childVariants}
                   className="px-6 pt-5"
                 >
@@ -463,7 +381,7 @@ const MobileMenu: React.FC = () => {
 
                 <motion.section
                   aria-label="Preferences"
-                  custom={navItems.length + 2}
+                  custom={navItems.length + 1}
                   variants={reduceMotion ? overlayVariants : childVariants}
                   className="px-6 pt-5 pb-6"
                 >
@@ -482,7 +400,7 @@ const MobileMenu: React.FC = () => {
                 </motion.section>
 
                 <motion.footer
-                  custom={navItems.length + 3}
+                  custom={navItems.length + 2}
                   variants={reduceMotion ? overlayVariants : childVariants}
                   className="border-t border-foreground/5 px-6 py-4"
                 >

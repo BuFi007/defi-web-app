@@ -15,6 +15,7 @@ import { BlockchainProvider } from "@/context/BlockchainContext";
 import { GhostModeProvider } from "@/context/GhostModeContext";
 import Container from "@/components/container";
 import Header from "@/components/header";
+import { PerpsReplacementAgent } from "@/components/perps-replacement-agent";
 
 export async function generateMetadata({
   params,
@@ -105,6 +106,7 @@ async function LocalizedShell({
                 </div>
               </main>
             </BlockchainProvider>
+            <PerpsReplacementAgent />
             <Toaster />
           </Providers>
         </GhostModeProvider>

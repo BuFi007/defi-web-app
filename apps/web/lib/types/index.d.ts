@@ -39,53 +39,9 @@ export interface StepItemProps {
   children: React.ReactNode;
 }
 
-export interface ExtendedPaymentInfo {
-  chainId: number | string;
-  tokenSymbol: string;
-  tokenAmount: string;
-  senderAddress: string;
-  claimed: boolean;
-  depositDate: string;
-  transactionHash?: string;
-  depositIndex: number;
-}
-
-export interface IGetLinkDetailsResponse {
-  link: string;
-  chainId: string;
-  depositIndex: number;
-  contractVersion: string;
-  password: string;
-  sendAddress: string;
-  tokenType: string;
-  tokenAddress: string;
-  tokenDecimals: number;
-  tokenSymbol: string;
-  TokenName: string;
-  tokenAmount: string;
-  tokenId: number;
-  claimed: boolean;
-  depositDate: string;
-  tokenURI: string;
-}
-
 export interface CustomLinkProps
   extends React.LinkHTMLAttributes<HTMLAnchorElement> {
   href: string;
-}
-
-export interface PaymentInfoProps {
-  paymentInfo: {
-    chainId: number | string;
-    tokenSymbol: string;
-    tokenAmount: string;
-    senderAddress: string;
-    claimed: boolean;
-    depositDate: string;
-    transactionHash?: string;
-    destinationChainId?: number;
-    destinationChainName?: string;
-  };
 }
 
 type Call = {
@@ -115,8 +71,8 @@ export interface AssetData {
   value: number;
 }
 export interface TabState {
-  activeTab: "moneyMarket" | "paymentLink" | "tokenSwap";
-  setActiveTab: (tab: "moneyMarket" | "paymentLink" | "tokenSwap") => void;
+  activeTab: "moneyMarket";
+  setActiveTab: (tab: "moneyMarket") => void;
   resetTab: () => void;
 }
 
@@ -190,12 +146,6 @@ export interface ChainSelectProps {
 
 export type { TransactionError as Error };
 
-export interface TransactionDetails {
-  transactionHash: string;
-  peanutLink: string;
-  paymentLink: string;
-}
-
 export interface CurrencyAddressInfo {
   address: string;
   hubContract: string;
@@ -208,24 +158,6 @@ export type CurrencyAddresses = Record<
   number,
   Record<string, CurrencyAddressInfo>
 >;
-
-export interface LinkUiFormProps {
-  tokenAmount: number;
-  handleValueChange: (usdAmount: number, tokenAmount: number) => void;
-  availableTokens: Token[];
-  setSelectedToken: Dispatch<SetStateAction<string>>;
-  chainId: number | undefined;
-  handleCreateLinkClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
-  isPeanutLoading: boolean;
-}
-
-export interface TransactionDetailsDisplayProps {
-  transactionDetails: TransactionDetails;
-  chainId: number | undefined;
-  handleCopy: (text: string, label: string) => void;
-  handleShare: (platform: string) => void;
-  truncateHash: (hash: string) => string;
-}
 
 export interface CurrencyDisplayerProps {
   onValueChange?: (value: number, formattedValue: number) => void;
@@ -249,15 +181,6 @@ export interface AbstractTransaction {
 export interface AbstractSigner {
   sendTransaction(tx: AbstractTransaction): Promise<{ hash: string }>;
   getAddress(): Promise<string>;
-}
-
-export interface OverlayPayNameProps {
-  handleToggleOverlay: () => void;
-  copyLink: () => void;
-  link: string;
-  shareOnWhatsApp: (localizedLink: string) => void;
-  shareOnTelegram: (localizedLink: string) => void;
-  shareOnDownload: (qrCodeElement: HTMLElement) => void;
 }
 
 export interface AddressProps {
@@ -301,61 +224,9 @@ export interface Translations {
     paymentsTab: string;
     ccipUsdcBridgeTab: string;
   };
-  EnsAlertDialog: {
-    actionButton: string;
-    callToAction: string;
-  };
-  PeanutTab: {
-    sendTab: string;
-    receiveTab: string;
-    historyTab: string;
-    linkTitle: string;
-    createLinkButton: string;
-    claimReady: string;
-    currentTextAlreadyClaimedTitle: string;
-    currentTextStartingClaim: string;
-    handleFetchLinkDetailsError: string;
-    currentTextAlreadyClaimed: string;
-    currentTextClaiming: string;
-    currentTextProgress: string;
-    currentTextClaimSuccess: string;
-    currentTextClaimError: string;
-    currentTextClaimComplete: string;
-    currentTextCrossChainProgress: string;
-    currentTextCrossChainSuccess: string;
-    currentTextCrossChainError: string;
-    currentTextCrossChainComplete: string;
-    claimTitle: string;
-    claimSuccessTitle: string;
-    claimDescription: string;
-    claimPaste: string;
-    claimVerify: string;
-    claimClaim: string;
-    claimSuccess: string;
-    claimDestinationChain: string;
-    claimViewInExplorer: string;
-  };
-  PaymentsTab: {};
   CurrencyDisplayer: {
     availableBalance: string;
     loadingBalance: string;
-  };
-  Overlay: {
-    frameText: string;
-    linkSubtitle: string;
-    linkCopied: string;
-    linkDescription: string;
-    shareWhatsapp: string;
-    shareTelegram: string;
-    hashTxText: string;
-    viewInExplorer: string;
-    currentTextProgress: string;
-    currentTextSuccess: string;
-    currentTextFailed: string;
-    currentTextSpooky: string;
-    toastError: string;
-    toastCopyTitle: string;
-    toastCopyDescription: string;
   };
   CCIPBridge: {
     connectWallet: string;
@@ -412,23 +283,6 @@ export interface Translations {
   };
   DiscordBanner: {
     cta: string;
-  };
-  OpenGraphClaim: {
-    paymentRequest: string;
-    claimTitle: string;
-    claimTitle2: string;
-    description: string;
-    description2: string;
-    fallbackTitle: string;
-    fallbackDescription: string;
-  };
-  OpenGraphPayment: {
-    paymentTitle: string;
-    paymentDescription: string;
-    paymentDescription2: string;
-    paymentDescription3: string;
-    paymentFallbackTitle: string;
-    paymentFallbackDescription: string;
   };
 }
 

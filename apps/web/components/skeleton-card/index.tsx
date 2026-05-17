@@ -16,36 +16,6 @@ const MoneyMarketSkeleton: React.FC = () => {
   );
 };
 
-const PaymentLinkSkeleton: React.FC = () => (
-  <div className="animate-pulse space-y-4 w-full h-full min-h-[6rem]">
-    <div className="mb-4 p-4 bg-background h-full"></div>
-    <div className="mb-4 p-4 bg-background border-2 border-mainAccent rounded-md h-full">
-      <div className="flex space-x-2 mb-4">
-        <div className="h-8 bg-gray-300 rounded w-1/2"></div>
-        <div className="h-8 bg-gray-300 rounded w-1/2"></div>
-      </div>
-    </div>
-    <div className="mb-4 p-4 bg-background border-2 border-mainAccent rounded-md">
-      <div className="h-2 bg-gray-300 rounded w-full mb-4"></div>
-      <div className="h-12 bg-gray-300 rounded w-full mb-4"></div>
-    </div>
-
-    <div className="mb-4 p-4 bg-background border-2 border-mainAccent rounded-md">
-      <div className="h-2 bg-gray-300 rounded w-full mb-4"></div>
-      <div className="h-12 bg-gray-300 rounded w-full mb-4"></div>
-    </div>
-
-    <div className="mb-4 p-4 bg-background border-2 border-mainAccent rounded-md">
-      <div className="h-2 bg-gray-300 rounded w-full mb-4"></div>
-      <div className="h-12 bg-gray-300 rounded w-full mb-4"></div>
-    </div>
-
-    <div className="mb-4 p-4 bg-background border-2 border-mainAccent rounded-md">
-      <div className="h-4 bg-gray-300 rounded w-full mb-4"></div>
-    </div>
-  </div>
-);
-
 const BentoTileSkeleton = () => (
   <div className="flex flex-1 w-full h-full min-h-[6rem] rounded-xl bg-gray-200 dark:bg-gray-800 animate-pulse"></div>
 );
@@ -75,37 +45,6 @@ const MoneyMarketBentoSkeleton: React.FC = () => {
         />
       ))}
     </BentoGrid>
-  );
-};
-
-const TokenSwapSkeleton: React.FC = () => {
-  return (
-    <div className="bg-background p-6 rounded-lg border-2 border-border dark:border-darkBorder shadow-light dark:shadow-dark animate-pulse">
-      <div className="space-y-4">
-        <div className="mb-4 p-4 bg-background border-2 border-mainAccent rounded-md">
-          <div className="flex justify-between items-center mb-2">
-            <div className="h-4 w-12 bg-gray-300 rounded"></div>
-            <div className="h-6 w-24 bg-gray-300 rounded"></div>
-          </div>
-          <div className="h-8 w-full bg-gray-300 rounded"></div>
-        </div>
-
-        <div className="flex justify-center">
-          <div className="h-8 w-8 bg-gray-300 rounded-full"></div>
-        </div>
-
-        <div className="mb-4 p-4 bg-background border-2 border-mainAccent rounded-md">
-          <div className="flex justify-between items-center mb-2">
-            <div className="h-4 w-12 bg-gray-300 rounded"></div>
-            <div className="h-6 w-24 bg-gray-300 rounded"></div>
-          </div>
-          <div className="h-8 w-full bg-gray-300 rounded"></div>
-        </div>
-
-        <div className="h-12 w-full bg-gray-300 rounded"></div>
-        <div className="h-4 w-3/4 bg-gray-300 rounded mx-auto"></div>
-      </div>
-    </div>
   );
 };
 
@@ -209,65 +148,13 @@ const HomePageSkeleton: React.FC = () => {
   );
 };
 
-const PayIdSkeleton: React.FC = () => {
-  return (
-    <div className="flex flex-col items-center w-full p-4">
-      <div className="flex flex-col w-full max-w-l space-y-4">
-        <div className="flex flex-col items-center space-y-2">
-          <Skeleton className="h-16 w-16 rounded-full" />
-          <Skeleton className="h-5 w-40" />
-          <Skeleton className="h-4 w-56" />
-        </div>
-
-        <div className="flex justify-center space-x-2 mt-4">
-          <Skeleton className="h-9 w-16 rounded-md" />
-          <Skeleton className="h-9 w-16 rounded-md" />
-          <Skeleton className="h-9 w-16 rounded-md" />
-          <Skeleton className="h-9 w-16 rounded-md" />
-        </div>
-
-        <div className="flex justify-center w-full my-4">
-          <Skeleton className="h-10 w-48 rounded-md" />
-        </div>
-
-        <Skeleton className="h-24 w-full rounded-md" />
-        <Skeleton className="h-11 w-full rounded-md" />
-      </div>
-    </div>
-  );
-};
-
-const ClaimSkeleton: React.FC = () => {
-  return (
-    <main className="flex-1 flex flex-col h-screen p-10">
-      <div className="mx-auto w-full max-w-xl space-y-6">
-        <Skeleton className="h-7 w-2/3 mx-auto" />
-
-        <div className="flex flex-col items-center space-y-3">
-          <Skeleton className="h-12 w-12 rounded-full" />
-          <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-4 w-24" />
-        </div>
-
-        <Skeleton className="h-10 w-full rounded-md" />
-        <Skeleton className="h-10 w-full rounded-md" />
-        <Skeleton className="h-11 w-full rounded-md" />
-      </div>
-    </main>
-  );
-};
-
 export {
   MoneyMarketSkeleton,
-  PaymentLinkSkeleton,
   MoneyMarketBentoSkeleton,
-  TokenSwapSkeleton,
   ContainerSkeleton,
   HeaderSkeleton,
   ActionBannerSkeleton,
   HomePageSkeleton,
-  PayIdSkeleton,
-  ClaimSkeleton,
   ModeToggleSkeleton,
   LocaleSwitcherSkeleton,
   WalletControlsSkeleton,

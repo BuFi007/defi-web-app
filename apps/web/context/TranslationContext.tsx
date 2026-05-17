@@ -43,67 +43,9 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
       paymentsTab: t("Home.paymentsTab"),
       ccipUsdcBridgeTab: t("Home.ccipUsdcBridgeTab"),
     },
-    EnsAlertDialog: {
-      actionButton: t("EnsAlertDialog.actionButton"),
-      callToAction: t("EnsAlertDialog.callToAction"),
-    },
-    PeanutTab: {
-      sendTab: t("PeanutTab.sendTab"),
-      receiveTab: t("PeanutTab.receiveTab"),
-      historyTab: t("PeanutTab.historyTab"),
-      linkTitle: t("PeanutTab.linkTitle"),
-      createLinkButton: t("PeanutTab.createLinkButton"),
-      claimReady: t("PeanutTab.claimReady"),
-      currentTextStartingClaim: t("PeanutTab.currentTextStartingClaim"),
-      currentTextAlreadyClaimed: t("PeanutTab.currentTextAlreadyClaimed"),
-      currentTextClaiming: t("PeanutTab.currentTextClaiming"),
-      currentTextAlreadyClaimedTitle: t(
-        "PeanutTab.currentTextAlreadyClaimedTitle"
-      ),
-      handleFetchLinkDetailsError: t("PeanutTab.handleFetchLinkDetailsError"),
-      currentTextProgress: t("PeanutTab.currentTextProgress"),
-      currentTextClaimSuccess: t("PeanutTab.currentTextClaimSuccess"),
-      currentTextClaimError: t("PeanutTab.currentTextClaimError"),
-      currentTextClaimComplete: t("PeanutTab.currentTextClaimComplete"),
-      currentTextCrossChainProgress: t(
-        "PeanutTab.currentTextCrossChainProgress"
-      ),
-      currentTextCrossChainSuccess: t("PeanutTab.currentTextCrossChainSuccess"),
-      currentTextCrossChainError: t("PeanutTab.currentTextCrossChainError"),
-      currentTextCrossChainComplete: t(
-        "PeanutTab.currentTextCrossChainComplete"
-      ),
-      claimTitle: t("PeanutTab.claimTitle"),
-      claimSuccessTitle: t("PeanutTab.claimSuccessTitle"),
-      claimDescription: t("PeanutTab.claimDescription"),
-      claimPaste: t("PeanutTab.claimPaste"),
-      claimVerify: t("PeanutTab.claimVerify"),
-      claimClaim: t("PeanutTab.claimClaim"),
-      claimSuccess: t("PeanutTab.claimSuccess"),
-      claimDestinationChain: t("PeanutTab.claimDestinationChain"),
-      claimViewInExplorer: t("PeanutTab.claimViewInExplorer"),
-    },
-    PaymentsTab: {},
     CurrencyDisplayer: {
       availableBalance: t("CurrencyDisplayer.availableBalance"),
       loadingBalance: t("CurrencyDisplayer.loadingBalance"),
-    },
-    Overlay: {
-      frameText: t("Overlay.frameText"),
-      linkSubtitle: t("Overlay.linkSubtitle"),
-      linkCopied: t("Overlay.linkCopied"),
-      linkDescription: t("Overlay.linkDescription"),
-      shareWhatsapp: t("Overlay.shareWhatsapp"),
-      shareTelegram: t("Overlay.shareTelegram"),
-      hashTxText: t("Overlay.hashTxText"),
-      viewInExplorer: t("Overlay.viewInExplorer"),
-      currentTextProgress: t("Overlay.currentTextProgress"),
-      currentTextSuccess: t("Overlay.currentTextSuccess"),
-      currentTextFailed: t("Overlay.currentTextFailed"),
-      currentTextSpooky: t("Overlay.currentTextSpooky"),
-      toastError: t("Overlay.toastError"),
-      toastCopyTitle: t("Overlay.toastCopyTitle"),
-      toastCopyDescription: t("Overlay.toastCopyDescription"),
     },
     CCIPBridge: {
       connectWallet: t("CCIPBridge.connectWallet"),
@@ -160,23 +102,6 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
     },
     DiscordBanner: {
       cta: t("DiscordBanner.cta"),
-    },
-    OpenGraphClaim: {
-      paymentRequest: t("OpenGraphClaim.paymentRequest"),
-      claimTitle: t("OpenGraphClaim.claimTitle"),
-      claimTitle2: t("OpenGraphClaim.claimTitle2"),
-      description: t("OpenGraphClaim.description"),
-      description2: t("OpenGraphClaim.description2"),
-      fallbackTitle: t("OpenGraphClaim.fallbackTitle"),
-      fallbackDescription: t("OpenGraphClaim.fallbackDescription"),
-    },
-    OpenGraphPayment: {
-      paymentTitle: t("OpenGraphPayment.paymentTitle"),
-      paymentDescription: t("OpenGraphPayment.paymentDescription"),
-      paymentDescription2: t("OpenGraphPayment.paymentDescription2"),
-      paymentDescription3: t("OpenGraphPayment.paymentDescription3"),
-      paymentFallbackTitle: t("OpenGraphPayment.paymentFallbackTitle"),
-      paymentFallbackDescription: t("OpenGraphPayment.paymentFallbackDescription"),
     },
   };
 
