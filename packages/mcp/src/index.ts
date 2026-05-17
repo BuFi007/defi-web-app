@@ -7,5 +7,11 @@ export {
 } from "./state";
 export type { WorkflowStore } from "./state";
 export { WorkflowRunner } from "./runner";
-export type { RunnerDeps, StartArgs } from "./runner";
+export type {
+  RunnerDeps,
+  SignatureDigestArgs,
+  SignatureVerificationArgs,
+  StartArgs,
+} from "./runner";
+export * from "./signatures";
 export * from "./tools";

@@ -1,0 +1,25 @@
+{
+  "name": "@bufi/market-data",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pyth Hermes client and oracle freshness helpers for BUFX backend services.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@bufi/contracts": "workspace:*",
+    "@bufi/shared-types": "workspace:*",
+    "viem": "2.45.3",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "20",
+    "typescript": "5"
+  }
+}

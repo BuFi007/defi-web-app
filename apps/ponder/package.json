@@ -15,7 +15,7 @@
   "dependencies": {
     "@bufi/contracts": "workspace:*",
     "@bufi/shared-types": "workspace:*",
-    "hono": "4.12.0",
+    "hono": "4.12.7",
     "ponder": "0.16.6",
     "viem": "2.45.3"
   },

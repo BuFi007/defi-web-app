@@ -63,31 +63,52 @@ export interface PerpQuote {
   side: PerpSide;
   sizeUsdc: string;
   leverage: number;
-  /** Indicative entry price (1e18-scaled stringified). */
-  indicativePrice: string;
-  estimatedFundingBps: number;
-  /** Oracle snapshot used to build this quote. */
+  /** Read from the perps clearinghouse quote view, never computed off-chain. */
+  fee: string;
+  /** Read from on-chain oracle/clearinghouse state. */
+  markPrice: string;
+  requiredMargin: string;
+  maxLeverage: number;
+  oracleStaleSeconds: number;
   oracle: {
-    source: MarketRegistryEntry["source"];
+    source: "pyth" | "onchain";
     timestamp: number;
-    /** Caller may reject quotes older than this. */
     maxStaleSeconds: number;
   };
 }
 
 export interface PerpIntent {
   intentId: string;
+  /** Source partially-filled intent when this order re-enters residual quantity. */
+  replacementOf?: string;
+  chainId: ChainId;
   trader: Address;
   marketId: string;
   side: PerpSide;
   sizeUsdc: string;
+  /** Contract-native signed size delta for FxOrderSettlement.SignedOrder. */
+  sizeDelta: string;
+  /** Signed cumulative filled size delta. Same sign as `sizeDelta`. */
+  filledSizeDelta: string;
+  /** Signed remaining size delta. Same sign as `sizeDelta`; zero when fully filled. */
+  remainingSizeDelta: string;
   leverage: number;
+  orderType: "limit" | "market";
+  /** Limit/trigger price in 1e18 fixed point. Zero for market orders. */
+  priceE18: string;
+  limitPrice?: string;
+  reduceOnly: boolean;
+  postOnly: boolean;
+  /** Contract SignedOrder.flags bitfield: bit0 reduce-only, bit1 post-only. */
+  flags: number;
   /** EIP-712 typed-data hash the trader signed. */
   digest: Hash;
   signature: Hex;
   nonce: bigint;
   deadline: number;
-  status: "pending" | "filled" | "rejected" | "expired";
+  status: "pending" | "partially_filled" | "filled" | "rejected" | "expired";
+  createdAt: number;
+  updatedAt: number;
 }
 
 // ---------- fx-bento (arcade) ----------
@@ -179,4 +200,15 @@ export interface WorkflowState {
   createdAt: number;
   updatedAt: number;
   audit: WorkflowAuditEntry[];
+}
+
+// ---------- domain events ----------
+
+export interface DomainEvent {
+  eventId: string;
+  type: string;
+  aggregateId: string;
+  actor?: string;
+  payload: Record<string, unknown>;
+  createdAt: number;
 }

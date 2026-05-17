@@ -22,6 +22,7 @@ describe("room id helpers", () => {
 
   test("round-trips arcade room id", () => {
     const id = roomIdForArcadeRoom(5042002, "arc-room-1");
+    expect(id).toBe("bufi:5042002:arcade:fx-bento:arc-room-1");
     expect(parseRoomId(id)).toEqual({
       kind: "arcade",
       chainId: 5042002,
@@ -31,6 +32,7 @@ describe("room id helpers", () => {
 
   test("round-trips telarana room id", () => {
     const id = roomIdForTelaranaMarket(919, "USDC-BRL");
+    expect(id).toBe("bufi:919:fx-telarana:USDC-BRL");
     expect(parseRoomId(id)).toEqual({
       kind: "telarana",
       chainId: 919,
@@ -58,7 +60,7 @@ describe("room id helpers", () => {
     });
     expect(ids).toContain("bufi:43113:perps:USDC-EURC");
     expect(ids).toContain("bufi:43113:perps:USDC-MXNB");
-    expect(ids).toContain("bufi:43113:arcade:room-1");
+    expect(ids).toContain("bufi:43113:arcade:fx-bento:room-1");
     expect(ids).toContain("bufi:mcp:workflow:wf-1");
     expect(ids.length).toBe(4);
   });

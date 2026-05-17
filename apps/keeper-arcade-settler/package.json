@@ -1,0 +1,15 @@
+{
+  "name": "@bufi/keeper-arcade-settler",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "start": "bun run src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@bufi/keeper-runtime": "workspace:*"
+  },
+  "devDependencies": { "@types/node": "20", "typescript": "5" }
+}

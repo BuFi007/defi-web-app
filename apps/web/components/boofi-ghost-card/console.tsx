@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/static-components */
 import { useEffect, useRef, useCallback, useState } from "react";
 import Image from "next/image";
 
@@ -87,10 +88,10 @@ export function BooFiConsole() {
    * - RealtimeClient (API client)
    */
   const wavRecorderRef = useRef<WavRecorder>(
-    new WavRecorder({ sampleRate: 24000 })
+    new WavRecorder({ sampleRate: 24000 }),
   );
   const wavStreamPlayerRef = useRef<WavStreamPlayer>(
-    new WavStreamPlayer({ sampleRate: 24000 })
+    new WavStreamPlayer({ sampleRate: 24000 }),
   );
 
   /**
@@ -233,7 +234,7 @@ export function BooFiConsole() {
       const client = getClient();
       client.deleteItem(id);
     },
-    [getClient]
+    [getClient],
   );
 
   /**
@@ -315,7 +316,7 @@ export function BooFiConsole() {
    */
   useEffect(() => {
     const conversationEls = [].slice.call(
-      document.body.querySelectorAll("[data-conversation-content]")
+      document.body.querySelectorAll("[data-conversation-content]"),
     );
     for (const el of conversationEls) {
       const conversationEl = el as HTMLDivElement;
@@ -355,7 +356,7 @@ export function BooFiConsole() {
             "#0099ff",
             10,
             0,
-            4
+            4,
           );
 
           // Render server visualization
@@ -369,7 +370,7 @@ export function BooFiConsole() {
             "#009900",
             10,
             0,
-            4
+            4,
           );
         }
         window.requestAnimationFrame(render);
@@ -387,7 +388,7 @@ export function BooFiConsole() {
       return { message: "Wallet already connected", address };
     }
     const signupButton = document.querySelector(
-      '[data-testid="signup-button"] button'
+      '[data-testid="signup-button"] button',
     );
     if (signupButton instanceof HTMLElement) {
       signupButton.click();
@@ -448,7 +449,7 @@ export function BooFiConsole() {
           return newKv;
         });
         return { ok: true };
-      }
+      },
     );
 
     client.addTool(
@@ -504,7 +505,7 @@ export function BooFiConsole() {
           console.error("Error sending transaction:", error);
           return { error: "Failed to send transaction" };
         }
-      }
+      },
     );
     client.addTool(
       {
@@ -530,7 +531,7 @@ export function BooFiConsole() {
           balance: balance.formatted,
           symbol: balance.symbol,
         };
-      }
+      },
     );
     client.addTool(
       {
@@ -545,7 +546,7 @@ export function BooFiConsole() {
       async () => {
         setShowBalance(false);
         return { message: "Account balance hidden" };
-      }
+      },
     );
     client.addTool(
       {
@@ -560,7 +561,7 @@ export function BooFiConsole() {
       async () => {
         await connectWallet();
         return { message: "Wallet connection initiated" };
-      }
+      },
     );
     client.addTool(
       {
@@ -575,7 +576,7 @@ export function BooFiConsole() {
       async () => {
         await disconnectWallet();
         return { message: "Wallet disconnected" };
-      }
+      },
     );
 
     client.addTool(
@@ -601,7 +602,7 @@ export function BooFiConsole() {
           balance: usdcBalance,
           symbol: "USDC",
         };
-      }
+      },
     );
     client.addTool(
       {
@@ -628,7 +629,7 @@ export function BooFiConsole() {
           message:
             "A new tab has been opened to verify your USDC balance on Blockscout.",
         };
-      }
+      },
     );
 
     // handle realtime events from client + server for event logging
@@ -660,7 +661,7 @@ export function BooFiConsole() {
         const wavFile = await WavRecorder.decode(
           item.formatted.audio,
           24000,
-          24000
+          24000,
         );
         item.formatted.file = wavFile;
       }
@@ -675,13 +676,15 @@ export function BooFiConsole() {
         setLastAssistantMessage(
           lastAssistantItem.formatted.transcript ||
             lastAssistantItem.formatted.text ||
-            ""
+            "",
         );
       }
       if (userMessages.length > 0) {
         const lastUserItem = userMessages[userMessages.length - 1];
         setLastUserMessage(
-          lastUserItem.formatted.transcript || lastUserItem.formatted.text || ""
+          lastUserItem.formatted.transcript ||
+            lastUserItem.formatted.text ||
+            "",
         );
       }
     });

@@ -20,6 +20,59 @@ export const perpsMarket = onchainTable("perps_market", (t) => ({
   enabled: t.boolean().notNull(),
 }));
 
+export const bufxRequest = onchainTable("bufx_request", (t) => ({
+  requestId: t.hex().primaryKey(),
+  chainId: t.integer().notNull(),
+  requestType: t.hex(),
+  marketId: t.hex(),
+  trader: t.hex(),
+  referrer: t.hex(),
+  campaignId: t.hex(),
+  amount: t.bigint(),
+  status: t.text().notNull(),
+  acceptedAt: t.bigint(),
+  cancelledAt: t.bigint(),
+  txHash: t.hex().notNull(),
+}));
+
+export const telaranaGatewayContext = onchainTable("telarana_gateway_context", (t) => ({
+  requestId: t.hex().primaryKey(),
+  chainId: t.integer().notNull(),
+  routeId: t.hex().notNull(),
+  telaranaGatewayHook: t.hex(),
+  gatewayAction: t.integer().notNull(),
+  sourceDepositor: t.hex().notNull(),
+  sourceSigner: t.hex().notNull(),
+  recipient: t.hex().notNull(),
+  tokenOut: t.hex().notNull(),
+  amount: t.bigint().notNull(),
+  minAmountOut: t.bigint().notNull(),
+  spotRouteId: t.hex().notNull(),
+  metadataRef: t.hex(),
+}));
+
+export const spotSettlement = onchainTable("spot_settlement", (t) => ({
+  requestId: t.hex().primaryKey(),
+  chainId: t.integer().notNull(),
+  routeId: t.hex().notNull(),
+  tokenOut: t.hex().notNull(),
+  recipient: t.hex().notNull(),
+  amountIn: t.bigint().notNull(),
+  amountOut: t.bigint().notNull(),
+  executedAt: t.bigint().notNull(),
+  txHash: t.hex().notNull(),
+}));
+
+export const oracleSnapshot = onchainTable("oracle_snapshot", (t) => ({
+  id: t.text().primaryKey(),
+  chainId: t.integer().notNull(),
+  base: t.hex().notNull(),
+  quote: t.hex().notNull(),
+  price: t.bigint().notNull(),
+  updatedAt: t.bigint().notNull(),
+  txHash: t.hex().notNull(),
+}));
+
 export const perpsPosition = onchainTable("perps_position", (t) => ({
   positionId: t.text().primaryKey(),
   trader: t.hex().notNull(),

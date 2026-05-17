@@ -1,206 +1,181 @@
-/**
- * Default tool registrations — the canonical list of workflows this
- * stack exposes to MCP clients. Schemas only; execution bodies live
- * in the consuming app or call into the domain packages.
- *
- * Tools that move money or hit the chain are marked
- * `requiresSignature: true`. Tools that read paid market data are
- * marked `requiresPaymentUsdc`.
- */
-
 import { z } from "zod";
 
 import type { ToolDefinition } from "./registry";
 
 const addressLike = z.string().regex(/^0x[a-fA-F0-9]{40}$/);
-const chainIdLike = z.union([z.literal(43113), z.literal(919), z.literal(5042002)]);
+const hexLike = z.string().regex(/^0x[a-fA-F0-9]+$/);
+const bytes32 = z.string().regex(/^0x[a-fA-F0-9]{64}$/);
+const chainIdLike = z.union([z.literal(43113), z.literal(5042002)]);
+const usdcAmount = z.string().regex(/^\d+(\.\d{1,6})?$/);
+const intString = z.string().regex(/^-?\d+$/);
+const uintString = z.string().regex(/^\d+$/);
 
-export const inspectPerpsMarketInput = z.object({
+const spotQuoteInput = z.object({
+  sourceChainId: z.literal(43113).default(43113),
+  destinationChainId: z.literal(5042002).default(5042002),
+  symbol: z.enum(["EURC", "JPYC", "MXNB", "CHFC"]),
+  amountIn: usdcAmount,
+});
+const spotQuoteOutput = z.object({
+  symbol: z.string(),
+  routeId: hexLike,
+  price: z.string().nullable(),
+  minAmountOut: z.string().nullable(),
+  oracleStaleSeconds: z.number().nullable(),
+});
+
+const perpQuoteInput = z.object({
+  chainId: chainIdLike,
+  marketId: bytes32,
+  trader: addressLike.optional(),
+  side: z.enum(["long", "short"]),
+  sizeUsdc: usdcAmount,
+  sizeDelta: intString.optional(),
+  leverage: z.number().int().min(1).max(50),
+});
+const perpQuoteOutput = z.object({
+  markPrice: z.string(),
+  fee: z.string(),
+  requiredMargin: z.string(),
+  maxLeverage: z.number(),
+  oracleStaleSeconds: z.number(),
+});
+
+const borrowPreviewInput = z.object({
   chainId: chainIdLike,
   marketId: z.string().min(1),
+  collateralAmount: usdcAmount,
+  borrowAmount: usdcAmount,
 });
-export const inspectPerpsMarketOutput = z.object({
-  marketId: z.string(),
-  oracleTimestamp: z.number(),
-  fundingBps: z.number(),
-  openInterestUsdc: z.string(),
-});
-
-export const quotePerpInput = z.object({
-  chainId: chainIdLike,
-  marketId: z.string(),
-  side: z.enum(["long", "short"]),
-  sizeUsdc: z.string().regex(/^\d+(\.\d{1,6})?$/),
-  leverage: z.number().int().min(1).max(50),
-});
-export const quotePerpOutput = z.object({
-  indicativePrice: z.string(),
-  estimatedFundingBps: z.number(),
-  oracleTimestamp: z.number(),
+const borrowPreviewOutput = z.object({
+  utilizationBps: z.number(),
+  borrowApyBps: z.number(),
+  healthFactorBps: z.number(),
 });
 
-export const createPerpIntentInput = z.object({
-  chainId: chainIdLike,
-  marketId: z.string(),
+const spotIntentInput = z.object({
+  symbol: z.enum(["EURC", "JPYC", "MXNB", "CHFC"]),
   trader: addressLike,
-  side: z.enum(["long", "short"]),
-  sizeUsdc: z.string(),
-  leverage: z.number().int().min(1).max(50),
+  amountInAtomic: z.string().regex(/^\d+$/),
+  minAmountOutAtomic: z.string().regex(/^\d+$/),
   deadline: z.number().int(),
-  nonce: z.string(),
+  nonce: z.string().regex(/^\d+$/),
 });
-export const createPerpIntentOutput = z.object({
-  intentId: z.string(),
-  digest: z.string(),
+const intentOutput = z.object({
+  digest: hexLike,
+  typedData: z.record(z.string(), z.unknown()),
+  calldata: hexLike.optional(),
+});
+const replacementIntentOutput = intentOutput.extend({
+  originalIntentId: z.string(),
+  replacementOf: z.string(),
+  remainingSizeDelta: intString,
 });
 
-export const createBentoRoomInput = z.object({
+const bentoCreateInput = z.object({
   chainId: chainIdLike,
   marketId: z.string(),
-  entryFeeUsdc: z.string(),
-  chipsPerPlayer: z.number().int().min(1).max(10_000),
+  entryFeeUsdc: usdcAmount,
+  chipsPerPlayer: z.number().int().min(1),
   maxPlayers: z.number().int().min(2).max(64),
   startsAt: z.number().int(),
   endsAt: z.number().int(),
 });
-export const createBentoRoomOutput = z.object({ roomId: z.string() });
-
-export const joinBentoRoomInput = z.object({
+const bentoCreateOutput = z.object({
   roomId: z.string(),
-  player: addressLike,
-});
-export const joinBentoRoomOutput = z.object({ ok: z.literal(true) });
-
-export const settleBentoRoomInput = z.object({ roomId: z.string() });
-export const settleBentoRoomOutput = z.object({
-  winners: z.array(z.object({ player: addressLike, prizeUsdc: z.string() })),
+  entryUrl: z.string(),
 });
 
-export const inspectBentoRoomInput = z.object({ roomId: z.string() });
-export const inspectBentoRoomOutput = z.object({
-  roomId: z.string(),
-  status: z.string(),
-  players: z.array(addressLike),
-});
-
-export const inspectTelaranaMarketInput = z.object({
+const inspectPositionInput = z.object({
   chainId: chainIdLike,
-  marketId: z.string(),
+  address: addressLike,
+  marketId: z.string().optional(),
 });
-export const inspectTelaranaMarketOutput = z.object({
-  marketId: z.string(),
-  utilizationBps: z.number(),
-  borrowApyBps: z.number(),
-  supplyApyBps: z.number(),
-});
-
-export const inspectLoanPositionInput = z.object({
-  borrower: addressLike,
-  marketId: z.string(),
-});
-export const inspectLoanPositionOutput = z.object({
-  positionId: z.string(),
-  collateralAmount: z.string(),
-  borrowAmount: z.string(),
-  healthFactorBps: z.number(),
+const inspectPositionOutput = z.object({
+  source: z.enum(["onchain", "ponder", "reconciled"]),
+  positions: z.array(z.unknown()),
 });
 
-export const oracleFreshnessInput = z.object({
+const inspectLiquidatableInput = z.object({
   chainId: chainIdLike,
-  source: z.enum(["uniswap-v4", "pyth", "chainlink", "internal"]),
+  marketId: z.string().optional(),
 });
-export const oracleFreshnessOutput = z.object({
-  source: z.string(),
-  lastUpdated: z.number(),
-  ageSeconds: z.number(),
+const inspectLiquidatableOutput = z.object({
+  candidates: z.array(z.unknown()),
+});
+
+const inspectOracleInput = z.object({
+  chainId: chainIdLike,
+  symbol: z.enum(["USDC", "EUR", "JPY", "MXN", "CHF"]).optional(),
+});
+const inspectOracleOutput = z.object({
   stale: z.boolean(),
+  lastUpdate: z.number().nullable(),
+  staleSeconds: z.number().nullable(),
+  confidence: z.string().nullable(),
 });
 
-export const triggerIndexerSyncInput = z.object({
-  scope: z.enum(["all", "perps", "arcade", "telarana"]).default("all"),
+const indexerSyncInput = z.object({
+  scope: z.enum(["all", "bufx", "telarana", "perps", "bento"]).default("all"),
 });
-export const triggerIndexerSyncOutput = z.object({
+const indexerSyncOutput = z.object({
   triggeredAt: z.number(),
 });
 
-/**
- * Build a default registry. Consumers wire `execute` bodies via
- * `registry.register`; this file only owns the schema/permission/gate
- * metadata so the surface stays declarative.
- */
 export function defaultToolDescriptors(): Array<
   Omit<ToolDefinition<unknown, unknown>, "execute" | "canExecute">
 > {
   return [
-    {
-      name: "perps.inspectMarket",
-      description: "Read a perps market's current state from the indexer.",
-      inputSchema: inspectPerpsMarketInput as unknown as ToolDefinition<unknown, unknown>["inputSchema"],
-      outputSchema: inspectPerpsMarketOutput as unknown as ToolDefinition<unknown, unknown>["outputSchema"],
-    },
-    {
-      name: "perps.quote",
-      description: "Get a tradeable quote for a perp position. Paid: includes premium oracle simulation.",
-      inputSchema: quotePerpInput as unknown as ToolDefinition<unknown, unknown>["inputSchema"],
-      outputSchema: quotePerpOutput as unknown as ToolDefinition<unknown, unknown>["outputSchema"],
-      requiresPaymentUsdc: "0.0010",
-    },
-    {
-      name: "perps.createIntent",
-      description: "Build an EIP-712 trade intent and return the digest for the trader to sign.",
-      inputSchema: createPerpIntentInput as unknown as ToolDefinition<unknown, unknown>["inputSchema"],
-      outputSchema: createPerpIntentOutput as unknown as ToolDefinition<unknown, unknown>["outputSchema"],
-      requiresSignature: true,
-    },
-    {
-      name: "bento.createRoom",
-      description: "Create an FX² Arcade room. Paid: room creation fee.",
-      inputSchema: createBentoRoomInput as unknown as ToolDefinition<unknown, unknown>["inputSchema"],
-      outputSchema: createBentoRoomOutput as unknown as ToolDefinition<unknown, unknown>["outputSchema"],
+    descriptor("bufx.quote.spot", "Live spot quote for USDC to FX token via Pyth and configured route.", spotQuoteInput, spotQuoteOutput),
+    descriptor("bufx.quote.perp", "Read perps mark price, fee, and required margin from the clearinghouse.", perpQuoteInput, perpQuoteOutput),
+    descriptor("bufx.preview.borrow", "Preview FX Telarana borrow utilization and APY from on-chain views.", borrowPreviewInput, borrowPreviewOutput),
+    descriptor("bufx.intent.spot", "Build calldata for BUFX requestSpot.", spotIntentInput, intentOutput, { requiresSignature: true }),
+    descriptor("bufx.intent.perp.open", "Build EIP-712 typed data for a perps open order.", perpQuoteInput.extend({
+      trader: addressLike,
+      deadline: z.number().int(),
+      nonce: uintString,
+      orderType: z.enum(["limit", "market"]).default("limit"),
+      limitPrice: uintString.optional(),
+      priceE18: uintString.optional(),
+      reduceOnly: z.boolean().default(false),
+      postOnly: z.boolean().default(false),
+    }), intentOutput, { requiresSignature: true }),
+    descriptor("bufx.intent.perp.replace", "Build EIP-712 typed data that re-enters a partially-filled residual with a fresh nonce.", z.object({
+      originalIntentId: z.string().min(1),
+      deadline: z.number().int(),
+      nonce: uintString,
+      sizeUsdc: usdcAmount.optional(),
+      orderType: z.enum(["limit", "market"]).optional(),
+      limitPrice: uintString.optional(),
+      priceE18: uintString.optional(),
+      reduceOnly: z.boolean().optional(),
+      postOnly: z.boolean().optional(),
+    }), replacementIntentOutput, { requiresSignature: true }),
+    descriptor("bufx.bento.room.create", "Create an FX Bento room and return the room entry URL.", bentoCreateInput, bentoCreateOutput, {
       requiresPaymentUsdc: "0.5000",
-    },
-    {
-      name: "bento.joinRoom",
-      description: "Join an FX² Arcade room. Caller signs entry-fee transfer onchain — runner returns digest.",
-      inputSchema: joinBentoRoomInput as unknown as ToolDefinition<unknown, unknown>["inputSchema"],
-      outputSchema: joinBentoRoomOutput as unknown as ToolDefinition<unknown, unknown>["outputSchema"],
       requiresSignature: true,
-    },
-    {
-      name: "bento.settle",
-      description: "Settle an FX² Arcade room and pay winners from escrow.",
-      inputSchema: settleBentoRoomInput as unknown as ToolDefinition<unknown, unknown>["inputSchema"],
-      outputSchema: settleBentoRoomOutput as unknown as ToolDefinition<unknown, unknown>["outputSchema"],
-    },
-    {
-      name: "bento.inspectRoom",
-      description: "Read a room's current state from the indexer.",
-      inputSchema: inspectBentoRoomInput as unknown as ToolDefinition<unknown, unknown>["inputSchema"],
-      outputSchema: inspectBentoRoomOutput as unknown as ToolDefinition<unknown, unknown>["outputSchema"],
-    },
-    {
-      name: "telarana.inspectMarket",
-      description: "Inspect an FX Telaraña lending market.",
-      inputSchema: inspectTelaranaMarketInput as unknown as ToolDefinition<unknown, unknown>["inputSchema"],
-      outputSchema: inspectTelaranaMarketOutput as unknown as ToolDefinition<unknown, unknown>["outputSchema"],
-    },
-    {
-      name: "telarana.inspectLoan",
-      description: "Inspect a single borrower's loan position.",
-      inputSchema: inspectLoanPositionInput as unknown as ToolDefinition<unknown, unknown>["inputSchema"],
-      outputSchema: inspectLoanPositionOutput as unknown as ToolDefinition<unknown, unknown>["outputSchema"],
-    },
-    {
-      name: "oracle.freshness",
-      description: "Check oracle freshness — agent should refuse to trade on stale data.",
-      inputSchema: oracleFreshnessInput as unknown as ToolDefinition<unknown, unknown>["inputSchema"],
-      outputSchema: oracleFreshnessOutput as unknown as ToolDefinition<unknown, unknown>["outputSchema"],
-    },
-    {
-      name: "indexer.sync",
-      description: "Trigger a safe indexer resync.",
-      inputSchema: triggerIndexerSyncInput as unknown as ToolDefinition<unknown, unknown>["inputSchema"],
-      outputSchema: triggerIndexerSyncOutput as unknown as ToolDefinition<unknown, unknown>["outputSchema"],
-    },
+    }),
+    descriptor("bufx.inspect.position", "Inspect a wallet position from on-chain and indexed state.", inspectPositionInput, inspectPositionOutput, {
+      requiresSignature: true,
+    }),
+    descriptor("bufx.inspect.liquidatable", "Return liquidatable perps positions for public-good keepers.", inspectLiquidatableInput, inspectLiquidatableOutput),
+    descriptor("bufx.inspect.oracle", "Inspect oracle staleness and confidence.", inspectOracleInput, inspectOracleOutput),
+    descriptor("bufx.indexer.sync", "Force a reorg-safe indexer sync.", indexerSyncInput, indexerSyncOutput),
   ];
+}
+
+function descriptor<TIn, TOut>(
+  name: string,
+  description: string,
+  inputSchema: z.ZodType<TIn>,
+  outputSchema: z.ZodType<TOut>,
+  gates: Pick<ToolDefinition<TIn, TOut>, "requiresPaymentUsdc" | "requiresSignature"> = {},
+): Omit<ToolDefinition<TIn, TOut>, "execute" | "canExecute"> {
+  return {
+    name,
+    description,
+    inputSchema,
+    outputSchema,
+    ...gates,
+  };
 }

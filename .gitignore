@@ -24,6 +24,8 @@ build/
 .turbo/
 .ponder/
 .ponder-user/
+.bufi/
+**/.bufi/
 
 # misc
 .DS_Store

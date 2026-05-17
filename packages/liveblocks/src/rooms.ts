@@ -10,6 +10,7 @@
  * tenant-scoped.
  */
 
+import type { Lson } from "@liveblocks/client";
 import type { Address } from "viem";
 
 /** perps trading desk for one market on one chain. */
@@ -19,12 +20,12 @@ export function roomIdForPerpsMarket(chainId: number, marketId: string): string 
 
 /** FX² Arcade / FX Bento game room. */
 export function roomIdForArcadeRoom(chainId: number, roomId: string): string {
-  return `bufi:${chainId}:arcade:${roomId}`;
+  return `bufi:${chainId}:arcade:fx-bento:${roomId}`;
 }
 
 /** FX Telaraña lending market room (optional — not all markets need realtime). */
 export function roomIdForTelaranaMarket(chainId: number, marketId: string): string {
-  return `bufi:${chainId}:telarana:${marketId}`;
+  return `bufi:${chainId}:fx-telarana:${marketId}`;
 }
 
 /** MCP workflow execution room (one room per running workflow). */
@@ -42,10 +43,10 @@ export function parseRoomId(roomId: string): ParsedRoom | null {
   const perps = /^bufi:(\d+):perps:([^:]+)$/.exec(roomId);
   if (perps) return { kind: "perps", chainId: Number(perps[1]), marketId: perps[2] };
 
-  const arcade = /^bufi:(\d+):arcade:([^:]+)$/.exec(roomId);
+  const arcade = /^bufi:(\d+):arcade:fx-bento:([^:]+)$/.exec(roomId);
   if (arcade) return { kind: "arcade", chainId: Number(arcade[1]), roomId: arcade[2] };
 
-  const telarana = /^bufi:(\d+):telarana:([^:]+)$/.exec(roomId);
+  const telarana = /^bufi:(\d+):fx-telarana:([^:]+)$/.exec(roomId);
   if (telarana) {
     return { kind: "telarana", chainId: Number(telarana[1]), marketId: telarana[2] };
   }
@@ -131,6 +132,7 @@ export type McpPresence = {
  * event.
  */
 export interface ArcadeStorage {
+  [key: string]: Lson;
   countdownEndsAt: number | null;
   /** Optimistic chips-per-tile preview. Authoritative count comes from chain. */
   tilePreview: Record<string, number>;

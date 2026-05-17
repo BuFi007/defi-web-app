@@ -25,6 +25,8 @@
     "keeper:pyth": "bun run --filter ./apps/keeper-pyth dev",
     "keeper:arcade-settler": "bun run --filter ./apps/keeper-arcade-settler dev",
     "contracts:sync": "bun run scripts/sync-contracts.mjs",
+    "smoke:perps-replacement:api": "bun scripts/perps-replacement-e2e-smoke.ts",
+    "smoke:perps-replacement:browser": "bun scripts/perps-replacement-browser-e2e.ts",
     "build": "bun run --filter ./apps/web build",
     "build:all": "bun run --filter '*' build",
     "lint": "bun run --filter ./apps/web lint",

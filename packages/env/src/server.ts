@@ -17,6 +17,7 @@ const schema = z.object({
   PONDER_RPC_URL_AVAX_FUJI: z.string().url().optional(),
   DATABASE_URL: z.string().optional(),
   DATABASE_PRIVATE_URL: z.string().optional(),
+  BUFI_DB_PATH: z.string().optional(),
 
   // x402 / facilitator
   X402_FACILITATOR_URL: z.string().url().optional(),
@@ -28,6 +29,8 @@ const schema = z.object({
 
   // pricing / oracles
   MARKET_DATA_RPC_URL: z.string().url().optional(),
+  PYTH_HERMES_URL: z.string().url().optional(),
+  PYTH_MAX_STALE_SECONDS: z.coerce.number().int().positive().default(30),
 
   // contracts
   CONTRACT_ADDRESSES_JSON: z.string().optional(),
@@ -41,6 +44,14 @@ const schema = z.object({
     .string()
     .regex(/^0x[a-fA-F0-9]{64}$/)
     .optional(),
+  KEEPER_PRIVATE_KEY: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{64}$/)
+    .optional(),
+  GATEWAY_API_BASE: z.string().url().optional(),
+  GATEWAY_SIGNER_OUT: z.string().optional(),
+  KEEPER_POLL_MS: z.coerce.number().int().positive().default(5000),
+  PORT: z.coerce.number().int().positive().optional(),
 
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });

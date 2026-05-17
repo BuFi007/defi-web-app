@@ -1,0 +1,20 @@
+{
+  "name": "@bufi/keeper-perps-matcher",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "start": "bun run src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@bufi/contracts": "workspace:*",
+    "@bufi/db": "workspace:*",
+    "@bufi/keeper-runtime": "workspace:*",
+    "@bufi/perps": "workspace:*",
+    "@bufi/shared-types": "workspace:*",
+    "viem": "2.45.3"
+  },
+  "devDependencies": { "@types/node": "20", "typescript": "5" }
+}

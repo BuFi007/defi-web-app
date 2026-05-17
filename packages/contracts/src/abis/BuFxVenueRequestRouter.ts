@@ -1,0 +1,370 @@
+export const buFxVenueRequestRouterAbi = [
+  {
+    type: "constructor",
+    inputs: [
+      { name: "initialOwner", type: "address" },
+      { name: "initialTelaranaRouter", type: "address" }
+    ],
+    stateMutability: "nonpayable"
+  },
+  {
+    type: "function",
+    name: "setAuthorizedSubmitter",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "submitter", type: "address" },
+      { name: "authorized", type: "bool" }
+    ],
+    outputs: []
+  },
+  {
+    type: "function",
+    name: "authorizedSubmitter",
+    stateMutability: "view",
+    inputs: [{ name: "submitter", type: "address" }],
+    outputs: [{ name: "authorized", type: "bool" }]
+  },
+  {
+    type: "function",
+    name: "setAllowedRfqMaker",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "maker", type: "address" },
+      { name: "allowed", type: "bool" }
+    ],
+    outputs: []
+  },
+  {
+    type: "function",
+    name: "allowedRfqMaker",
+    stateMutability: "view",
+    inputs: [{ name: "maker", type: "address" }],
+    outputs: [{ name: "allowed", type: "bool" }]
+  },
+  {
+    type: "function",
+    name: "feeConfig",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }]
+  },
+  {
+    type: "function",
+    name: "setFeeConfig",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "newFeeConfig", type: "address" }],
+    outputs: []
+  },
+  {
+    type: "function",
+    name: "setMarketRoute",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "marketId", type: "bytes32" },
+      { name: "routeId", type: "bytes32" }
+    ],
+    outputs: []
+  },
+  {
+    type: "function",
+    name: "setPerpRiskParams",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "marketId", type: "bytes32" },
+      {
+        name: "params",
+        type: "tuple",
+        components: [
+          { name: "maxNotionalUsd", type: "uint256" },
+          { name: "maxAbsSizeDelta", type: "uint256" },
+          { name: "maxDeadlineBuffer", type: "uint64" },
+          { name: "enabled", type: "bool" }
+        ]
+      }
+    ],
+    outputs: []
+  },
+  {
+    type: "function",
+    name: "perpRiskParams",
+    stateMutability: "view",
+    inputs: [{ name: "marketId", type: "bytes32" }],
+    outputs: [
+      {
+        name: "params",
+        type: "tuple",
+        components: [
+          { name: "maxNotionalUsd", type: "uint256" },
+          { name: "maxAbsSizeDelta", type: "uint256" },
+          { name: "maxDeadlineBuffer", type: "uint64" },
+          { name: "enabled", type: "bool" }
+        ]
+      }
+    ]
+  },
+  {
+    type: "function",
+    name: "traderNonce",
+    stateMutability: "view",
+    inputs: [{ name: "trader", type: "address" }],
+    outputs: [{ name: "nonce", type: "uint256" }]
+  },
+  {
+    type: "function",
+    name: "requestSpot",
+    stateMutability: "nonpayable",
+    inputs: [
+      {
+        name: "request",
+        type: "tuple",
+        components: [
+          { name: "marketId", type: "bytes32" },
+          { name: "trader", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "amountIn", type: "uint256" },
+          { name: "minAmountOut", type: "uint256" },
+          { name: "maxExecutionFee", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "referrer", type: "address" },
+          { name: "campaignId", type: "bytes32" },
+          { name: "data", type: "bytes" }
+        ]
+      }
+    ],
+    outputs: [{ name: "requestId", type: "bytes32" }]
+  },
+  {
+    type: "function",
+    name: "requestSpotWithSignature",
+    stateMutability: "nonpayable",
+    inputs: [
+      {
+        name: "request",
+        type: "tuple",
+        components: [
+          { name: "marketId", type: "bytes32" },
+          { name: "trader", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "amountIn", type: "uint256" },
+          { name: "minAmountOut", type: "uint256" },
+          { name: "maxExecutionFee", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "referrer", type: "address" },
+          { name: "campaignId", type: "bytes32" },
+          { name: "data", type: "bytes" }
+        ]
+      },
+      { name: "nonce", type: "uint256" },
+      { name: "signature", type: "bytes" }
+    ],
+    outputs: [{ name: "requestId", type: "bytes32" }]
+  },
+  {
+    type: "function",
+    name: "requestRfq",
+    stateMutability: "nonpayable",
+    inputs: [
+      {
+        name: "request",
+        type: "tuple",
+        components: [
+          { name: "marketId", type: "bytes32" },
+          { name: "trader", type: "address" },
+          { name: "maker", type: "address" },
+          { name: "quoteId", type: "bytes32" },
+          { name: "tokenOut", type: "address" },
+          { name: "amountIn", type: "uint256" },
+          { name: "minAmountOut", type: "uint256" },
+          { name: "maxExecutionFee", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "quoteExpiresAt", type: "uint64" },
+          { name: "referrer", type: "address" },
+          { name: "campaignId", type: "bytes32" },
+          { name: "makerData", type: "bytes" }
+        ]
+      }
+    ],
+    outputs: [{ name: "requestId", type: "bytes32" }]
+  },
+  {
+    type: "function",
+    name: "requestRfqWithSignature",
+    stateMutability: "nonpayable",
+    inputs: [
+      {
+        name: "request",
+        type: "tuple",
+        components: [
+          { name: "marketId", type: "bytes32" },
+          { name: "trader", type: "address" },
+          { name: "maker", type: "address" },
+          { name: "quoteId", type: "bytes32" },
+          { name: "tokenOut", type: "address" },
+          { name: "amountIn", type: "uint256" },
+          { name: "minAmountOut", type: "uint256" },
+          { name: "maxExecutionFee", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "quoteExpiresAt", type: "uint64" },
+          { name: "referrer", type: "address" },
+          { name: "campaignId", type: "bytes32" },
+          { name: "makerData", type: "bytes" }
+        ]
+      },
+      { name: "nonce", type: "uint256" },
+      { name: "signature", type: "bytes" }
+    ],
+    outputs: [{ name: "requestId", type: "bytes32" }]
+  },
+  {
+    type: "function",
+    name: "requestPerpLiquidity",
+    stateMutability: "nonpayable",
+    inputs: [
+      {
+        name: "request",
+        type: "tuple",
+        components: [
+          { name: "marketId", type: "bytes32" },
+          { name: "trader", type: "address" },
+          { name: "accountId", type: "bytes32" },
+          { name: "notionalUsd", type: "uint256" },
+          { name: "marginUsd", type: "uint256" },
+          { name: "sizeDelta", type: "int256" },
+          { name: "maxExecutionFee", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "referrer", type: "address" },
+          { name: "campaignId", type: "bytes32" },
+          { name: "data", type: "bytes" }
+        ]
+      }
+    ],
+    outputs: [{ name: "requestId", type: "bytes32" }]
+  },
+  {
+    type: "function",
+    name: "requestPerpLiquidityWithSignature",
+    stateMutability: "nonpayable",
+    inputs: [
+      {
+        name: "request",
+        type: "tuple",
+        components: [
+          { name: "marketId", type: "bytes32" },
+          { name: "trader", type: "address" },
+          { name: "accountId", type: "bytes32" },
+          { name: "notionalUsd", type: "uint256" },
+          { name: "marginUsd", type: "uint256" },
+          { name: "sizeDelta", type: "int256" },
+          { name: "maxExecutionFee", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "referrer", type: "address" },
+          { name: "campaignId", type: "bytes32" },
+          { name: "data", type: "bytes" }
+        ]
+      },
+      { name: "nonce", type: "uint256" },
+      { name: "signature", type: "bytes" }
+    ],
+    outputs: [{ name: "requestId", type: "bytes32" }]
+  },
+  {
+    type: "event",
+    name: "TraderNonceUsed",
+    anonymous: false,
+    inputs: [
+      { name: "trader", type: "address", indexed: true },
+      { name: "nonce", type: "uint256", indexed: true }
+    ]
+  },
+  {
+    type: "event",
+    name: "FeeConfigUpdated",
+    anonymous: false,
+    inputs: [{ name: "feeConfig", type: "address", indexed: true }]
+  },
+  {
+    type: "event",
+    name: "RfqMakerUpdated",
+    anonymous: false,
+    inputs: [
+      { name: "maker", type: "address", indexed: true },
+      { name: "allowed", type: "bool", indexed: false }
+    ]
+  },
+  {
+    type: "event",
+    name: "PerpRiskParamsUpdated",
+    anonymous: false,
+    inputs: [
+      { name: "marketId", type: "bytes32", indexed: true },
+      { name: "maxNotionalUsd", type: "uint256", indexed: false },
+      { name: "maxAbsSizeDelta", type: "uint256", indexed: false },
+      { name: "maxDeadlineBuffer", type: "uint64", indexed: false },
+      { name: "enabled", type: "bool", indexed: false }
+    ]
+  },
+  {
+    type: "event",
+    name: "BuFxRequestAccepted",
+    anonymous: false,
+    inputs: [
+      { name: "requestId", type: "bytes32", indexed: true },
+      { name: "requestType", type: "bytes32", indexed: true },
+      { name: "marketId", type: "bytes32", indexed: true },
+      { name: "trader", type: "address", indexed: false },
+      { name: "referrer", type: "address", indexed: false },
+      { name: "campaignId", type: "bytes32", indexed: false },
+      { name: "amount", type: "uint256", indexed: false },
+      { name: "timestamp", type: "uint256", indexed: false }
+    ]
+  },
+  {
+    type: "event",
+    name: "BuFxRequestFeeQuoted",
+    anonymous: false,
+    inputs: [
+      { name: "requestId", type: "bytes32", indexed: true },
+      { name: "requestType", type: "bytes32", indexed: true },
+      { name: "marketId", type: "bytes32", indexed: true },
+      { name: "trader", type: "address", indexed: false },
+      { name: "referrer", type: "address", indexed: false },
+      { name: "amount", type: "uint256", indexed: false },
+      { name: "grossFee", type: "uint256", indexed: false },
+      { name: "discount", type: "uint256", indexed: false },
+      { name: "netFee", type: "uint256", indexed: false },
+      { name: "referralAmount", type: "uint256", indexed: false },
+      { name: "treasuryAmount", type: "uint256", indexed: false }
+    ]
+  },
+  {
+    type: "event",
+    name: "BuFxRfqAccepted",
+    anonymous: false,
+    inputs: [
+      { name: "requestId", type: "bytes32", indexed: true },
+      { name: "marketId", type: "bytes32", indexed: true },
+      { name: "quoteId", type: "bytes32", indexed: true },
+      { name: "trader", type: "address", indexed: false },
+      { name: "maker", type: "address", indexed: false },
+      { name: "tokenOut", type: "address", indexed: false },
+      { name: "amountIn", type: "uint256", indexed: false },
+      { name: "minAmountOut", type: "uint256", indexed: false },
+      { name: "quoteExpiresAt", type: "uint64", indexed: false }
+    ]
+  },
+  {
+    type: "event",
+    name: "BuFxPerpLiquidityAccepted",
+    anonymous: false,
+    inputs: [
+      { name: "requestId", type: "bytes32", indexed: true },
+      { name: "marketId", type: "bytes32", indexed: true },
+      { name: "accountId", type: "bytes32", indexed: true },
+      { name: "trader", type: "address", indexed: false },
+      { name: "notionalUsd", type: "uint256", indexed: false },
+      { name: "marginUsd", type: "uint256", indexed: false },
+      { name: "sizeDelta", type: "int256", indexed: false },
+      { name: "deadline", type: "uint256", indexed: false }
+    ]
+  }
+] as const;

@@ -2,7 +2,7 @@
 
 import {
   createClient,
-  type LiveblocksOptions,
+  type ClientOptions,
 } from "@liveblocks/client";
 import { createRoomContext } from "@liveblocks/react";
 
@@ -20,7 +20,7 @@ import type {
  */
 export function createLiveblocksBrowserClient(opts: {
   authEndpoint: string;
-  throttle?: LiveblocksOptions["throttle"];
+  throttle?: ClientOptions["throttle"];
 }) {
   return createClient({
     authEndpoint: opts.authEndpoint,

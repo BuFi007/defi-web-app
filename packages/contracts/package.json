@@ -9,12 +9,15 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "sync": "bun ../../scripts/sync-contracts.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@bufi/shared-types": "workspace:*",
     "viem": "2.45.3"
   },
   "devDependencies": {
+    "bun-types": "1.3.10",
     "typescript": "5"
   }
 }

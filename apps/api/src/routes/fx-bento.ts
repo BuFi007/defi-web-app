@@ -1,90 +1,97 @@
 import { Hono } from "hono";
-import { z } from "zod";
 
-import { mockVerifier, paymentRequired } from "@bufi/x402";
+import {
+  commitRequest,
+  createRoomRequest,
+  revealRequest,
+  settleRequest,
+} from "@bufi/fx-bento";
+import { paymentRequired } from "@bufi/x402";
 
 import type { WalletSession } from "@bufi/shared-types";
 
+import { bentoService, errorStatus, paymentVerifier, receiptStore } from "../services";
+
 const fxBentoRoutes = new Hono();
-
-const createRoomBody = z.object({
-  chainId: z.union([z.literal(43113), z.literal(919), z.literal(5042002)]),
-  marketId: z.string().min(1),
-  entryFeeUsdc: z.string().regex(/^\d+(\.\d{1,6})?$/),
-  chipsPerPlayer: z.number().int().min(1).max(10_000),
-  maxPlayers: z.number().int().min(2).max(64),
-  startsAt: z.number().int(),
-  endsAt: z.number().int(),
-});
-
-const commitBody = z.object({
-  player: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
-  commitment: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
-  tileId: z.string(),
-  chips: z.number().int().min(1),
-});
-
-const revealBody = commitBody.extend({
-  salt: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
-});
 
 const sellerForX402 = () =>
   process.env.X402_RECEIVER_ADDRESS ?? "0x000000000000000000000000000000000000dEaD";
 
-// Room creation costs USDC because the protocol provisions liquidity rails for it.
-fxBentoRoutes.use(
-  "/rooms",
-  paymentRequired({
-    toolName: "fxBento.createRoom",
-    priceUsdc: "0.5000",
-    sellerAddress: sellerForX402(),
-    verifier: mockVerifier,
-  }),
-);
+const createRoomPayment = paymentRequired({
+  toolName: "bufx.bento.room.create",
+  priceUsdc: "0.5000",
+  sellerAddress: sellerForX402(),
+  verifier: paymentVerifier,
+  receipts: receiptStore,
+});
 
-fxBentoRoutes.post("/rooms", async (c) => {
+fxBentoRoutes.post("/rooms", createRoomPayment, async (c) => {
   const session = c.get("walletSession") as WalletSession | null;
   if (!session) return c.json({ error: "wallet session required" }, 401);
   const raw = await c.req.json().catch(() => ({}));
-  const parsed = createRoomBody.safeParse(raw);
+  const parsed = createRoomRequest.safeParse(raw);
   if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
-  // TODO: emit RoomCreated onchain via signed intent / runtime signer
-  return c.json({ roomId: "stub" }, 501);
+  try {
+    return c.json(await bentoService.createRoom(parsed.data));
+  } catch (e) {
+    return c.json({ error: (e as Error).message }, errorStatus(e));
+  }
 });
 
-fxBentoRoutes.get("/rooms", (c) => c.json({ rooms: [] }));
-
-fxBentoRoutes.get("/rooms/:id", (c) =>
-  c.json({ roomId: c.req.param("id"), status: "stub" }, 501),
+fxBentoRoutes.get("/rooms", async (c) =>
+  c.json({ rooms: await bentoService.listRooms(c.req.query("status") as never) }),
 );
+
+fxBentoRoutes.get("/rooms/:id", async (c) => {
+  const room = await bentoService.getRoom(c.req.param("id"));
+  if (!room) return c.json({ error: "room not found" }, 404);
+  return c.json({ room });
+});
 
 fxBentoRoutes.post("/rooms/:id/join", async (c) => {
   const session = c.get("walletSession") as WalletSession | null;
   if (!session) return c.json({ error: "wallet session required" }, 401);
-  return c.json({ roomId: c.req.param("id"), digest: "0x", note: "client signs entry fee" }, 501);
+  try {
+    return c.json(await bentoService.joinRoom({ roomId: c.req.param("id"), player: session.address }));
+  } catch (e) {
+    return c.json({ error: (e as Error).message }, errorStatus(e));
+  }
 });
 
 fxBentoRoutes.post("/rooms/:id/commit", async (c) => {
   const raw = await c.req.json().catch(() => ({}));
-  const parsed = commitBody.safeParse(raw);
+  const parsed = commitRequest.safeParse({ ...raw, roomId: c.req.param("id") });
   if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
-  return c.json({ ok: true, commitment: parsed.data.commitment }, 501);
+  try {
+    return c.json(await bentoService.commit(parsed.data));
+  } catch (e) {
+    return c.json({ error: (e as Error).message }, errorStatus(e));
+  }
 });
 
 fxBentoRoutes.post("/rooms/:id/reveal", async (c) => {
   const raw = await c.req.json().catch(() => ({}));
-  const parsed = revealBody.safeParse(raw);
+  const parsed = revealRequest.safeParse({ ...raw, roomId: c.req.param("id") });
   if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
-  // TODO: verify commitment == keccak256(abi.encode(salt, tileId, chips))
-  return c.json({ ok: true }, 501);
+  try {
+    return c.json(await bentoService.reveal(parsed.data));
+  } catch (e) {
+    return c.json({ error: (e as Error).message }, errorStatus(e));
+  }
 });
 
-fxBentoRoutes.get("/rooms/:id/leaderboard", (c) =>
-  c.json({ roomId: c.req.param("id"), entries: [] }),
+fxBentoRoutes.get("/rooms/:id/leaderboard", async (c) =>
+  c.json({ roomId: c.req.param("id"), entries: await bentoService.leaderboard(c.req.param("id")) }),
 );
 
-fxBentoRoutes.post("/rooms/:id/settle", async (c) =>
-  c.json({ roomId: c.req.param("id"), settled: false, winners: [] }, 501),
-);
+fxBentoRoutes.post("/rooms/:id/settle", async (c) => {
+  const parsed = settleRequest.safeParse({ roomId: c.req.param("id") });
+  if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
+  try {
+    return c.json(await bentoService.settle(parsed.data));
+  } catch (e) {
+    return c.json({ error: (e as Error).message }, errorStatus(e));
+  }
+});
 
 export { fxBentoRoutes };

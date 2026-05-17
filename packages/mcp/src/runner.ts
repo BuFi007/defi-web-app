@@ -6,7 +6,7 @@
  *   start(toolName, input)
  *     ↳ inputSchema.parse
  *     ↳ canExecute  → permission denied? fail
- *     ↳ requiresSignature? → pending_signature (caller signs, calls resume)
+ *     ↳ requiresSignature? → pending_signature (caller signs, resume verifies)
  *     ↳ requiresPaymentUsdc? → pending_payment (caller pays via x402, calls resume)
  *     ↳ run() → completed
  *
@@ -15,6 +15,7 @@
  */
 
 import type { WalletSession, WorkflowState, WorkflowStatus } from "@bufi/shared-types";
+import type { Hex } from "viem";
 
 import type { ToolRegistry } from "./registry";
 import { transition, type WorkflowStore } from "./state";
@@ -30,7 +31,22 @@ export interface RunnerDeps {
   store: WorkflowStore;
   newWorkflowId?: () => string;
   /** Optional signature digest builder for tools that need EIP-712. */
-  buildSignatureDigest?: (toolName: string, input: unknown) => `0x${string}`;
+  buildSignatureDigest?: (args: SignatureDigestArgs) => Hex;
+  /** Verifies the supplied wallet signature before a signature-gated tool can run. */
+  verifySignature?: (args: SignatureVerificationArgs) => boolean | Promise<boolean>;
+}
+
+export interface SignatureDigestArgs {
+  toolName: string;
+  input: unknown;
+  workflowId: string;
+  session: WalletSession;
+}
+
+export interface SignatureVerificationArgs extends SignatureDigestArgs {
+  digest: Hex;
+  signature: Hex;
+  workflow: WorkflowState;
 }
 
 export class WorkflowRunner {
@@ -52,6 +68,12 @@ export class WorkflowRunner {
     }
     const allowed = await tool.canExecute({ session: args.session }, parsed.data);
     if (!allowed) throw new Error(`permission denied for ${args.toolName}`);
+    if (tool.requiresSignature && !args.session) {
+      throw new Error(`tool ${args.toolName} requires a wallet session for its signature gate`);
+    }
+    if (tool.requiresSignature && (!this.deps.buildSignatureDigest || !this.deps.verifySignature)) {
+      throw new Error(`tool ${args.toolName} requires a signature gate but signature verification is not configured`);
+    }
 
     const now = Math.floor(Date.now() / 1000);
     let state: WorkflowState = {
@@ -68,8 +90,13 @@ export class WorkflowRunner {
     };
     await this.deps.store.create(state);
 
-    if (tool.requiresSignature && this.deps.buildSignatureDigest) {
-      const digest = this.deps.buildSignatureDigest(args.toolName, parsed.data);
+    if (tool.requiresSignature && this.deps.buildSignatureDigest && args.session) {
+      const digest = this.deps.buildSignatureDigest({
+        toolName: args.toolName,
+        input: parsed.data,
+        workflowId: state.workflowId,
+        session: args.session,
+      });
       state = transition(
         { ...state, requiredSignatureDigest: digest },
         "pending_signature",
@@ -94,13 +121,50 @@ export class WorkflowRunner {
     const state = await this.deps.store.get(workflowId);
     if (!state) throw new Error(`unknown workflow ${workflowId}`);
     if (state.status === "pending_signature" && signal.signature) {
-      const next = transition(state, "running", {
+      const tool = this.deps.registry.get(state.toolName);
+      if (!tool) throw new Error(`unknown tool "${state.toolName}"`);
+      const session = nullableSession(state.session);
+      if (!session) throw new Error(`workflow ${workflowId} has no wallet session for signature verification`);
+      if (!state.requiredSignatureDigest) {
+        throw new Error(`workflow ${workflowId} is missing its required signature digest`);
+      }
+      if (!this.deps.verifySignature) {
+        throw new Error(`workflow ${workflowId} requires signature verification but no verifier is configured`);
+      }
+      const signature = signal.signature as Hex;
+      const verified = await this.deps.verifySignature({
+        toolName: state.toolName,
+        input: state.input,
+        workflowId: state.workflowId,
+        session,
+        workflow: state,
+        digest: state.requiredSignatureDigest,
+        signature,
+      });
+      if (!verified) throw new Error(`invalid workflow signature for ${workflowId}`);
+      if (tool.requiresPaymentUsdc) {
+        const payment = transition(
+          {
+            ...state,
+            requiredPaymentMicro: state.requiredPaymentMicro ?? toMicro(tool.requiresPaymentUsdc),
+          },
+          "pending_payment",
+          {
+            actor: "runtime",
+            event: "signature.accepted",
+            data: { digest: state.requiredSignatureDigest, signature: redactSignature(signature), nextGate: "payment" },
+          },
+        );
+        await this.deps.store.put(payment);
+        return payment;
+      }
+      const signed = transition(state, "running", {
         actor: "runtime",
         event: "signature.accepted",
-        data: { signature: signal.signature },
+        data: { digest: state.requiredSignatureDigest, signature: redactSignature(signature) },
       });
-      await this.deps.store.put(next);
-      return this.runExecution(next);
+      await this.deps.store.put(signed);
+      return this.runExecution(signed);
     }
     if (state.status === "pending_payment" && signal.receiptId) {
       const next = transition(state, "running", {
@@ -160,6 +224,10 @@ function toMicro(usdc: string): string {
 function nullableSession(s: WorkflowState["session"]): WalletSession | null {
   if (!s || s.address === null) return null;
   return s as WalletSession;
+}
+
+function redactSignature(signature: Hex): string {
+  return `${signature.slice(0, 10)}...${signature.slice(-8)}`;
 }
 
 function _statusUnused(_s: WorkflowStatus): void {
