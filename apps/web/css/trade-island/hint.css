@@ -1,0 +1,124 @@
+/* Zen tooltip — calm, soft, one sentence per pill.
+   Used across every tab via <Hint w={...}>...</Hint>. */
+
+.zen-hint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px; height: 16px;
+  margin-left: 4px;
+  color: var(--ink-4);
+  cursor: help;
+  outline: 0;
+  vertical-align: -2px;
+  transition: color .15s;
+  flex-shrink: 0;
+}
+.zen-hint:hover, .zen-hint:focus-visible { color: var(--primary); }
+.zen-hint-icon { display: block; }
+
+.zen-hint-tip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border-strong);
+  box-shadow:
+    0 4px 14px rgba(40, 25, 90, .08),
+    0 1px 3px rgba(40, 25, 90, .06);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: 0;
+  text-transform: none;
+  text-align: left;
+  white-space: normal;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(4px);
+  transition: opacity .14s, transform .14s, visibility .14s;
+  z-index: 50;
+}
+.zen-hint-tip::before,
+.zen-hint-tip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 0; height: 0;
+}
+.zen-hint-tip::before {
+  margin-left: -7px;
+  border: 7px solid transparent;
+  border-top-color: var(--border-strong);
+}
+.zen-hint-tip::after {
+  margin-left: -6px;
+  margin-top: -1px;
+  border: 6px solid transparent;
+  border-top-color: var(--surface);
+}
+.zen-hint:hover .zen-hint-tip,
+.zen-hint:focus-visible .zen-hint-tip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Drop-below */
+.zen-hint-bottom .zen-hint-tip {
+  top: calc(100% + 8px);
+  bottom: auto;
+  transform: translateX(-50%) translateY(-4px);
+}
+.zen-hint-bottom .zen-hint-tip::before {
+  top: auto; bottom: 100%;
+  margin-left: -7px;
+  border-top-color: transparent;
+  border-bottom-color: var(--border-strong);
+}
+.zen-hint-bottom .zen-hint-tip::after {
+  top: auto; bottom: 100%;
+  margin-left: -6px; margin-top: 0; margin-bottom: -1px;
+  border-top-color: transparent;
+  border-bottom-color: var(--surface);
+}
+.zen-hint-bottom:hover .zen-hint-tip,
+.zen-hint-bottom:focus-visible .zen-hint-tip {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Anchor to the LEFT of the icon (useful for right-aligned headers) */
+.zen-hint-left .zen-hint-tip {
+  bottom: 50%;
+  left: auto;
+  right: calc(100% + 8px);
+  transform: translateY(50%) translateX(4px);
+}
+.zen-hint-left .zen-hint-tip::before {
+  top: 50%; left: 100%;
+  margin-top: -7px; margin-left: 0;
+  border: 7px solid transparent;
+  border-left-color: var(--border-strong);
+}
+.zen-hint-left .zen-hint-tip::after {
+  top: 50%; left: 100%;
+  margin-top: -6px; margin-left: -1px;
+  border: 6px solid transparent;
+  border-left-color: var(--surface);
+}
+.zen-hint-left:hover .zen-hint-tip,
+.zen-hint-left:focus-visible .zen-hint-tip {
+  transform: translateY(50%) translateX(0);
+}
+
+/* Stay readable on dark cards & gradients */
+[data-theme="dark"] .zen-hint-tip {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .35), 0 1px 3px rgba(0, 0, 0, .25);
+}

@@ -75,14 +75,62 @@ export const oracleSnapshot = onchainTable("oracle_snapshot", (t) => ({
 
 export const perpsPosition = onchainTable("perps_position", (t) => ({
   positionId: t.text().primaryKey(),
+  chainId: t.integer().notNull(),
+  marketId: t.hex().notNull(),
   trader: t.hex().notNull(),
-  marketId: t.text().notNull(),
-  side: t.text().notNull(),
-  sizeUsdc: t.bigint().notNull(),
-  leverage: t.integer().notNull(),
-  entryPrice: t.bigint().notNull(),
-  openedAt: t.bigint().notNull(),
-  closedAt: t.bigint(),
+  sizeE18: t.bigint().notNull(),
+  entryPriceE18: t.bigint().notNull(),
+  marginReserved: t.bigint().notNull(),
+  lastFundingVersion: t.bigint().notNull(),
+  lastEventKind: t.text().notNull(),
+  isOpen: t.boolean().notNull(),
+  updatedAt: t.bigint().notNull(),
+  updatedBlockNumber: t.bigint().notNull(),
+  updatedTxHash: t.hex().notNull(),
+}));
+
+export const perpsPositionEvent = onchainTable("perps_position_event", (t) => ({
+  id: t.text().primaryKey(),
+  chainId: t.integer().notNull(),
+  marketId: t.hex().notNull(),
+  trader: t.hex().notNull(),
+  kind: t.text().notNull(),
+  sizeDeltaE18: t.bigint().notNull(),
+  resultingSizeE18: t.bigint().notNull(),
+  priceE18: t.bigint().notNull(),
+  marginAmount: t.bigint().notNull(),
+  fee: t.bigint(),
+  pnl: t.bigint(),
+  badDebt: t.bigint(),
+  blockNumber: t.bigint().notNull(),
+  blockTimestamp: t.bigint().notNull(),
+  txHash: t.hex().notNull(),
+  logIndex: t.integer().notNull(),
+}));
+
+export const perpsSettlement = onchainTable("perps_settlement", (t) => ({
+  id: t.text().primaryKey(),
+  chainId: t.integer().notNull(),
+  marketId: t.hex().notNull(),
+  maker: t.hex().notNull(),
+  taker: t.hex().notNull(),
+  fillSizeE18: t.bigint().notNull(),
+  fillPriceE18: t.bigint().notNull(),
+  blockNumber: t.bigint().notNull(),
+  blockTimestamp: t.bigint().notNull(),
+  txHash: t.hex().notNull(),
+  logIndex: t.integer().notNull(),
+}));
+
+export const perpsOrderCancellation = onchainTable("perps_order_cancellation", (t) => ({
+  id: t.text().primaryKey(),
+  chainId: t.integer().notNull(),
+  trader: t.hex().notNull(),
+  nonce: t.bigint().notNull(),
+  blockNumber: t.bigint().notNull(),
+  blockTimestamp: t.bigint().notNull(),
+  txHash: t.hex().notNull(),
+  logIndex: t.integer().notNull(),
 }));
 
 export const arcadeRoom = onchainTable("arcade_room", (t) => ({

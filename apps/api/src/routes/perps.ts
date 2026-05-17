@@ -6,12 +6,21 @@ import {
   perpsQuoteRequest,
   perpsReplacementPrepareRequest,
   perpsReplacementSubmitRequest,
+  reconcilePerpsIntentWithSettlements,
 } from "@bufi/perps";
 import { paymentRequired } from "@bufi/x402";
 
 import type { WalletSession } from "@bufi/shared-types";
 
-import { errorStatus, jsonSafe, paymentVerifier, perpsService, receiptStore, tradingDb } from "../services";
+import {
+  errorStatus,
+  jsonSafe,
+  paymentVerifier,
+  perpsService,
+  perpsSettlementReader,
+  receiptStore,
+  tradingDb,
+} from "../services";
 
 const perpsRoutes = new Hono();
 
@@ -124,6 +133,44 @@ perpsRoutes.post("/intents/:id/replacement", async (c) => {
   if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
   try {
     return c.json(jsonSafe(await perpsService.createReplacementIntent(parsed.data)));
+  } catch (e) {
+    return c.json({ error: (e as Error).message }, errorStatus(e));
+  }
+});
+
+perpsRoutes.get("/intents/:id/reconciliation", async (c) => {
+  const session = c.get("walletSession") as WalletSession | null;
+  if (!session) return c.json({ error: "wallet session required" }, 401);
+  const intent = await perpsService.getIntent(c.req.param("id"));
+  if (!intent) return c.json({ error: "intent not found" }, 404);
+  if (intent.trader.toLowerCase() !== session.address.toLowerCase()) {
+    return c.json({ error: "trader must match session address" }, 403);
+  }
+  const settlementTx = c.req.query("settlementTx")?.toLowerCase();
+  const limit = c.req.query("limit") ? Number(c.req.query("limit")) : undefined;
+  if (limit !== undefined && (!Number.isInteger(limit) || limit <= 0)) {
+    return c.json({ error: "limit must be a positive integer" }, 400);
+  }
+
+  try {
+    const indexedSettlements = perpsSettlementReader
+      ? await perpsSettlementReader.listSettlements({
+          chainId: intent.chainId,
+          marketId: intent.marketId,
+          trader: intent.trader,
+          txHash: settlementTx,
+          limit,
+        })
+      : [];
+    return c.json(
+      jsonSafe({
+        indexer: {
+          configured: Boolean(perpsSettlementReader),
+          settlementTx: settlementTx ?? null,
+        },
+        reconciliation: reconcilePerpsIntentWithSettlements(intent, indexedSettlements),
+      }),
+    );
   } catch (e) {
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }

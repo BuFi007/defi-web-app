@@ -11,6 +11,8 @@ import {
 } from "@bufi/perps";
 import { createCircleGatewayVerifier, mockVerifier } from "@bufi/x402";
 
+import { createPonderPerpsSettlementReaderFromEnv } from "./ponder-client";
+
 const env = serverEnv();
 
 if (env.NODE_ENV === "production" && !env.X402_FACILITATOR_URL) {
@@ -31,6 +33,7 @@ export const perpsService = createPerpsService({
 });
 
 export const receiptStore = tradingDb.receipts;
+export const perpsSettlementReader = createPonderPerpsSettlementReaderFromEnv(process.env);
 
 export const paymentVerifier = env.X402_FACILITATOR_URL
   ? createCircleGatewayVerifier({ facilitatorUrl: env.X402_FACILITATOR_URL })
@@ -43,6 +46,7 @@ export function jsonSafe<T>(value: T): T {
 export function errorStatus(error: unknown): 400 | 401 | 403 | 404 | 409 | 424 | 500 {
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes("not configured")) return 424;
+  if (message.includes("Ponder GraphQL")) return 424;
   if (message.includes("unknown room") || message.includes("unknown workflow")) return 404;
   if (message.includes("not found")) return 404;
   if (message.includes("not enabled")) return 404;

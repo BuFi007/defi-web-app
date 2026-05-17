@@ -1,0 +1,319 @@
+/* Dynamic Island styles — additions on top of styles.css */
+
+/* Reset body for embed mode */
+body.island-mode {
+  background: transparent !important;
+  display: flex; align-items: stretch; justify-content: center;
+  padding: 20px;
+  overflow: auto;
+}
+body.island-mode #root { width: 100%; max-width: 1600px; margin: 0 auto; display: flex; }
+
+/* Island container */
+.island {
+  flex: 1;
+  align-self: stretch;
+  width: 100%;
+  display: flex; flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  box-shadow:
+    0 1px 2px rgba(40, 25, 90, 0.04),
+    0 8px 24px rgba(60, 45, 130, 0.08),
+    0 24px 64px rgba(60, 45, 130, 0.12);
+  overflow: hidden;
+  /* Cap to viewport so tall tabs (trade/loan) scroll *inside* the island body
+     instead of pushing the page; min keeps tiny tabs (positions/leaders/history)
+     looking right at smaller viewports */
+  /* Page chrome above (header + action banner + container padding) ≈ 210px;
+     bottom radio player ≈ 60px; leave a 20px gap so the island bottom
+     doesn't kiss the player */
+  min-height: min(540px, calc(100vh - 290px));
+  max-height: calc(100vh - 290px);
+  transition: min-height .4s cubic-bezier(.4, 0, .2, 1), max-height .4s cubic-bezier(.4, 0, .2, 1);
+  position: relative;
+}
+.island.collapsed { min-height: 64px; }
+.island.collapsed .island-body { display: none; }
+
+/* Header strip */
+.island-header {
+  display: flex; align-items: center;
+  gap: 16px;
+  padding: 10px 12px 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--surface), var(--surface-2));
+}
+.island.collapsed .island-header { border-bottom: 0; }
+
+.island-tabs {
+  display: flex; align-items: center; gap: 4px;
+  background: var(--surface-3);
+  border-radius: 14px;
+  padding: 4px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  max-width: 100%;
+}
+.island-tabs::-webkit-scrollbar { display: none; }
+.island-tab {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  font-weight: 800; font-size: 12.5px;
+  color: var(--ink-3);
+  transition: all .2s cubic-bezier(.4, 0, .2, 1);
+  white-space: nowrap;
+}
+.island-tab:hover { color: var(--ink); background: rgba(255,255,255,.3); }
+[data-theme="dark"] .island-tab:hover { background: rgba(255,255,255,.05); }
+.island-tab.active {
+  background: var(--surface);
+  color: var(--primary-ink);
+  box-shadow: var(--shadow-sm);
+}
+.island-tab .tab-pill {
+  font-size: 10px;
+  padding: 1px 6px;
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+.island-summary { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-shrink: 0; }
+.market-mini {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 10px 6px 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.market-mini:hover { border-color: var(--border-strong); }
+
+.acct-mini {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 12px;
+  background: var(--primary-softer);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  white-space: nowrap;
+}
+.acct-l { font-size: 10px; font-weight: 800; color: var(--ink-3); letter-spacing: .03em; text-transform: uppercase; }
+.acct-v { font-size: 13px; font-weight: 800; color: var(--ink); }
+
+@media (max-width: 1280px) {
+  .acct-l { display: none; }
+}
+@media (max-width: 1140px) {
+  .market-mini .mono { display: none; }
+}
+@media (max-width: 1000px) {
+  .market-mini { display: none; }
+  .island-tab span:first-of-type { display: none; }
+}
+
+.island-collapse {
+  width: 34px; height: 34px; border-radius: 11px;
+  background: var(--surface-3);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-2);
+  transition: all .2s;
+}
+.island-collapse:hover { background: var(--primary-soft); color: var(--primary-ink); }
+
+.mode-switch {
+  width: auto !important;
+  padding: 0 12px;
+  gap: 7px;
+  font-weight: 800; font-size: 12px;
+  letter-spacing: .06em;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2)) !important;
+  color: white !important;
+  box-shadow: 0 2px 8px rgba(107, 91, 255, .25);
+}
+.mode-switch:hover {
+  background: linear-gradient(135deg, var(--primary-2), var(--primary)) !important;
+  color: white !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(107, 91, 255, .35);
+}
+.mode-switch.arcade {
+  background: var(--surface-3) !important;
+  color: var(--ink-2) !important;
+  box-shadow: none;
+}
+.mode-switch.arcade:hover {
+  background: var(--primary-soft) !important;
+  color: var(--primary-ink) !important;
+}
+.mode-label { font-weight: 900; font-size: 11px; }
+.mode-glyph { font-size: 14px; line-height: 1; }
+.caret { display: inline-flex; transition: transform .3s; }
+.caret.down { transform: rotate(180deg); }
+
+/* Body */
+.island-body {
+  flex: 1;
+  display: flex; flex-direction: column;
+  /* Per-tab content (markets/positions/leaders/history) already self-scrolls,
+     but trade + loan tabs are tall: allow body-level scroll as a fallback so
+     nothing clips on shorter viewports */
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  animation: island-fade .3s ease-out;
+}
+@keyframes island-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Trade tab: 3-column trading layout */
+.trade-tab { flex: 1; display: flex; min-height: 0; min-width: 0; }
+.trade-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 230px 1fr 320px;
+  grid-template-rows: 1fr;
+  gap: 12px;
+  padding: 12px;
+  min-height: 0;
+}
+.t-orderbook, .t-chart, .t-order { min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+.t-orderbook .card, .t-chart .card, .t-order .card {
+  flex: 1; min-height: 0;
+  border-radius: 18px;
+}
+
+/* Markets tab */
+.markets-tab { padding: 14px 16px 18px; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
+.markets-filter { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.filter-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 14px;
+  background: var(--surface-3);
+  border-radius: 11px;
+  font-weight: 800; font-size: 12.5px;
+  color: var(--ink-3);
+  transition: all .15s;
+  white-space: nowrap;
+}
+.filter-btn:hover { color: var(--ink); }
+.filter-btn.active { background: var(--primary-soft); color: var(--primary-ink); }
+.filter-count {
+  background: var(--surface);
+  font-size: 10px; padding: 1px 7px;
+  border-radius: 999px;
+}
+.filter-btn.active .filter-count { background: var(--surface); color: var(--primary-ink); }
+
+.search-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 0 12px;
+  height: 36px;
+  background: var(--surface-3);
+  border: 1px solid transparent;
+  border-radius: 11px;
+  transition: all .15s;
+}
+.search-pill:focus-within { background: var(--surface); border-color: var(--border-strong); }
+.search-pill input { border: 0; background: transparent; font-size: 13px; font-weight: 600; width: 200px; }
+.search-pill input::placeholder { color: var(--ink-3); }
+
+.markets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.market-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 18px;
+  padding: 14px 16px 12px;
+  cursor: pointer;
+  transition: all .2s;
+  display: flex; flex-direction: column; gap: 10px;
+  position: relative;
+}
+.market-card:hover { border-color: var(--border-strong); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.market-card.active { border-color: var(--primary); box-shadow: 0 4px 16px rgba(107, 91, 255, .15); }
+.mc-head { display: flex; align-items: center; gap: 10px; }
+.mc-sym-block { flex: 1; min-width: 0; }
+.mc-sym { font-weight: 800; font-size: 14px; color: var(--ink); }
+.mc-type { font-size: 11px; font-weight: 700; color: var(--ink-3); }
+.mc-price { font-weight: 800; font-size: 22px; letter-spacing: -0.01em; }
+.mc-meta { display: flex; justify-content: space-between; gap: 8px; }
+.mc-meta > div { display: flex; flex-direction: column; line-height: 1.2; }
+.ml { font-size: 10px; font-weight: 800; color: var(--ink-3); letter-spacing: .04em; text-transform: uppercase; }
+.mv { font-size: 12px; font-weight: 700; }
+.sparkline { height: 36px; width: 100%; margin-top: 4px; display: block; }
+
+/* Loan / Borrow styles live in loan.css */
+
+
+/* Leaders tab */
+.leaders-tab { padding: 14px 16px 18px; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
+.leaders-period { display: flex; gap: 4px; padding: 4px; background: var(--surface-3); border-radius: 12px; width: fit-content; }
+.period-btn { padding: 7px 14px; font-weight: 800; font-size: 12.5px; color: var(--ink-3); border-radius: 9px; }
+.period-btn:hover { color: var(--ink); }
+.period-btn.active { background: var(--surface); color: var(--primary-ink); box-shadow: var(--shadow-sm); }
+.leaders-table { border-radius: 14px; overflow: hidden; border: 1px solid var(--border); }
+
+.rank-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px;
+  border-radius: 9px;
+  font-weight: 800; font-size: 13px;
+  background: var(--surface-3); color: var(--ink-2);
+}
+.rank-1 { background: linear-gradient(135deg, #ffe27a, #ffb547); color: #6b4500; }
+.rank-2 { background: linear-gradient(135deg, #e4e4ef, #b3b3c8); color: #3d3d57; }
+.rank-3 { background: linear-gradient(135deg, #ffc8a3, #d9925a); color: #5a3013; }
+
+.copy-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 12px;
+  background: var(--primary-soft); color: var(--primary-ink);
+  border-radius: 9px;
+  font-weight: 800; font-size: 11.5px;
+  transition: all .15s;
+}
+.copy-btn:hover { background: var(--primary); color: white; }
+
+/* History / Positions summary */
+.history-tab, .positions-only-tab { padding: 14px 16px 18px; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
+.history-summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.hsum-card {
+  padding: 12px 14px;
+  background: var(--surface-3);
+  border-radius: 14px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.hsum-l { font-size: 11px; font-weight: 800; color: var(--ink-3); letter-spacing: .02em; }
+.hsum-v { font-size: 18px; font-weight: 800; color: var(--ink); letter-spacing: -0.01em; }
+.hsum-v.profit { color: var(--profit); }
+.hsum-v.loss { color: var(--loss); }
+.history-tab .table, .positions-only-tab .table { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+
+/* Compact responsive tweaks */
+@media (max-width: 1240px) {
+  .trade-layout { grid-template-columns: 200px 1fr 290px; gap: 10px; padding: 10px; }
+}
+@media (max-width: 1080px) {
+  .trade-layout { grid-template-columns: 1fr 290px; }
+  .t-orderbook { display: none; }
+}
+@media (max-width: 820px) {
+  .trade-layout { grid-template-columns: 1fr; }
+  .t-order { order: -1; }
+  .history-summary { grid-template-columns: repeat(3, 1fr); }
+  .island-tabs { gap: 2px; padding: 3px; }
+  .island-tab { padding: 6px 9px; font-size: 11.5px; }
+  .island-tab span:first-of-type { display: none; }
+  .acct-mini .acct-l { display: none; }
+}
