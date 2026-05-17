@@ -1,6 +1,6 @@
 import { HomeContent } from "@/components/home";
 import { Suspense } from "react";
-import { MoneyMarketSkeleton } from "@/components/skeleton-card";
+import { HomePageSkeleton } from "@/components/skeleton-card";
 import { Metadata } from "next";
 import { NEXT_PUBLIC_URL } from "@/constants";
 
@@ -49,10 +49,10 @@ export const generateMetadata = (): Metadata => {
 };
 export default function Home() {
   return (
-    <>
-      <Suspense fallback={<MoneyMarketSkeleton />}>
+    <Suspense fallback={<HomePageSkeleton />}>
+      <div className="animate-in fade-in duration-500 ease-out w-full">
         <HomeContent />
-      </Suspense>
-    </>
+      </div>
+    </Suspense>
   );
 }

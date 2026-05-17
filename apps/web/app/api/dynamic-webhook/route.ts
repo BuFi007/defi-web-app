@@ -36,11 +36,10 @@ const getStringField = (payload: unknown, field: string) => {
   return typeof value === "string" ? value : undefined;
 };
 
+// Webhook endpoint is POST-only. Reject everything else with a proper 405
+// so the surface doesn't fingerprint the service to scanners.
 export const GET = () =>
-  NextResponse.json({
-    ok: true,
-    service: "BUFI-dynamic-webhook",
-  });
+  new NextResponse(null, { status: 405, headers: { Allow: "POST" } });
 
 export const POST = async (request: NextRequest) => {
   const rawBody = await request.text();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import {
   Table,
   TableBody,
@@ -103,9 +103,13 @@ export default function ClaimsDisplay() {
   }
 
   const totalPages = Math.ceil(claims.length / itemsPerPage);
-  const currentClaims = claims.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+  const currentClaims = useMemo(
+    () =>
+      claims.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+      ),
+    [claims, currentPage, itemsPerPage]
   );
   function getChainName(chainId: number) {
     const chain = getAllChains().find((c) => c.chainId === chainId);

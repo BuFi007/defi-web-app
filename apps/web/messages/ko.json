@@ -1,0 +1,155 @@
+{
+  "NotFound": {
+    "title": "404: 페이지를 찾을 수 없습니다"
+  },
+  "Home": {
+    "welcome": "환영합니다",
+    "to": "—",
+    "slogan": {
+      "part1": "Web3",
+      "part2": "네오",
+      "part3": "뱅킹",
+      "part4": "모두를 위한"
+    },
+    "logoAlt": "Bu 로고",
+    "neoMatrixAlt": "네오 매트릭스 이미지",
+    "pillGifAlt": "매트릭스 알약 GIF",
+    "boofiMatrixAlt": "Bu 매트릭스 GIF",
+    "matrixMemeAlt": "매트릭스 크립토 밈",
+    "connectWalletAlert": "지갑을 연결해 주세요",
+    "sendPaymentTab": "전송 / 교환",
+    "paymentLinksTab": "결제 링크",
+    "moneyMarketTab": "예치와 대출",
+    "paymentsTab": "결제",
+    "ccipUsdcBridgeTab": "CCIP USDC 브릿지"
+  },
+  "EnsAlertDialog": {
+    "actionButton": "Bu 페이 링크 이름으로 송금하고 수령",
+    "callToAction": "Base 이름 생성"
+  },
+  "PeanutTab": {
+    "sendTab": "보내기",
+    "receiveTab": "받기",
+    "historyTab": "기록",
+    "linkTitle": "보내는 중",
+    "createLinkButton": "링크 생성",
+    "claimReady": "링크 청구 준비 완료",
+    "handleFetchLinkDetailsError": "링크 정보를 가져오는 중 오류가 발생했습니다.",
+    "currentTextStartingClaim": "청구 프로세스를 시작합니다...",
+    "currentTextAlreadyClaimedTitle": "사용할 수 없는 링크",
+    "currentTextAlreadyClaimed": "이 링크는 이미 청구되었습니다.",
+    "currentTextClaiming": "결제 링크를 청구하는 중...",
+    "currentTextProgress": "트랜잭션 진행 중...",
+    "currentTextClaimSuccess": "청구 성공",
+    "currentTextClaimError": "링크 청구에 실패했습니다.",
+    "currentTextClaimComplete": "청구 완료",
+    "currentTextCrossChainProgress": "크로스체인 트랜잭션 진행 중...",
+    "currentTextCrossChainSuccess": "크로스체인 트랜잭션 성공!",
+    "currentTextCrossChainError": "링크 청구에 실패했습니다.",
+    "currentTextCrossChainComplete": "크로스체인 완료",
+    "claimTitle": "청구하는 중",
+    "claimDescription": "여기에서 링크를 청구하세요",
+    "claimSuccessTitle": "링크가 성공적으로 청구되었습니다",
+    "claimPaste": "붙여넣기",
+    "claimVerify": "확인",
+    "claimClaim": "청구",
+    "claimSuccess": "청구 성공",
+    "claimDestinationChain": "대상 체인",
+    "claimViewInExplorer": "블록 익스플로러에서 보기"
+  },
+  "PaymentsTab": {},
+  "CurrencyDisplayer": {
+    "availableBalance": "사용 가능한 잔액 (최대):",
+    "loadingBalance": "잔액 불러오는 중..."
+  },
+  "Overlay": {
+    "frameText": "이 고유 링크로 암호화폐 보내기",
+    "linkSubtitle": "이 고유 링크로 암호화폐 보내기",
+    "linkCopied": "링크가 클립보드에 복사되었습니다",
+    "linkDescription": "이 안전한 볼트 링크로 친구와 가족에게 암호화폐를 보내세요",
+    "shareWhatsapp": "WhatsApp 으로 공유",
+    "shareTelegram": "Telegram 으로 공유",
+    "hashTxText": "트랜잭션 해시",
+    "viewInExplorer": "블록 익스플로러에서 보기",
+    "currentTextProgress": "진행 중...",
+    "currentTextSuccess": "성공!",
+    "currentTextFailed": "실패:",
+    "currentTextSpooky": "오싹한 암호화 금융을 손쉽게!",
+    "toastError": "결제 링크 생성 오류",
+    "toastCopyTitle": "클립보드에 복사되었습니다!",
+    "toastCopyDescription": " 이(가) 클립보드에 복사되었습니다."
+  },
+  "CCIPBridge": {
+    "connectWallet": "지갑을 연결해 주세요",
+    "title": "CCIP USDC 브릿지",
+    "toastTitleNetwork": "네트워크 전환 중",
+    "toastDescriptionNetwork": "네트워크 전환 중:",
+    "toastDescriptionNetwork2": "지갑에서 네트워크 변경을 승인해 주세요.",
+    "toastTitleError": "유효하지 않은 대상 체인",
+    "toastDescriptionError": "유효한 대상 체인을 선택해 주세요",
+    "toastSentTitle": "트랜잭션 전송됨",
+    "toastSentDescription": "트랜잭션이 성공적으로 전송되었습니다",
+    "sourceChain": "출발 체인",
+    "destinationChain": "대상 체인",
+    "buttonText": "브릿지",
+    "linkTitle": "브릿지하는 중",
+    "labelBridge": "USDC 를 브릿지할 곳:"
+  },
+  "MoneyMarketBento1": {
+    "tabLend": "예치",
+    "tabBorrow": "대출",
+    "tabWithdraw": "출금",
+    "tabRepay": "상환",
+    "depositUSDC": "USDC 입금",
+    "withdrawUSDC": "USDC 출금",
+    "borrowUSDC": "USDC 대출",
+    "repayUSDC": "USDC 상환",
+    "toastSwitchTitle": "네트워크 전환 중",
+    "toastSwitchDescription": "네트워크 전환 중:",
+    "toastSwitchDescription2": "지갑에서 네트워크 변경을 승인해 주세요.",
+    "labelFrom": "보내는 곳",
+    "labelTo": "받는 곳"
+  },
+  "MoneyMarketBento3": {
+    "title": "어시스턴트",
+    "description": "Bupremium 으로 AI 기반 금융 인사이트를 활용하세요. 맞춤형 조언과 전략을 받아보세요."
+  },
+  "HistoryTab": {
+    "title": "Bu.fi 에서 만든 링크",
+    "description": "결제 링크 기록 확인",
+    "toastCopyTitle": "클립보드에 복사되었습니다!",
+    "toastCopyDescription": " 이(가) 클립보드에 복사되었습니다.",
+    "noData": "데이터를 찾을 수 없습니다",
+    "pagPrev": "이전",
+    "pagNext": "다음",
+    "pagPage": "페이지",
+    "pagOf": "/",
+    "tabLink": "링크",
+    "tabDate": "날짜",
+    "tabHash": "해시",
+    "tabClaimed": "청구됨",
+    "tabChain": "체인",
+    "tabAmount": "금액",
+    "tabToken": "토큰"
+  },
+  "DiscordBanner": {
+    "cta": "Discord 의 활발한 커뮤니티에 함께하세요. 연결되고, 배우고, 함께 성장해요!"
+  },
+  "OpenGraphClaim": {
+    "paymentRequest": "결제 요청:",
+    "claimTitle": "청구",
+    "claimTitle2": " — Bu.fi 에서",
+    "description": "유령이 보냈어요",
+    "description2": "클릭해서 토큰을 청구하세요!",
+    "fallbackTitle": "결제 링크 청구",
+    "fallbackDescription": "여기서 결제 링크를 청구하세요"
+  },
+  "OpenGraphPayment": {
+    "paymentTitle": "결제 요청:",
+    "paymentDescription": "보내는 금액:",
+    "paymentDescription2": "받는 사람:",
+    "paymentDescription3": "Bu.fi 를 사용해",
+    "paymentFallbackTitle": "Bu.fi 로 토큰 송수신",
+    "paymentFallbackDescription": "Bu.fi 로 쉽게 토큰 송금"
+  }
+}

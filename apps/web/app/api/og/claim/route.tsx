@@ -1,16 +1,39 @@
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
 
-// Especificar que este endpoint se ejecuta en el runtime de Edge
 export const runtime = "edge";
+
+// Same input-clamp pattern as /api/[id] — narrow the cache key space so
+// querystring fuzzing can't burn unbounded edge renders.
+const TOKEN_PATTERN = /^[A-Z0-9]{1,8}$/;
+const ALLOWED_CHAINS = new Set([
+  "1", "10", "56", "100", "137", "8453", "42161", "43113", "43114", "1301", "4801", "5042002", "11155111", "84532",
+]);
+
+function sanitizeAmount(raw: string | null): string {
+  if (!raw) return "0";
+  const num = Number(raw);
+  if (!Number.isFinite(num) || num < 0) return "0";
+  return num.toFixed(2);
+}
+
+function sanitizeToken(raw: string | null): string {
+  if (!raw) return "ETH";
+  return TOKEN_PATTERN.test(raw) ? raw : "ETH";
+}
+
+function sanitizeChain(raw: string | null): string {
+  if (!raw) return "1";
+  return ALLOWED_CHAINS.has(raw) ? raw : "1";
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
 
-  // Obtener y validar los parámetros de búsqueda con valores predeterminados
-  const amount = searchParams.get("amount") ?? "0";
-  const token = searchParams.get("token") ?? "ETH";
-  const chain = searchParams.get("chain") ?? "1";
+  const amount = sanitizeAmount(searchParams.get("amount"));
+  const token = sanitizeToken(searchParams.get("token"));
+  // Sanitize chain even though it's not visually used yet.
+  sanitizeChain(searchParams.get("chain"));
 
   const baseUrl = origin;
 
@@ -46,6 +69,9 @@ export async function GET(request: NextRequest) {
     {
       width: 1200,
       height: 630,
-    }
+      headers: {
+        "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
+      },
+    },
   );
 }

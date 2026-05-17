@@ -1,81 +1,104 @@
-import { Metadata, ResolvingMetadata } from "next";
-import { headers } from "next/headers";
-import { getTranslations } from "next-intl/server";
+import { Metadata } from "next";
+import { cacheLife } from "next/cache";
+import { getScopedI18n } from "@/locales/server";
+import { NEXT_PUBLIC_URL } from "@/constants";
 
 type Props = {
   params: Promise<{ id: string; locale: string }>;
   searchParams: Promise<{ amount?: string; token?: string; chain?: string }>;
 };
 
-export async function generateMetadata(
-  { params, searchParams }: Props,
-  parent: ResolvingMetadata
-): Promise<Metadata> {
-  const [{ id, locale }, { amount, token, chain }, headersList] =
-    await Promise.all([params, searchParams, headers()]);
-  const origin = headersList.get("origin") || "";
-  const baseUrl = origin.startsWith("https")
-    ? process.env.NEXT_PUBLIC_MAINNET_URL
-    : process.env.NEXT_PUBLIC_TESTNET_URL;
+type PayMetadataArgs = {
+  id: string;
+  amount: string;
+  token: string;
+  chain: string;
+  locale: string;
+};
 
-  const t = await getTranslations("OpenGraphPayment");
+async function buildPayMetadata(args: PayMetadataArgs): Promise<Metadata> {
+  "use cache";
+  cacheLife("weeks");
 
-  try {
-    const ogImageUrl = `${baseUrl}/api/${encodeURIComponent(
-      id
-    )}?amount=${encodeURIComponent(amount || "0")}&token=${encodeURIComponent(
-      token || "ETH"
-    )}&chain=${encodeURIComponent(chain || "base")}`;
+  const t = await getScopedI18n("OpenGraphPayment");
+  const { id, amount, token, chain, locale } = args;
 
-    const title = `${t("paymentTitle")} ${amount || "0"} ${token || "ETH"}`;
-    const description = `${t("paymentDescription")} ${amount || "0"} ${
-      token || "ETH"
-    } ${t(
-      "paymentDescription2"
-    )}${id} ${t("paymentDescription3")}`;
+  const ogImageUrl = `${NEXT_PUBLIC_URL}/api/${encodeURIComponent(id)}?amount=${encodeURIComponent(
+    amount,
+  )}&token=${encodeURIComponent(token)}&chain=${encodeURIComponent(chain)}`;
 
-    return {
+  const title = `${t("paymentTitle")} ${amount} ${token}`;
+  const description = `${t("paymentDescription")} ${amount} ${token} ${t(
+    "paymentDescription2",
+  )}${id} ${t("paymentDescription3")}`;
+
+  return {
+    title,
+    description,
+    openGraph: {
       title,
       description,
-      openGraph: {
-        title,
-        description,
-        url: `${baseUrl}/${locale}/${id}`,
-        images: [ogImageUrl],
-        siteName: "Bu.fi",
-        type: "website",
-      },
-      twitter: {
-        card: "summary_large_image",
-        title,
-        description,
-        images: [ogImageUrl],
-      },
-    };
-  } catch (error) {
-    console.error("Error generating metadata:", error);
-    const fallbackTitle = t("paymentFallbackTitle");
-    const fallbackDescription = t("paymentFallbackDescription");
+      url: `${NEXT_PUBLIC_URL}/${locale}/${id}`,
+      images: [ogImageUrl],
+      siteName: "Bu.fi",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImageUrl],
+    },
+  };
+}
 
-    const fallbackImage = `${baseUrl}/images/iso-logo.png`;
+async function buildPayFallback(args: PayMetadataArgs): Promise<Metadata> {
+  "use cache";
+  cacheLife("weeks");
 
-    return {
+  const t = await getScopedI18n("OpenGraphPayment");
+  const { id, locale } = args;
+  const fallbackTitle = t("paymentFallbackTitle");
+  const fallbackDescription = t("paymentFallbackDescription");
+  const fallbackImage = `${NEXT_PUBLIC_URL}/images/iso-logo.png`;
+
+  return {
+    title: fallbackTitle,
+    description: fallbackDescription,
+    openGraph: {
       title: fallbackTitle,
       description: fallbackDescription,
-      openGraph: {
-        title: fallbackTitle,
-        description: fallbackDescription,
-        images: [{ url: fallbackImage }],
-        url: `${baseUrl}/${locale}/${id}`,
-        siteName: "Bu.fi",
-        type: "website",
-      },
-      twitter: {
-        card: "summary_large_image",
-        title: fallbackTitle,
-        description: fallbackDescription,
-        images: [fallbackImage],
-      },
-    };
+      images: [{ url: fallbackImage }],
+      url: `${NEXT_PUBLIC_URL}/${locale}/${id}`,
+      siteName: "Bu.fi",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: fallbackTitle,
+      description: fallbackDescription,
+      images: [fallbackImage],
+    },
+  };
+}
+
+export async function generateMetadata({
+  params,
+  searchParams,
+}: Props): Promise<Metadata> {
+  const [{ id, locale }, sp] = await Promise.all([params, searchParams]);
+  const args: PayMetadataArgs = {
+    id,
+    amount: sp.amount ?? "0",
+    token: sp.token ?? "ETH",
+    chain: sp.chain ?? "base",
+    locale,
+  };
+
+  try {
+    return await buildPayMetadata(args);
+  } catch (error) {
+    console.error("Error generating pay metadata:", error);
+    return buildPayFallback(args);
   }
 }

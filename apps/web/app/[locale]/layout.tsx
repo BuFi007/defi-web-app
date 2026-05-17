@@ -42,13 +42,14 @@ const pickVariantForDay = (): BgVariant =>
 async function LocalizedShell({
   children,
   params,
-  bgVariant,
 }: {
   children: React.ReactNode;
   params: Promise<{ locale: string }>;
-  bgVariant: BgVariant;
 }) {
   const { locale } = await params;
+  // `new Date()` must follow a runtime-data read under Next 16 Cache
+  // Components — `await params` above satisfies that requirement.
+  const bgVariant = pickVariantForDay();
 
   return (
     <I18nProviderClient locale={locale}>
@@ -113,14 +114,10 @@ async function LocalizedShell({
 }
 
 export default function RootLayout({ children, params }: RootLayoutProps) {
-  const bgVariant = pickVariantForDay();
-
   return (
     <ThemeProvider defaultTheme="light">
       <Suspense fallback={<Loading />}>
-        <LocalizedShell params={params} bgVariant={bgVariant}>
-          {children}
-        </LocalizedShell>
+        <LocalizedShell params={params}>{children}</LocalizedShell>
       </Suspense>
     </ThemeProvider>
   );

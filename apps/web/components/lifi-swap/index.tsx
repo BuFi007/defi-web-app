@@ -1,6 +1,7 @@
 'use client';
 
-import { LiFiWidget, WidgetConfig, WidgetSkeleton } from '@lifi/widget';
+import type { WidgetConfig } from '@lifi/widget';
+import dynamic from 'next/dynamic';
 import { ClientOnly } from './ClientOnly';
 import { usePathname } from 'next/navigation';
 import { useMemo } from 'react';
@@ -10,19 +11,52 @@ import {
   ArbitrumTokens,
 } from '@/constants/Tokens';
 
+const LiFiWidget = dynamic(
+  () => import('@lifi/widget').then((m) => ({ default: m.LiFiWidget })),
+  { ssr: false },
+);
+
+const WidgetSkeleton = dynamic(
+  () => import('@lifi/widget').then((m) => ({ default: m.WidgetSkeleton })),
+  { ssr: false },
+);
+
 type SupportedLanguage = "en" | "es" | "pt";
+
+const FEATURED_TOKENS = [
+  ...AvalancheTokens.map(token => ({
+    chainId: token.chainId,
+    address: token.address,
+    symbol: token.symbol,
+    decimals: token.decimals,
+    name: token.name,
+  })),
+  ...BaseTokens.map(token => ({
+    chainId: token.chainId,
+    address: token.address,
+    symbol: token.symbol,
+    decimals: token.decimals,
+    name: token.name,
+  })),
+  ...ArbitrumTokens.map(token => ({
+    chainId: token.chainId,
+    address: token.address,
+    symbol: token.symbol,
+    decimals: token.decimals,
+    name: token.name,
+  })),
+];
 
 export const LiFiSwap = () => {
   const pathname = usePathname();
 
-  const getLanguageFromPath = (): SupportedLanguage => {
+  const language: SupportedLanguage = useMemo(() => {
     const pathSegments = pathname?.split('/') || [];
     const langCode = pathSegments[1]?.toLowerCase();
-    
     if (langCode === 'es') return 'es';
     if (langCode === 'pt') return 'pt';
     return 'en';
-  };
+  }, [pathname]);
 
   const widgetConfig: WidgetConfig = useMemo(() => ({
     integrator: 'bu.finance',
@@ -103,39 +137,16 @@ export const LiFiSwap = () => {
       }
     },
     tokens: {
-      featured: [
-        // Mainnet tokens
-        ...AvalancheTokens.map(token => ({ 
-          chainId: token.chainId, 
-          address: token.address,
-          symbol: token.symbol,
-          decimals: token.decimals,
-          name: token.name,
-        })),
-        ...BaseTokens.map(token => ({ 
-          chainId: token.chainId, 
-          address: token.address,
-          symbol: token.symbol,
-          decimals: token.decimals,
-          name: token.name,
-        })),
-        ...ArbitrumTokens.map(token => ({ 
-          chainId: token.chainId, 
-          address: token.address,
-          symbol: token.symbol,
-          decimals: token.decimals,
-          name: token.name,
-        })),
-      ],
+      featured: FEATURED_TOKENS,
     },
     languages: {
-      default: getLanguageFromPath(),
+      default: language,
       allow: ['en', 'es', 'pt'] as const,
     },
     variant: 'compact',
     routePriority: 'FASTEST',
     hiddenUI: ['walletMenu', 'poweredBy', 'drawerCloseButton'],
-  }), [pathname]);
+  }), [language]);
 
   return (
     <>

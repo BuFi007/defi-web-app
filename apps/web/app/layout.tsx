@@ -1,5 +1,5 @@
 import { Viewport } from "next";
-import Script from "next/script";
+import { Suspense } from "react";
 import "@/css/global.scss";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
@@ -28,17 +28,19 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       suppressHydrationWarning
     >
-      <head>
+      <body className="bg-gradient-to-br from-indigo-100 via-violet-200 to-cyan-300 bg-no-repeat font-poppins dark:bg-gradient-to-r dark:from-gray-900 dark:via-indigo-400 dark:to-gray-800 min-h-screen">
+        {/* cacheComponents boundary: the [locale] layout awaits params,
+            which is runtime data. Suspense here lets Next prerender the
+            static shell (this body + bg gradient) while the locale-aware
+            tree streams in. */}
+        <Suspense fallback={null}>{children}</Suspense>
         {process.env.NODE_ENV === "development" && (
-          <Script
+          <script
+            async
             src="https://unpkg.com/react-grab/dist/index.global.js"
             crossOrigin="anonymous"
-            strategy="beforeInteractive"
           />
         )}
-      </head>
-      <body className="bg-gradient-to-br from-indigo-100 via-violet-200 to-cyan-300 bg-no-repeat font-poppins dark:bg-gradient-to-r dark:from-gray-900 dark:via-indigo-400 dark:to-gray-800 min-h-screen">
-        {children}
       </body>
     </html>
   );

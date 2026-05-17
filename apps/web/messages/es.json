@@ -139,14 +139,14 @@
   "DiscordBanner": {
     "cta": "Únete a nuestra comunidad en Discord. Conéctate, aprende y crece con nosotros!"
   },
-  "OpenGraph": {
+  "OpenGraphClaim": {
     "paymentRequest": "Pedido de pago para",
     "claimTitle": "Reclama",
     "claimTitle2": "en Bu.fi",
     "description": "Un fantasma te envió",
     "description2": "¡Haz clic para reclamar tus tokens!",
-    "fallbackTitle": "Reivindicação de link de pagamento",
-    "fallbackDescription": "Reivindique seu link de pagamento aqui"
+    "fallbackTitle": "Reivindicación de link de pago",
+    "fallbackDescription": "Reivindica tu link de pago aquí"
   },
   "OpenGraphPayment": {
     "paymentTitle": "Pedido de pago para ",

@@ -6,7 +6,7 @@ import { truncateAddress } from "@/utils";
 import { useEnsName } from "@/hooks/use-ens-name";
 import { base } from "viem/chains";
 import { AddressProps, Token } from "@/lib/types";
-import { useLocale } from "next-intl";
+import { useCurrentLocale } from "@/locales/client";
 import { useAppTranslations } from "@/context/TranslationContext";
 import ShareableQRCard from "@/components/qr-gen/share-qr-card";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
@@ -23,7 +23,7 @@ export const BaseNameDialogAlert = ({ address }: AddressProps) => {
     address,
     chain: base,
   });
-  const locale = useLocale();
+  const locale = useCurrentLocale();
   const availableTokens = useGetTokensOrChain(chainId!, "tokens");
   const { amount, token } = usePayLinkStore();
 

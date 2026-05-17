@@ -34,11 +34,24 @@ export default function PayId() {
   const availableTokens = useGetTokensOrChain(chainId!, "tokens") as Token[];
   const address = primaryWallet?.address;
   const id = params.id;
-  const queryString = window.location.search;
-  const amountParam = new URLSearchParams(queryString);
-  const presetAmount = amountParam?.get("amount");
-  const tokenParam = amountParam?.get("token");
-  const chainParam = amountParam?.get("chain");
+  const [parsedQuery, setParsedQuery] = useState<{
+    amount: string | null;
+    token: string | null;
+    chain: string | null;
+  }>({ amount: null, token: null, chain: null });
+
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    setParsedQuery({
+      amount: p.get("amount"),
+      token: p.get("token"),
+      chain: p.get("chain"),
+    });
+  }, []);
+
+  const presetAmount = parsedQuery.amount;
+  const tokenParam = parsedQuery.token;
+  const chainParam = parsedQuery.chain;
 
   const allChains = getAllChains();
 
@@ -49,22 +62,15 @@ export default function PayId() {
     ),
   });
 
-  async function getEnsAddress() {
+  useEffect(() => {
     setLoading(true);
     try {
       setReceiver(id as Hex);
-
       setEnsName(ensNameEthers?.data!);
-      setReceiver(id as Hex);
-      setLoading(false);
     } finally {
       setLoading(false);
     }
-  }
-
-  useEffect(() => {
-    getEnsAddress();
-  }, []);
+  }, [id, ensNameEthers?.data]);
 
   const sameTargetChain = chainId === 43113;
 

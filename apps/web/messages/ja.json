@@ -1,0 +1,155 @@
+{
+  "NotFound": {
+    "title": "404: ページが見つかりません"
+  },
+  "Home": {
+    "welcome": "ようこそ",
+    "to": "へ",
+    "slogan": {
+      "part1": "Web3",
+      "part2": "ネオ",
+      "part3": "バンキング",
+      "part4": "すべての人へ"
+    },
+    "logoAlt": "Buロゴ",
+    "neoMatrixAlt": "ネオ・マトリックス画像",
+    "pillGifAlt": "マトリックスの薬GIF",
+    "boofiMatrixAlt": "BuマトリックスGIF",
+    "matrixMemeAlt": "マトリックス暗号ミーム",
+    "connectWalletAlert": "ウォレットを接続してください",
+    "sendPaymentTab": "送金 / 交換",
+    "paymentLinksTab": "ペイメントリンク",
+    "moneyMarketTab": "貸し借り",
+    "paymentsTab": "支払い",
+    "ccipUsdcBridgeTab": "CCIP USDC ブリッジ"
+  },
+  "EnsAlertDialog": {
+    "actionButton": "Bu ペイリンク名で送受金",
+    "callToAction": "Base ネームを作成"
+  },
+  "PeanutTab": {
+    "sendTab": "送信",
+    "receiveTab": "受信",
+    "historyTab": "履歴",
+    "linkTitle": "送金しています",
+    "createLinkButton": "リンクを作成",
+    "claimReady": "リンクを請求する準備ができました",
+    "handleFetchLinkDetailsError": "リンク情報の取得中にエラーが発生しました。",
+    "currentTextStartingClaim": "請求処理を開始しています...",
+    "currentTextAlreadyClaimedTitle": "リンクは利用できません",
+    "currentTextAlreadyClaimed": "このリンクはすでに請求されています。",
+    "currentTextClaiming": "ペイメントリンクを請求しています...",
+    "currentTextProgress": "トランザクション処理中...",
+    "currentTextClaimSuccess": "請求に成功しました",
+    "currentTextClaimError": "リンクの請求に失敗しました。",
+    "currentTextClaimComplete": "請求完了",
+    "currentTextCrossChainProgress": "クロスチェーン取引が進行中...",
+    "currentTextCrossChainSuccess": "クロスチェーン取引に成功しました！",
+    "currentTextCrossChainError": "リンクの請求に失敗しました。",
+    "currentTextCrossChainComplete": "クロスチェーン完了",
+    "claimTitle": "請求しています",
+    "claimDescription": "ここでリンクを請求",
+    "claimSuccessTitle": "リンクの請求に成功しました",
+    "claimPaste": "貼り付け",
+    "claimVerify": "確認",
+    "claimClaim": "請求",
+    "claimSuccess": "請求に成功しました",
+    "claimDestinationChain": "送信先チェーン",
+    "claimViewInExplorer": "ブロックエクスプローラーで表示"
+  },
+  "PaymentsTab": {},
+  "CurrencyDisplayer": {
+    "availableBalance": "利用可能残高（最大）:",
+    "loadingBalance": "残高を読み込み中..."
+  },
+  "Overlay": {
+    "frameText": "この専用リンクで暗号資産を送る",
+    "linkSubtitle": "この専用リンクで暗号資産を送る",
+    "linkCopied": "リンクをクリップボードにコピーしました",
+    "linkDescription": "この安全なヴォルトリンクで友人や家族に暗号資産を送れます",
+    "shareWhatsapp": "WhatsAppで共有",
+    "shareTelegram": "Telegramで共有",
+    "hashTxText": "トランザクションハッシュ",
+    "viewInExplorer": "ブロックエクスプローラーで表示",
+    "currentTextProgress": "処理中...",
+    "currentTextSuccess": "成功！",
+    "currentTextFailed": "失敗：",
+    "currentTextSpooky": "おばけ暗号金融をかんたんに！",
+    "toastError": "ペイリンクの作成エラー",
+    "toastCopyTitle": "クリップボードにコピーしました！",
+    "toastCopyDescription": " をクリップボードにコピーしました。"
+  },
+  "CCIPBridge": {
+    "connectWallet": "ウォレットを接続してください",
+    "title": "CCIP USDC ブリッジ",
+    "toastTitleNetwork": "ネットワーク切り替え中",
+    "toastDescriptionNetwork": "ネットワークを切り替えています：",
+    "toastDescriptionNetwork2": "ウォレットでネットワーク変更を承認してください。",
+    "toastTitleError": "無効な送信先チェーン",
+    "toastDescriptionError": "有効な送信先チェーンを選択してください",
+    "toastSentTitle": "トランザクション送信済み",
+    "toastSentDescription": "トランザクションを正常に送信しました",
+    "sourceChain": "送信元チェーン",
+    "destinationChain": "送信先チェーン",
+    "buttonText": "ブリッジ",
+    "linkTitle": "ブリッジしています",
+    "labelBridge": "USDC をブリッジ先："
+  },
+  "MoneyMarketBento1": {
+    "tabLend": "貸出",
+    "tabBorrow": "借入",
+    "tabWithdraw": "引き出し",
+    "tabRepay": "返済",
+    "depositUSDC": "USDC を入金",
+    "withdrawUSDC": "USDC を引き出し",
+    "borrowUSDC": "USDC を借り入れ",
+    "repayUSDC": "USDC を返済",
+    "toastSwitchTitle": "ネットワーク切り替え中",
+    "toastSwitchDescription": "ネットワークを切り替えています：",
+    "toastSwitchDescription2": "ウォレットでネットワーク変更を承認してください。",
+    "labelFrom": "送信元",
+    "labelTo": "送信先"
+  },
+  "MoneyMarketBento3": {
+    "title": "アシスタント",
+    "description": "Bupremium で AI 駆動の金融インサイトを解放。パーソナライズされたアドバイスと戦略を手に入れよう。"
+  },
+  "HistoryTab": {
+    "title": "Bu.fi で作成されたリンク",
+    "description": "ペイメントリンクの履歴を確認",
+    "toastCopyTitle": "クリップボードにコピーしました！",
+    "toastCopyDescription": " をクリップボードにコピーしました。",
+    "noData": "データが見つかりません",
+    "pagPrev": "前へ",
+    "pagNext": "次へ",
+    "pagPage": "ページ",
+    "pagOf": "/",
+    "tabLink": "リンク",
+    "tabDate": "日付",
+    "tabHash": "ハッシュ",
+    "tabClaimed": "請求済み",
+    "tabChain": "チェーン",
+    "tabAmount": "金額",
+    "tabToken": "トークン"
+  },
+  "DiscordBanner": {
+    "cta": "Discord の活気あるコミュニティに参加しよう。つながり、学び、共に成長しよう！"
+  },
+  "OpenGraphClaim": {
+    "paymentRequest": "支払いリクエスト：",
+    "claimTitle": "請求",
+    "claimTitle2": "を Bu.fi で",
+    "description": "おばけがあなたに",
+    "description2": "クリックしてトークンを請求！",
+    "fallbackTitle": "ペイメントリンクを請求",
+    "fallbackDescription": "ここでペイメントリンクを請求"
+  },
+  "OpenGraphPayment": {
+    "paymentTitle": "支払いリクエスト：",
+    "paymentDescription": "送金：",
+    "paymentDescription2": "宛先：",
+    "paymentDescription3": "Bu.fi を使用",
+    "paymentFallbackTitle": "Bu.fi でトークンを送受信",
+    "paymentFallbackDescription": "Bu.fi で簡単にトークンを送信"
+  }
+}

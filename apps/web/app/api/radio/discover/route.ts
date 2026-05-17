@@ -1,12 +1,11 @@
-import { NextResponse } from "next/server";
+import { cacheLife, cacheTag } from "next/cache";
+import { NextRequest, NextResponse } from "next/server";
 import { CHANNELS } from "@/components/radio/channels";
 
-// Cache the entire discovery result for 6 hours. With ~50 query-based
-// channels, one discovery run costs ~5000 YouTube Data API units; 4 runs
-// per day = ~20k units. Next.js requires `revalidate` to be a literal,
-// so 21600 = 6 * 60 * 60 is inlined here.
-export const revalidate = 21600;
-const REVALIDATE_SECONDS = 21600;
+// ~50 query-based channels × 100 YouTube units each = ~5000 units per
+// discovery. Caching for 6h ⇒ at most ~20k units/day. Bust via
+// revalidateTag('radio-discovery') if you ever need fresh results sooner.
+const REVALIDATE_SECONDS = 6 * 60 * 60;
 
 type DiscoverResponse = {
   resolved: Record<string, string>;
@@ -26,23 +25,50 @@ async function searchLive(query: string, apiKey: string): Promise<string | null>
   url.searchParams.set("q", query);
   url.searchParams.set("key", apiKey);
 
-  const res = await fetch(url, { next: { revalidate: REVALIDATE_SECONDS } });
+  const res = await fetch(url);
   if (!res.ok) return null;
   const data = await res.json();
   return data?.items?.[0]?.id?.videoId ?? null;
 }
 
-export async function GET(): Promise<NextResponse<DiscoverResponse>> {
+// Singleton inflight promise per 6h epoch. Coalesces cold-cache stampedes:
+// if N requests hit the route at the same instant after a cache miss, only
+// ONE upstream YouTube fan-out runs and all N share that result.
+let inflightPromise: Promise<DiscoverResponse> | null = null;
+let inflightEpoch = -1;
+
+const currentEpoch = (): number =>
+  Math.floor(Date.now() / (REVALIDATE_SECONDS * 1000));
+
+async function getDiscovery(): Promise<DiscoverResponse> {
+  const epoch = currentEpoch();
+  if (inflightPromise && inflightEpoch === epoch) {
+    return inflightPromise;
+  }
+  inflightEpoch = epoch;
+  inflightPromise = getDiscoveryCached();
+  return inflightPromise;
+}
+
+async function getDiscoveryCached(): Promise<DiscoverResponse> {
+  "use cache";
+  cacheLife({
+    stale: REVALIDATE_SECONDS,
+    revalidate: REVALIDATE_SECONDS,
+    expire: REVALIDATE_SECONDS * 4,
+  });
+  cacheTag("radio-discovery");
+
   const key = process.env.YOUTUBE_API_KEY;
   const queryChannels = CHANNELS.filter((c) => c.query && !c.videoId);
 
   if (!key) {
-    return NextResponse.json({
+    return {
       resolved: {},
       source: "no-api-key",
       generatedAt: new Date().toISOString(),
       unresolved: queryChannels.map((c) => c.id),
-    });
+    };
   }
 
   const results = await Promise.allSettled(
@@ -62,10 +88,29 @@ export async function GET(): Promise<NextResponse<DiscoverResponse>> {
     }
   }
 
-  return NextResponse.json({
+  return {
     resolved,
     source: "live-api",
     generatedAt: new Date().toISOString(),
     unresolved,
+  };
+}
+
+export async function GET(
+  request: NextRequest,
+): Promise<NextResponse<DiscoverResponse> | NextResponse> {
+  // Reject browser fetches from any origin other than our own — stops
+  // third-party sites from rehosting the videoIds we paid YouTube quota
+  // for. Same-origin fetches and server-to-server requests don't send
+  // an `origin` header, so they pass through naturally.
+  const originHeader = request.headers.get("origin");
+  if (originHeader && originHeader !== request.nextUrl.origin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  return NextResponse.json(await getDiscovery(), {
+    // Tell intermediaries that the response varies by Origin so we don't
+    // accidentally serve an allowed-origin body to a forbidden caller.
+    headers: { Vary: "Origin" },
   });
 }

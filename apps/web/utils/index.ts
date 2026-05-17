@@ -5,7 +5,17 @@ import { Chain, ExtendedPaymentInfo, Translations } from "@/lib/types";
 import * as Chains from "@/constants/Chains";
 import { getLinkDetails } from "@squirrel-labs/peanut-sdk";
 import { toast } from "@/components/ui/use-toast";
-import confetti from "canvas-confetti";
+import type confettiNs from "canvas-confetti";
+
+type ConfettiFn = typeof confettiNs;
+
+let confettiPromise: Promise<ConfettiFn> | null = null;
+function loadConfetti(): Promise<ConfettiFn> {
+  if (!confettiPromise) {
+    confettiPromise = import("canvas-confetti").then((m) => m.default);
+  }
+  return confettiPromise;
+}
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -470,7 +480,8 @@ export const getAllLinksFromLocalStorage = ({
   }
 };
 
-export const triggerConfetti = (emoji: string) => {
+export const triggerConfetti = async (emoji: string) => {
+  const confetti = await loadConfetti();
   const scalar = 4;
   const confettiEmoji = confetti.shapeFromText({ text: emoji, scalar });
 

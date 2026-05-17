@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Moon, Sun } from "lucide-react";
-import { useTheme } from "@/components/theme-provider";
+import { useSpacemanTheme } from "@/components/theme-provider";
 import { useGhostMode } from "@/context/GhostModeContext";
 import { cn } from "@/utils";
 
@@ -15,7 +15,7 @@ const SIZES = {
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 
 export function ModeToggle() {
-  const { setTheme, theme } = useTheme();
+  const { resolvedTheme, switchTheme, ref: spacemanRef } = useSpacemanTheme();
   const { isGhostMode, setGhostMode, isHydrated } = useGhostMode();
   const [showNotice, setShowNotice] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -27,18 +27,15 @@ export function ModeToggle() {
     [],
   );
 
-  // Ghost Mode is the source of truth — theme follows it after hydration.
-  useEffect(() => {
-    if (!isHydrated) return;
-    setTheme(isGhostMode ? "dark" : "light");
-  }, [isHydrated, isGhostMode, setTheme]);
-
-  // Anti-flash: while hydrating, fall back to whatever next-themes has applied.
-  const inGhostMode = isHydrated ? isGhostMode : theme === "dark";
+  // Anti-flash: while hydrating, fall back to whatever the provider has applied.
+  const inGhostMode = isHydrated ? isGhostMode : resolvedTheme === "dark";
 
   const handleClick = () => {
     const nextGhost = !isGhostMode;
     setGhostMode(nextGhost);
+
+    // Spaceman circle-reveal: animation origin is the button's ref position.
+    void switchTheme(nextGhost ? "dark" : "light");
 
     if (timerRef.current) clearTimeout(timerRef.current);
     if (nextGhost) {
@@ -56,6 +53,7 @@ export function ModeToggle() {
 
   return (
     <motion.button
+      ref={spacemanRef}
       type="button"
       onClick={handleClick}
       initial={false}

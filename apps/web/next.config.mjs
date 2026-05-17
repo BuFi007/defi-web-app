@@ -1,14 +1,15 @@
-import createNextIntlPlugin from "next-intl/plugin";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = dirname(fileURLToPath(import.meta.url));
 // Monorepo root — apps/web is two levels deep
 const workspaceRoot = join(projectRoot, "..", "..");
-const withNextIntl = createNextIntlPlugin();
 
 const config = {
   reactStrictMode: true,
+  // Enables the 'use cache' directive + Partial Prerendering. Replaces the
+  // legacy experimental.ppr flag in Next.js 16.
+  cacheComponents: true,
   turbopack: {
     root: workspaceRoot,
   },
@@ -37,6 +38,20 @@ const config = {
       },
     ],
   },
+  async headers() {
+    return [
+      {
+        // Hash-busted public audio doesn't change — let CDNs hold it forever.
+        source: "/:dir(audio|sounds)/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+    ];
+  },
 };
 
-export default withNextIntl(config);
+export default config;

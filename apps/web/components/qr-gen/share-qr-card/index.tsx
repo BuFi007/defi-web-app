@@ -11,7 +11,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useLocale } from "next-intl";
 import { NEXT_PUBLIC_URL } from "@/constants";
 import CurrencyDisplayer from "@/components/currency";
 import { Token } from "@/lib/types";

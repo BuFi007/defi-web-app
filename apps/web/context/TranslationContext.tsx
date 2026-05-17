@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, ReactNode } from "react";
 import { Translations } from "@/lib/types";
-import { useTranslations } from "next-intl";
+import { useI18n } from "@/locales/client";
 
 interface TranslationContextType {
   translations: Partial<Translations>;
@@ -13,7 +13,10 @@ const TranslationContext = createContext<TranslationContextType | undefined>(
 );
 
 export function TranslationProvider({ children }: { children: ReactNode }) {
-  const t = useTranslations();
+  // next-international's typed translator. Cast to a loose signature so the
+  // existing dot-keyed call sites keep working as-is.
+  const tBase = useI18n();
+  const t = tBase as unknown as (key: string) => string;
 
   const translations: Translations = {
     NotFound: {
