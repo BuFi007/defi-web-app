@@ -26,11 +26,14 @@ body.island-mode #root { width: 100%; max-width: 1600px; margin: 0 auto; display
   /* Cap to viewport so tall tabs (trade/loan) scroll *inside* the island body
      instead of pushing the page; min keeps tiny tabs (positions/leaders/history)
      looking right at smaller viewports */
-  /* Page chrome above (header + action banner + container padding) ≈ 210px;
-     bottom radio player ≈ 60px; leave a 20px gap so the island bottom
-     doesn't kiss the player */
-  min-height: min(540px, calc(100vh - 290px));
-  max-height: calc(100vh - 290px);
+  /* Page chrome above (header + container padding) ≈ 170px; bottom radio
+     player ≈ 60px; leave a 10px gap so the island bottom doesn't kiss the
+     player. Banner (when shown) compresses available space at runtime — its
+     50px is absorbed by the flex-1 scroll wrapper, not by re-tightening this
+     cap, so the loan/trade tabs gain ~50px of breathing room when the
+     ActionCard would otherwise overflow. */
+  min-height: min(560px, calc(100vh - 230px));
+  max-height: calc(100vh - 230px);
   transition: min-height .4s cubic-bezier(.4, 0, .2, 1), max-height .4s cubic-bezier(.4, 0, .2, 1);
   position: relative;
 }

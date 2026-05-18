@@ -27,6 +27,7 @@ import {
 import { ArcadeRoom } from "./multiplayer";
 import { MobileTrade } from "./mobile-trade";
 import { MarketPicker } from "./market-picker";
+import { StablecoinBalances } from "@/components/stablecoin-balances";
 import { usePositions, useTrades } from "@/lib/perps/hooks";
 import type { PerpsPositionDto, PerpsTradeDto } from "@/lib/perps/client";
 
@@ -826,9 +827,6 @@ function TradeIslandHeader({
     (s, p) => s + (p.unrealizedPnlUsdc ? Number(p.unrealizedPnlUsdc) : 0),
     0,
   );
-  // Until the API surfaces equity, fall back to the historical placeholder so
-  // the header doesn't collapse to $0 and look broken pre-fill.
-  const acct = 125420.5 + liveTotalPnl;
 
   return (
     <header className="island-header">
@@ -851,14 +849,13 @@ function TradeIslandHeader({
       </div>
       <div className="island-summary">
         {tab === "trade" && <MarketPicker market={market} setMarketSym={setMarketSym} />}
-        <div className="acct-mini">
-          <span className="acct-l">Equity</span>
-          <span className="mono acct-v">{fmtUSD(acct)}</span>
+        <StablecoinBalances />
+        {liveTotalPnl !== 0 && (
           <span className={"pill " + (liveTotalPnl >= 0 ? "profit" : "loss")}>
             {liveTotalPnl >= 0 ? "+" : ""}
             {fmtUSD(liveTotalPnl)}
           </span>
-        </div>
+        )}
         {tab === "trade" && (
           <button
             className={"island-collapse mode-switch " + (arcade ? "arcade" : "")}
