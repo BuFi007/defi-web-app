@@ -267,3 +267,23 @@ export const ArcTestnet = {
   chainName: "ArcTestnet",
   iconUrls: ["/networks/arc.svg"],
 };
+
+// Ethereum Sepolia — spoke chain. Users deposit USDC/MXNB here, the
+// FxSpoke contract bridges via CCTP V2 to the hub of their choice.
+export const Sepolia = {
+  chainId: 11155111,
+  isMainnet: false,
+  name: "Ethereum",
+  nativeCurrency: {
+    name: "Ethereum",
+    symbol: "ETH",
+    decimals: 18,
+    iconUrls: ["https://app.dynamic.xyz/assets/networks/eth.svg"],
+  },
+  rpcUrls: ["https://rpc.sepolia.org"],
+  blockExplorerUrls: ["https://sepolia.etherscan.io/"],
+  vanityName: "Ethereum Sepolia",
+  chainName: "Sepolia",
+  networkId: 11155111,
+  iconUrls: ["https://app.dynamic.xyz/assets/networks/eth.svg"],
+};

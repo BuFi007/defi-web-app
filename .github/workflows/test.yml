@@ -1,0 +1,115 @@
+name: Test
+
+# Typecheck + unit + smoke trio on every push to main and every PR
+# targeting main. Mirrors `perps-canaries.yml`'s shape (single-job, bun
+# install --frozen-lockfile, concurrency cancellation) but expands the
+# scope to the full monorepo + the smoke-all orchestrator.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Typecheck + Unit + Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NODE_ENV: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+
+      # Cache bun's global install store + the workspace node_modules tree
+      # so repeat runs skip the slow registry walk. `bun.lockb` is the
+      # cache key so we only invalidate when deps actually change.
+      - name: Restore bun + node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+            services/*/node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck (web)
+        run: bunx tsc --noEmit -p apps/web/tsconfig.json
+
+      - name: Typecheck (api)
+        run: bunx tsc --noEmit -p apps/api/tsconfig.json
+
+      - name: Typecheck (ponder)
+        run: bunx tsc --noEmit -p apps/ponder/tsconfig.json
+
+      # One `tsc` invocation per package tsconfig. A bash loop keeps the
+      # workflow readable while still failing fast on the first error.
+      - name: Typecheck (packages/*)
+        run: |
+          set -euo pipefail
+          for tsconfig in packages/*/tsconfig.json; do
+            echo "::group::typecheck ${tsconfig}"
+            bunx tsc --noEmit -p "${tsconfig}"
+            echo "::endgroup::"
+          done
+
+      - name: Unit tests (domain packages + web lib)
+        run: |
+          bun test \
+            packages/perps/src \
+            packages/perps-math/src \
+            packages/fx-bento/src \
+            packages/x402/src \
+            apps/web/lib
+
+      - name: Route integration tests (apps/api)
+        run: bun test apps/api/src/routes
+
+      # Start the Hono API in the background, wait for /health, then run
+      # the smoke trio against it. The trap kills the bg process on any
+      # exit path (success, failure, timeout) so we never leave a zombie
+      # behind on a retry/cancel.
+      - name: Start API + run smoke trio
+        env:
+          NODE_ENV: test
+          PORT: "3002"
+        run: |
+          set -euo pipefail
+          bun --cwd apps/api run dev &
+          API_PID=$!
+          trap 'kill $API_PID 2>/dev/null || true; wait $API_PID 2>/dev/null || true' EXIT
+
+          echo "Waiting for API on :3002 ..."
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3002/health >/dev/null 2>&1; then
+              echo "API ready after ${i}s"
+              break
+            fi
+            sleep 1
+            if [ "$i" -eq 30 ]; then
+              echo "::error::API failed to start within 30s"
+              exit 1
+            fi
+          done
+
+          bash scripts/smoke-all.sh

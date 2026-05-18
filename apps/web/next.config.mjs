@@ -13,6 +13,16 @@ const config = {
   turbopack: {
     root: workspaceRoot,
   },
+  // `serverExternalPackages` was previously set to pino + transports here
+  // to silence Turbopack's "Failed to load external module pino-<hash>"
+  // SSR error. It turned out that adding ANY package to
+  // serverExternalPackages was what TRIGGERED the contenthash mangling
+  // (Turbopack appends a content hash to the bare package name and the
+  // resulting `require("pino-XXX")` fails). Better fix: keep the list
+  // empty AND wrap the Dynamic/WalletConnect Providers in a client-only
+  // dynamic import (apps/web/app/[locale]/layout.tsx → Providers is now
+  // loaded with `next/dynamic` + `ssr: false`), so the SSR chunk never
+  // pulls @walletconnect at all.
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [

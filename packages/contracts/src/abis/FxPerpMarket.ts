@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-// Minimal Phase B ABI from fx-telarana/docs/CODEX_BRIEF_PHASES_B_TO_E.md.
+// NOTE: There is no FxPerpMarket.sol in fx-telarana-protocol-main. Perpetual
+// markets are identified by a bytes32 marketId registered on FxMarketRegistry
+// and are settled by FxOrderSettlement + FxPerpClearinghouse + FxMarginAccount.
+// This stub remains so callers importing FxPerpMarketAbi compile; the surface
+// reflects the per-trader view the UI/keepers would expect if a thin per-market
+// adapter ever ships. Until then, query positions via FxMarginAccountAbi /
+// FxPerpClearinghouseAbi instead.
 export const FxPerpMarketAbi = [
   {
     type: "function",

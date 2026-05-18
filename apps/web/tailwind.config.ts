@@ -1,6 +1,6 @@
 import type { Config } from "tailwindcss";
 const plugin = require("tailwindcss/plugin");
-const flattenColorPalette = require("tailwindcss/lib/util/flattenColorPalette");
+const flattenColorPalette = require("tailwindcss/lib/util/flattenColorPalette").default;
 const svgToDataUri = require("mini-svg-data-uri");
 
 // This plugin adds each Tailwind color as a global CSS variable, e.g. var(--gray-200).

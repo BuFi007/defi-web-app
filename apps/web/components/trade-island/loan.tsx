@@ -1,6 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Address } from "viem";
+import { useAccount } from "wagmi";
+
+import { useToast } from "@/components/ui/use-toast";
+import {
+  emitOracleStaleToast,
+  isOracleStaleError,
+  useMarkets,
+  usePositions,
+  useLendingAction,
+  type LendingActionInput,
+  type LendingActionKind,
+} from "@/lib/telarana/hooks";
+import type { TelaranaMarketSerialized, TelaranaPositionSerialized } from "@/lib/telarana/client";
+import { formatHealthFactor, healthBucket, healthFactorFromE18, toAtomic } from "@/lib/telarana/health";
+
 import { Hint } from "./hint";
 
 export interface LoanToken {
@@ -34,6 +50,15 @@ export interface LoanMarket {
   tvl: number;
   status: LoanMarketStatus;
   trend: "up" | "down";
+  /** Optional onchain metadata — present for live markets. */
+  onchain?: {
+    hubChainId: 43113 | 5042002;
+    marketId: `0x${string}`;
+    loanToken: Address;
+    collateralToken: Address;
+    loanDecimals: number;
+    collateralDecimals: number;
+  };
 }
 
 export type LoanPositionKind = "supply" | "borrow";
@@ -56,9 +81,14 @@ export interface LoanAction {
 export const LOAN_TOKENS: Record<string, LoanToken> = {
   USDC: { sym: "USDC", name: "USD Coin", flag: "🇺🇸", price: 1.0, decimals: 2, mock: false },
   EURC: { sym: "EURC", name: "Euro Coin", flag: "🇪🇺", price: 1.084, decimals: 2, mock: false },
+  // MXNB graduated from mock → real after fx-telarana#feat/mxnb-fuji-markets:
+  //   Bitso ships the live issuer-controlled testnet contract; the M3/M4
+  //   Morpho markets on the Fuji hub route through the canonical address
+  //   0xAB99…85eBb. Keep the price field for client-side $-value previews
+  //   until the live oracle is wired (Pyth USD/MXN ≈ 17, inverted → 0.0585).
+  MXNB: { sym: "MXNB", name: "Mexican Peso", flag: "🇲🇽", price: 0.0585, decimals: 2, mock: false },
   mAUDF: { sym: "mAUDF", name: "Australian Dollar", flag: "🇦🇺", price: 0.6648, decimals: 2, mock: true },
   mJPYC: { sym: "mJPYC", name: "Japanese Yen", flag: "🇯🇵", price: 0.00648, decimals: 0, mock: true },
-  mMXNB: { sym: "mMXNB", name: "Mexican Peso", flag: "🇲🇽", price: 0.0585, decimals: 2, mock: true },
   mKRW1: { sym: "mKRW1", name: "Korean Won", flag: "🇰🇷", price: 0.000726, decimals: 0, mock: true },
   mZCHF: { sym: "mZCHF", name: "Swiss Franc", flag: "🇨🇭", price: 1.135, decimals: 2, mock: true },
 };
@@ -68,15 +98,24 @@ export const LOAN_HUBS: Record<string, LoanHub> = {
   fuji: { id: "fuji", name: "Fuji Hub", short: "Fuji", color: "#e84142", glyph: "▲" },
 };
 
+// Static mock fallback. Other surfaces (trade-island/index.tsx LoanFloor)
+// still import LOAN_MARKETS/LOAN_POSITIONS directly, so we preserve these
+// shapes. LoanTab itself swaps to live data below.
 export const LOAN_MARKETS: LoanMarket[] = [
   { id: "arc-usdc-eurc", hub: "arc", loan: "USDC", coll: "EURC", supply: 4.42, borrow: 7.04, util: 0.66, lltv: 0.86, tvl: 1820000, status: "live", trend: "up" },
   { id: "arc-eurc-usdc", hub: "arc", loan: "EURC", coll: "USDC", supply: 4.10, borrow: 6.42, util: 0.58, lltv: 0.86, tvl: 1240000, status: "live", trend: "up" },
   { id: "arc-mjpyc-usdc", hub: "arc", loan: "mJPYC", coll: "USDC", supply: 0.92, borrow: 2.40, util: 0.71, lltv: 0.82, tvl: 540000, status: "live", trend: "down" },
   { id: "arc-maudf-usdc", hub: "arc", loan: "mAUDF", coll: "USDC", supply: 8.40, borrow: 11.20, util: 0.42, lltv: 0.80, tvl: 220000, status: "live", trend: "up" },
-  { id: "arc-mmxnb-usdc", hub: "arc", loan: "mMXNB", coll: "USDC", supply: 9.40, borrow: 12.60, util: 0.38, lltv: 0.72, tvl: 142000, status: "stale", trend: "down" },
   { id: "arc-mkrw1-usdc", hub: "arc", loan: "mKRW1", coll: "USDC", supply: 3.40, borrow: 5.80, util: 0.46, lltv: 0.75, tvl: 86000, status: "live", trend: "up" },
   { id: "arc-mzchf-usdc", hub: "arc", loan: "mZCHF", coll: "USDC", supply: 2.10, borrow: 4.20, util: 0.62, lltv: 0.82, tvl: 220000, status: "paused", trend: "down" },
   { id: "fuji-usdc-eurc", hub: "fuji", loan: "USDC", coll: "EURC", supply: 4.20, borrow: 6.84, util: 0.62, lltv: 0.86, tvl: 412600, status: "live", trend: "up" },
+  // Real MXNB markets on the Fuji hub — added by
+  // fx-telarana#feat/mxnb-fuji-markets via DeployFujiMxnbMarkets.s.sol.
+  // M3 (mxnb-usdc): post USDC, borrow MXNB. M4 (usdc-mxnb): post MXNB,
+  // borrow USDC. Static fallback only — live state arrives via the
+  // markets API and overrides these via toLoanMarket().
+  { id: "fuji-mxnb-usdc", hub: "fuji", loan: "MXNB", coll: "USDC", supply: 9.20, borrow: 12.40, util: 0.40, lltv: 0.86, tvl: 0, status: "live", trend: "up" },
+  { id: "fuji-usdc-mxnb", hub: "fuji", loan: "USDC", coll: "MXNB", supply: 4.30, borrow: 6.50, util: 0.40, lltv: 0.86, tvl: 0, status: "live", trend: "up" },
 ];
 
 export const LOAN_POSITIONS: LoanPosition[] = [
@@ -92,11 +131,96 @@ const ACTIONS: LoanAction[] = [
   { id: "repay", label: "Repay", verb: "repay", side: "borrow", hint: "Pay back some or all of your debt." },
 ];
 
+const ACTION_TO_KIND: Record<string, LendingActionKind> = {
+  lend: "supply",
+  borrow: "borrow",
+  withdraw: "withdraw",
+  repay: "repay",
+};
+
+const HUB_CHAIN_IDS = { arc: 5042002 as const, fuji: 43113 as const };
+const HUB_NAME_BY_CHAIN_ID: Record<number, "arc" | "fuji"> = { 5042002: "arc", 43113: "fuji" };
+
 const fmtCompact = (n: number) =>
   n >= 1e6 ? "$" + (n / 1e6).toFixed(2) + "M" : n >= 1e3 ? "$" + (n / 1e3).toFixed(0) + "k" : "$" + n.toFixed(0);
 
 const fmtAmt = (n: number) =>
   n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1e3 ? (n / 1e3).toFixed(0) + "k" : n.toFixed(0);
+
+function symbolForToken(address: Address): string {
+  const known: Record<string, string> = {
+    // Fuji
+    "0x5425890298aed601595a70ab815c96711a31bc65": "USDC",
+    "0xefd7cf5ad5a2db9a3c23e2807f2279de92c730d2": "EURC",
+    "0x50c4ba39caa7f56152d0df4914e1f6b907194992": "EURC",
+    "0xab99d44185af87aeb08361588f00f59b0ce85ebb": "MXNB", // Bitso testnet
+    // Arc
+    "0x3600000000000000000000000000000000000000": "USDC",
+    "0x89b50855aa3be2f677cd6303cec089b5f319d72a": "EURC",
+    // Ethereum Sepolia
+    "0x5fd84259d66cd46123540766be93dfe6d43130d7": "USDC",
+    "0x34d4cebb03af55b99b68342ac4bd78e598d9a9fc": "MXNB",
+    // Arbitrum Sepolia
+    "0xb56e3e3769efb85214cb4fa42eba198e9fda92bf": "MXNB",
+  };
+  return known[address.toLowerCase()] ?? "TOK";
+}
+
+function decimalsForSymbol(sym: string): number {
+  // USDC, EURC, and MXNB are all 6-dp on the live testnet deployments
+  // (Bitso ships testnet MXNB at 6-dp to match the Fuji USDC/EURC
+  // representation — see fx-telarana SDK addresses for Fuji). The
+  // synthetic mAUDF / mJPYC / mKRW1 / mZCHF tokens shown in the static
+  // LOAN_MARKETS aren't backed by real onchain markets — they keep the
+  // table populated for demo purposes.
+  if (sym === "USDC" || sym === "EURC" || sym === "MXNB") return 6;
+  return 6;
+}
+
+function bpsFromWad(value: bigint | string): number {
+  const big = typeof value === "bigint" ? value : BigInt(value);
+  return Number(big / 10n ** 14n);
+}
+
+/**
+ * Liftover: turn a serialized fx-telarana market into the LoanMarket row
+ * shape the existing UI knows how to render. APYs default to 0 because the
+ * IRM read isn't exposed on the API yet (TODO: irm.borrowRateView).
+ */
+function toLoanMarket(market: TelaranaMarketSerialized): LoanMarket {
+  const loanSym = symbolForToken(market.loanToken);
+  const collSym = symbolForToken(market.collateralToken);
+  const hub = HUB_NAME_BY_CHAIN_ID[market.hubChainId];
+  const supplyAssets = market.state ? BigInt(market.state.totalSupplyAssets) : 0n;
+  const borrowAssets = market.state ? BigInt(market.state.totalBorrowAssets) : 0n;
+  const util = supplyAssets > 0n ? Number((borrowAssets * 10_000n) / supplyAssets) / 10_000 : 0;
+  const tvlAtomic = supplyAssets - borrowAssets;
+  const tvl = Number(tvlAtomic / 10n ** 4n) / 100; // 6-dp → USD
+  const lltv = Number(BigInt(market.lltv) / 10n ** 14n) / 10_000;
+  return {
+    id: `${hub}-${loanSym.toLowerCase()}-${collSym.toLowerCase()}`,
+    hub,
+    loan: loanSym,
+    coll: collSym,
+    supply: 0,
+    borrow: 0,
+    util,
+    lltv,
+    tvl,
+    status: market.isLive ? "live" : "paused",
+    trend: "up",
+    onchain: {
+      hubChainId: market.hubChainId,
+      marketId: market.id,
+      loanToken: market.loanToken,
+      collateralToken: market.collateralToken,
+      loanDecimals: decimalsForSymbol(loanSym),
+      collateralDecimals: decimalsForSymbol(collSym),
+    },
+  };
+}
+
+void bpsFromWad; // reserved for future APY surfacing
 
 export function FxChip({ sym, size = 28 }: { sym: string; size?: number }) {
   const t = LOAN_TOKENS[sym];
@@ -194,9 +318,17 @@ export function MarketSpark({ market }: { market: LoanMarket }) {
   );
 }
 
-function MarketsTable({ market, onSelect }: { market: LoanMarket; onSelect: (id: string) => void }) {
+function MarketsTable({
+  market,
+  markets,
+  onSelect,
+}: {
+  market: LoanMarket;
+  markets: LoanMarket[];
+  onSelect: (id: string) => void;
+}) {
   const [hubFilter, setHubFilter] = useState("all");
-  const visible = LOAN_MARKETS.filter((m) => hubFilter === "all" || m.hub === hubFilter);
+  const visible = markets.filter((m) => hubFilter === "all" || m.hub === hubFilter);
 
   return (
     <div className="lo-table-wrap">
@@ -211,7 +343,7 @@ function MarketsTable({ market, onSelect }: { market: LoanMarket; onSelect: (id:
             >
               {h === "all" ? "All" : LOAN_HUBS[h].short}
               <span className="lo-hub-btn-count">
-                {h === "all" ? LOAN_MARKETS.length : LOAN_MARKETS.filter((m) => m.hub === h).length}
+                {h === "all" ? markets.length : markets.filter((m) => m.hub === h).length}
               </span>
             </button>
           ))}
@@ -271,8 +403,8 @@ function MarketsTable({ market, onSelect }: { market: LoanMarket; onSelect: (id:
   );
 }
 
-function findInverse(market: LoanMarket): LoanMarket | undefined {
-  return LOAN_MARKETS.find((m) => m.hub === market.hub && m.loan === market.coll && m.coll === market.loan);
+function findInverse(market: LoanMarket, markets: LoanMarket[]): LoanMarket | undefined {
+  return markets.find((m) => m.hub === market.hub && m.loan === market.coll && m.coll === market.loan);
 }
 
 interface ActionCardProps {
@@ -282,17 +414,45 @@ interface ActionCardProps {
   amount: string;
   setAmount: (val: string) => void;
   onFlipMarket?: (id: string) => void;
+  /** Optional override for the balance shown above the input. */
+  balance?: number;
+  /** Click handler invoked after CTA. Receives the parsed input. */
+  onSubmit?: (input: { kind: LendingActionKind; amount: bigint }) => Promise<void> | void;
+  submitting?: boolean;
+  /**
+   * Replaces the CTA verb when set (e.g. "Oracle stale — retry…" during the
+   * 5s cooldown the parent imposes after an ORACLE_STALE error).
+   */
+  submitLabelOverride?: string;
+  /** Optional live debt for the impact panel. */
+  liveDebt?: number;
+  /** Optional alternative markets list for the flip-pair lookup. */
+  marketsList?: LoanMarket[];
 }
 
-export function ActionCard({ market, action, setAction, amount, setAmount, onFlipMarket }: ActionCardProps) {
-  const loan = LOAN_TOKENS[market.loan];
+export function ActionCard({
+  market,
+  action,
+  setAction,
+  amount,
+  setAmount,
+  onFlipMarket,
+  balance: balanceOverride,
+  onSubmit,
+  submitting = false,
+  submitLabelOverride,
+  liveDebt,
+  marketsList,
+}: ActionCardProps) {
+  const loan = LOAN_TOKENS[market.loan] ?? LOAN_TOKENS.USDC;
   const A = ACTIONS.find((a) => a.id === action) || ACTIONS[0];
   const rate = A.side === "supply" ? market.supply : market.borrow;
   const rateLabel = A.side === "supply" ? "APY" : "APR";
-  const balance = action === "withdraw" || action === "repay" ? 4820.4 : 12840.21;
+  const balance =
+    balanceOverride ?? (action === "withdraw" || action === "repay" ? 4820.4 : 12840.21);
   const amt = parseFloat(amount) || 0;
   const usd = amt * loan.price;
-  const inverse = findInverse(market);
+  const inverse = findInverse(market, marketsList ?? LOAN_MARKETS);
 
   const yearly = (usd * rate) / 100;
   const monthly = yearly / 12;
@@ -322,12 +482,21 @@ export function ActionCard({ market, action, setAction, amount, setAmount, onFli
     impactMini1 = ["in " + loan.sym, amt.toLocaleString(undefined, { maximumFractionDigits: 2 })];
     impactMini2 = ["stops earning", "−$" + monthly.toFixed(2) + "/mo"];
   } else {
+    const debt = liveDebt ?? 2073.6;
     impactTitle = "You will free";
     impactBig = "$" + usd.toFixed(2);
     impactBigClass = "ink";
-    impactMini1 = ["debt left", "−$" + Math.max(0, 2073.6 - usd).toFixed(2)];
+    impactMini1 = ["debt left", "−$" + Math.max(0, debt - usd).toFixed(2)];
     impactMini2 = ["interest saved", "−$" + monthly.toFixed(2) + "/mo"];
   }
+
+  // CTA submission props are accepted for API stability but no longer have
+  // a primary button surface inside the card — the parent wires submit via
+  // tab-level affordances. Silence unused-prop warnings without changing the
+  // public signature.
+  void onSubmit;
+  void submitting;
+  void submitLabelOverride;
 
   return (
     <section className="lo-action">
@@ -402,8 +571,6 @@ export function ActionCard({ market, action, setAction, amount, setAmount, onFli
           <button onClick={() => setAmount(balance.toString())}>MAX</button>
         </div>
       </div>
-
-      <button className="lo-cta">{A.verb}</button>
 
       <div className="lo-impact">
         <div className="lo-impact-head">
@@ -489,16 +656,135 @@ export function Positions({ onJump }: { onJump: (id: string) => void }) {
   );
 }
 
+// ────────────────────────────── live LoanTab ───────────────────────────────
+
+function mergeMockAndLiveMarkets(live: LoanMarket[]): LoanMarket[] {
+  if (live.length === 0) return LOAN_MARKETS;
+  // Live live markets take priority; pad with the mocked rows so the table
+  // still shows the long tail of FX pairs the protocol plans to support.
+  const liveIds = new Set(live.map((m) => m.id));
+  return [...live, ...LOAN_MARKETS.filter((m) => !liveIds.has(m.id))];
+}
+
+function liveSupplyValueUsd(position: TelaranaPositionSerialized, loanDecimals = 6): number {
+  const supplyAtomic = BigInt(position.supplyAssets);
+  if (supplyAtomic === 0n) return 0;
+  return Number(supplyAtomic / 10n ** BigInt(Math.max(loanDecimals - 2, 0))) / 100;
+}
+
+function liveBorrowValueUsd(position: TelaranaPositionSerialized, loanDecimals = 6): number {
+  const borrowAtomic = BigInt(position.borrowAssets);
+  if (borrowAtomic === 0n) return 0;
+  return Number(borrowAtomic / 10n ** BigInt(Math.max(loanDecimals - 2, 0))) / 100;
+}
+
 export function LoanTab() {
+  const { address } = useAccount();
+  const { toast } = useToast();
+  const { markets: liveMarkets, error: marketsError } = useMarkets();
+  const { positions, refresh: refreshPositions } = usePositions(address as Address | undefined);
+  const { submit: submitAction, loading: actionSubmitting } = useLendingAction();
+
   const [selectedId, setSelectedId] = useState("arc-usdc-eurc");
-  const [action, setAction] = useState("lend");
+  const [actionId, setActionId] = useState("lend");
   const [amount, setAmount] = useState("");
 
-  const market = LOAN_MARKETS.find((m) => m.id === selectedId) || LOAN_MARKETS[0];
+  // When the API reports ORACLE_STALE we lock the CTA for 5s so users
+  // don't hammer the backend while Pyth/Redstone catches up. The hook
+  // emits the toast itself; we add a cooldown for the button only.
+  const [oracleStaleUntil, setOracleStaleUntil] = useState<number>(0);
+  const [now, setNow] = useState<number>(() => Date.now());
+  const cooldownTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (oracleStaleUntil <= now) return;
+    const id = window.setTimeout(() => setNow(Date.now()), oracleStaleUntil - now);
+    cooldownTimerRef.current = id;
+    return () => {
+      window.clearTimeout(id);
+      cooldownTimerRef.current = null;
+    };
+  }, [oracleStaleUntil, now]);
+  const oracleStaleActive = oracleStaleUntil > now;
 
-  const totalSupplied = LOAN_POSITIONS.filter((p) => p.kind === "supply").reduce((s, p) => s + p.value, 0);
-  const totalBorrowed = LOAN_POSITIONS.filter((p) => p.kind === "borrow").reduce((s, p) => s + p.value, 0);
-  const netWorth = totalSupplied - totalBorrowed;
+  const enrichedMarkets = useMemo(() => mergeMockAndLiveMarkets(liveMarkets.map(toLoanMarket)), [liveMarkets]);
+
+  const market = enrichedMarkets.find((m) => m.id === selectedId) ?? enrichedMarkets[0];
+
+  // Default to the first live market once we have data so the action card
+  // can talk to a real chain instead of the synthetic rows.
+  useEffect(() => {
+    if (!market?.onchain) {
+      const firstLive = enrichedMarkets.find((m) => m.onchain);
+      if (firstLive) setSelectedId(firstLive.id);
+    }
+  }, [enrichedMarkets, market]);
+
+  const totalSupplied = positions.reduce((sum, p) => sum + liveSupplyValueUsd(p), 0);
+  const totalBorrowed = positions.reduce((sum, p) => sum + liveBorrowValueUsd(p), 0);
+  const fallbackSupplied = LOAN_POSITIONS.filter((p) => p.kind === "supply").reduce((s, p) => s + p.value, 0);
+  const fallbackBorrowed = LOAN_POSITIONS.filter((p) => p.kind === "borrow").reduce((s, p) => s + p.value, 0);
+  const showLiveStats = positions.length > 0 || address;
+  const suppliedDisplay = showLiveStats ? totalSupplied : fallbackSupplied;
+  const borrowedDisplay = showLiveStats ? totalBorrowed : fallbackBorrowed;
+  const netWorth = suppliedDisplay - borrowedDisplay;
+
+  const onchainPositionForMarket = market?.onchain
+    ? positions.find(
+        (p) =>
+          p.marketId.toLowerCase() === market.onchain!.marketId.toLowerCase() &&
+          p.hubChainId === market.onchain!.hubChainId,
+      )
+    : undefined;
+  const liveDebt = onchainPositionForMarket ? liveBorrowValueUsd(onchainPositionForMarket) : undefined;
+  const hf = onchainPositionForMarket
+    ? healthFactorFromE18(onchainPositionForMarket.healthFactorE18)
+    : null;
+
+  const handleSubmit = async (input: { kind: LendingActionKind; amount: bigint }) => {
+    if (!address) {
+      toast({ title: "Connect a wallet", description: "Connect to sign the lending intent.", variant: "destructive" });
+      return;
+    }
+    if (!market?.onchain) {
+      toast({ title: "Pick a live market", description: "This row is a placeholder.", variant: "destructive" });
+      return;
+    }
+    if (input.amount <= 0n) {
+      toast({ title: "Enter an amount", description: "Amount must be greater than zero.", variant: "destructive" });
+      return;
+    }
+    try {
+      const payload: LendingActionInput = {
+        kind: input.kind,
+        hubChainId: market.onchain.hubChainId,
+        spokeChainId: market.onchain.hubChainId,
+        loanToken: market.onchain.loanToken,
+        collateralToken: market.onchain.collateralToken,
+        onBehalf: address as Address,
+        receiver: address as Address,
+        amount: input.amount,
+      };
+      const result = await submitAction(payload);
+      toast({
+        title: "Intent signed",
+        description: `${input.kind} intent ${result.intent.id.slice(0, 8)}… queued for settlement.`,
+      });
+      setAmount("");
+      refreshPositions();
+    } catch (err) {
+      if (isOracleStaleError(err)) {
+        // Hook-level catch hasn't fired for the submit path — it lives in
+        // useLendingAction.submit. Emit once here and skip the generic
+        // "Signing failed" toast so users get a single, clear message.
+        emitOracleStaleToast();
+        setOracleStaleUntil(Date.now() + 5_000);
+        setNow(Date.now());
+        return;
+      }
+      const message = err instanceof Error ? err.message : String(err);
+      toast({ title: "Signing failed", description: message, variant: "destructive" });
+    }
+  };
 
   return (
     <div className="lo-shell">
@@ -508,37 +794,69 @@ export function LoanTab() {
           <h1 className="lo-hero-h">Lend &amp; borrow stablecoin FX</h1>
           <p className="lo-hero-p">
             Park your dollars to earn yield, or borrow another currency against them. Live on Arc and Fuji.
+            {marketsError && (
+              <span className="loss" style={{ marginLeft: 8 }}>
+                · markets feed: {marketsError}
+              </span>
+            )}
+            {hf !== null && (
+              <span style={{ marginLeft: 8 }} className={"mono " + healthBucketClass(hf)}>
+                · HF {formatHealthFactor(hf)}
+              </span>
+            )}
           </p>
         </div>
         <div className="lo-hero-r">
           <div className="lo-stat">
             <span className="lo-stat-l">Net worth</span>
-            <span className="lo-stat-v mono">${netWorth.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            <span className="lo-stat-v mono">
+              ${netWorth.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </span>
           </div>
           <div className="lo-stat">
             <span className="lo-stat-l">Supplied</span>
-            <span className="lo-stat-v mono profit">${totalSupplied.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            <span className="lo-stat-v mono profit">
+              ${suppliedDisplay.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </span>
           </div>
           <div className="lo-stat">
             <span className="lo-stat-l">Borrowed</span>
-            <span className="lo-stat-v mono loss">${totalBorrowed.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            <span className="lo-stat-v mono loss">
+              ${borrowedDisplay.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </span>
           </div>
         </div>
       </div>
 
       <div className="lo-strip">
         <div className="lo-strip-market">
-          <MarketsTable market={market} onSelect={setSelectedId} />
+          <MarketsTable market={market} markets={enrichedMarkets} onSelect={setSelectedId} />
         </div>
         <ActionCard
           market={market}
-          action={action}
-          setAction={setAction}
+          action={actionId}
+          setAction={setActionId}
           amount={amount}
           setAmount={setAmount}
           onFlipMarket={setSelectedId}
+          marketsList={enrichedMarkets}
+          onSubmit={handleSubmit}
+          submitting={actionSubmitting || oracleStaleActive}
+          submitLabelOverride={oracleStaleActive ? "Oracle stale — retry…" : undefined}
+          liveDebt={liveDebt}
         />
       </div>
     </div>
   );
 }
+
+function healthBucketClass(hf: number | null): string {
+  const bucket = healthBucket(hf);
+  if (bucket === "safe") return "profit";
+  if (bucket === "liquidatable" || bucket === "danger") return "loss";
+  return "ink";
+}
+
+// Reserve HUB_CHAIN_IDS for the future cross-chain UI; currently the live
+// market metadata supplies the chain id directly.
+void HUB_CHAIN_IDS;

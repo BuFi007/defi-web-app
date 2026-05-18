@@ -1,10 +1,11 @@
-import type { PerpsIndexedSettlement } from "@bufi/perps";
+import type { PerpsIndexedPosition, PerpsIndexedSettlement, PerpsPositionReader } from "@bufi/perps";
 
 type RawPonderSettlement = Record<string, unknown>;
 
 export interface PonderPerpsSettlementFilter {
   chainId: number;
-  marketId: string;
+  /** Optional — when omitted, matches all markets for the trader. */
+  marketId?: string;
   trader: string;
   txHash?: string;
   limit?: number;
@@ -27,16 +28,105 @@ export function createPonderPerpsSettlementReader(graphqlUrl: string): PonderPer
     async listSettlements(filter) {
       const rows = await fetchPerpsSettlements(graphqlUrl, filter.limit ?? 200);
       const trader = filter.trader.toLowerCase();
-      const marketId = filter.marketId.toLowerCase();
+      const marketId = filter.marketId?.toLowerCase();
       const txHash = filter.txHash?.toLowerCase();
       return rows.filter((row) => {
         if (row.chainId !== filter.chainId) return false;
-        if (row.marketId.toLowerCase() !== marketId) return false;
+        if (marketId && row.marketId.toLowerCase() !== marketId) return false;
         if (txHash && row.txHash?.toLowerCase() !== txHash) return false;
         return row.maker.toLowerCase() === trader || row.taker.toLowerCase() === trader;
       });
     },
   };
+}
+
+export function createPonderPerpsPositionReaderFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): PerpsPositionReader | null {
+  const graphqlUrl = env.PONDER_GRAPHQL_URL ?? env.PONDER_URL;
+  if (!graphqlUrl) return null;
+  return createPonderPerpsPositionReader(graphqlUrl);
+}
+
+export function createPonderPerpsPositionReader(graphqlUrl: string): PerpsPositionReader {
+  return {
+    async listOpenPositions(filter) {
+      const rows = await fetchPerpsPositions(graphqlUrl);
+      const trader = filter.trader.toLowerCase();
+      return rows.filter(
+        (row) => row.chainId === filter.chainId && row.trader.toLowerCase() === trader,
+      );
+    },
+  };
+}
+
+async function fetchPerpsPositions(graphqlUrl: string): Promise<PerpsIndexedPosition[]> {
+  const query = `
+    query PerpsPositions {
+      perpsPositions {
+        items {
+          chainId
+          marketId
+          trader
+          sizeE18
+          entryPriceE18
+          marginReserved
+          lastFundingVersion
+          isOpen
+          updatedAt
+          updatedBlockNumber
+          updatedTxHash
+        }
+      }
+    }
+  `;
+  const response = await fetch(graphqlUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ query }),
+  });
+  if (!response.ok) {
+    throw new Error(`Ponder GraphQL request failed: ${response.status}`);
+  }
+  const payload = (await response.json()) as {
+    data?: { perpsPositions?: { items?: unknown[] } };
+    errors?: Array<{ message?: string }>;
+  };
+  if (payload.errors?.length) {
+    throw new Error(payload.errors.map((error) => error.message ?? "GraphQL error").join("; "));
+  }
+  const items = payload.data?.perpsPositions?.items;
+  if (!Array.isArray(items)) {
+    throw new Error("Ponder GraphQL response invalid: perpsPositions.items must be an array");
+  }
+  return items.map((row, index) => normalizePositionRow(row, index));
+}
+
+function normalizePositionRow(value: unknown, index: number): PerpsIndexedPosition {
+  if (!isRecord(value)) {
+    throw new Error(`Ponder GraphQL response invalid: position[${index}] must be an object`);
+  }
+  return {
+    chainId: requiredInteger(value, "chainId", index),
+    marketId: requiredHex(value, "marketId", index),
+    trader: requiredHex(value, "trader", index),
+    sizeE18: requiredIntString(value, "sizeE18", index),
+    entryPriceE18: requiredUintString(value, "entryPriceE18", index),
+    marginReserved: requiredUintString(value, "marginReserved", index),
+    lastFundingVersion: optionalUintString(value, "lastFundingVersion", index),
+    isOpen: Boolean(value.isOpen),
+    updatedAt: optionalUintString(value, "updatedAt", index),
+    updatedBlockNumber: optionalUintString(value, "updatedBlockNumber", index),
+    updatedTxHash: optionalHex(value, "updatedTxHash", index),
+  };
+}
+
+function requiredIntString(row: RawPonderSettlement, key: string, index: number): string {
+  const value = row[key];
+  if (value === undefined || value === null) throw invalidField(index, key, "int string");
+  if (typeof value === "string" && /^-?\d+$/.test(value)) return value;
+  if (typeof value === "number" && Number.isSafeInteger(value)) return String(value);
+  throw invalidField(index, key, "int string");
 }
 
 async function fetchPerpsSettlements(

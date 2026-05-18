@@ -1,6 +1,10 @@
 import { createTradingMachineDbFromEnv } from "@bufi/db";
 import { serverEnv } from "@bufi/env";
-import { createInMemoryFxBentoService } from "@bufi/fx-bento";
+import {
+  configureFxBentoSettlementResultStore,
+  createInMemoryFxBentoService,
+} from "@bufi/fx-bento";
+import { createFxBentoSqlitePersistenceStore } from "@bufi/fx-bento/persistence-sqlite";
 import { createFxTelaranaService } from "@bufi/fx-telarana";
 import { createHermesClient } from "@bufi/market-data";
 import {
@@ -11,7 +15,10 @@ import {
 } from "@bufi/perps";
 import { createCircleGatewayVerifier, mockVerifier } from "@bufi/x402";
 
-import { createPonderPerpsSettlementReaderFromEnv } from "./ponder-client";
+import {
+  createPonderPerpsPositionReaderFromEnv,
+  createPonderPerpsSettlementReaderFromEnv,
+} from "./ponder-client";
 
 const env = serverEnv();
 
@@ -22,12 +29,21 @@ if (env.NODE_ENV === "production" && !env.X402_FACILITATOR_URL) {
 export const tradingDb = createTradingMachineDbFromEnv(process.env);
 export const hermes = createHermesClient();
 export const bentoService = createInMemoryFxBentoService();
+// Bento settlement-result persistence: in-memory by default; durable sqlite
+// when BENTO_DB_PATH is set so claim proofs survive an API restart.
+if (env.BENTO_DB_PATH) {
+  configureFxBentoSettlementResultStore({
+    store: createFxBentoSqlitePersistenceStore({ dbPath: env.BENTO_DB_PATH }),
+  });
+}
 export const telaranaService = createFxTelaranaService();
 const perpsMarkets = livePerpsMarkets();
+export const perpsPositionReader = createPonderPerpsPositionReaderFromEnv(process.env);
 export const perpsService = createPerpsService({
   markets: perpsMarkets,
   quoteReader: createViemPerpsQuoteReader({ markets: perpsMarkets }),
   nonceReader: createViemPerpsNonceReader(),
+  positionReader: perpsPositionReader ?? undefined,
   intentStore: tradingDb.perpsIntents,
   maxOracleStaleSeconds: env.PYTH_MAX_STALE_SECONDS,
 });

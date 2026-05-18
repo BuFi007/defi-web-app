@@ -1,10 +1,26 @@
+// DEPRECATED — prefer apps/web/lib/dev-wallet + apps/web/lib/session.
+//
+// This file remains because lib/perps/hooks.ts + trade-island/panels.tsx
+// still call getPerpsReplacementDevWallet() in 8+ places. Those will be
+// migrated to useDevWallet() + useEnsureSession() in a follow-up sweep.
+// Until then, this file produces a wallet IDENTICAL to what the unified
+// DevWalletProvider produces (same env var, same private key, same chain),
+// so co-existence is safe.
+//
+// New code: do NOT import from this file. Use:
+//   import { useDevWallet } from "@/lib/dev-wallet"
+//   import { useBufiAddress, useEnsureSession } from "@/lib/session"
+
 import type { Hex } from "viem";
 import {
   privateKeyToAccount,
   type PrivateKeyAccount,
 } from "viem/accounts";
 
-import type { PerpsReplacementPrepareResponse } from "./replacement-agent";
+import type {
+  PerpsReplacementPrepareResponse,
+  WalletSessionTypedData,
+} from "./replacement-agent";
 
 const DEFAULT_PRIVATE_KEY =
   "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -17,6 +33,7 @@ export interface PerpsReplacementDevWallet {
   signTypedData(
     typedData: PerpsReplacementPrepareResponse["typedData"],
   ): Promise<Hex>;
+  signSessionTypedData(typedData: WalletSessionTypedData): Promise<Hex>;
 }
 
 declare global {
@@ -63,6 +80,14 @@ export function getPerpsReplacementDevWallet(): PerpsReplacementDevWallet | null
     },
     signTypedData(typedData) {
       return signTypedData(account, typedData);
+    },
+    signSessionTypedData(typedData) {
+      return account.signTypedData({
+        domain: typedData.domain,
+        types: typedData.types,
+        primaryType: typedData.primaryType,
+        message: typedData.message,
+      });
     },
   };
 }

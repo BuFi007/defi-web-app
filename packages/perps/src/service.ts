@@ -28,14 +28,48 @@ export interface PerpsQuoteReader {
     fee: string;
     markPrice: string;
     requiredMargin: string;
-    maxLeverage: number;
     oracleTimestamp: number;
     oracleStaleSeconds: number;
+    maxLeverage: number;
   }>;
 }
 
 export interface PerpsNonceReader {
   isNonceUsed(chainId: number, trader: string, nonce: bigint): Promise<boolean>;
+}
+
+/**
+ * Indexed open-position row (one per (chainId, marketId, trader)).
+ * Mirrors `perps_position` rows produced by ponder, plus an optional mark
+ * price snapshot resolved at query time.
+ *
+ * Backend is the source of truth for size/entry/margin; mark price is
+ * a best-effort live read used to compute unrealized PnL on the wire.
+ */
+export interface PerpsIndexedPosition {
+  chainId: number;
+  marketId: string;
+  trader: string;
+  /** Signed size; positive = long, negative = short, zero = closed. */
+  sizeE18: string | bigint;
+  entryPriceE18: string | bigint;
+  marginReserved: string | bigint;
+  lastFundingVersion?: string | bigint;
+  isOpen: boolean;
+  updatedAt?: string | bigint;
+  updatedBlockNumber?: string | bigint;
+  updatedTxHash?: string;
+  /** Optional live mark snapshot. */
+  markPriceE18?: string | bigint;
+  /** Optional pre-computed unrealized PnL in USDC atomic units. */
+  unrealizedPnlUsdc?: string | bigint;
+}
+
+export interface PerpsPositionReader {
+  listOpenPositions(filter: {
+    chainId: number;
+    trader: string;
+  }): Promise<PerpsIndexedPosition[]>;
 }
 
 export interface PerpsIntentStore {
@@ -51,8 +85,11 @@ export interface CreatePerpsServiceOptions {
   markets?: MarketRegistryEntry[];
   quoteReader?: PerpsQuoteReader;
   nonceReader?: PerpsNonceReader;
+  positionReader?: PerpsPositionReader;
   intentStore?: PerpsIntentStore;
   maxOracleStaleSeconds?: number;
+  /** Chain to default `listPositions` to when caller doesn't specify. */
+  defaultChainId?: number;
   now?: () => number;
 }
 
@@ -80,6 +117,9 @@ export function createPerpsService(opts: CreatePerpsServiceOptions = {}): PerpsS
   const store = opts.intentStore ?? createInMemoryPerpsIntentStore();
   const now = opts.now ?? (() => Math.floor(Date.now() / 1000));
   const maxOracleStaleSeconds = opts.maxOracleStaleSeconds ?? 30;
+  // Default chain for `listPositions(trader)` reads; falls back to the
+  // first registered market so single-chain deploys do not need extra wiring.
+  const defaultChainId = opts.defaultChainId ?? markets[0]?.chainId ?? 5042002;
 
   const acceptSignedIntent = async (
     req: PerpsIntentRequest,
@@ -286,8 +326,15 @@ export function createPerpsService(opts: CreatePerpsServiceOptions = {}): PerpsS
     async getIntent(intentId) {
       return store.get(intentId);
     },
-    async listPositions() {
-      return [];
+    async listPositions(trader) {
+      if (!opts.positionReader) return [];
+      const rows = await opts.positionReader.listOpenPositions({
+        chainId: defaultChainId,
+        trader,
+      });
+      return rows
+        .filter((row) => row.isOpen && BigInt(row.sizeE18 ?? 0n) !== 0n)
+        .map((row) => mapIndexedPositionToPerpQuote(row, markets, maxOracleStaleSeconds, now()));
     },
     async funding() {
       return [];
@@ -430,6 +477,58 @@ function abs(value: bigint): bigint {
 
 function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
+}
+
+/**
+ * Map an indexed `perps_position` row to the wire `PerpQuote` shape the
+ * frontend already consumes via `PerpsPositionDto`. We do not invent
+ * a live mark price here — the reader may attach one; otherwise the
+ * stored entry price is surfaced as a placeholder so the UI always has
+ * a numeric mark to format.
+ */
+function mapIndexedPositionToPerpQuote(
+  row: PerpsIndexedPosition,
+  markets: MarketRegistryEntry[],
+  maxOracleStaleSeconds: number,
+  nowSec: number,
+): PerpQuote {
+  const sizeE18 = BigInt(row.sizeE18 ?? 0n);
+  const entryE18 = BigInt(row.entryPriceE18 ?? 0n);
+  const margin = BigInt(row.marginReserved ?? 0n);
+  const market = markets.find(
+    (m) => m.chainId === row.chainId && m.marketId.toLowerCase() === row.marketId.toLowerCase(),
+  );
+  // notional in USDC atomic units: |size_e18| * price_e18 / 1e30 (size 1e18, price 1e18, USDC 1e6)
+  const absSize = sizeE18 < 0n ? -sizeE18 : sizeE18;
+  const notionalAtomic = (absSize * entryE18) / 1_000_000_000_000_000_000_000_000_000_000n;
+  const sizeUsdc = formatAtomicToUsdc(notionalAtomic);
+  const leverage = margin > 0n ? Number(notionalAtomic / margin) : 1;
+  const markE18 = BigInt(row.markPriceE18 ?? entryE18);
+  return {
+    marketId: row.marketId,
+    side: sizeE18 < 0n ? "short" : "long",
+    sizeUsdc,
+    leverage: leverage > 0 ? leverage : 1,
+    fee: "0",
+    markPrice: markE18.toString(),
+    requiredMargin: margin.toString(),
+    maxLeverage: 50,
+    oracleStaleSeconds: 0,
+    oracle: {
+      source: (market?.source === "pyth" ? "pyth" : "onchain") as "pyth" | "onchain",
+      timestamp: row.updatedAt !== undefined ? Number(BigInt(row.updatedAt)) : nowSec,
+      maxStaleSeconds: maxOracleStaleSeconds,
+    },
+  };
+}
+
+function formatAtomicToUsdc(atomic: bigint): string {
+  const negative = atomic < 0n;
+  const abs = negative ? -atomic : atomic;
+  const whole = abs / 1_000_000n;
+  const frac = abs % 1_000_000n;
+  const fracStr = frac.toString().padStart(6, "0");
+  return `${negative ? "-" : ""}${whole.toString()}.${fracStr}`;
 }
 
 function serializeTypedData(value: ReturnType<typeof buildPerpsOrderTypedData>): PerpsIntentResponse["typedData"] {

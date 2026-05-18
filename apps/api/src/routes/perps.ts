@@ -37,8 +37,11 @@ perpsRoutes.post("/quote", async (c) => {
   const parsed = perpsQuoteRequest.safeParse(raw);
   if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
   try {
-    return c.json(await perpsService.quote(parsed.data));
+    const out = await perpsService.quote(parsed.data);
+    c.var.log.info("route_ok");
+    return c.json(out);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -58,8 +61,11 @@ perpsRoutes.post("/quote/premium", async (c) => {
   const parsed = perpsQuoteRequest.safeParse(raw);
   if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
   try {
-    return c.json({ premium: true, quote: await perpsService.quote(parsed.data) });
+    const out = { premium: true, quote: await perpsService.quote(parsed.data) };
+    c.var.log.info("route_ok");
+    return c.json(out);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -74,8 +80,11 @@ perpsRoutes.post("/intents", async (c) => {
     return c.json({ error: "trader must match session address" }, 403);
   }
   try {
-    return c.json(jsonSafe(await perpsService.createIntent(parsed.data)));
+    const out = jsonSafe(await perpsService.createIntent(parsed.data));
+    c.var.log.info("route_ok");
+    return c.json(out);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -100,6 +109,30 @@ perpsRoutes.get("/replacement-needed", async (c) => {
   return c.json(jsonSafe({ events }));
 });
 
+// Public, no-auth count endpoint. Lets the web client poll cheaply
+// (every 30s) without minting a wallet-session signature first — only
+// when count > 0 does the client request a session signature to fetch
+// the actual event payloads via the authenticated endpoint above.
+//
+// SECURITY: returns only a count, no payload data, no PII. The address
+// is already public (it's in the URL the caller supplied). Reading the
+// number of pending residuals for any address is not sensitive — the
+// payloads (which contain order details) remain auth-gated.
+perpsRoutes.get("/replacement-needed/count", async (c) => {
+  const address = c.req.query("address");
+  if (!address || !/^0x[0-9a-fA-F]{40}$/.test(address)) {
+    return c.json({ error: "address must be a 0x-prefixed 20-byte hex" }, 400);
+  }
+  const events = await tradingDb.events.list({
+    type: PERPS_REPLACEMENT_NEEDED_EVENT,
+    actor: address.toLowerCase() as `0x${string}`,
+    // Cap the read — we only need to know "is it zero or non-zero"
+    // for the agent to decide whether to ask for a session signature.
+    limit: 50,
+  });
+  return c.json({ count: events.length });
+});
+
 perpsRoutes.post("/intents/:id/replacement/prepare", async (c) => {
   const session = c.get("walletSession") as WalletSession | null;
   if (!session) return c.json({ error: "wallet session required" }, 401);
@@ -113,8 +146,11 @@ perpsRoutes.post("/intents/:id/replacement/prepare", async (c) => {
   const parsed = perpsReplacementPrepareRequest.safeParse({ ...raw, originalIntentId });
   if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
   try {
-    return c.json(jsonSafe(await perpsService.prepareReplacementIntent(parsed.data)));
+    const out = jsonSafe(await perpsService.prepareReplacementIntent(parsed.data));
+    c.var.log.info("route_ok");
+    return c.json(out);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -132,8 +168,11 @@ perpsRoutes.post("/intents/:id/replacement", async (c) => {
   const parsed = perpsReplacementSubmitRequest.safeParse({ ...raw, originalIntentId });
   if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
   try {
-    return c.json(jsonSafe(await perpsService.createReplacementIntent(parsed.data)));
+    const out = jsonSafe(await perpsService.createReplacementIntent(parsed.data));
+    c.var.log.info("route_ok");
+    return c.json(out);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -172,6 +211,7 @@ perpsRoutes.get("/intents/:id/reconciliation", async (c) => {
       }),
     );
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -192,9 +232,59 @@ perpsRoutes.get("/positions/:address", async (c) => {
   return c.json({ address, positions: await perpsService.listPositions(address) });
 });
 
-perpsRoutes.get("/trades/:address", (c) =>
-  c.json({ address: c.req.param("address"), trades: [] }),
-);
+perpsRoutes.get("/trades/:address", async (c) => {
+  const address = c.req.param("address");
+  if (!perpsSettlementReader) {
+    return c.json({ address, trades: [] });
+  }
+  // Settlements are public on-chain events; unauthenticated reads match
+  // the frontend `fetchPerpsTrades` contract (no wallet-session headers).
+  const session = c.get("walletSession") as WalletSession | null;
+  const chainId = Number(c.req.query("chainId") ?? session?.chainId ?? 5042002);
+  const limit = c.req.query("limit") ? Number(c.req.query("limit")) : undefined;
+  if (limit !== undefined && (!Number.isInteger(limit) || limit <= 0)) {
+    return c.json({ error: "limit must be a positive integer" }, 400);
+  }
+  try {
+    const rows = await perpsSettlementReader.listSettlements({
+      chainId,
+      trader: address,
+      limit,
+    });
+    const traderLower = address.toLowerCase();
+    const trades = rows.map((row) => {
+      const fillSizeE18 = String(row.fillSizeE18);
+      const fillPriceE18 = String(row.fillPriceE18);
+      const isTaker = row.taker.toLowerCase() === traderLower;
+      // Settlement event itself does not carry per-side intent; treat taker
+      // flow as long and maker as short as an MVP placeholder. UI uses this
+      // only for row coloring; correctness ships with Sprint E (per-side
+      // join against perps_position_event).
+      const side: "long" | "short" = isTaker ? "long" : "short";
+      const sizeAtomic =
+        (BigInt(fillSizeE18) * BigInt(fillPriceE18)) /
+        1_000_000_000_000_000_000_000_000_000_000n;
+      const absAtomic = sizeAtomic < 0n ? -sizeAtomic : sizeAtomic;
+      const sizeUsdc = `${(absAtomic / 1_000_000n).toString()}.${(absAtomic % 1_000_000n)
+        .toString()
+        .padStart(6, "0")}`;
+      return {
+        marketId: row.marketId,
+        side,
+        sizeUsdc,
+        priceE18: fillPriceE18,
+        fillSizeE18,
+        fillPriceE18,
+        txHash: row.txHash ?? "0x",
+        blockTimestamp: row.blockTimestamp !== undefined ? Number(BigInt(row.blockTimestamp)) : 0,
+      };
+    });
+    return c.json(jsonSafe({ address, trades }));
+  } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
+    return c.json({ error: (e as Error).message }, errorStatus(e));
+  }
+});
 
 perpsRoutes.get("/funding", async (c) => {
   const chainId = Number(c.req.query("chainId") ?? 5042002);

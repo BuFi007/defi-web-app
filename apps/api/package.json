@@ -18,6 +18,7 @@
     "@bufi/fx-spot": "workspace:*",
     "@bufi/fx-telarana": "workspace:*",
     "@bufi/liveblocks": "workspace:*",
+    "@bufi/logger": "workspace:*",
     "@bufi/market-data": "workspace:*",
     "@bufi/mcp": "workspace:*",
     "@bufi/perps": "workspace:*",

@@ -5,7 +5,7 @@ import LayoutMusic from "@/components/layout-music";
 import { ThemeProvider } from "@/components/theme-provider";
 import SpiderwebPattern from "@/components/magicui/spiderweb-pattern";
 import { cn } from "@/utils";
-import Providers from "@/context/DynamicProviders";
+import Providers from "@/context/ClientProviders";
 import { I18nProviderClient } from "@/locales/client";
 import { TranslationProvider } from "@/context/TranslationContext";
 import Loading from "./loading";
@@ -93,8 +93,8 @@ async function LocalizedShell({
                 <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
                   <div className="container mx-auto px-0 py-0 md:py-4 relative flex flex-col h-full">
                     <Container>
-                      <div className="relative w-full">
-                        <div className="w-full flex flex-col items-center justify-start pt-0 md:pt-2">
+                      <div className="relative w-full flex-1 flex flex-col">
+                        <div className="w-full flex-1 flex flex-col items-center justify-center">
                           {children}
                         </div>
                       </div>

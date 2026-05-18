@@ -74,7 +74,18 @@ export interface ArcadeSession {
   currentRound: number;
   totalRounds: number;
   duration: number;
-  onRoundComplete: (settled: PlacedChip[], myHits: PlacedChip[]) => void;
+  /**
+   * Fired once the round timer expires and the board has settled every
+   * chip. The commit-reveal flow in `multiplayer.tsx` needs the FULL set
+   * of "my placements" (hits + misses) — that's what was signed in the
+   * commitment, so it's what must be revealed. `myHits` is kept for the
+   * scoring overlay.
+   */
+  onRoundComplete: (
+    settled: PlacedChip[],
+    myHits: PlacedChip[],
+    myPlacements: PlacedChip[],
+  ) => void;
 }
 
 function streakCursor(streak: number) {
@@ -209,10 +220,14 @@ export function ArcadeBoard({
       if (wonCount > 0 && lostCount === 0) setStreak((s) => s + 1);
       else if (wonCount === 0 && lostCount > 0) setStreak(0);
       if (isMP && session?.onRoundComplete) {
-        const myHits = settled
-          .filter((c) => c.playerId === "you" && c.status === "hit")
+        const myPlacements = settled.filter((c) => c.playerId === "you");
+        const myHits = myPlacements
+          .filter((c) => c.status === "hit")
           .map((c) => ({ ...c, score: 20 * payoutForCell(c.col, c.row, 0) }));
-        setTimeout(() => session.onRoundComplete(settled, myHits), 800);
+        setTimeout(
+          () => session.onRoundComplete(settled, myHits, myPlacements),
+          800,
+        );
       }
       return settled;
     });
@@ -336,7 +351,22 @@ export function ArcadeBoard({
       setRound(newRound);
       setFrozenPath(null);
       historyRef.current = [{ t: startedAt, p: priceRef.current }];
-      setChips([{ id: Math.random(), col, row, chipId, stake, status: "pending", spawnedAt: startedAt }]);
+      // Round-starter chip MUST carry the same playerId as appended chips,
+      // otherwise the multiplayer scorer + finishRound's commit-reveal
+      // path see only N-1 of N placements (the filter at endRound is
+      // `c.playerId === "you"`).
+      setChips([
+        {
+          id: Math.random(),
+          col,
+          row,
+          chipId,
+          stake: isMP ? 1 : stake,
+          status: "pending",
+          spawnedAt: startedAt,
+          playerId: isMP ? "you" : null,
+        },
+      ]);
       setBalance((b) => b - stake);
       return;
     }

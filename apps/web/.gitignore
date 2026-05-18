@@ -1,0 +1,4 @@
+# Playwright e2e artefacts
+playwright-report/
+test-results/
+playwright/.cache/

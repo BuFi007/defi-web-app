@@ -13,6 +13,15 @@ import {
   buFxVenueRequestRouterAbi,
   fxSpotExecutorAbi,
 } from "@bufi/contracts";
+import {
+  BENTO_ARC_TESTNET_DEPLOYMENT,
+  BENTO_AVALANCHE_FUJI_DEPLOYMENT,
+  FxBentoCommitmentManagerAbi,
+  FxBentoRoomEscrowAbi,
+  FxBentoRoomFactoryAbi,
+  FxBentoRoundManagerAbi,
+  FxBentoSettlementManagerAbi,
+} from "@bufi/contracts/bento";
 
 const databaseUrl = process.env.DATABASE_PRIVATE_URL ?? process.env.DATABASE_URL;
 const database = databaseUrl
@@ -107,13 +116,113 @@ export default createConfig({
       address: fxPerpClearinghouseArc as `0x${string}`,
       startBlock: perpsStartBlockArc,
     },
-    ...(process.env.PONDER_BENTO_ADDRESS_FUJI && {
-      BentoRoomFactoryFuji: {
-        chain: "avalancheFuji",
-        abi: [] as const,
-        address: process.env.PONDER_BENTO_ADDRESS_FUJI as `0x${string}`,
-        startBlock: Number(process.env.PONDER_BENTO_START_BLOCK_FUJI ?? 0),
-      },
-    }),
+    // ─────────────────────────── FX Bento (Arc) ──────────────────────────
+    // Subscribed by default — Arc Testnet is the live Bento stack per
+    // packages/contracts/deployments/bento-arc-testnet.json. Each contract
+    // can be address-overridden via PONDER_BENTO_*_ADDRESS_ARC; the start
+    // block can be tuned via PONDER_BENTO_START_BLOCK_ARC.
+    BentoRoomFactoryArc: {
+      chain: "arcTestnet",
+      abi: FxBentoRoomFactoryAbi,
+      address: (process.env.PONDER_BENTO_ROOM_FACTORY_ADDRESS_ARC ??
+        process.env.PONDER_BENTO_ADDRESS_ARC ??
+        BENTO_ARC_TESTNET_DEPLOYMENT.addresses.FXBentoRoomFactory!) as `0x${string}`,
+      startBlock: Number(
+        process.env.PONDER_BENTO_START_BLOCK_ARC ?? BENTO_ARC_TESTNET_DEPLOYMENT.indexerStartBlock,
+      ),
+    },
+    BentoRoomEscrowArc: {
+      chain: "arcTestnet",
+      abi: FxBentoRoomEscrowAbi,
+      address: (process.env.PONDER_BENTO_ROOM_ESCROW_ADDRESS_ARC ??
+        BENTO_ARC_TESTNET_DEPLOYMENT.addresses.FXBentoRoomEscrow!) as `0x${string}`,
+      startBlock: Number(
+        process.env.PONDER_BENTO_START_BLOCK_ARC ?? BENTO_ARC_TESTNET_DEPLOYMENT.indexerStartBlock,
+      ),
+    },
+    BentoCommitmentManagerArc: {
+      chain: "arcTestnet",
+      abi: FxBentoCommitmentManagerAbi,
+      address: (process.env.PONDER_BENTO_COMMITMENT_MANAGER_ADDRESS_ARC ??
+        BENTO_ARC_TESTNET_DEPLOYMENT.addresses.FXBentoCommitmentManager!) as `0x${string}`,
+      startBlock: Number(
+        process.env.PONDER_BENTO_START_BLOCK_ARC ?? BENTO_ARC_TESTNET_DEPLOYMENT.indexerStartBlock,
+      ),
+    },
+    BentoRoundManagerArc: {
+      chain: "arcTestnet",
+      abi: FxBentoRoundManagerAbi,
+      address: (process.env.PONDER_BENTO_ROUND_MANAGER_ADDRESS_ARC ??
+        BENTO_ARC_TESTNET_DEPLOYMENT.addresses.FXBentoRoundManager!) as `0x${string}`,
+      startBlock: Number(
+        process.env.PONDER_BENTO_START_BLOCK_ARC ?? BENTO_ARC_TESTNET_DEPLOYMENT.indexerStartBlock,
+      ),
+    },
+    BentoSettlementManagerArc: {
+      chain: "arcTestnet",
+      abi: FxBentoSettlementManagerAbi,
+      address: (process.env.PONDER_BENTO_SETTLEMENT_MANAGER_ADDRESS_ARC ??
+        BENTO_ARC_TESTNET_DEPLOYMENT.addresses.FXBentoSettlementManager!) as `0x${string}`,
+      startBlock: Number(
+        process.env.PONDER_BENTO_START_BLOCK_ARC ?? BENTO_ARC_TESTNET_DEPLOYMENT.indexerStartBlock,
+      ),
+    },
+    // ────────────────────────── FX Bento (Fuji) ──────────────────────────
+    // Fuji has a parallel Bento deployment per bento-avalanche-fuji.json.
+    // Subscribed by default; addresses can be overridden via
+    // PONDER_BENTO_*_ADDRESS_FUJI envs and the start block via
+    // PONDER_BENTO_START_BLOCK_FUJI. The legacy PONDER_BENTO_ADDRESS_FUJI
+    // is honored as a back-compat alias for the room factory address.
+    BentoRoomFactoryFuji: {
+      chain: "avalancheFuji",
+      abi: FxBentoRoomFactoryAbi,
+      address: (process.env.PONDER_BENTO_ROOM_FACTORY_ADDRESS_FUJI ??
+        process.env.PONDER_BENTO_ADDRESS_FUJI ??
+        BENTO_AVALANCHE_FUJI_DEPLOYMENT.addresses.FXBentoRoomFactory!) as `0x${string}`,
+      startBlock: Number(
+        process.env.PONDER_BENTO_START_BLOCK_FUJI ??
+          BENTO_AVALANCHE_FUJI_DEPLOYMENT.indexerStartBlock,
+      ),
+    },
+    BentoRoomEscrowFuji: {
+      chain: "avalancheFuji",
+      abi: FxBentoRoomEscrowAbi,
+      address: (process.env.PONDER_BENTO_ROOM_ESCROW_ADDRESS_FUJI ??
+        BENTO_AVALANCHE_FUJI_DEPLOYMENT.addresses.FXBentoRoomEscrow!) as `0x${string}`,
+      startBlock: Number(
+        process.env.PONDER_BENTO_START_BLOCK_FUJI ??
+          BENTO_AVALANCHE_FUJI_DEPLOYMENT.indexerStartBlock,
+      ),
+    },
+    BentoCommitmentManagerFuji: {
+      chain: "avalancheFuji",
+      abi: FxBentoCommitmentManagerAbi,
+      address: (process.env.PONDER_BENTO_COMMITMENT_MANAGER_ADDRESS_FUJI ??
+        BENTO_AVALANCHE_FUJI_DEPLOYMENT.addresses.FXBentoCommitmentManager!) as `0x${string}`,
+      startBlock: Number(
+        process.env.PONDER_BENTO_START_BLOCK_FUJI ??
+          BENTO_AVALANCHE_FUJI_DEPLOYMENT.indexerStartBlock,
+      ),
+    },
+    BentoRoundManagerFuji: {
+      chain: "avalancheFuji",
+      abi: FxBentoRoundManagerAbi,
+      address: (process.env.PONDER_BENTO_ROUND_MANAGER_ADDRESS_FUJI ??
+        BENTO_AVALANCHE_FUJI_DEPLOYMENT.addresses.FXBentoRoundManager!) as `0x${string}`,
+      startBlock: Number(
+        process.env.PONDER_BENTO_START_BLOCK_FUJI ??
+          BENTO_AVALANCHE_FUJI_DEPLOYMENT.indexerStartBlock,
+      ),
+    },
+    BentoSettlementManagerFuji: {
+      chain: "avalancheFuji",
+      abi: FxBentoSettlementManagerAbi,
+      address: (process.env.PONDER_BENTO_SETTLEMENT_MANAGER_ADDRESS_FUJI ??
+        BENTO_AVALANCHE_FUJI_DEPLOYMENT.addresses.FXBentoSettlementManager!) as `0x${string}`,
+      startBlock: Number(
+        process.env.PONDER_BENTO_START_BLOCK_FUJI ??
+          BENTO_AVALANCHE_FUJI_DEPLOYMENT.indexerStartBlock,
+      ),
+    },
   },
 });

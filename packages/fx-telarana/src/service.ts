@@ -1,6 +1,18 @@
+/**
+ * Legacy service surface kept for backwards compatibility with the previous
+ * stub layout. New code should call the SDK directly (listMarkets,
+ * quoteBorrow, buildBorrowIntent, ...). The API routes now use the SDK.
+ */
+import type { Hex } from "viem";
+
 import { CONTRACTS, SPOT_FX_ROUTES } from "@bufi/contracts";
+import {
+  TELARANA_DEPLOYMENTS,
+  type TelaranaHubChainId,
+} from "@bufi/contracts/telarana";
 import type { FxLoanPosition, MarketRegistryEntry } from "@bufi/shared-types";
 
+import { listAccountPositions } from "./positions";
 import {
   borrowIntentRequest,
   borrowQuoteRequest,
@@ -23,7 +35,9 @@ export interface FxTelaranaService {
   liquidationCandidates(chainId: number): Promise<FxLoanPosition[]>;
 }
 
-export function createFxTelaranaService(opts: { quoteReader?: BorrowQuoteReader } = {}): FxTelaranaService {
+export function createFxTelaranaService(
+  opts: { quoteReader?: BorrowQuoteReader } = {},
+): FxTelaranaService {
   const markets = liveTelaranaMarkets();
   return {
     async listMarkets(chainId) {
@@ -35,18 +49,31 @@ export function createFxTelaranaService(opts: { quoteReader?: BorrowQuoteReader 
     async borrowQuote(req) {
       const parsed = borrowQuoteRequest.parse(req);
       if (!opts.quoteReader) {
-        throw new Error("borrow quote reader is not configured; use on-chain previewBorrow before returning a quote");
+        throw new Error(
+          "borrow quote reader is not configured; use on-chain previewBorrow before returning a quote",
+        );
       }
       return opts.quoteReader.previewBorrow(parsed);
     },
     async createBorrowIntent(req) {
-      const parsed = borrowIntentRequest.parse(req);
-      throw new Error(
-        `borrow intent routing is not configured for ${parsed.marketId}; deploy the lending intent contract before accepting signed debt`,
-      );
+      borrowIntentRequest.parse(req);
+      throw new Error("legacy createBorrowIntent path is deprecated; use the SDK buildBorrowIntent");
     },
-    async positionsFor() {
-      return [];
+    async positionsFor(borrower) {
+      const positions = await listAccountPositions({ account: borrower as `0x${string}` });
+      return positions.map((p): FxLoanPosition => ({
+        positionId: p.id,
+        borrower: p.account,
+        marketId: p.marketId,
+        collateralAsset: "0x0000000000000000000000000000000000000000",
+        collateralAmount: p.collateral.toString(),
+        borrowAsset: "0x0000000000000000000000000000000000000000",
+        borrowAmount: p.borrowAssets.toString(),
+        healthFactorBps: p.healthFactorE18
+          ? Number(p.healthFactorE18 / 100_000_000_000_000n)
+          : 10_000,
+        status: p.liquidatable ? "liquidated" : "open",
+      }));
     },
     async liquidationCandidates() {
       return [];
@@ -54,9 +81,15 @@ export function createFxTelaranaService(opts: { quoteReader?: BorrowQuoteReader 
   };
 }
 
+/**
+ * Surface declared markets from the on-chain manifests as MarketRegistryEntry
+ * rows. Preserves the legacy SPOT_FX_ROUTES rows so the agent flow still has
+ * symbol-keyed entries (USDC/EURC etc) while the real market id lookups go
+ * through the SDK.
+ */
 export function liveTelaranaMarkets(): MarketRegistryEntry[] {
   const arc = CONTRACTS[5042002];
-  return Object.entries(SPOT_FX_ROUTES).map(([symbol, route]) => ({
+  const legacy = Object.entries(SPOT_FX_ROUTES).map(([symbol, route]): MarketRegistryEntry => ({
     marketId: route.routeId,
     symbol: `USDC/${symbol}`,
     baseAsset: arc.tokens.usdc!,
@@ -65,4 +98,20 @@ export function liveTelaranaMarkets(): MarketRegistryEntry[] {
     chainId: 5042002,
     enabled: true,
   }));
+
+  const telaranaRows = (Object.entries(TELARANA_DEPLOYMENTS) as Array<
+    [string, (typeof TELARANA_DEPLOYMENTS)[TelaranaHubChainId]]
+  >).flatMap(([chainIdStr, deployment]) =>
+    deployment.markets.map((m): MarketRegistryEntry => ({
+      marketId: m.id as Hex,
+      symbol: `${m.loanSymbol}/${m.collateralSymbol}`,
+      baseAsset: m.loanToken,
+      quoteAsset: m.collateralToken,
+      source: "internal",
+      chainId: Number(chainIdStr) as TelaranaHubChainId,
+      enabled: true,
+    })),
+  );
+
+  return [...telaranaRows, ...legacy];
 }

@@ -2,6 +2,13 @@ import type { Address, Hex } from "viem";
 
 import type { ChainId } from "@bufi/shared-types";
 
+// Per-product manifest barrels — merged in from the 3 backend worktrees.
+// Consumers can import directly (`@bufi/contracts/bento`, `/perps`,
+// `/telarana`) for tighter typing OR namespace via this re-export.
+export * as Bento from "./bento";
+export * as Telarana from "./telarana";
+export * as Perps from "./perps-deployments";
+
 export {
   buFxFeeCollectorAbi,
 } from "./abis/BuFxFeeCollector";
@@ -69,10 +76,27 @@ export const RPC_ENV_BY_CHAIN = {
   5042002: "PONDER_RPC_URL_ARC_TESTNET",
 } as const satisfies Record<(typeof SUPPORTED_CHAIN_IDS)[number], string>;
 
-export const DEFAULT_RPC_URLS = {
+// Hardcoded fallbacks — kept so `getRpcUrl()` works in pure-dev contexts even
+// when no env is set. Production deploys should override via the matching env
+// var (`AVALANCHE_FUJI_RPC_URL`, `ARC_TESTNET_RPC_URL`) declared in @bufi/env.
+const HARDCODED_DEFAULT_RPC_URLS = {
   43113: "https://api.avax-test.network/ext/bc/C/rpc",
   5042002: "https://rpc.testnet.arc.network",
 } as const satisfies Record<(typeof SUPPORTED_CHAIN_IDS)[number], string>;
+
+const RPC_OVERRIDE_ENV_BY_CHAIN = {
+  43113: "AVALANCHE_FUJI_RPC_URL",
+  5042002: "ARC_TESTNET_RPC_URL",
+} as const satisfies Record<(typeof SUPPORTED_CHAIN_IDS)[number], string>;
+
+export const DEFAULT_RPC_URLS = {
+  get 43113(): string {
+    return process.env[RPC_OVERRIDE_ENV_BY_CHAIN[43113]] ?? HARDCODED_DEFAULT_RPC_URLS[43113];
+  },
+  get 5042002(): string {
+    return process.env[RPC_OVERRIDE_ENV_BY_CHAIN[5042002]] ?? HARDCODED_DEFAULT_RPC_URLS[5042002];
+  },
+} as Record<(typeof SUPPORTED_CHAIN_IDS)[number], string>;
 
 export const CIRCLE_GATEWAY = {
   gatewayWallet: "0x0077777d7EBA4688BDeF3E311b846F25870A19B9",
