@@ -6,10 +6,9 @@
  * ABI to ./abis, uncomment the matching import below.
  */
 
+import "./handlers/bento";
 import "./handlers/bufx";
 import "./handlers/perps";
 import "./handlers/telarana";
-
-// import "./handlers/bento";
 
 export {};
