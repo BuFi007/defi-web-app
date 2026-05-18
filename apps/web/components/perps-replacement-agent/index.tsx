@@ -42,6 +42,26 @@ function isUserRejection(error: unknown): boolean {
   return typeof anyErr.message === "string" && /user rejected/i.test(anyErr.message);
 }
 
+/**
+ * MetaMask returns EIP-1193 code 4100 ("The requested account and/or method
+ * has not been authorized by the user.") when we ask for a signature before
+ * `eth_requestAccounts` has been granted. This races during the Dynamic ↔
+ * MetaMask handshake: wagmi flips `isConnected` true on connector init, but
+ * the Connect popup is still open — any `eth_signTypedData_v4` we fire in
+ * that window gets rejected as unauthorized AND triggers a second Sign
+ * popup overlay on top of the still-open Connect popup. Detect it so we can
+ * back off instead of flooding the console.
+ */
+function isNotAuthorizedError(error: unknown): boolean {
+  const anyErr = error as { code?: number; message?: string } | null;
+  if (!anyErr) return false;
+  if (anyErr.code === 4100) return true;
+  return (
+    typeof anyErr.message === "string" &&
+    /has not been authorized by the user/i.test(anyErr.message)
+  );
+}
+
 function readSessionRejected(address?: string): boolean {
   if (typeof window === "undefined" || !address) return false;
   return window.sessionStorage.getItem(`${REJECT_KEY}:${address.toLowerCase()}`) === "1";
@@ -53,14 +73,22 @@ function writeSessionRejected(address?: string) {
 }
 
 export function PerpsReplacementAgent() {
-  const { address, isConnected } = useAccount();
+  // CRITICAL: we use `status === "connected"` here, NOT just `isConnected`.
+  // During the Dynamic ↔ MetaMask handshake wagmi briefly reports
+  // `isConnected: true` while `status` is still `"connecting"` /
+  // `"reconnecting"` — the connector exists but `eth_requestAccounts`
+  // hasn't been granted yet. If we fire a `signTypedData` in that window
+  // MetaMask rejects with code 4100 ("not been authorized by the user")
+  // and opens a Sign popup on top of the still-open Connect popup,
+  // producing the double-popup the user is seeing.
+  const { address, status } = useAccount();
   const chainId = useChainId();
   const { signTypedDataAsync } = useSignTypedData();
   const { toast } = useToast();
   const devWallet = useMemo(() => getPerpsReplacementDevWallet(), []);
   const effectiveAddress = devWallet?.address ?? address;
   const effectiveChainId = devWallet?.chainId ?? chainId;
-  const isAgentConnected = Boolean(devWallet) || isConnected;
+  const isAgentConnected = Boolean(devWallet) || status === "connected";
   const inFlightRef = useRef(false);
   const activeEventsRef = useRef(new Set<string>());
   // Sticky: once the user declines the session signature, pause the agent for
@@ -72,6 +100,14 @@ export function PerpsReplacementAgent() {
     if (rejectedRef.current) return null;
     const cached = readCachedWalletSession(effectiveAddress, effectiveChainId);
     if (cached) return cached;
+    // Give MetaMask a beat to fully process `eth_requestAccounts` before we
+    // ask for a signature. Without this delay, opening a fresh tab + clicking
+    // Log In → Avalanche races a `signTypedData_v4` ahead of the Connect
+    // approval, which MetaMask rejects with code 4100 and spawns a second
+    // popup on top of the still-open Connect dialog.
+    if (!devWallet) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
     const session = buildWalletSessionTypedData({
       address: effectiveAddress as `0x${string}`,
       chainId: effectiveChainId,
@@ -115,6 +151,28 @@ export function PerpsReplacementAgent() {
     });
   }, [devWallet]);
 
+  // When the connected chain changes, evict any wallet-session entries cached
+  // under OTHER chain ids for this address. A user switching MetaMask from
+  // Avalanche mainnet → Fuji mid-login otherwise leaves a signed-but-useless
+  // mainnet session sitting in localStorage indefinitely. Keeping localStorage
+  // clean here also means a future bug that pins the wrong chainId can't
+  // silently reuse a stale proof — we'll always sign fresh on the new chain.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!effectiveAddress || !effectiveChainId) return;
+    const keepKey = `bufx.wallet-session:${effectiveChainId}:${effectiveAddress.toLowerCase()}`;
+    const prefix = `bufx.wallet-session:`;
+    const suffix = `:${effectiveAddress.toLowerCase()}`;
+    const toRemove: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const key = window.localStorage.key(i);
+      if (!key) continue;
+      if (key === keepKey) continue;
+      if (key.startsWith(prefix) && key.endsWith(suffix)) toRemove.push(key);
+    }
+    for (const key of toRemove) window.localStorage.removeItem(key);
+  }, [effectiveAddress, effectiveChainId]);
+
   const handleEvent = useCallback(
     async (event: PerpsReplacementNeededEvent, signal: AbortSignal) => {
       if (!effectiveAddress || activeEventsRef.current.has(event.eventId)) return;
@@ -126,6 +184,11 @@ export function PerpsReplacementAgent() {
       } catch (error) {
         activeEventsRef.current.delete(event.eventId);
         if (isUserRejection(error)) return; // sticky-rejected; stay quiet
+        if (isNotAuthorizedError(error)) {
+          // Wallet still mid-handshake — back off silently. Next poll tick
+          // will retry once `status === "connected"` settles.
+          return;
+        }
         publishPerpsReplacementE2eState({
           enabled: true,
           lastError: (error as Error).message,
@@ -308,6 +371,14 @@ export function PerpsReplacementAgent() {
           // Already marked rejected inside getSessionProof; just stop polling.
           // Don't toast — the wallet UI already showed the prompt the user
           // declined, additional noise is what they're complaining about.
+          return;
+        }
+        if (isNotAuthorizedError(error)) {
+          // The wallet is still mid-handshake (Connect popup open) or the
+          // user revoked site access. Stay silent — the next poll tick will
+          // retry once `status` has actually settled to "connected". The
+          // outer `useEffect` won't fire `void poll()` again until then
+          // because we gate on `status === "connected"` above.
           return;
         }
         console.warn("perps replacement agent poll failed", error);

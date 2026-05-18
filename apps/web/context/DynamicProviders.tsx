@@ -8,14 +8,26 @@ import { config } from "@/lib/wagmi";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 import { ReactNode, useEffect } from "react";
 import { DYNAMIC_ENVIRONMENT_ID } from "@/constants/Env";
-import { ArcTestnet, AvalancheFuji } from "@/constants/Chains";
+import { ArcTestnet, Avalanche, AvalancheFuji } from "@/constants/Chains";
 import {
   DynamicErrorBoundary,
   installDynamicRejectionFilter,
 } from "./DynamicErrorBoundary";
 
 const queryClient = new QueryClient();
-const evmNetworks = [AvalancheFuji, ArcTestnet];
+// IMPORTANT: Avalanche C-Chain mainnet (43114) is allow-listed here ONLY so
+// that Dynamic's networkValidationMode: "always" doesn't reject the wallet
+// when a user's MetaMask is sitting on AVAX mainnet at login. The wagmi
+// config (lib/wagmi.ts) still only includes [avalancheFuji, arcTestnet], so
+// production trading stays on Fuji + Arc — Avalanche mainnet is presented to
+// the user as a recognised network for the auth handshake only. Without it,
+// switching to mainnet AVAX during login fires the misleading "Please unlock
+// your wallet extension and try again." overlay because Dynamic panics on
+// an unknown chain id.
+const evmNetworks = [AvalancheFuji, ArcTestnet, Avalanche];
+// Preferred chains for the WalletConnect handshake — keep ordered with our
+// primary testnets first so the wallet defaults to a chain we actually
+// transact on, while still recognising AVAX mainnet at login.
 const walletConnectPreferredChains = evmNetworks.map(
   (network) => `eip155:${network.chainId}` as const
 );

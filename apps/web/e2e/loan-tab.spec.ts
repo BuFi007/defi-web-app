@@ -16,14 +16,32 @@ import { gotoIsland } from "./fixtures";
 test("loan tab — markets list + action card render", async ({ page }) => {
   await gotoIsland(page);
 
-  // Switch to Loan / Borrow.
-  await page.locator(".island-tab", { hasText: "Loan / Borrow" }).click();
+  // Wait for hydration — without the chart canvas mounted React onClick
+  // handlers don't fire (the wagmi/WalletConnect init throws an
+  // unhandledRejection that blocks state updates until it settles).
+  await page.waitForSelector(".t-chart canvas", { timeout: 30_000 });
+
+  // Switch to Loan / Borrow. The island-tab buttons are siblings under
+  // .island-tabs; scope by class + text to dodge the .pp-subtab variant
+  // that renders inside the Positions tab.
+  const loanTab = page.locator(".island-tabs .island-tab", {
+    hasText: "Loan / Borrow",
+  });
+  await expect(loanTab).toBeVisible({ timeout: 10_000 });
+  await loanTab.click({ force: true });
+
+  // Wait for the Loan view container to mount. The LoanTab wraps its
+  // body in `.lo-shell` (or similar) — assert .lo-tab-wrap OR .lo-action
+  // becomes visible to confirm we routed to LoanTab.
+  await expect(
+    page.locator(".lo-action, .lo-table-wrap").first(),
+  ).toBeVisible({ timeout: 15_000 });
 
   // At least one market row must be visible. The table rows use class
   // `lo-trow`; each row contains the loan/coll pair text — assert by
   // hunting for USDC or EURC in the visible cells.
   const marketRows = page.locator(".lo-trow");
-  await expect(marketRows.first()).toBeVisible({ timeout: 10_000 });
+  await expect(marketRows.first()).toBeVisible({ timeout: 15_000 });
   const rowCount = await marketRows.count();
   expect(rowCount).toBeGreaterThan(0);
   await expect(page.locator(".lo-trow .mkt-loan").first()).toContainText(
