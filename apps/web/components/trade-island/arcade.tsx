@@ -351,7 +351,22 @@ export function ArcadeBoard({
       setRound(newRound);
       setFrozenPath(null);
       historyRef.current = [{ t: startedAt, p: priceRef.current }];
-      setChips([{ id: Math.random(), col, row, chipId, stake, status: "pending", spawnedAt: startedAt }]);
+      // Round-starter chip MUST carry the same playerId as appended chips,
+      // otherwise the multiplayer scorer + finishRound's commit-reveal
+      // path see only N-1 of N placements (the filter at endRound is
+      // `c.playerId === "you"`).
+      setChips([
+        {
+          id: Math.random(),
+          col,
+          row,
+          chipId,
+          stake: isMP ? 1 : stake,
+          status: "pending",
+          spawnedAt: startedAt,
+          playerId: isMP ? "you" : null,
+        },
+      ]);
       setBalance((b) => b - stake);
       return;
     }

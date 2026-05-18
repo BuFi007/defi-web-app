@@ -3,6 +3,7 @@
 // so a single env var (NEXT_PUBLIC_API_URL) drives all backend calls.
 
 import { resilientFetch } from "@/lib/api-client";
+import { buildBentoDevSessionHeaders } from "./dev-session";
 
 const DEFAULT_API_URL = "http://localhost:3002";
 
@@ -71,14 +72,18 @@ async function jsonFetch<T>(
   url: string,
   init: RequestInit & { headers?: Record<string, string> } = {},
 ): Promise<T> {
-  // TODO: bento prod endpoints don't currently use a wallet-session header,
-  // so there's no `onUnauthorized` flow to wire. Add one when the join/leave
-  // routes start requiring a session proof.
+  // When the BENTO_E2E shim is enabled (dev-only opt-in via env), inject
+  // the dev wallet's X-Wallet-* session headers so the /dev/*/join and
+  // any other session-gated routes accept the request. Production-route
+  // calls don't need them today but it costs nothing to include — the
+  // server ignores X-Wallet-* on unauthenticated routes.
+  const devSessionHeaders = await buildBentoDevSessionHeaders();
   const res = await resilientFetch(url, {
     ...init,
     headers: {
       accept: "application/json",
       ...(init.body ? { "content-type": "application/json" } : {}),
+      ...(devSessionHeaders ?? {}),
       ...init.headers,
     },
   });
@@ -199,5 +204,55 @@ export async function devJoinRoom(args: {
   return jsonFetch(bentoUrl(`/dev/rooms/${encodeURIComponent(args.roomId)}/join`), {
     method: "POST",
     body: JSON.stringify({ player: args.player }),
+  });
+}
+
+// dev simulator commit/reveal/settle — used by the BENTO_E2E shim in
+// multiplayer.tsx to drive the commit-reveal lifecycle without wagmi
+// broadcast. Same wire shape as scripts/smoke-bento.ts uses.
+
+export async function devCommitSelection(args: {
+  roomId: string;
+  player: `0x${string}`;
+  roundIndex: number;
+  commitment: `0x${string}`;
+}): Promise<unknown> {
+  return jsonFetch(bentoUrl(`/dev/rooms/${encodeURIComponent(args.roomId)}/commit`), {
+    method: "POST",
+    body: JSON.stringify({
+      player: args.player,
+      roundIndex: args.roundIndex,
+      commitment: args.commitment,
+    }),
+  });
+}
+
+export async function devRevealSelection(args: {
+  roomId: string;
+  player: `0x${string}`;
+  roundIndex: number;
+  rows: number[];
+  cols: number[];
+  nonce: `0x${string}`;
+}): Promise<unknown> {
+  return jsonFetch(bentoUrl(`/dev/rooms/${encodeURIComponent(args.roomId)}/reveal`), {
+    method: "POST",
+    body: JSON.stringify({
+      player: args.player,
+      roundIndex: args.roundIndex,
+      rows: args.rows,
+      cols: args.cols,
+      nonce: args.nonce,
+    }),
+  });
+}
+
+export async function devSettleRoom(args: {
+  roomId: string;
+  resultsRoot: `0x${string}`;
+}): Promise<{ id?: string; status: string }> {
+  return jsonFetch(bentoUrl(`/dev/rooms/${encodeURIComponent(args.roomId)}/settle`), {
+    method: "POST",
+    body: JSON.stringify({ resultsRoot: args.resultsRoot }),
   });
 }

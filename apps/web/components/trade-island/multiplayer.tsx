@@ -14,8 +14,11 @@ import { useToast } from "@/components/ui/use-toast";
 import {
   type BentoSimulatorRoom,
   createDevRoom,
+  devCommitSelection,
   devJoinRoom,
+  devRevealSelection,
 } from "@/lib/bento/client";
+import { getBentoDevWallet } from "@/lib/bento/dev-mock-wallet";
 import {
   useBentoClaim,
   useBentoLeaderboard,
@@ -29,6 +32,14 @@ import {
 import { ALL_MARKETS, fmtUSD, type Market } from "./data";
 import { Hint } from "./hint";
 import { ArcadeBoard, type ArcadeSession, type PlacedChip } from "./arcade";
+
+// Deterministic ghost player used to satisfy minPlayers=2 in the dev
+// simulator when the BENTO_E2E shim is driving the lobby with a single
+// mock wallet. The simulator only reads this as an address string (it
+// never signs as the ghost), so any well-formed hex works — the
+// `deadbeef...` byte pattern keeps it obviously fake in logs.
+const BENTO_E2E_GHOST_PLAYER =
+  "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef" as const;
 
 // Perps markets use ISO pairs (EUR/USD), Bento dev rooms only accept the
 // stablecoin pairs declared in packages/fx-bento/src/schemas.ts:42. Map the
@@ -660,11 +671,19 @@ export function ArcadeRoom({ market, onClose }: { market: Market; onClose: () =>
   // when the tx is sent. Will read from useBalance(USDC) once token wiring lands.
   const [wallet, setWallet] = useState(125420.5);
 
-  const { address } = useAccount();
+  const { address: wagmiAddress } = useAccount();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
   const { sendTransactionAsync } = useSendTransaction();
   const { toast } = useToast();
+
+  // Dev-only opt-in shim (NEXT_PUBLIC_BENTO_E2E=1) — falls back to a
+  // deterministic mock wallet when no real wagmi address is connected so
+  // /browse + smoke harnesses can drive the full UI lifecycle without a
+  // real wallet. Returns null in production or when the env flag is unset.
+  const devWallet = useMemo(() => getBentoDevWallet(), []);
+  const address = wagmiAddress ?? devWallet?.address;
+  const isDevWalletActive = !wagmiAddress && Boolean(devWallet);
 
   // Per-round nonces keyed by `roundIndex`. The same nonce must be used at
   // commit AND reveal time — losing it means the contract rejects the
@@ -738,13 +757,24 @@ export function ArcadeRoom({ market, onClose }: { market: Market; onClose: () =>
         return;
       }
       try {
-        await ensureChain();
-        const payload = await prepareJoin({ roomId: r.id, chainId: BENTO_CHAIN_ID });
-        const hash = await sendPrepared(payload);
-        toast({
-          title: "Joining room",
-          description: `Tx ${truncateAddress(hash)} broadcast.`,
-        });
+        if (isDevWalletActive) {
+          // BENTO_E2E shim path: skip wagmi broadcast. devJoinRoom is
+          // idempotent if the player already joined via the lobby's
+          // Create button.
+          await devJoinRoom({
+            roomId: r.id,
+            player: address as `0x${string}`,
+          }).catch(() => undefined);
+          toast({ title: "Joining room", description: `Joined ${r.id} (dev sim).` });
+        } else {
+          await ensureChain();
+          const payload = await prepareJoin({ roomId: r.id, chainId: BENTO_CHAIN_ID });
+          const hash = await sendPrepared(payload);
+          toast({
+            title: "Joining room",
+            description: `Tx ${truncateAddress(hash)} broadcast.`,
+          });
+        }
         setWallet((w) => w - r.fee);
         setJoinedRoomId(r.id);
         setRound(1);
@@ -760,7 +790,16 @@ export function ArcadeRoom({ market, onClose }: { market: Market; onClose: () =>
         });
       }
     },
-    [address, wallet, ensureChain, prepareJoin, sendPrepared, toast, refetchRooms],
+    [
+      address,
+      wallet,
+      ensureChain,
+      prepareJoin,
+      sendPrepared,
+      isDevWalletActive,
+      toast,
+      refetchRooms,
+    ],
   );
 
   const handleCreateRoom = useCallback(async () => {
@@ -775,6 +814,17 @@ export function ArcadeRoom({ market, onClose }: { market: Market; onClose: () =>
       if (address) {
         await devJoinRoom({ roomId: created.id, player: address }).catch(() => undefined);
       }
+      if (isDevWalletActive && address) {
+        // Bento schema floor is minPlayers=2. Auto-join a deterministic
+        // ghost player so the room activates and our subsequent commits
+        // don't trip `room_not_active`. The dev wallet's session header
+        // authorizes the call; the simulator doesn't require session
+        // address to match the body's `player`.
+        await devJoinRoom({
+          roomId: created.id,
+          player: BENTO_E2E_GHOST_PLAYER,
+        }).catch(() => undefined);
+      }
       refetchRooms();
       toast({ title: "Room created", description: `Spun up ${created.id}.` });
     } catch (err) {
@@ -784,7 +834,7 @@ export function ArcadeRoom({ market, onClose }: { market: Market; onClose: () =>
         variant: "destructive",
       });
     }
-  }, [market.sym, address, refetchRooms, toast]);
+  }, [market.sym, address, isDevWalletActive, refetchRooms, toast]);
 
   useEffect(() => {
     if (phase !== "countdown") return;
@@ -837,26 +887,47 @@ export function ArcadeRoom({ market, onClose }: { market: Market; onClose: () =>
           nonce,
         });
 
-        const commitPayload = await prepareCommit({
-          roomId: joinedRoomId,
-          chainId: BENTO_CHAIN_ID,
-          roundIndex,
-          commitment,
-        });
-        await sendPrepared(commitPayload);
+        if (isDevWalletActive) {
+          // BENTO_E2E shim path: skip wagmi broadcast and POST directly to
+          // the dev simulator endpoints. Same wire shape as
+          // scripts/smoke-bento.ts. The X-Wallet-* session headers ride
+          // along automatically via jsonFetch.
+          await devCommitSelection({
+            roomId: joinedRoomId,
+            player: address as `0x${string}`,
+            roundIndex,
+            commitment,
+          });
+          await devRevealSelection({
+            roomId: joinedRoomId,
+            player: address as `0x${string}`,
+            roundIndex,
+            rows: selection.rows,
+            cols: selection.cols,
+            nonce,
+          });
+        } else {
+          const commitPayload = await prepareCommit({
+            roomId: joinedRoomId,
+            chainId: BENTO_CHAIN_ID,
+            roundIndex,
+            commitment,
+          });
+          await sendPrepared(commitPayload);
 
-        // Reveal in the same flow. In the production keeper-flow the
-        // reveal is gated server-side until the lock window closes — for
-        // now the API accepts immediate reveals and the simulator records
-        // them; an out-of-order reveal becomes a no-op on chain.
-        const revealPayload = await prepareReveal({
-          roomId: joinedRoomId,
-          chainId: BENTO_CHAIN_ID,
-          roundIndex,
-          selection,
-          nonce,
-        });
-        await sendPrepared(revealPayload);
+          // Reveal in the same flow. In the production keeper-flow the
+          // reveal is gated server-side until the lock window closes — for
+          // now the API accepts immediate reveals and the simulator records
+          // them; an out-of-order reveal becomes a no-op on chain.
+          const revealPayload = await prepareReveal({
+            roomId: joinedRoomId,
+            chainId: BENTO_CHAIN_ID,
+            roundIndex,
+            selection,
+            nonce,
+          });
+          await sendPrepared(revealPayload);
+        }
       } catch (err) {
         // Non-fatal: surface a toast so devs see why the chain didn't
         // pick up the round, but never block the UI.
@@ -867,7 +938,17 @@ export function ArcadeRoom({ market, onClose }: { market: Market; onClose: () =>
         });
       }
     },
-    [joinedRoomId, room, address, round, prepareCommit, prepareReveal, sendPrepared, toast],
+    [
+      joinedRoomId,
+      room,
+      address,
+      round,
+      prepareCommit,
+      prepareReveal,
+      sendPrepared,
+      isDevWalletActive,
+      toast,
+    ],
   );
 
   const nextRound = useCallback(() => {
