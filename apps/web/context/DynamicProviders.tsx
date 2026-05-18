@@ -8,7 +8,13 @@ import { config } from "@/lib/wagmi";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 import { ReactNode, useEffect } from "react";
 import { DYNAMIC_ENVIRONMENT_ID } from "@/constants/Env";
-import { ArcTestnet, Avalanche, AvalancheFuji } from "@/constants/Chains";
+import {
+  ArbitrumSepolia,
+  ArcTestnet,
+  Avalanche,
+  AvalancheFuji,
+  Sepolia,
+} from "@/constants/Chains";
 import {
   DynamicErrorBoundary,
   installDynamicRejectionFilter,
@@ -26,7 +32,17 @@ const queryClient = new QueryClient();
 // switching to mainnet AVAX during login fires the misleading "Please unlock
 // your wallet extension and try again." overlay because Dynamic panics on
 // an unknown chain id.
-const evmNetworks = [AvalancheFuji, ArcTestnet, Avalanche];
+// Hubs + spoke chains. Order matters — first entries are the WalletConnect
+// preferred chains, so we keep the hubs (where trading executes) ahead of
+// the spokes (where users hold collateral). Avalanche mainnet stays last
+// since it's auth-handshake-only, not a trading target.
+const evmNetworks = [
+  AvalancheFuji,
+  ArcTestnet,
+  Sepolia,
+  ArbitrumSepolia,
+  Avalanche,
+];
 // Preferred chains for the WalletConnect handshake — keep ordered with our
 // primary testnets first so the wallet defaults to a chain we actually
 // transact on, while still recognising AVAX mainnet at login.

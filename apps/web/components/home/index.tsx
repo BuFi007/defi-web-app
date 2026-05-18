@@ -2,24 +2,17 @@
 
 import React from "react";
 import { useSearchParams } from "next/navigation";
-import { useAccount } from "wagmi";
-import { useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 import { NotConnectedHome } from "@/components/not-connected";
 import TradeIsland from "@/components/trade-island";
+import { useBufiIsConnected } from "@/lib/session";
 import "@/css/trade-island/index.css";
 
 export const HomeContent: React.FC = () => {
-  const { isConnected } = useAccount();
-  // Dynamic social-auth (Gmail / GitHub / email) creates an embedded wallet
-  // that ISN'T auto-bridged to wagmi — `useAccount().isConnected` stays
-  // false even though the user is fully authenticated. We need a separate
-  // gate based on Dynamic's own session state, otherwise users who log in
-  // via Gmail see "Welcome / Please connect your wallet" forever even
-  // though their name appears in the header.
-  const isDynamicLoggedIn = useIsLoggedIn();
-  const { primaryWallet } = useDynamicContext();
-  const isConnectedAnyPath =
-    isConnected || isDynamicLoggedIn || Boolean(primaryWallet);
+  // One selector → one re-render trigger. The store (SessionBridge) has
+  // already collapsed wagmi.isConnected + Dynamic.useIsLoggedIn() +
+  // primaryWallet + dev-wallet into a single boolean. No more
+  // OR-of-three-sources scattered across components.
+  const isConnectedAnyPath = useBufiIsConnected();
   const searchParams = useSearchParams();
 
   // BENTO_E2E force-island bypass.

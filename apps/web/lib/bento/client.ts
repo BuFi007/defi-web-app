@@ -3,7 +3,22 @@
 // so a single env var (NEXT_PUBLIC_API_URL) drives all backend calls.
 
 import { resilientFetch } from "@/lib/api-client";
-import { buildBentoDevSessionHeaders } from "./dev-session";
+import { useBufiSessionStore } from "@/lib/session";
+import { walletSessionHeaders } from "@/lib/perps/replacement-agent";
+
+/**
+ * Read wallet-session headers synchronously from the BufiSession store.
+ *
+ * Returns headers ONLY when the active session is the dev-mock wallet AND
+ * its proof has been pre-minted (SessionBridge does that on mount).
+ * Production wallets opt-in via useEnsureSession() in call sites — this
+ * helper deliberately returns null for them so we never auto-sign.
+ */
+function readDevSessionHeadersSync(): Record<string, string> | null {
+  const { source, proof } = useBufiSessionStore.getState();
+  if (source !== "dev-mock" || !proof) return null;
+  return walletSessionHeaders(proof);
+}
 
 const DEFAULT_API_URL = "http://localhost:3002";
 
@@ -72,18 +87,17 @@ async function jsonFetch<T>(
   url: string,
   init: RequestInit & { headers?: Record<string, string> } = {},
 ): Promise<T> {
-  // When the BENTO_E2E shim is enabled (dev-only opt-in via env), inject
-  // the dev wallet's X-Wallet-* session headers so the /dev/*/join and
-  // any other session-gated routes accept the request. Production-route
-  // calls don't need them today but it costs nothing to include — the
-  // server ignores X-Wallet-* on unauthenticated routes.
-  const devSessionHeaders = await buildBentoDevSessionHeaders();
+  // Dev-mock wallet auto-injects X-Wallet-* headers (signed locally, no
+  // UI prompt). Production wallets do NOT auto-inject — call sites must
+  // call useEnsureSession().ensureHeaders() and pass the result via
+  // `init.headers` when they need a session.
+  const devHeaders = readDevSessionHeadersSync();
   const res = await resilientFetch(url, {
     ...init,
     headers: {
       accept: "application/json",
       ...(init.body ? { "content-type": "application/json" } : {}),
-      ...(devSessionHeaders ?? {}),
+      ...(devHeaders ?? {}),
       ...init.headers,
     },
   });

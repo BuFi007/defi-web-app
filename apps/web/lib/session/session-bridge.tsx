@@ -8,6 +8,11 @@ import {
 } from "@dynamic-labs/sdk-react-core";
 
 import { useDevWallet } from "@/lib/dev-wallet";
+import {
+  buildWalletSessionTypedData,
+  writeCachedWalletSession,
+  type WalletSessionProof,
+} from "@/lib/perps/replacement-agent";
 import { useBufiSessionStore } from "./store";
 
 /**
@@ -35,7 +40,11 @@ export function SessionBridge() {
   useEffect(() => {
     const setIdentity = useBufiSessionStore.getState().setIdentity;
 
-    // 1. Dev wallet wins.
+    // 1. Dev wallet wins. We ALSO pre-mint the wallet-session proof
+    //    synchronously — the dev wallet signs locally with no UI prompt,
+    //    so it costs nothing to have the proof ready in the store from
+    //    first paint. Production wallets DON'T do this — they sign only
+    //    on explicit user action via useEnsureSession.
     if (devWallet) {
       setIdentity({
         status: "connected",
@@ -43,6 +52,29 @@ export function SessionBridge() {
         chainId: devWallet.chainId,
         source: "dev-mock",
       });
+      const built = buildWalletSessionTypedData({
+        address: devWallet.address,
+        chainId: devWallet.chainId,
+      });
+      devWallet
+        .signSessionTypedData(built.typedData)
+        .then((signature) => {
+          const proof: WalletSessionProof = {
+            address: devWallet.address,
+            chainId: devWallet.chainId,
+            message: built.message,
+            signature,
+            iat: built.iat,
+            exp: built.exp,
+            typedData: built.typedData,
+          };
+          writeCachedWalletSession(proof);
+          useBufiSessionStore.getState().setProof(proof);
+        })
+        .catch(() => {
+          // signing a local key shouldn't fail; if it does, leave proof
+          // empty and useEnsureSession will retry on first call.
+        });
       return;
     }
 
@@ -68,17 +100,28 @@ export function SessionBridge() {
     }
 
     // 3. Dynamic social-auth fallback — when the user logged in via Gmail
-    //    and Dynamic created an embedded wallet that's not (yet) in wagmi.
-    if (isDynamicLoggedIn && primaryWallet) {
-      const addr = primaryWallet.address as `0x${string}` | undefined;
-      const chainStr = primaryWallet.connectedChain ?? null;
+    //    and Dynamic created an embedded wallet that's not (yet) bridged
+    //    into wagmi.
+    //
+    //    Gate on EITHER signal, not both. There's a window after social-
+    //    auth where `useIsLoggedIn()` returns true but `primaryWallet` is
+    //    still null while Dynamic provisions the embedded wallet. The old
+    //    home/index.tsx gate used OR for exactly this reason — requiring
+    //    both here regressed the social-auth flow (header pill renders the
+    //    user's name, but the page is stuck on "Welcome / connect wallet"
+    //    because status stays "anonymous").
+    if (isDynamicLoggedIn || primaryWallet) {
+      const addr = (primaryWallet?.address ?? null) as
+        | `0x${string}`
+        | null;
+      const chainStr = primaryWallet?.connectedChain ?? null;
       const chainNum =
         chainStr && typeof chainStr === "string" && /^\d+$/.test(chainStr)
           ? Number(chainStr)
           : null;
       setIdentity({
         status: "connected",
-        address: addr ?? null,
+        address: addr,
         chainId: chainNum,
         source: "dynamic-social",
       });

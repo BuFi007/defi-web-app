@@ -1,3 +1,16 @@
+// DEPRECATED — prefer apps/web/lib/dev-wallet + apps/web/lib/session.
+//
+// This file remains because lib/perps/hooks.ts + trade-island/panels.tsx
+// still call getPerpsReplacementDevWallet() in 8+ places. Those will be
+// migrated to useDevWallet() + useEnsureSession() in a follow-up sweep.
+// Until then, this file produces a wallet IDENTICAL to what the unified
+// DevWalletProvider produces (same env var, same private key, same chain),
+// so co-existence is safe.
+//
+// New code: do NOT import from this file. Use:
+//   import { useDevWallet } from "@/lib/dev-wallet"
+//   import { useBufiAddress, useEnsureSession } from "@/lib/session"
+
 import type { Hex } from "viem";
 import {
   privateKeyToAccount,

@@ -10,11 +10,20 @@ import type { ChainList } from "@/lib/types";
  *
  * Keep in sync when chains are added/removed from the wagmi config.
  */
-export type WagmiChainId = 43113 | 5042002 | undefined;
+export type WagmiChainId =
+  | 43113
+  | 5042002
+  | 43114
+  | 11155111
+  | 421614
+  | undefined;
 
 const WAGMI_SUPPORTED_CHAIN_IDS: ReadonlyArray<NonNullable<WagmiChainId>> = [
-  43113, // Avalanche Fuji
-  5042002, // Arc Testnet
+  43113, // Avalanche Fuji (hub)
+  5042002, // Arc Testnet (hub)
+  43114, // Avalanche mainnet (read-only, auth shape parity)
+  11155111, // Ethereum Sepolia (spoke)
+  421614, // Arbitrum Sepolia (spoke)
 ];
 
 /**

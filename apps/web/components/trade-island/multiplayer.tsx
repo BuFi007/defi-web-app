@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { encodeAbiParameters, keccak256, type Hex } from "viem";
-import { useAccount, useChainId, useSendTransaction, useSwitchChain } from "wagmi";
+import { useChainId, useSendTransaction, useSwitchChain } from "wagmi";
 
 import {
   buildSelectedTilesHash,
@@ -18,7 +18,8 @@ import {
   devJoinRoom,
   devRevealSelection,
 } from "@/lib/bento/client";
-import { getBentoDevWallet } from "@/lib/bento/dev-mock-wallet";
+import { useDevWallet } from "@/lib/dev-wallet";
+import { useBufiAddress, useBufiIsDevMock } from "@/lib/session";
 import {
   useBentoClaim,
   useBentoLeaderboard,
@@ -685,19 +686,25 @@ export function ArcadeRoom({ market, onClose }: { market: Market; onClose: () =>
   // when the tx is sent. Will read from useBalance(USDC) once token wiring lands.
   const [wallet, setWallet] = useState(125420.5);
 
-  const { address: wagmiAddress } = useAccount();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
   const { sendTransactionAsync } = useSendTransaction();
   const { toast } = useToast();
 
-  // Dev-only opt-in shim (NEXT_PUBLIC_BENTO_E2E=1) — falls back to a
-  // deterministic mock wallet when no real wagmi address is connected so
-  // /browse + smoke harnesses can drive the full UI lifecycle without a
-  // real wallet. Returns null in production or when the env flag is unset.
-  const devWallet = useMemo(() => getBentoDevWallet(), []);
-  const address = wagmiAddress ?? devWallet?.address;
-  const isDevWalletActive = !wagmiAddress && Boolean(devWallet);
+  // Single source of truth — store collapses wagmi + Dynamic + dev-mock
+  // into one identity. `useBufiIsDevMock()` returns true iff the active
+  // identity came from the dev-wallet shim; that's the gate the commit /
+  // reveal / join paths use to bypass wagmi broadcast.
+  //
+  // Fall back to devWallet.address directly when the store hasn't been
+  // populated yet: SessionBridge writes from a useEffect that fires after
+  // first paint, so on initial render `useBufiAddress()` returns null
+  // even when the dev wallet is present. The fallback eliminates a
+  // microsecond race where a Join click could short-circuit on null.
+  const storeAddress = useBufiAddress();
+  const isDevWalletActive = useBufiIsDevMock();
+  const devWallet = useDevWallet();
+  const address = storeAddress ?? devWallet?.address ?? undefined;
 
   // Per-round nonces keyed by `roundIndex`. The same nonce must be used at
   // commit AND reveal time — losing it means the contract rejects the
