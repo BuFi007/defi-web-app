@@ -13,6 +13,8 @@ import {
   DynamicErrorBoundary,
   installDynamicRejectionFilter,
 } from "./DynamicErrorBoundary";
+import { DevWalletProvider } from "@/lib/dev-wallet";
+import { SessionBridge } from "@/lib/session";
 
 const queryClient = new QueryClient();
 // IMPORTANT: Avalanche C-Chain mainnet (43114) is allow-listed here ONLY so
@@ -90,7 +92,15 @@ export default function Providers({ children }: { children: ReactNode }) {
     >
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
-          <DynamicWagmiConnector>{children}</DynamicWagmiConnector>
+          <DynamicWagmiConnector>
+            <DevWalletProvider>
+              {/* SessionBridge is the ONE place that writes to the BufiSession
+                  store. Mounted here so wagmi + Dynamic hooks resolve. No
+                  signing happens here — that's lib/session/use-ensure-session. */}
+              <SessionBridge />
+              {children}
+            </DevWalletProvider>
+          </DynamicWagmiConnector>
         </QueryClientProvider>
       </WagmiProvider>
     </DynamicContextProvider>
