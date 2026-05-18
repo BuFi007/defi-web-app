@@ -93,6 +93,7 @@ function asStatus(error: unknown): number {
 function reportError(c: Context, error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   const code = (error as { code?: string }).code;
+  c.var.log.error("route_error", { err: message, ...(code ? { code } : {}) });
   return c.json({ error: message, ...(code ? { code } : {}) }, asStatus(error) as 400);
 }
 
@@ -315,7 +316,9 @@ function registerIntentRoutes<TSchema extends z.ZodTypeAny>(
       const session = requireSession(c);
       const body = await parseBody(schema, c);
       assertOnBehalfMatchesSession(session, (body as { onBehalf: string }).onBehalf);
-      return jsonRes(c, storeIntent(kind, build(body)), 201);
+      const stored = storeIntent(kind, build(body));
+      c.var.log.info("route_ok");
+      return jsonRes(c, stored, 201);
     } catch (error) {
       return reportError(c, error);
     }
@@ -327,7 +330,9 @@ function registerIntentRoutes<TSchema extends z.ZodTypeAny>(
   fxTelaranaRoutes.post(`/${path}/intents/:id/signature`, async (c) => {
     try {
       const body = await parseBody(intentSignatureSchema, c);
-      return jsonRes(c, await verifyStoredIntent(c.req.param("id"), body));
+      const verified = await verifyStoredIntent(c.req.param("id"), body);
+      c.var.log.info("route_ok");
+      return jsonRes(c, verified);
     } catch (error) {
       return reportError(c, error);
     }

@@ -148,8 +148,11 @@ fxBentoRoutes.post("/rooms/prepare", async (c) => {
   try {
     const engine = engineFromQuery(parseChainQuery(c.req.url).chainId);
     const request = prepareCreateRoomTransaction(engine, parsed.data);
-    return c.json(await transactionPayload(engine, request));
+    const payload = await transactionPayload(engine, request);
+    c.var.log.info("route_ok");
+    return c.json(payload);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -160,8 +163,11 @@ fxBentoRoutes.post("/rooms", async (c) => {
   try {
     const engine = engineFromQuery(parseChainQuery(c.req.url).chainId);
     const request = prepareCreateRoomTransaction(engine, parsed.data);
-    return c.json(await transactionPayload(engine, request));
+    const payload = await transactionPayload(engine, request);
+    c.var.log.info("route_ok");
+    return c.json(payload);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -171,8 +177,10 @@ fxBentoRoutes.post("/dev/rooms", async (c) => {
     assertDevSimulatorEnabled();
     const parsed = await parseBody(c, CreateFxBentoRoomSchema);
     if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
+    c.var.log.info("route_ok");
     return c.json(createFxBentoRoom(parsed.data), 201);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -199,8 +207,11 @@ fxBentoRoutes.post("/rooms/:id/join", async (c) => {
   try {
     const engine = engineFromQuery(parseChainQuery(c.req.url).chainId);
     const request = prepareJoinRoomTransaction(engine, c.req.param("id"));
-    return c.json(await transactionPayload(engine, request, { roomId: c.req.param("id") }));
+    const payload = await transactionPayload(engine, request, { roomId: c.req.param("id") });
+    c.var.log.info("route_ok");
+    return c.json(payload);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -209,8 +220,11 @@ fxBentoRoutes.post("/rooms/:id/join/prepare", async (c) => {
   try {
     const engine = engineFromQuery(parseChainQuery(c.req.url).chainId);
     const request = prepareJoinRoomTransaction(engine, c.req.param("id"));
-    return c.json(await transactionPayload(engine, request, { roomId: c.req.param("id") }));
+    const payload = await transactionPayload(engine, request, { roomId: c.req.param("id") });
+    c.var.log.info("route_ok");
+    return c.json(payload);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -222,8 +236,10 @@ fxBentoRoutes.post("/dev/rooms/:id/join", async (c) => {
     if (!session) return c.json({ error: "wallet session required" }, 401);
     const parsed = await parseBody(c, JoinFxBentoRoomSchema);
     if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
+    c.var.log.info("route_ok");
     return c.json(joinFxBentoRoom(c.req.param("id"), parsed.data));
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -232,8 +248,11 @@ fxBentoRoutes.post("/rooms/:id/leave", async (c) => {
   try {
     const engine = engineFromQuery(parseChainQuery(c.req.url).chainId);
     const request = prepareLeaveRoomTransaction(engine, c.req.param("id"));
-    return c.json(await transactionPayload(engine, request, { roomId: c.req.param("id") }));
+    const payload = await transactionPayload(engine, request, { roomId: c.req.param("id") });
+    c.var.log.info("route_ok");
+    return c.json(payload);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -242,8 +261,11 @@ fxBentoRoutes.post("/rooms/:id/refund", async (c) => {
   try {
     const engine = engineFromQuery(parseChainQuery(c.req.url).chainId);
     const request = prepareRefundTransaction(engine, c.req.param("id"));
-    return c.json(await transactionPayload(engine, request, { roomId: c.req.param("id") }));
+    const payload = await transactionPayload(engine, request, { roomId: c.req.param("id") });
+    c.var.log.info("route_ok");
+    return c.json(payload);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -252,8 +274,11 @@ fxBentoRoutes.post("/rooms/:id/refund/prepare", async (c) => {
   try {
     const engine = engineFromQuery(parseChainQuery(c.req.url).chainId);
     const request = prepareRefundTransaction(engine, c.req.param("id"));
-    return c.json(await transactionPayload(engine, request, { roomId: c.req.param("id") }));
+    const payload = await transactionPayload(engine, request, { roomId: c.req.param("id") });
+    c.var.log.info("route_ok");
+    return c.json(payload);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -268,8 +293,11 @@ fxBentoRoutes.post("/rooms/:id/commit", async (c) => {
       roundIndex: parsed.data.roundIndex,
       commitment: parsed.data.commitment,
     });
-    return c.json(await transactionPayload(engine, request, { roomId: c.req.param("id") }));
+    const payload = await transactionPayload(engine, request, { roomId: c.req.param("id") });
+    c.var.log.info("route_ok");
+    return c.json(payload);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -279,8 +307,10 @@ fxBentoRoutes.post("/dev/rooms/:id/commit", async (c) => {
     assertDevSimulatorEnabled();
     const parsed = await parseBody(c, CommitSelectionSchema);
     if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
+    c.var.log.info("route_ok");
     return c.json(commitFxBentoSelection(c.req.param("id"), parsed.data));
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -296,8 +326,11 @@ fxBentoRoutes.post("/rooms/:id/reveal", async (c) => {
       selection: parsed.data.selection,
       nonce: parsed.data.nonce,
     });
-    return c.json(await transactionPayload(engine, request, { roomId: c.req.param("id") }));
+    const payload = await transactionPayload(engine, request, { roomId: c.req.param("id") });
+    c.var.log.info("route_ok");
+    return c.json(payload);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -307,8 +340,10 @@ fxBentoRoutes.post("/dev/rooms/:id/reveal", async (c) => {
     assertDevSimulatorEnabled();
     const parsed = await parseBody(c, RevealSelectionSchema);
     if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
+    c.var.log.info("route_ok");
     return c.json(revealFxBentoSelection(c.req.param("id"), parsed.data));
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -331,8 +366,11 @@ fxBentoRoutes.post("/rooms/:id/settle", async (c) => {
       payout: parsed.data.payout,
       attestation: parsed.data.attestation,
     });
-    return c.json(await transactionPayload(engine, request, { roomId: c.req.param("id") }));
+    const payload = await transactionPayload(engine, request, { roomId: c.req.param("id") });
+    c.var.log.info("route_ok");
+    return c.json(payload);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -341,8 +379,11 @@ fxBentoRoutes.post("/rooms/:id/finalize", async (c) => {
   try {
     const engine = engineFromQuery(parseChainQuery(c.req.url).chainId);
     const request = prepareFinalizeResultsTransaction(engine, c.req.param("id"));
-    return c.json(await transactionPayload(engine, request, { roomId: c.req.param("id") }));
+    const payload = await transactionPayload(engine, request, { roomId: c.req.param("id") });
+    c.var.log.info("route_ok");
+    return c.json(payload);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -352,8 +393,10 @@ fxBentoRoutes.post("/dev/rooms/:id/settle", async (c) => {
     assertDevSimulatorEnabled();
     const parsed = await parseBody(c, SettleFxBentoRoomSchema);
     if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
+    c.var.log.info("route_ok");
     return c.json(settleFxBentoRoom(c.req.param("id"), parsed.data));
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -379,6 +422,7 @@ fxBentoRoutes.get("/rooms/:id/claims/:address", async (c) => {
       source: proof ? "settlement_result_store" : "simulator",
     });
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -407,8 +451,11 @@ fxBentoRoutes.post("/rooms/:id/claim", async (c) => {
       amount,
       proof: proofItems,
     });
-    return c.json(await transactionPayload(engine, request, { roomId: c.req.param("id") }));
+    const payload = await transactionPayload(engine, request, { roomId: c.req.param("id") });
+    c.var.log.info("route_ok");
+    return c.json(payload);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });

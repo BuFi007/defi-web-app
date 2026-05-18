@@ -37,8 +37,11 @@ perpsRoutes.post("/quote", async (c) => {
   const parsed = perpsQuoteRequest.safeParse(raw);
   if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
   try {
-    return c.json(await perpsService.quote(parsed.data));
+    const out = await perpsService.quote(parsed.data);
+    c.var.log.info("route_ok");
+    return c.json(out);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -58,8 +61,11 @@ perpsRoutes.post("/quote/premium", async (c) => {
   const parsed = perpsQuoteRequest.safeParse(raw);
   if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
   try {
-    return c.json({ premium: true, quote: await perpsService.quote(parsed.data) });
+    const out = { premium: true, quote: await perpsService.quote(parsed.data) };
+    c.var.log.info("route_ok");
+    return c.json(out);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -74,8 +80,11 @@ perpsRoutes.post("/intents", async (c) => {
     return c.json({ error: "trader must match session address" }, 403);
   }
   try {
-    return c.json(jsonSafe(await perpsService.createIntent(parsed.data)));
+    const out = jsonSafe(await perpsService.createIntent(parsed.data));
+    c.var.log.info("route_ok");
+    return c.json(out);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -113,8 +122,11 @@ perpsRoutes.post("/intents/:id/replacement/prepare", async (c) => {
   const parsed = perpsReplacementPrepareRequest.safeParse({ ...raw, originalIntentId });
   if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
   try {
-    return c.json(jsonSafe(await perpsService.prepareReplacementIntent(parsed.data)));
+    const out = jsonSafe(await perpsService.prepareReplacementIntent(parsed.data));
+    c.var.log.info("route_ok");
+    return c.json(out);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -132,8 +144,11 @@ perpsRoutes.post("/intents/:id/replacement", async (c) => {
   const parsed = perpsReplacementSubmitRequest.safeParse({ ...raw, originalIntentId });
   if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
   try {
-    return c.json(jsonSafe(await perpsService.createReplacementIntent(parsed.data)));
+    const out = jsonSafe(await perpsService.createReplacementIntent(parsed.data));
+    c.var.log.info("route_ok");
+    return c.json(out);
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -172,6 +187,7 @@ perpsRoutes.get("/intents/:id/reconciliation", async (c) => {
       }),
     );
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });
@@ -241,6 +257,7 @@ perpsRoutes.get("/trades/:address", async (c) => {
     });
     return c.json(jsonSafe({ address, trades }));
   } catch (e) {
+    c.var.log.error("route_error", { err: (e as Error).message });
     return c.json({ error: (e as Error).message }, errorStatus(e));
   }
 });

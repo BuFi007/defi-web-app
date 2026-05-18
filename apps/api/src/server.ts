@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { ErrorHandler, MiddlewareHandler, NotFoundHandler } from "hono";
 import { createLogger } from "@bufinance/logger";
+import { createLogger as createStructuredLogger, type Logger } from "@bufi/logger";
 import {
   createCorsMiddleware,
   errorHandler,
@@ -17,14 +18,20 @@ import { mcpRoutes } from "./routes/mcp";
 import { perpsRoutes } from "./routes/perps";
 import { spotRoutes } from "./routes/spot";
 import { x402Routes } from "./routes/x402";
+import { initApiSentry } from "./sentry";
 import { walletSession } from "./wallet-session";
 
 declare module "hono" {
   interface ContextVariableMap {
     requestContext: RequestContext;
     requestId: string;
+    log: Logger;
   }
 }
+
+// Fire-and-forget Sentry init. No-ops if SENTRY_DSN_API is unset or the
+// @sentry/node package isn't installed.
+void initApiSentry();
 
 const app = new Hono();
 const log = createLogger({ prefix: "bufx-api" });
@@ -69,6 +76,22 @@ const requestContextMiddleware =
 app.use("*", requestContextMiddleware());
 app.use("*", corsMiddleware);
 app.use("*", walletSession({ required: false }));
+
+// Per-request structured logger bound with {requestId, method, path}.
+// Routes read it as `c.var.log` and emit `route_error` / `route_ok` events.
+app.use("*", async (c, next) => {
+  const requestContext = c.get("requestContext") as RequestContext | undefined;
+  const requestId =
+    requestContext?.requestId ??
+    (typeof crypto?.randomUUID === "function" ? crypto.randomUUID() : `req_${Date.now()}`);
+  const requestLogger = createStructuredLogger({
+    requestId,
+    method: c.req.method,
+    path: c.req.path,
+  });
+  c.set("log", requestLogger);
+  await next();
+});
 
 app.use("*", async (c, next) => {
   await next();
