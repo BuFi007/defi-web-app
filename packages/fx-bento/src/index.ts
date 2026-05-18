@@ -53,6 +53,9 @@ import { assertValidTilePattern } from "./service";
 export * from "./schemas";
 export * from "./service";
 export * from "./results";
+// `./persistence-sqlite` is intentionally NOT re-exported here — it imports
+// bun:sqlite + node:fs and must not be pulled into the client bundle. Server
+// consumers import it via the `@bufi/fx-bento/persistence-sqlite` subpath.
 
 // ---------- engine types ----------
 
