@@ -3,12 +3,23 @@
 import React from "react";
 import { useSearchParams } from "next/navigation";
 import { useAccount } from "wagmi";
+import { useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 import { NotConnectedHome } from "@/components/not-connected";
 import TradeIsland from "@/components/trade-island";
 import "@/css/trade-island/index.css";
 
 export const HomeContent: React.FC = () => {
   const { isConnected } = useAccount();
+  // Dynamic social-auth (Gmail / GitHub / email) creates an embedded wallet
+  // that ISN'T auto-bridged to wagmi — `useAccount().isConnected` stays
+  // false even though the user is fully authenticated. We need a separate
+  // gate based on Dynamic's own session state, otherwise users who log in
+  // via Gmail see "Welcome / Please connect your wallet" forever even
+  // though their name appears in the header.
+  const isDynamicLoggedIn = useIsLoggedIn();
+  const { primaryWallet } = useDynamicContext();
+  const isConnectedAnyPath =
+    isConnected || isDynamicLoggedIn || Boolean(primaryWallet);
   const searchParams = useSearchParams();
 
   // BENTO_E2E force-island bypass.
@@ -36,7 +47,7 @@ export const HomeContent: React.FC = () => {
     process.env.NEXT_PUBLIC_BENTO_E2E === "1" &&
     searchParams?.get("force-island") === "1";
 
-  if (!isConnected && !forceIsland) return <NotConnectedHome />;
+  if (!isConnectedAnyPath && !forceIsland) return <NotConnectedHome />;
 
   return <TradeIsland />;
 };
