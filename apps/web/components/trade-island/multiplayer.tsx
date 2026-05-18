@@ -41,6 +41,20 @@ import { ArcadeBoard, type ArcadeSession, type PlacedChip } from "./arcade";
 const BENTO_E2E_GHOST_PLAYER =
   "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef" as const;
 
+// Production room ids are uint256 strings; the dev simulator returns
+// human-readable `room_<hex8>` ids that BigInt() can't parse. The on-chain
+// commitment hash uses the room id for domain separation, but for the dev
+// simulator path the API only verifies commit==reveal (not against an
+// on-chain bytes32), so a deterministic fallback of 0n keeps both sides
+// consistent and the lifecycle works end-to-end without contract reads.
+function safeRoomIdBigInt(roomId: string): bigint {
+  try {
+    return BigInt(roomId);
+  } catch {
+    return 0n;
+  }
+}
+
 // Perps markets use ISO pairs (EUR/USD), Bento dev rooms only accept the
 // stablecoin pairs declared in packages/fx-bento/src/schemas.ts:42. Map the
 // quoted currency to the matching stablecoin market; fall back to USDC/EURC.
@@ -880,7 +894,7 @@ export function ArcadeRoom({ market, onClose }: { market: Market; onClose: () =>
         const selectedTilesHash = buildSelectedTilesHash(selection);
         const commitment = buildSelectionCommitment({
           chainId: BENTO_CHAIN_ID,
-          roomId: joinedRoomId,
+          roomId: safeRoomIdBigInt(joinedRoomId),
           roundIndex,
           player: address,
           selectedTilesHash,
