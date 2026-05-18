@@ -21,6 +21,13 @@ export {
   type MarketsWsEvent,
 } from "./ws";
 
+export {
+  streamPythPrice,
+  type PythStreamTick,
+  type StreamPythPriceOptions,
+  type UnsubscribePythStream,
+} from "./pyth-stream";
+
 export const HERMES_DEFAULT_BASE_URL = "https://hermes.pyth.network";
 
 const pythParsedPrice = z.object({

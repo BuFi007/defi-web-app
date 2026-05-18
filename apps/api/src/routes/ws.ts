@@ -12,11 +12,38 @@
  *   { type: 'tick', marketId, ts, mark, bid, ask, lastCandle }
  *   { type: 'obDelta', marketId, sequence, bids, asks }
  *
- * SCAFFOLD ONLY — real Pyth + on-chain orderbook wiring lands in Sprint E.
+ * SOURCE OF TRUTH:
+ *  - `tick.mark` / `bid` / `ask` are sourced from Pyth Hermes when the
+ *    incoming `:marketId` can be mapped to a Pyth feed id. Otherwise we fall
+ *    back to the deterministic mock so the scaffold never goes silent.
+ *  - `obDelta` is still mock-only — the on-chain order book lands in Sprint E.
+ *
+ * ENV:
+ *  - `HERMES_BASE_URL` — overrides the default `HERMES_DEFAULT_BASE_URL`
+ *    (`https://hermes.pyth.network`) used by `streamPythPrice`.
+ *
+ * MARKET-ID → PYTH FEED MAPPING:
+ *  `pythFeedForSpotSymbol` from `@bufi/market-data` only accepts the spot
+ *  symbol literals ("EURC" | "JPYC" | "MXNB" | "CHFC"), so we wrap it with
+ *  `resolvePythFeed(marketId)` below that accepts the looser identifiers
+ *  flowing through the WS scaffold ("EUR/USD", "EURUSD", "EUR-USD-PERP",
+ *  "tEURC/USDC", etc.) and normalises them to either a SpotFxSymbol or a
+ *  direct `PYTH_FEED_IDS` entry. Anything unrecognised returns `null` and
+ *  the connection stays on the mock generator.
+ *
  * TODO(sprint-e): rate-limit per-IP and per-marketId; auth optional for L2
  *   private feeds (e.g. user-scoped position updates).
  */
 import type { ServerWebSocket } from "bun";
+import type { Hex } from "viem";
+
+import { PYTH_FEED_IDS, type SpotFxSymbol } from "@bufi/contracts";
+import {
+  pythFeedForSpotSymbol,
+  streamPythPrice,
+  type PythStreamTick,
+  type UnsubscribePythStream,
+} from "@bufi/market-data";
 
 // Path prefix the Hono server uses to test for ws upgrade candidates. Mounted
 // under /ws/markets/:marketId — `app.route("/ws", ...)` is unnecessary because
@@ -72,10 +99,18 @@ interface WsCtx {
   candle: { o: number; h: number; l: number; c: number; v: number };
   tickTimer?: ReturnType<typeof setInterval>;
   obTimer?: ReturnType<typeof setInterval>;
+  /** Live Pyth subscription teardown — null when on mock fallback. */
+  pythUnsubscribe?: UnsubscribePythStream | null;
+  /** Resolved Pyth feed id for this market, or null when none mapped. */
+  pythFeedId?: Hex | null;
   // Soft log surface — bound via server.ts on upgrade so we don't pull the
   // logger module into the public path. We accept any Logger shape with an
   // `info` method (matches both @bufinance/logger and @bufi/logger).
-  log?: { info: (...args: unknown[]) => void };
+  log?: {
+    info: (...args: unknown[]) => void;
+    warn?: (...args: unknown[]) => void;
+    error?: (...args: unknown[]) => void;
+  };
 }
 
 // Bun typing for ws data is generic; we keep the cast contained here.
@@ -98,6 +133,7 @@ function nextRand(ctx: WsCtx): number {
 
 const CANDLE_SECONDS = 15; // matches a 15s rolling micro-candle for the scaffold
 const E18 = 10n ** 18n;
+const E18_NUM = 1e18;
 
 function toE18String(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return "0";
@@ -113,17 +149,7 @@ function buildTick(ctx: WsCtx): TickMessage {
   const spread = ctx.basePrice * 0.0006;
   const bid = mark - spread / 2;
   const ask = mark + spread / 2;
-  ctx.candle.c = mark;
-  ctx.candle.h = Math.max(ctx.candle.h, mark);
-  ctx.candle.l = Math.min(ctx.candle.l, mark);
-  ctx.candle.v += nextRand(ctx) * 5;
-  // Roll the candle bucket every CANDLE_SECONDS so the chart sees a fresh
-  // partial bar instead of an unbounded one.
-  const nowSec = Math.floor(Date.now() / 1000);
-  if (nowSec - ctx.candleStart >= CANDLE_SECONDS) {
-    ctx.candleStart = nowSec;
-    ctx.candle = { o: mark, h: mark, l: mark, c: mark, v: 0 };
-  }
+  rollCandleIfNeeded(ctx, mark);
   return {
     type: "tick",
     marketId: ctx.marketId,
@@ -131,14 +157,7 @@ function buildTick(ctx: WsCtx): TickMessage {
     mark: toE18String(mark),
     bid: toE18String(bid),
     ask: toE18String(ask),
-    lastCandle: {
-      time: ctx.candleStart,
-      o: round4(ctx.candle.o),
-      h: round4(ctx.candle.h),
-      l: round4(ctx.candle.l),
-      c: round4(mark),
-      v: Math.round(ctx.candle.v),
-    },
+    lastCandle: snapshotLastCandle(ctx, mark),
   };
 }
 
@@ -169,6 +188,62 @@ function round4(n: number): number {
   return Math.round(n * 10000) / 10000;
 }
 
+// Shared candle bookkeeping so the Pyth and mock paths agree on bucketing.
+function rollCandleIfNeeded(ctx: WsCtx, mark: number): void {
+  ctx.candle.c = mark;
+  ctx.candle.h = Math.max(ctx.candle.h, mark);
+  ctx.candle.l = Math.min(ctx.candle.l, mark);
+  ctx.candle.v += nextRand(ctx) * 5;
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (nowSec - ctx.candleStart >= CANDLE_SECONDS) {
+    ctx.candleStart = nowSec;
+    ctx.candle = { o: mark, h: mark, l: mark, c: mark, v: 0 };
+  }
+}
+
+function snapshotLastCandle(ctx: WsCtx, mark: number): TickMessage["lastCandle"] {
+  return {
+    time: ctx.candleStart,
+    o: round4(ctx.candle.o),
+    h: round4(ctx.candle.h),
+    l: round4(ctx.candle.l),
+    c: round4(mark),
+    v: Math.round(ctx.candle.v),
+  };
+}
+
+// ---------- marketId → Pyth feed id resolution ----------
+//
+// We accept whatever loose identifier the WS client provides and try to map
+// it to a known Pyth feed. The canonical helper `pythFeedForSpotSymbol` only
+// accepts SpotFxSymbol literals, so this wrapper does the broader matching.
+const SPOT_FX_SYMBOLS: ReadonlyArray<SpotFxSymbol> = ["EURC", "JPYC", "MXNB", "CHFC"];
+
+export function resolvePythFeed(marketId: string): Hex | null {
+  const upper = marketId.toUpperCase();
+
+  // 1) Direct SpotFxSymbol match — e.g. "EURC", "JPYC".
+  for (const sym of SPOT_FX_SYMBOLS) {
+    if (upper === sym) return pythFeedForSpotSymbol(sym);
+  }
+
+  // 2) Substring-based heuristic. Order matters — check more specific tokens
+  //    before generic three-letter codes so "tJPYC/USDC" maps before "JPY".
+  if (upper.includes("EURC") || upper.includes("EUR")) return PYTH_FEED_IDS.eurUsd;
+  if (upper.includes("JPYC") || upper.includes("JPY")) return PYTH_FEED_IDS.jpyUsd;
+  if (upper.includes("MXNB") || upper.includes("MXN")) return PYTH_FEED_IDS.mxnUsd;
+  if (upper.includes("CHFC") || upper.includes("CHF")) return PYTH_FEED_IDS.chfUsd;
+
+  return null;
+}
+
+// ---------- E18 bigint → JS number (lossy, UI-only) ----------
+function e18BigIntToNumber(v: bigint): number {
+  if (v === 0n) return 0;
+  // Typical FX prices fit in Number precision; this preserves ~15 sig figs.
+  return Number(v) / E18_NUM;
+}
+
 // ---------- upgrade entry ----------
 
 export interface UpgradeArgs {
@@ -191,6 +266,8 @@ export function makeUpgradeData(args: UpgradeArgs): WsCtx {
     sequence: 0,
     candleStart: nowSec,
     candle: { o: base, h: base, l: base, c: base, v: 0 },
+    pythUnsubscribe: null,
+    pythFeedId: resolvePythFeed(args.marketId),
     log: args.log,
   };
 }
@@ -214,16 +291,82 @@ function deriveBasePrice(marketId: string): number {
 export const marketsWebSocketHandler = {
   open(ws: MarketsWs) {
     const ctx = ws.data;
-    ctx.log?.info("ws_open", { marketId: ctx.marketId });
-    // Tick every 1000ms.
-    ctx.tickTimer = setInterval(() => {
+    ctx.log?.info("ws_open", { marketId: ctx.marketId, pythFeedId: ctx.pythFeedId ?? null });
+
+    const startMockTicks = () => {
+      if (ctx.tickTimer) return;
+      ctx.tickTimer = setInterval(() => {
+        try {
+          ws.send(JSON.stringify(buildTick(ctx)));
+        } catch {
+          // socket closed mid-send; cleanup runs in close().
+        }
+      }, 1000);
+    };
+
+    if (ctx.pythFeedId) {
+      // Real Pyth path. On every Hermes tick we update internal candle state
+      // and push the same envelope clients already understand. Bid/ask are
+      // derived from the Pyth confidence interval as a stand-in for an order
+      // book spread until Sprint E ships the real book.
       try {
-        ws.send(JSON.stringify(buildTick(ctx)));
-      } catch {
-        // socket closed mid-send; cleanup runs in close().
+        ctx.pythUnsubscribe = streamPythPrice({
+          feedId: ctx.pythFeedId,
+          onPrice: (tick: PythStreamTick) => {
+            try {
+              const mark = e18BigIntToNumber(tick.priceE18);
+              const conf = e18BigIntToNumber(tick.confE18);
+              if (!Number.isFinite(mark) || mark <= 0) return;
+              rollCandleIfNeeded(ctx, mark);
+              const bid = Math.max(0, mark - conf);
+              const ask = mark + conf;
+              const msg: TickMessage = {
+                type: "tick",
+                marketId: ctx.marketId,
+                ts: Date.now(),
+                mark: tick.priceE18.toString(),
+                bid: toE18String(bid),
+                ask: toE18String(ask),
+                lastCandle: snapshotLastCandle(ctx, mark),
+              };
+              try {
+                ws.send(JSON.stringify(msg));
+              } catch {
+                // socket closed mid-send; close() handles teardown.
+              }
+            } catch (err) {
+              ctx.log?.warn?.("ws_pyth_emit_error", {
+                marketId: ctx.marketId,
+                err: (err as Error).message,
+              });
+            }
+          },
+          onError: (err) => {
+            ctx.log?.warn?.("ws_pyth_stream_error", {
+              marketId: ctx.marketId,
+              feedId: ctx.pythFeedId,
+              err: err instanceof Error ? err.message : String(err),
+            });
+            // Stream client handles its own SSE→poll fallback + reconnect.
+            // We additionally engage the mock generator so the socket keeps
+            // producing frames for the UI even if Hermes is fully down.
+            startMockTicks();
+          },
+        });
+      } catch (err) {
+        ctx.log?.error?.("ws_pyth_subscribe_failed", {
+          marketId: ctx.marketId,
+          feedId: ctx.pythFeedId,
+          err: (err as Error).message,
+        });
+        startMockTicks();
       }
-    }, 1000);
-    // OB delta every 250ms.
+    } else {
+      ctx.log?.info("ws_pyth_unmapped_fallback_mock", { marketId: ctx.marketId });
+      startMockTicks();
+    }
+
+    // OB delta every 250ms (mock — Sprint E swaps this for on-chain book).
     ctx.obTimer = setInterval(() => {
       try {
         ws.send(JSON.stringify(buildObDelta(ctx)));
@@ -240,6 +383,14 @@ export const marketsWebSocketHandler = {
     const ctx = ws.data;
     if (ctx.tickTimer) clearInterval(ctx.tickTimer);
     if (ctx.obTimer) clearInterval(ctx.obTimer);
+    if (ctx.pythUnsubscribe) {
+      try {
+        ctx.pythUnsubscribe();
+      } catch {
+        // ignore
+      }
+      ctx.pythUnsubscribe = null;
+    }
     ctx.log?.info("ws_close", { marketId: ctx.marketId, sequence: ctx.sequence });
   },
 };
@@ -254,3 +405,6 @@ export function parseMarketsWsPath(pathname: string): string | null {
   if (!rest || rest.length > 64 || rest.includes("/")) return null;
   return decodeURIComponent(rest);
 }
+
+// Re-export E18 constant for unit tests / downstream tooling.
+export { E18 as WS_E18_SCALE };
