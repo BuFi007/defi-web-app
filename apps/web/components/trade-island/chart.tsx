@@ -1,225 +1,387 @@
 "use client";
 
+/**
+ * Sprint D — lightweight-charts engine swap.
+ *
+ * Drop-in replacement for the legacy custom-canvas `CandleChart`. Same required
+ * props (`market`, `timeframe`); optional overlay props (`oracleLine`,
+ * `liquidationPrice`, `entryPrice`, `markPrice`) light up additional series and
+ * PriceLines when callers wire real `usePositions` data (Sprint A).
+ *
+ * Hard rules:
+ *   - Never green/red. Every color option is mapped to a CSS var: purple for
+ *     profit, yellow (pink in current theme) for loss, primary for entry.
+ *   - Data comes from `@bufi/market-data` `getCandles({ source })` — defaults to
+ *     `mock` so the surface keeps rendering before Sprint E lands.
+ *   - ResizeObserver drives layout; no `window.resize` listener leak across
+ *     re-renders.
+ */
+
+import {
+  CandlestickSeries,
+  ColorType,
+  CrosshairMode,
+  HistogramSeries,
+  LineSeries,
+  LineStyle,
+  createChart,
+  type CandlestickData,
+  type HistogramData,
+  type IChartApi,
+  type ISeriesApi,
+  type IPriceLine,
+  type LineData,
+  type MouseEventParams,
+  type SeriesMarker,
+  type UTCTimestamp,
+} from "lightweight-charts";
 import { useEffect, useRef, useState } from "react";
-import { makeCandles, type Candle, type Market } from "./data";
+import {
+  getCandles,
+  type Candle,
+  type CandleSource,
+} from "@bufi/market-data";
+import type { Market } from "./data";
 
-export function CandleChart({ market, timeframe }: { market: Market; timeframe: string }) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const wrapRef = useRef<HTMLDivElement | null>(null);
-  const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
-  const candlesRef = useRef<Candle[]>([]);
+export interface CandleChartProps {
+  market: Market;
+  timeframe: string;
+  /** Defaults to `'mock'` until Sprint A wires ponder + Sprint E wires WS. */
+  source?: CandleSource;
+  /** Faint mid/oracle overlay; same length as candles array, aligned by index. */
+  oracleLine?: number[];
+  /** PriceLine overlays — render only when a value is provided. */
+  liquidationPrice?: number;
+  entryPrice?: number;
+  markPrice?: number;
+}
 
-  useEffect(() => {
-    candlesRef.current = makeCandles(market.price, 120);
-  }, [market.sym, market.price]);
+type ThemeTokens = {
+  surface: string;
+  surface2: string;
+  border: string;
+  ink: string;
+  ink3: string;
+  ink4: string;
+  profit: string;
+  profitInk: string;
+  loss: string;
+  lossInk: string;
+  primary: string;
+  primaryInk: string;
+};
 
-  useEffect(() => {
-    let raf = 0;
-    const draw = () => {
-      const cv = canvasRef.current;
-      const wrap = wrapRef.current;
-      if (!cv || !wrap) return;
-      const dpr = window.devicePixelRatio || 1;
-      const W = wrap.clientWidth;
-      const H = wrap.clientHeight;
-      if (cv.width !== W * dpr || cv.height !== H * dpr) {
-        cv.width = W * dpr;
-        cv.height = H * dpr;
-        cv.style.width = W + "px";
-        cv.style.height = H + "px";
-      }
-      const ctx = cv.getContext("2d");
-      if (!ctx) return;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, W, H);
-
-      const root = getComputedStyle(document.documentElement);
-      const colorBorder = root.getPropertyValue("--border").trim() || "#ebe4ff";
-      const colorInk3 = root.getPropertyValue("--ink-3").trim() || "#7c70a8";
-      const colorInk4 = root.getPropertyValue("--ink-4").trim() || "#b6abd6";
-      const profit = root.getPropertyValue("--profit").trim() || "#a89ce8";
-      const loss = root.getPropertyValue("--loss").trim() || "#ffecb4";
-      const profitInk = root.getPropertyValue("--profit-ink").trim() || profit;
-      const lossInk = root.getPropertyValue("--loss-ink").trim() || loss;
-
-      const data = candlesRef.current;
-      if (!data.length) return;
-
-      const padLeft = 8;
-      const padRight = 70;
-      const padTop = 14;
-      const padBottom = 80;
-      const plotW = W - padLeft - padRight;
-      const plotH = H - padTop - padBottom;
-      const volH = 50;
-
-      let lo = Infinity;
-      let hi = -Infinity;
-      for (const c of data) {
-        if (c.l < lo) lo = c.l;
-        if (c.h > hi) hi = c.h;
-      }
-      const pad = (hi - lo) * 0.08;
-      lo -= pad;
-      hi += pad;
-      const yOf = (v: number) => padTop + (1 - (v - lo) / (hi - lo)) * plotH;
-
-      const volMax = Math.max(...data.map((d) => d.v));
-      const volYOf = (v: number) => H - padBottom + volH - (v / volMax) * volH + 24;
-
-      const candleW = Math.max(2, plotW / data.length - 1.5);
-      const xOf = (i: number) => padLeft + i * (plotW / data.length) + plotW / data.length / 2;
-
-      ctx.strokeStyle = colorBorder;
-      ctx.lineWidth = 1;
-      const steps = 6;
-      ctx.font = '11px "JetBrains Mono", monospace';
-      ctx.fillStyle = colorInk4;
-      ctx.textAlign = "left";
-      ctx.textBaseline = "middle";
-      for (let i = 0; i <= steps; i++) {
-        const y = padTop + (i / steps) * plotH;
-        const v = hi - (i / steps) * (hi - lo);
-        ctx.beginPath();
-        ctx.setLineDash([2, 4]);
-        ctx.moveTo(padLeft, y);
-        ctx.lineTo(W - padRight, y);
-        ctx.stroke();
-        const dec = v < 10 ? 4 : v < 1000 ? 2 : 1;
-        ctx.fillText(v.toFixed(dec), W - padRight + 8, y);
-      }
-      ctx.setLineDash([]);
-
-      ctx.strokeStyle = colorBorder;
-      for (let i = 0; i < data.length; i += 16) {
-        const x = xOf(i);
-        ctx.beginPath();
-        ctx.setLineDash([2, 4]);
-        ctx.moveTo(x, padTop);
-        ctx.lineTo(x, H - padBottom);
-        ctx.stroke();
-      }
-      ctx.setLineDash([]);
-
-      for (let i = 0; i < data.length; i++) {
-        const d = data[i];
-        const x = xOf(i);
-        const up = d.c >= d.o;
-        const vy = volYOf(d.v);
-        const vH = H - padBottom + 24 - vy;
-        ctx.fillStyle = up ? profit + "33" : loss + "33";
-        ctx.fillRect(x - candleW / 2, vy, candleW, vH);
-      }
-
-      for (let i = 0; i < data.length; i++) {
-        const d = data[i];
-        const x = xOf(i);
-        const up = d.c >= d.o;
-        const wickColor = up ? profitInk : lossInk;
-        ctx.strokeStyle = wickColor;
-        ctx.lineWidth = 1.1;
-        ctx.beginPath();
-        ctx.moveTo(x, yOf(d.h));
-        ctx.lineTo(x, yOf(d.l));
-        ctx.stroke();
-        const bodyTop = yOf(Math.max(d.o, d.c));
-        const bodyBot = yOf(Math.min(d.o, d.c));
-        const bodyH = Math.max(1.5, bodyBot - bodyTop);
-        const r = Math.min(candleW * 0.25, bodyH * 0.25, 3);
-        ctx.beginPath();
-        const bx = x - candleW / 2;
-        const by = bodyTop;
-        const bw = candleW;
-        const bh = bodyH;
-        ctx.moveTo(bx + r, by);
-        ctx.arcTo(bx + bw, by, bx + bw, by + bh, r);
-        ctx.arcTo(bx + bw, by + bh, bx, by + bh, r);
-        ctx.arcTo(bx, by + bh, bx, by, r);
-        ctx.arcTo(bx, by, bx + bw, by, r);
-        ctx.closePath();
-        ctx.fillStyle = up ? profit : loss;
-        ctx.fill();
-        ctx.strokeStyle = wickColor;
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      }
-
-      const last = data[data.length - 1];
-      const lastY = yOf(last.c);
-      const up = last.c >= last.o;
-      const tagColor = up ? profit : loss;
-      const tagTextColor = up ? "#ffffff" : lossInk;
-      ctx.strokeStyle = up ? profitInk : lossInk;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.moveTo(padLeft, lastY);
-      ctx.lineTo(W - padRight, lastY);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      const tagW = 64;
-      const tagH = 22;
-      const tagX = W - padRight + 2;
-      ctx.fillStyle = tagColor;
-      const ty = Math.max(padTop + tagH / 2, Math.min(H - padBottom - tagH / 2, lastY));
-      ctx.beginPath();
-      const rr = 6;
-      ctx.moveTo(tagX + rr, ty - tagH / 2);
-      ctx.arcTo(tagX + tagW, ty - tagH / 2, tagX + tagW, ty + tagH / 2, rr);
-      ctx.arcTo(tagX + tagW, ty + tagH / 2, tagX, ty + tagH / 2, rr);
-      ctx.arcTo(tagX, ty + tagH / 2, tagX, ty - tagH / 2, rr);
-      ctx.arcTo(tagX, ty - tagH / 2, tagX + tagW, ty - tagH / 2, rr);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = tagTextColor;
-      ctx.font = 'bold 11px "JetBrains Mono", monospace';
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      const dec = last.c < 10 ? 4 : last.c < 1000 ? 2 : 1;
-      ctx.fillText(last.c.toFixed(dec), tagX + tagW / 2, ty);
-
-      if (hover) {
-        const { x: hx, y: hy } = hover;
-        ctx.strokeStyle = colorInk3;
-        ctx.setLineDash([3, 3]);
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(hx, padTop);
-        ctx.lineTo(hx, H - padBottom);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(padLeft, hy);
-        ctx.lineTo(W - padRight, hy);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
+function readThemeTokens(): ThemeTokens {
+  if (typeof window === "undefined") {
+    return {
+      surface: "#ffffff",
+      surface2: "#faf7ff",
+      border: "#ebe4ff",
+      ink: "#1f1740",
+      ink3: "#7c70a8",
+      ink4: "#b6abd6",
+      profit: "#a89ce8",
+      profitInk: "#4d3fa6",
+      loss: "#feadec",
+      lossInk: "#b8458e",
+      primary: "#6b5bff",
+      primaryInk: "#4233c4",
     };
+  }
+  const root = getComputedStyle(document.documentElement);
+  const v = (name: string, fallback: string) => root.getPropertyValue(name).trim() || fallback;
+  return {
+    surface: v("--surface", "#ffffff"),
+    surface2: v("--surface-2", "#faf7ff"),
+    border: v("--border", "#ebe4ff"),
+    ink: v("--ink", "#1f1740"),
+    ink3: v("--ink-3", "#7c70a8"),
+    ink4: v("--ink-4", "#b6abd6"),
+    profit: v("--profit", "#a89ce8"),
+    profitInk: v("--profit-ink", "#4d3fa6"),
+    loss: v("--loss", "#feadec"),
+    lossInk: v("--loss-ink", "#b8458e"),
+    primary: v("--primary", "#6b5bff"),
+    primaryInk: v("--primary-ink", "#4233c4"),
+  };
+}
 
-    draw();
-    const onResize = () => draw();
-    window.addEventListener("resize", onResize);
-    const tick = () => {
-      draw();
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
+// Volume bar opacity — keep low so candles dominate. Hex alpha trick: append.
+function withAlpha(hex: string, alphaByte: string): string {
+  if (!hex.startsWith("#") || (hex.length !== 7 && hex.length !== 4)) return hex;
+  const norm = hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}` : hex;
+  return `${norm}${alphaByte}`;
+}
+
+export function CandleChart({
+  market,
+  timeframe,
+  source = "mock",
+  oracleLine,
+  liquidationPrice,
+  entryPrice,
+  markPrice,
+}: CandleChartProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const oracleSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const priceLinesRef = useRef<IPriceLine[]>([]);
+  const [hover, setHover] = useState<Candle | null>(null);
+
+  // Chart lifecycle — create once, dispose on unmount.
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const t = readThemeTokens();
+    const chart = createChart(containerRef.current, {
+      layout: {
+        background: { type: ColorType.Solid, color: t.surface },
+        textColor: t.ink3,
+        fontFamily:
+          "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+        fontSize: 11,
+        attributionLogo: false,
+      },
+      grid: {
+        vertLines: { color: t.border, style: LineStyle.Dotted },
+        horzLines: { color: t.border, style: LineStyle.Dotted },
+      },
+      rightPriceScale: {
+        borderColor: t.border,
+        textColor: t.ink4,
+        scaleMargins: { top: 0.08, bottom: 0.28 },
+      },
+      timeScale: {
+        borderColor: t.border,
+        timeVisible: true,
+        secondsVisible: false,
+      },
+      crosshair: {
+        mode: CrosshairMode.Magnet,
+        vertLine: { color: t.ink3, width: 1, style: LineStyle.Dashed, labelBackgroundColor: t.primary },
+        horzLine: { color: t.ink3, width: 1, style: LineStyle.Dashed, labelBackgroundColor: t.primary },
+      },
+      autoSize: false,
+      handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+      handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
+    });
+
+    const candleSeries = chart.addSeries(CandlestickSeries, {
+      upColor: t.profit,
+      downColor: t.loss,
+      borderUpColor: t.profitInk,
+      borderDownColor: t.lossInk,
+      wickUpColor: t.profitInk,
+      wickDownColor: t.lossInk,
+      priceFormat: {
+        type: "price",
+        precision: market.price < 10 ? 4 : market.price < 1000 ? 2 : 1,
+        minMove: market.price < 10 ? 0.0001 : market.price < 1000 ? 0.01 : 0.1,
+      },
+    });
+
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      priceFormat: { type: "volume" },
+      priceScaleId: "vol",
+      // Bars rendered in their own micro-scale so they sit under the candles.
+    });
+    chart.priceScale("vol").applyOptions({
+      scaleMargins: { top: 0.78, bottom: 0 },
+      borderVisible: false,
+    });
+
+    const oracleSeries = chart.addSeries(LineSeries, {
+      color: withAlpha(t.primary, "66"),
+      lineWidth: 1,
+      lineStyle: LineStyle.Solid,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+    });
+
+    chartRef.current = chart;
+    candleSeriesRef.current = candleSeries;
+    volumeSeriesRef.current = volumeSeries;
+    oracleSeriesRef.current = oracleSeries;
+
+    const ro = new ResizeObserver(() => {
+      const el = containerRef.current;
+      if (!el || !chartRef.current) return;
+      chartRef.current.applyOptions({ width: el.clientWidth, height: el.clientHeight });
+    });
+    ro.observe(containerRef.current);
+
     return () => {
-      window.removeEventListener("resize", onResize);
-      cancelAnimationFrame(raf);
+      ro.disconnect();
+      chart.remove();
+      chartRef.current = null;
+      candleSeriesRef.current = null;
+      volumeSeriesRef.current = null;
+      oracleSeriesRef.current = null;
+      priceLinesRef.current = [];
     };
-  }, [market.sym, hover, timeframe]);
+    // Intentionally no deps — chart is reused across data/theme updates below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  // Data load — re-fetches on market/timeframe/source change.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const candles = await getCandles({
+        source,
+        marketId: market.sym,
+        tf: timeframe,
+        basePrice: market.price,
+        limit: 200,
+      });
+      if (cancelled) return;
+      const candleSeries = candleSeriesRef.current;
+      const volumeSeries = volumeSeriesRef.current;
+      const oracleSeries = oracleSeriesRef.current;
+      const chart = chartRef.current;
+      if (!candleSeries || !volumeSeries || !oracleSeries || !chart) return;
+
+      const t = readThemeTokens();
+      const candleData: CandlestickData<UTCTimestamp>[] = candles.map((c) => ({
+        time: c.time as UTCTimestamp,
+        open: c.o,
+        high: c.h,
+        low: c.l,
+        close: c.c,
+      }));
+      const volumeData: HistogramData<UTCTimestamp>[] = candles.map((c) => ({
+        time: c.time as UTCTimestamp,
+        value: c.v,
+        color: c.c >= c.o ? withAlpha(t.profit, "55") : withAlpha(t.loss, "55"),
+      }));
+      candleSeries.setData(candleData);
+      volumeSeries.setData(volumeData);
+
+      if (oracleLine && oracleLine.length === candles.length) {
+        const oracleData: LineData<UTCTimestamp>[] = candles.map((c, i) => ({
+          time: c.time as UTCTimestamp,
+          value: oracleLine[i],
+        }));
+        oracleSeries.setData(oracleData);
+      } else {
+        oracleSeries.setData([]);
+      }
+
+      chart.timeScale().fitContent();
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [market.sym, market.price, timeframe, source, oracleLine]);
+
+  // PriceLines — recreated whenever the prop bag changes. Cheap; only 1–3 lines.
+  useEffect(() => {
+    const candleSeries = candleSeriesRef.current;
+    if (!candleSeries) return;
+    const t = readThemeTokens();
+    for (const pl of priceLinesRef.current) candleSeries.removePriceLine(pl);
+    priceLinesRef.current = [];
+
+    if (typeof entryPrice === "number" && Number.isFinite(entryPrice)) {
+      priceLinesRef.current.push(
+        candleSeries.createPriceLine({
+          price: entryPrice,
+          color: t.primary,
+          lineStyle: LineStyle.Dashed,
+          lineWidth: 1,
+          axisLabelVisible: true,
+          title: "ENTRY",
+        }),
+      );
+    }
+    if (typeof liquidationPrice === "number" && Number.isFinite(liquidationPrice)) {
+      priceLinesRef.current.push(
+        candleSeries.createPriceLine({
+          price: liquidationPrice,
+          color: t.lossInk,
+          lineStyle: LineStyle.Dashed,
+          lineWidth: 1,
+          axisLabelVisible: true,
+          title: "LIQ",
+        }),
+      );
+    }
+    if (typeof markPrice === "number" && Number.isFinite(markPrice)) {
+      priceLinesRef.current.push(
+        candleSeries.createPriceLine({
+          price: markPrice,
+          color: t.primaryInk,
+          lineStyle: LineStyle.Solid,
+          lineWidth: 1,
+          axisLabelVisible: true,
+          title: "MARK",
+        }),
+      );
+    }
+  }, [entryPrice, liquidationPrice, markPrice]);
+
+  // Crosshair → OHLC tooltip. We render into a small overlay anchored top-left
+  // so we don't fight the existing `.chart-substats` row above the chart.
+  useEffect(() => {
+    const chart = chartRef.current;
+    const candleSeries = candleSeriesRef.current;
+    const volumeSeries = volumeSeriesRef.current;
+    if (!chart || !candleSeries || !volumeSeries) return;
+    const handler = (param: MouseEventParams) => {
+      if (!param.time || !param.point) {
+        setHover(null);
+        return;
+      }
+      const candle = param.seriesData.get(candleSeries) as
+        | CandlestickData<UTCTimestamp>
+        | undefined;
+      const vol = param.seriesData.get(volumeSeries) as
+        | HistogramData<UTCTimestamp>
+        | undefined;
+      if (!candle) {
+        setHover(null);
+        return;
+      }
+      setHover({
+        time: candle.time as number,
+        o: candle.open,
+        h: candle.high,
+        l: candle.low,
+        c: candle.close,
+        v: vol?.value ?? 0,
+      });
+    };
+    chart.subscribeCrosshairMove(handler);
+    return () => chart.unsubscribeCrosshairMove(handler);
+  }, []);
+
+  // Silence unused — `SeriesMarker` import kept for future Sprint-A markers.
+  void (null as unknown as SeriesMarker<UTCTimestamp>);
+
+  const dec = market.price < 10 ? 4 : market.price < 1000 ? 2 : 1;
   return (
-    <div
-      ref={wrapRef}
-      className="chart-area"
-      onMouseMove={(e) => {
-        const r = e.currentTarget.getBoundingClientRect();
-        setHover({ x: e.clientX - r.left, y: e.clientY - r.top });
-      }}
-      onMouseLeave={() => setHover(null)}
-    >
-      <canvas ref={canvasRef} className="chart-canvas" />
+    <div ref={containerRef} className="chart-area">
+      {hover && (
+        <div className="chart-ohlc-tooltip mono" aria-hidden>
+          <span className="chart-ohlc-label">O</span>
+          <span>{hover.o.toFixed(dec)}</span>
+          <span className="chart-ohlc-label">H</span>
+          <span>{hover.h.toFixed(dec)}</span>
+          <span className="chart-ohlc-label">L</span>
+          <span>{hover.l.toFixed(dec)}</span>
+          <span className="chart-ohlc-label">C</span>
+          <span
+            style={{ color: hover.c >= hover.o ? "var(--profit-ink)" : "var(--loss-ink)" }}
+          >
+            {hover.c.toFixed(dec)}
+          </span>
+          <span className="chart-ohlc-label">V</span>
+          <span>{Math.round(hover.v)}</span>
+        </div>
+      )}
     </div>
   );
 }

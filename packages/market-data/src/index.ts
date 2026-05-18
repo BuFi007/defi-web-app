@@ -2,6 +2,15 @@ import { PYTH_FEED_IDS, type SpotFxSymbol } from "@bufi/contracts";
 import type { Hex } from "viem";
 import { z } from "zod";
 
+export {
+  getCandles,
+  makeMockCandles,
+  timeframeToSeconds,
+  type Candle,
+  type CandleSource,
+  type GetCandlesOptions,
+} from "./candles";
+
 export const HERMES_DEFAULT_BASE_URL = "https://hermes.pyth.network";
 
 const pythParsedPrice = z.object({

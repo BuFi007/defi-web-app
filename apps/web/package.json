@@ -16,6 +16,7 @@
     "@bufi/fx-telarana": "workspace:*",
     "@bufi/liveblocks": "workspace:*",
     "@bufi/location": "workspace:*",
+    "@bufi/market-data": "workspace:*",
     "@bufi/perps": "workspace:*",
     "@bufi/shared-types": "workspace:*",
     "@dynamic-labs/ethereum": "4.83.1",
@@ -57,6 +58,7 @@
     "canvas-confetti": "1.9.3",
     "class-variance-authority": "0.7.0",
     "clsx": "2.1.1",
+    "d3-array": "3.2.4",
     "encoding": "0.1.13",
     "ethers": "5",
     "framer-motion": "12.38.0",
@@ -96,6 +98,7 @@
     "zustand": "5.0.13"
   },
   "devDependencies": {
+    "@types/d3-array": "3.2.1",
     "@types/node": "20",
     "@types/react": "19",
     "@types/react-dom": "19",
