@@ -102,19 +102,24 @@ function CompactOrderbook({ market }: { market: Market }) {
         <span>Total</span>
       </div>
       <div className="mt-ob-rows">
-        {asks.length === 0 && !isLoading && (
-          <div className="ob-row" style={{ opacity: 0.4, justifyContent: "center", padding: "6px 0" }}>
-            <span className="mono" style={{ fontSize: 10 }}>no pending shorts</span>
-          </div>
-        )}
-        {[...asks].reverse().map((a, i) => (
-          <div key={"a" + i} className="ob-row ask">
-            <div className="bar" style={{ width: `${(a.total / maxTotal) * 100}%` }} />
-            <span className="v price mono">{a.price.toFixed(dec)}</span>
-            <span className="v size mono">{a.size.toFixed(2)}</span>
-            <span className="v total mono">{a.total.toFixed(2)}</span>
-          </div>
-        ))}
+        <div className="ob-half ob-half-asks">
+          {asks.length === 0 ? (
+            <div className="ob-empty">
+              <span className="ob-empty-label mono">
+                {isLoading ? "loading…" : "no pending shorts"}
+              </span>
+            </div>
+          ) : (
+            asks.map((a, i) => (
+              <div key={"a" + i} className="ob-row ask">
+                <div className="bar" style={{ width: `${(a.total / maxTotal) * 100}%` }} />
+                <span className="v price mono">{a.price.toFixed(dec)}</span>
+                <span className="v size mono">{a.size.toFixed(2)}</span>
+                <span className="v total mono">{a.total.toFixed(2)}</span>
+              </div>
+            ))
+          )}
+        </div>
         <div className="ob-spread">
           <span className="last mono">
             {mid.toFixed(dec)}
@@ -128,19 +133,24 @@ function CompactOrderbook({ market }: { market: Market }) {
               : `${book?.totalPending ?? 0} pending`}
           </span>
         </div>
-        {bids.length === 0 && !isLoading && (
-          <div className="ob-row" style={{ opacity: 0.4, justifyContent: "center", padding: "6px 0" }}>
-            <span className="mono" style={{ fontSize: 10 }}>no pending longs</span>
-          </div>
-        )}
-        {bids.map((b, i) => (
-          <div key={"b" + i} className="ob-row bid">
-            <div className="bar" style={{ width: `${(b.total / maxTotal) * 100}%` }} />
-            <span className="v price mono">{b.price.toFixed(dec)}</span>
-            <span className="v size mono">{b.size.toFixed(2)}</span>
-            <span className="v total mono">{b.total.toFixed(2)}</span>
-          </div>
-        ))}
+        <div className="ob-half ob-half-bids">
+          {bids.length === 0 ? (
+            <div className="ob-empty">
+              <span className="ob-empty-label mono">
+                {isLoading ? "loading…" : "no pending longs"}
+              </span>
+            </div>
+          ) : (
+            bids.map((b, i) => (
+              <div key={"b" + i} className="ob-row bid">
+                <div className="bar" style={{ width: `${(b.total / maxTotal) * 100}%` }} />
+                <span className="v price mono">{b.price.toFixed(dec)}</span>
+                <span className="v size mono">{b.size.toFixed(2)}</span>
+                <span className="v total mono">{b.total.toFixed(2)}</span>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );

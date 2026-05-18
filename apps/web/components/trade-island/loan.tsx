@@ -185,8 +185,23 @@ function bpsFromWad(value: bigint | string): number {
 
 /**
  * Liftover: turn a serialized fx-telarana market into the LoanMarket row
- * shape the existing UI knows how to render. APYs default to 0 because the
- * IRM read isn't exposed on the API yet (TODO: irm.borrowRateView).
+ * shape the existing UI knows how to render.
+ *
+ * APY/APR derivation. The Fuji + Arc deployments wire `IrmMock`
+ * (Morpho's reference IRM mock) at the manifest's `IrmMock` address.
+ * Its formula is, verbatim:
+ *
+ *   borrowRateView(_, Market m) = totalBorrow.wDivDown(totalSupply) / SECONDS_PER_YEAR
+ *
+ * So `borrowRate (per second, WAD) × SECONDS_PER_YEAR / 1e18` simplifies
+ * to `utilization` (fraction). i.e. **APR = utilization** on the mock IRM.
+ * Supply APY ≈ borrowAPR × utilization × (1 − fee); the Morpho `fee`
+ * field defaults to 0, so `supplyAPY ≈ util²` on these markets.
+ *
+ * When the protocol swaps in a non-mock IRM, this needs to become a
+ * proper `viem.readContract({ functionName: "borrowRateView" })` per
+ * market — exposed via the SDK so the API can include it in the
+ * /fx-telarana/markets response.
  */
 function toLoanMarket(market: TelaranaMarketSerialized): LoanMarket {
   const loanSym = symbolForToken(market.loanToken);
@@ -198,13 +213,17 @@ function toLoanMarket(market: TelaranaMarketSerialized): LoanMarket {
   const tvlAtomic = supplyAssets - borrowAssets;
   const tvl = Number(tvlAtomic / 10n ** 4n) / 100; // 6-dp → USD
   const lltv = Number(BigInt(market.lltv) / 10n ** 14n) / 10_000;
+  // IrmMock: borrowAPR ≡ utilization (fraction). Convert to percentage
+  // for the UI. Supply ≈ borrow × util (Morpho fee defaults to 0).
+  const borrow = util * 100;
+  const supply = util * util * 100;
   return {
     id: `${hub}-${loanSym.toLowerCase()}-${collSym.toLowerCase()}`,
     hub,
     loan: loanSym,
     coll: collSym,
-    supply: 0,
-    borrow: 0,
+    supply,
+    borrow,
     util,
     lltv,
     tvl,

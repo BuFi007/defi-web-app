@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 import {
   Select,
   SelectContent,
@@ -23,12 +24,19 @@ export const ChainSelect: React.FC<ChainSelectProps> = ({
 
     return (
       <div className="flex items-center space-x-2">
-        <img
-          src={chain?.iconUrls?.[0] || ""}
-          alt={chain?.name || ""}
-          className="h-6 w-6 rounded-full"
-        />
-        <span className="font-clash text-sm">{chain?.name}</span>
+        {chain.iconUrls?.[0] ? (
+          <Image
+            src={chain.iconUrls[0]}
+            alt={chain.name || ""}
+            width={24}
+            height={24}
+            className="rounded-full"
+            unoptimized
+          />
+        ) : (
+          <div className="h-6 w-6 rounded-full bg-gray-100" />
+        )}
+        <span className="font-clash text-sm">{chain.name}</span>
       </div>
     );
   };

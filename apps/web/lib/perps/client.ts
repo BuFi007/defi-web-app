@@ -201,6 +201,82 @@ export async function fetchPerpsMarkets(args: {
   return body.markets;
 }
 
+// 24h stats: see lib/perps/use-market-stats.ts. It predates this file
+// and is already consumed by panels.tsx. The DTO + hook live there.
+
+export interface PerpsCandleDto {
+  /** Open time, unix seconds. */
+  t: number;
+  o: number;
+  h: number;
+  l: number;
+  c: number;
+  /** Pyth Benchmarks volume proxy. Treat as relative, not native units. */
+  v: number;
+}
+
+export interface PerpsCandlesResponseDto {
+  sym: string;
+  tf: string;
+  source: "pyth-benchmarks" | "empty";
+  candles: PerpsCandleDto[];
+}
+
+/**
+ * Historical OHLCV from `/perps/markets/:sym/candles`. Pyth Benchmarks via
+ * the TradingView UDF shim. Use the returned `source` to detect the
+ * empty-fallback case (unmapped symbol or 404 upstream).
+ */
+export async function fetchPerpsCandles(args: {
+  sym: string;
+  tf?: string;
+  limit?: number;
+  signal?: AbortSignal;
+}): Promise<PerpsCandlesResponseDto> {
+  const path = `/perps/markets/${encodeURIComponent(args.sym)}/candles`;
+  const res = await resilientFetch(
+    bufxApiUrl(path, { tf: args.tf, limit: args.limit }),
+    { headers: { accept: "application/json" }, signal: args.signal },
+  );
+  return jsonOrThrow<PerpsCandlesResponseDto>(res, path);
+}
+
+export interface PerpsOrderbookLevelDto {
+  /** 1e18-scaled price. */
+  priceE18: string;
+  /** 1e18-scaled aggregated remaining size at this level. */
+  sizeE18: string;
+  /** How many intents are grouped into this bucket. */
+  count: number;
+}
+
+export interface PerpsOrderbookDto {
+  marketId: string;
+  depth: number;
+  bids: PerpsOrderbookLevelDto[];
+  asks: PerpsOrderbookLevelDto[];
+  /** Total pending intents on this market (pre-bucketing, includes market orders). */
+  totalPending: number;
+}
+
+/**
+ * Pending-intents view from `/perps/intents/pending`. This is a
+ * matcher-style view (price-time priority on signed intents), not a true
+ * CLOB — but it's the canonical "orderbook" surface the UI renders.
+ */
+export async function fetchPerpsOrderbook(args: {
+  marketId: string;
+  depth?: number;
+  signal?: AbortSignal;
+}): Promise<PerpsOrderbookDto> {
+  const path = "/perps/intents/pending";
+  const res = await resilientFetch(
+    bufxApiUrl(path, { marketId: args.marketId, depth: args.depth }),
+    { headers: { accept: "application/json" }, signal: args.signal },
+  );
+  return jsonOrThrow<PerpsOrderbookDto>(res, path);
+}
+
 export async function fetchPerpsQuote(args: {
   request: PerpsQuoteRequestBody;
   signal?: AbortSignal;

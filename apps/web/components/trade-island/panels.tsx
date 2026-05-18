@@ -17,6 +17,11 @@ import { useMarketStats } from "@/lib/perps/use-market-stats";
 import { usePendingIntents } from "@/lib/perps/use-pending-intents";
 import { getPerpsReplacementDevWallet } from "@/lib/perps/dev-mock-wallet";
 import type { PerpsMarketDto } from "@/lib/perps/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // USDC token addresses per hub chain — perps margin is posted in USDC.
 // Spokes are excluded here because perps execution lives on the hubs.
@@ -68,9 +73,6 @@ export function OrderbookCard({ market }: { market: Market }) {
     <div className="card orderbook-card">
       <div className="card-head ob-head">
         <div className="card-title">
-          <span className="card-icon">
-            <Icon name="list" size={15} />
-          </span>
           <span>
             Pending Intents{" "}
             <Hint w={300}>
@@ -93,25 +95,31 @@ export function OrderbookCard({ market }: { market: Market }) {
         <span>Size</span>
         <span>Total</span>
       </div>
-      <div className="ob-rows" style={{ display: "flex", flexDirection: "column" }}>
-        {asks.length === 0 && !isLoading && (
-          <div className="ob-row" style={{ opacity: 0.4, justifyContent: "center", padding: "8px 0" }}>
-            <span className="mono" style={{ fontSize: 11 }}>
-              no pending shorts
-            </span>
-          </div>
-        )}
-        {[...asks].reverse().map((a, i) => (
-          <div key={"a" + i} className="ob-row ask">
-            <div
-              className="bar"
-              style={{ width: `${(a.total / maxTotal) * 100}%` }}
-            />
-            <span className="v price mono">{a.price.toFixed(decimals)}</span>
-            <span className="v size mono">{a.size.toFixed(2)}</span>
-            <span className="v total mono">{a.total.toFixed(2)}</span>
-          </div>
-        ))}
+      <div className="ob-rows">
+        <div className="ob-half ob-half-asks">
+          {asks.length === 0 ? (
+            <div className="ob-empty">
+              <span className="ob-empty-label mono">
+                {isLoading ? "loading…" : "no pending shorts"}
+              </span>
+            </div>
+          ) : (
+            // Asks render closest-to-spread first visually (lowest ask
+            // touches the spread line). flex-direction column-reverse
+            // gives us that without re-sorting the array.
+            [...asks].map((a, i) => (
+              <div key={"a" + i} className="ob-row ask">
+                <div
+                  className="bar"
+                  style={{ width: `${(a.total / maxTotal) * 100}%` }}
+                />
+                <span className="v price mono">{a.price.toFixed(decimals)}</span>
+                <span className="v size mono">{a.size.toFixed(2)}</span>
+                <span className="v total mono">{a.total.toFixed(2)}</span>
+              </div>
+            ))
+          )}
+        </div>
         <div className="ob-spread">
           <span className="last mono">
             {mid.toFixed(decimals)}
@@ -129,24 +137,27 @@ export function OrderbookCard({ market }: { market: Market }) {
               : `${book?.totalPending ?? 0} pending`}
           </span>
         </div>
-        {bids.length === 0 && !isLoading && (
-          <div className="ob-row" style={{ opacity: 0.4, justifyContent: "center", padding: "8px 0" }}>
-            <span className="mono" style={{ fontSize: 11 }}>
-              no pending longs
-            </span>
-          </div>
-        )}
-        {bids.map((b, i) => (
-          <div key={"b" + i} className="ob-row bid">
-            <div
-              className="bar"
-              style={{ width: `${(b.total / maxTotal) * 100}%` }}
-            />
-            <span className="v price mono">{b.price.toFixed(decimals)}</span>
-            <span className="v size mono">{b.size.toFixed(2)}</span>
-            <span className="v total mono">{b.total.toFixed(2)}</span>
-          </div>
-        ))}
+        <div className="ob-half ob-half-bids">
+          {bids.length === 0 ? (
+            <div className="ob-empty">
+              <span className="ob-empty-label mono">
+                {isLoading ? "loading…" : "no pending longs"}
+              </span>
+            </div>
+          ) : (
+            bids.map((b, i) => (
+              <div key={"b" + i} className="ob-row bid">
+                <div
+                  className="bar"
+                  style={{ width: `${(b.total / maxTotal) * 100}%` }}
+                />
+                <span className="v price mono">{b.price.toFixed(decimals)}</span>
+                <span className="v size mono">{b.size.toFixed(2)}</span>
+                <span className="v total mono">{b.total.toFixed(2)}</span>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
@@ -179,14 +190,23 @@ function resolveLiveMarket(uiSym: string, markets: PerpsMarketDto[] | undefined)
 export function OrderPanelCard({
   market,
   initialSide,
+  leverage: externalLeverage,
+  setLeverage: setExternalLeverage,
 }: {
   market: Market;
   /** Mobile bottom-sheet pre-selects which side the trader tapped on the sticky CTAs. */
   initialSide?: "long" | "short";
+  /** When provided, leverage is controlled by the parent (lifted state
+   *  so the ChartCard pill stays in sync). When omitted, falls back to
+   *  local state — the mobile bottom-sheet path doesn't lift. */
+  leverage?: number;
+  setLeverage?: (n: number) => void;
 }) {
   const [orderType, setOrderType] = useState("limit");
   const [marginMode, setMarginMode] = useState("cross");
-  const [lev, setLev] = useState(market.leverage > 50 ? 25 : 10);
+  const [internalLev, setInternalLev] = useState(market.leverage > 50 ? 25 : 10);
+  const lev = externalLeverage ?? internalLev;
+  const setLev = setExternalLeverage ?? setInternalLev;
   const [size, setSize] = useState("");
   const [price, setPrice] = useState("");
   const [showAdv, setShowAdv] = useState(false);
@@ -526,29 +546,38 @@ export function OrderPanelCard({
   );
 }
 
-export function ChartCard({ market }: { market: Market }) {
+export function ChartCard({
+  market,
+  selectedLeverage,
+}: {
+  market: Market;
+  /** Trader-selected leverage from the OrderPanelCard slider. The pill
+   *  in the chart header reflects this in real-time so the user sees
+   *  the leverage they're about to trade at, not the market's hard cap. */
+  selectedLeverage?: number;
+}) {
   const [tf, setTf] = useState("15m");
+  const [expanded, setExpanded] = useState(false);
   const tfs = ["1m", "5m", "15m", "1H", "4H", "1D", "1W"];
   const decimals = market.price < 10 ? 4 : market.price < 1000 ? 2 : 1;
-  // 24h H/L/Vol/change% from Pyth Benchmarks via the api. The hook
-  // returns null fields when Benchmarks 404s on this symbol; we render
-  // em-dashes so the row never collapses.
   const { data: stats } = useMarketStats(market.sym);
   const high = stats?.high ?? null;
   const low = stats?.low ?? null;
   const vol = stats?.volume ?? null;
-  // Change% prefers the Benchmarks 24h delta; falls back to the market
-  // prop (kept as the static seed) for symbols Benchmarks doesn't cover.
   const changePct = stats?.changePct ?? market.change;
-  return (
-    <div className="card chart-card">
+  // Display the trader's actual chosen leverage when the panel lifted
+  // state into us; otherwise fall back to the market's hard ceiling so
+  // standalone uses (mobile, embed) still render something sensible.
+  const displayLeverage = selectedLeverage ?? market.leverage;
+  const headerInner = (
+    <>
       <div className="chart-head">
         <div className="chart-market">
           <FlagPair a={market.flagA} b={market.flagB} size={26} />
           <div className="chart-price-block">
             <div className="chart-sym-row">
               <span className="chart-sym">{market.sym}</span>
-              <span className="pill primary">{market.leverage}x</span>
+              <span className="pill primary">{displayLeverage}x</span>
             </div>
             <div className="chart-price-row">
               <span className="chart-price mono">{market.price.toFixed(decimals)}</span>
@@ -569,7 +598,14 @@ export function ChartCard({ market }: { market: Market }) {
               </button>
             ))}
           </div>
-          <button className="icon-btn" style={{ width: 34, height: 34, borderRadius: 10 }}>
+          <button
+            type="button"
+            className="icon-btn"
+            style={{ width: 34, height: 34, borderRadius: 10 }}
+            onClick={() => setExpanded((e) => !e)}
+            title={expanded ? "Collapse chart" : "Open full-screen chart"}
+            aria-label={expanded ? "Collapse chart" : "Open full-screen chart"}
+          >
             <Icon name="expand" size={14} />
           </button>
         </div>
@@ -596,8 +632,24 @@ export function ChartCard({ market }: { market: Market }) {
           </span>
         </div>
       </div>
-      <CandleChart market={market} timeframe={tf} source="ponder" liveSource="ws" />
-    </div>
+    </>
+  );
+  return (
+    <>
+      <div className="card chart-card">
+        {headerInner}
+        <CandleChart market={market} timeframe={tf} source="ponder" liveSource="ws" />
+      </div>
+      <Dialog open={expanded} onOpenChange={setExpanded}>
+        <DialogContent size="full" className="p-0 h-[90vh] flex flex-col">
+          <DialogTitle className="sr-only">{market.sym} chart</DialogTitle>
+          <div className="card chart-card" style={{ height: "100%", border: 0, boxShadow: "none" }}>
+            {headerInner}
+            <CandleChart market={market} timeframe={tf} source="ponder" liveSource="ws" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

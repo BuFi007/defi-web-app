@@ -18,28 +18,6 @@ export interface Market {
   funding?: number;
 }
 
-export interface Position {
-  sym: string;
-  side: "long" | "short";
-  size: number;
-  entry: number;
-  mark: number;
-  pnl: number;
-  margin: number;
-  leverage: number;
-  liq: number;
-}
-
-export interface OrderRow {
-  sym: string;
-  side: "long" | "short";
-  type: string;
-  size: number;
-  price: number;
-  filled: string;
-  time: string;
-}
-
 export interface Candle {
   o: number;
   h: number;
@@ -67,18 +45,11 @@ export const PERP_MARKETS: Market[] = [
 
 export const ALL_MARKETS: Market[] = [...FX_MARKETS, ...PERP_MARKETS];
 
-export const MOCK_POSITIONS: Position[] = [
-  { sym: "EUR/USD", side: "long", size: 50000, entry: 1.0812, mark: 1.0842, pnl: 150.0, margin: 500, leverage: 100, liq: 1.0746 },
-  { sym: "USD/JPY", side: "short", size: 30000, entry: 154.92, mark: 154.42, pnl: 96.85, margin: 1850, leverage: 100, liq: 156.3 },
-  { sym: "BTC-PERP", side: "long", size: 0.5, entry: 66200, mark: 67428.5, pnl: 614.25, margin: 331, leverage: 100, liq: 65540 },
-  { sym: "GBP/USD", side: "long", size: 25000, entry: 1.2748, mark: 1.2716, pnl: -80.0, margin: 250, leverage: 100, liq: 1.262 },
-];
-
-export const MOCK_ORDERS: OrderRow[] = [
-  { sym: "EUR/USD", side: "long", type: "Limit", size: 25000, price: 1.079, filled: "0/25000", time: "17:24:12" },
-  { sym: "USD/MXN", side: "short", type: "Stop", size: 15000, price: 17.22, filled: "0/15000", time: "16:42:51" },
-  { sym: "BTC-PERP", side: "long", type: "Limit", size: 0.25, price: 66500, filled: "0/0.25", time: "14:18:03" },
-];
+// MOCK_POSITIONS / MOCK_ORDERS removed 2026-05-18. The Positions tab now
+// reads live data via usePositions() (perps/positions/:address) and the
+// History tab via useTrades() (perps/trades/:address). Open-orders count
+// will land via a follow-up user-scoped intents-by-signer endpoint —
+// until that ships, the Open Orders summary cell renders an em-dash.
 
 // Number formatters moved to @/utils — re-exported here so the existing
 // "./data" import sites (multiplayer, arcade, panels, mobile-trade,

@@ -142,6 +142,13 @@ export function CandleChart({
   // the new mark into the *latest* bar instead of appending a fresh one.
   const lastCandleRef = useRef<Candle | null>(null);
   const [hover, setHover] = useState<Candle | null>(null);
+  // Tri-state for the "no historical OHLCV yet" overlay. 'loading' on
+  // first mount + every market/tf change; 'ready' once candles arrive
+  // OR a live tick lands; 'empty' when the historical fetch returned
+  // [] AND no live tick has shown up yet.
+  const [chartStatus, setChartStatus] = useState<"loading" | "ready" | "empty">(
+    "loading",
+  );
 
   // Subscribe to the live WS feed only when the caller opted in. The hook
   // gracefully returns `tick === null` + `status === 'error'` when the env
@@ -246,6 +253,7 @@ export function CandleChart({
   // Data load — re-fetches on market/timeframe/source change.
   useEffect(() => {
     let cancelled = false;
+    setChartStatus("loading");
     const load = async () => {
       const candles = await getCandles({
         source,
@@ -277,6 +285,7 @@ export function CandleChart({
       candleSeries.setData(candleData);
       volumeSeries.setData(volumeData);
       lastCandleRef.current = candles.length ? candles[candles.length - 1] : null;
+      setChartStatus(candles.length > 0 ? "ready" : "empty");
 
       if (oracleLine && oracleLine.length === candles.length) {
         const oracleData: LineData<UTCTimestamp>[] = candles.map((c, i) => ({
@@ -295,6 +304,14 @@ export function CandleChart({
       cancelled = true;
     };
   }, [market.sym, market.price, timeframe, source, oracleLine]);
+
+  // Flip out of 'empty' the moment a live tick arrives — the live-fold
+  // effect below will append a candle to the series, so the overlay
+  // should disappear immediately. Avoids the "empty state on a chart
+  // that's actually streaming" flash.
+  useEffect(() => {
+    if (live.tick && chartStatus === "empty") setChartStatus("ready");
+  }, [live.tick, chartStatus]);
 
   // PriceLines — recreated whenever the prop bag changes. Cheap; only 1–3 lines.
   useEffect(() => {
@@ -447,6 +464,25 @@ export function CandleChart({
           </span>
           <span className="chart-ohlc-label">V</span>
           <span>{Math.round(hover.v)}</span>
+        </div>
+      )}
+      {chartStatus !== "ready" && (
+        <div className="chart-empty" role="status" aria-live="polite">
+          <div className="chart-empty-inner">
+            <div className="chart-empty-glyph" aria-hidden>
+              {chartStatus === "loading" ? "◌" : "—"}
+            </div>
+            <div className="chart-empty-title mono">
+              {chartStatus === "loading"
+                ? "Loading market history…"
+                : "No trading history yet"}
+            </div>
+            <div className="chart-empty-sub">
+              {chartStatus === "loading"
+                ? "Fetching candles from Pyth Benchmarks."
+                : `No OHLCV available for ${market.sym} on the ${timeframe} timeframe yet. Live ticks will start a fresh series.`}
+            </div>
+          </div>
         </div>
       )}
     </div>

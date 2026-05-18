@@ -7,8 +7,6 @@ import {
   ALL_MARKETS,
   FX_MARKETS,
   PERP_MARKETS,
-  MOCK_POSITIONS,
-  MOCK_ORDERS,
   FlagPair,
   Icon,
   fmtPct,
@@ -101,14 +99,12 @@ function liveToPositionRow(p: PerpsPositionDto): PositionRow {
 }
 
 function LeadersTab() {
-  const leaders = [
-    { rank: 1, name: "kawaii_whale", avatar: "🐳", pnl: 84210, roi: 142.8, trades: 218, winrate: 68, copy: 1820 },
-    { rank: 2, name: "zen_trader_42", avatar: "🌸", pnl: 51820, roi: 96.2, trades: 412, winrate: 71, copy: 1450 },
-    { rank: 3, name: "moonshot_fox", avatar: "🦊", pnl: 38940, roi: 88.4, trades: 184, winrate: 64, copy: 982 },
-    { rank: 4, name: "sakura_yen", avatar: "🍡", pnl: 31420, roi: 72.1, trades: 326, winrate: 69, copy: 740 },
-    { rank: 5, name: "mint_arbitrage", avatar: "🍵", pnl: 24180, roi: 48.6, trades: 1240, winrate: 78, copy: 1184 },
-    { rank: 6, name: "lavender_ghost", avatar: "👻", pnl: 18620, roi: 41.2, trades: 286, winrate: 62, copy: 462 },
-  ];
+  // The hardcoded 6-trader leaderboard (kawaii_whale, zen_trader_42, etc.)
+  // was removed 2026-05-18. The global perp-trading leaderboard endpoint
+  // doesn't exist yet — fx-bento has /rooms/:id/leaderboard for per-room
+  // arcade scores, but no cross-room aggregate. Until the API ships
+  // /perps/leaderboard (or the Ponder indexer surfaces a cumulative-PnL
+  // view), render an honest empty state instead of fabricated traders.
   return (
     <div className="leaders-tab">
       <div className="leaders-period">
@@ -117,122 +113,27 @@ function LeadersTab() {
             key={p}
             className={"period-btn " + (i === 2 ? "active" : "")}
             title={`Rankings over the last ${p}`}
+            disabled
           >
             {p}
           </button>
         ))}
       </div>
-      <table className="table leaders-table table-desktop-only">
-        <thead>
-          <tr>
-            <th>
-              Rank <Hint w={180}>Position based on selected period&apos;s profit.</Hint>
-            </th>
-            <th>Trader</th>
-            <th>
-              30d PnL <Hint w={220}>Net profit and loss across all closed trades in the period.</Hint>
-            </th>
-            <th>
-              ROI <Hint w={220}>Return on initial deposit. Higher = better.</Hint>
-            </th>
-            <th>
-              Trades <Hint w={200}>Number of trades opened and closed in this period.</Hint>
-            </th>
-            <th>
-              Win rate <Hint w={220}>Share of trades that closed in profit.</Hint>
-            </th>
-            <th>
-              Followers <Hint w={240}>People copy-trading this trader right now.</Hint>
-            </th>
-            <th>
-              Action{" "}
-              <Hint w={260} side="left">
-                Tap Copy to mirror this trader&apos;s next moves automatically.
-              </Hint>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {leaders.map((l) => (
-            <tr key={l.name}>
-              <td>
-                <span className={"rank-badge rank-" + (l.rank <= 3 ? l.rank : "n")}>{l.rank}</span>
-              </td>
-              <td>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 10,
-                      background: "var(--surface-3)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 18,
-                    }}
-                  >
-                    {l.avatar}
-                  </div>
-                  <span style={{ fontWeight: 800 }}>@{l.name}</span>
-                </div>
-              </td>
-              <td className="mono" style={{ color: "var(--profit-ink)", fontWeight: 800 }}>
-                +{fmtUSD(l.pnl)}
-              </td>
-              <td className="mono" style={{ color: "var(--profit-ink)" }}>
-                +{l.roi.toFixed(1)}%
-              </td>
-              <td className="mono">{l.trades}</td>
-              <td>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span className="mono" style={{ fontWeight: 800 }}>
-                    {l.winrate}%
-                  </span>
-                  <div style={{ width: 50, height: 4, borderRadius: 999, background: "var(--surface-3)" }}>
-                    <div
-                      style={{
-                        width: `${l.winrate}%`,
-                        height: "100%",
-                        borderRadius: 999,
-                        background: "var(--profit)",
-                      }}
-                    />
-                  </div>
-                </div>
-              </td>
-              <td className="mono">{l.copy.toLocaleString()}</td>
-              <td>
-                <button className="copy-btn">
-                  <Icon name="copy" size={11} /> Copy
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="leader-cards" aria-label="Top traders">
-        {leaders.map((l) => (
-          <article key={l.name} className="leader-card">
-            <span className={"rank-badge rank-" + (l.rank <= 3 ? l.rank : "n")}>{l.rank}</span>
-            <div className="leader-avatar" aria-hidden="true">{l.avatar}</div>
-            <div className="leader-card-meta">
-              <div className="leader-card-name">@{l.name}</div>
-              <div className="leader-card-sub">
-                <span className="mono">{l.winrate}% win</span>
-                <span className="mono">{l.trades} trades</span>
-                <span className="mono">{l.copy.toLocaleString()} ☆</span>
-              </div>
-            </div>
-            <div className="leader-card-pnl">
-              <span className="leader-card-pnl-v mono">+{fmtUSD(l.pnl)}</span>
-              <span className="leader-card-pnl-l">30d PnL</span>
-            </div>
-            <button className="copy-btn">
-              <Icon name="copy" size={12} /> Copy @{l.name}
-            </button>
-          </article>
-        ))}
+      <div
+        className="leader-cards"
+        aria-label="Leaderboard placeholder"
+        style={{
+          padding: "40px 20px",
+          textAlign: "center",
+          color: "var(--ink-3)",
+          fontWeight: 700,
+        }}
+      >
+        <p style={{ marginBottom: 8 }}>Leaderboard launching with the matcher GA.</p>
+        <p style={{ fontSize: 12, color: "var(--ink-4)" }}>
+          Rankings will surface from the Ponder cumulative-PnL view once
+          the indexer reaches steady state on Fuji + Arc.
+        </p>
       </div>
     </div>
   );
@@ -448,16 +349,21 @@ function PerpsPositionsView() {
           <div className="hsum-l">
             Open Orders <Hint w={220}>Pending limit orders waiting for price to be reached.</Hint>
           </div>
-          <div className="hsum-v mono">{MOCK_ORDERS.length}</div>
+          {/* Pending limit-order count: needs a user-scoped intents-by-signer
+              endpoint (/perps/intents/pending exists but it's market-scoped).
+              Show an em-dash until that lands rather than fabricate a count. */}
+          <div className="hsum-v mono">—</div>
         </div>
         <div className="hsum-card">
           <div className="hsum-l">
             Funding (24h){" "}
             <Hint w={240}>Net funding paid (−) or received (+) on perpetual positions in the last 24h.</Hint>
           </div>
-          <div className="hsum-v mono" style={{ color: "var(--profit-ink)" }}>
-            +$0.00
-          </div>
+          {/* Funding (24h) needs cumulative funding × position-size × time.
+              fetchPerpsFunding() returns the per-market rate; the cumulative
+              attribution lives in the indexer (per-position funding accruals).
+              Show an em-dash until the indexer surfaces it. */}
+          <div className="hsum-v mono">—</div>
         </div>
       </div>
       {showConnectHint && (
@@ -758,6 +664,14 @@ function TradeTab({
   // Switch to the dedicated mobile layout under the `lg` breakpoint. Matches
   // the island.css cutover at 1023.98px so the two systems agree.
   const isMobile = useMediaQuery("(max-width: 1023.98px)");
+  // Single source of truth for the trader-selected leverage. Lifted here
+  // so ChartCard's pill stays in sync with OrderPanelCard's slider —
+  // both consume `lev`, only OrderPanelCard mutates it via `setLev`.
+  // Reset to the market's default when the symbol changes.
+  const [lev, setLev] = useState(market.leverage > 50 ? 25 : 10);
+  useEffect(() => {
+    setLev(market.leverage > 50 ? 25 : 10);
+  }, [market.sym, market.leverage]);
   if (isMobile) {
     return (
       <div className="trade-tab trade-tab-mobile">
@@ -772,10 +686,10 @@ function TradeTab({
           <OrderbookCard market={market} />
         </div>
         <div className="t-chart">
-          <ChartCard market={market} />
+          <ChartCard market={market} selectedLeverage={lev} />
         </div>
         <div className="t-order">
-          <OrderPanelCard market={market} />
+          <OrderPanelCard market={market} leverage={lev} setLeverage={setLev} />
         </div>
       </div>
     </div>
@@ -880,11 +794,10 @@ export default function TradeIsland() {
     return baseMarket;
   }, [baseMarket, live.tick?.mark]);
 
-  // Mock fallbacks: prevent unused-import warnings while the live API only
-  // covers positions/history. PERP_MARKETS and MOCK_POSITIONS still feed the
-  // arcade / market-picker filtering downstream.
+  // PERP_MARKETS still feeds arcade / market-picker filtering downstream
+  // until it's swapped for fetchPerpsMarkets() (Task 2). Silence the
+  // unused-import warning until then.
   void PERP_MARKETS;
-  void MOCK_POSITIONS;
 
   return (
     <div className={"island " + (arcade && tab === "trade" ? "arcade-on" : "") + " tab-" + tab}>
