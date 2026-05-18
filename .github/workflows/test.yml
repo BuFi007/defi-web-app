@@ -95,7 +95,10 @@ jobs:
           PORT: "3002"
         run: |
           set -euo pipefail
-          bun --cwd apps/api run dev &
+          # `bun --cwd <dir> run <script>` regressed in bun 1.3.10 — the
+          # flag is parsed as part of `bun run` instead of the global
+          # invocation, dumping help. `cd && bun run` is unambiguous.
+          (cd apps/api && bun run dev) &
           API_PID=$!
           trap 'kill $API_PID 2>/dev/null || true; wait $API_PID 2>/dev/null || true' EXIT
 

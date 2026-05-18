@@ -266,15 +266,19 @@ perpsRoutes.post("/intents/:id/replacement/prepare", async (c) => {
   if (!original) return c.json({ error: "intent not found" }, 404);
   const match = assertAddressMatches(c, original.trader, s.session);
   if (!match.ok) return match.response;
-  const body = await parseBody(c, perpsReplacementPrepareRequest);
-  if (!body.ok) return body.response;
+  // originalIntentId is required by the schema but comes from the URL,
+  // not the request body. Merge before validation so the body parses
+  // cleanly (matches the pre-refactor behaviour the canary expects).
+  const raw = await c.req.json().catch(() => ({}));
+  const parsed = perpsReplacementPrepareRequest.safeParse({
+    ...(raw as Record<string, unknown>),
+    originalIntentId,
+  });
+  if (!parsed.success) {
+    return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
+  }
   try {
-    return jsonOk(
-      c,
-      jsonSafe(
-        await perpsService.prepareReplacementIntent({ ...body.data, originalIntentId }),
-      ),
-    );
+    return jsonOk(c, jsonSafe(await perpsService.prepareReplacementIntent(parsed.data)));
   } catch (e) {
     return jsonError(c, e);
   }
@@ -288,15 +292,17 @@ perpsRoutes.post("/intents/:id/replacement", async (c) => {
   if (!original) return c.json({ error: "intent not found" }, 404);
   const match = assertAddressMatches(c, original.trader, s.session);
   if (!match.ok) return match.response;
-  const body = await parseBody(c, perpsReplacementSubmitRequest);
-  if (!body.ok) return body.response;
+  // Same URL-param merge pattern as /replacement/prepare above.
+  const raw = await c.req.json().catch(() => ({}));
+  const parsed = perpsReplacementSubmitRequest.safeParse({
+    ...(raw as Record<string, unknown>),
+    originalIntentId,
+  });
+  if (!parsed.success) {
+    return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
+  }
   try {
-    return jsonOk(
-      c,
-      jsonSafe(
-        await perpsService.createReplacementIntent({ ...body.data, originalIntentId }),
-      ),
-    );
+    return jsonOk(c, jsonSafe(await perpsService.createReplacementIntent(parsed.data)));
   } catch (e) {
     return jsonError(c, e);
   }
