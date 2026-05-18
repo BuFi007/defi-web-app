@@ -61,29 +61,29 @@ not writing, API not reading the read-store, hook not invalidating, etc.).
 | 7 | Telarana — contracts | 100 | Deployed Fuji + Arc | None |
 | 8 | Telarana — SDK + math | 95 | quote/health/oracle real | None |
 | 9 | Telarana — backend routes | 80 | All endpoints wired | None |
-| 10 | Telarana — indexer (loan events) | 5 | Schema only | Yes for history; no for "open loan" |
+| 10 | Telarana — indexer (loan events) | 75 | Handlers wired against actual subscribed events (GatewayHubHook/SpotExecutor/FxOracle/Receiver) + 3 new schema tables | No |
 | 11 | Telarana — frontend wiring | 90 | Lend/Borrow/Withdraw/Repay sign + post | None |
-| 12 | Telarana — liquidation keeper | 0 | Not implemented | No for MVP; yes for prod |
-| 13 | Telarana — oracle staleness UX | 30 | SDK throws; UI swallows | No |
+| 12 | Telarana — liquidation keeper | 80 | `apps/keeper-telarana-liquidator` scaffolded with safety guards; awaiting live candidates from #10 | No for MVP; ready for prod |
+| 13 | Telarana — oracle staleness UX | 85 | `emitOracleStaleToast` with 5s cooldown; loan.tsx short-circuit window | No |
 | 14 | Bento — contracts | 100 | 9 contracts deployed Arc + Fuji | None |
 | 15 | Bento — game engine + TX builders | 95 | Full port, simulator, Merkle tree | None |
 | 16 | Bento — backend API | 90 | All routes ported | None |
 | 17 | Bento — frontend Lobby + Join | 90 | Live rooms, calldata + tx broadcast | None |
-| 18 | Bento — commit-reveal UI binding | 40 | Hooks exported; not wired to tiles | **Yes** |
-| 19 | Bento — claim flow UI | 20 | Endpoint exists; no "Claim prize" CTA | Yes for finalised |
-| 20 | Bento — settlement persistence | 30 | In-memory only | Yes for prod |
-| 21 | Bento — Liveblocks presence | 60 | Client ready; `/api/liveblocks/auth` missing | **Yes** for multiplayer feel |
-| 22 | Bento — merkle proof verification | 60 | Tree built backend; UI doesn't surface proof | Yes |
+| 18 | Bento — commit-reveal UI binding | 90 | Real tile hash via `buildSelectionCommitment`; per-round nonce cached | None |
+| 19 | Bento — claim flow UI | 85 | `useBentoClaim` poll + "Claim prize" CTA on RoundEndOverlay; wagmi broadcast + toast | None |
+| 20 | Bento — settlement persistence | 95 | `createFxBentoSqlitePersistenceStore` (bun:sqlite, atomic txn, 2 tables); opt-in via `BENTO_DB_PATH` | None |
+| 21 | Bento — Liveblocks presence | 95 | `/api/liveblocks/auth` route mints player-scoped tokens; wallet-session verified | None |
+| 22 | Bento — merkle proof verification | 85 | Proof + leaf + root rendered as monospace block in Claim modal | None |
 | 23 | Cross — wallet session auth | 85 | Works across surfaces; 3 patterns to unify | No |
-| 24 | Cross — env/secrets/addresses | 40 | Hardcoded fallbacks + partial CONTRACT_ADDRESSES_JSON | Yes for prod |
-| 25 | Cross — ponder schema + handlers | 35 | Schema solid; handlers mostly stubs | Yes |
+| 24 | Cross — env/secrets/addresses | 80 | Zod schema + cached `CONTRACT_ADDRESSES_JSON` parser + RPC env vars + `getContractAddressOverride` helper | No |
+| 25 | Cross — ponder schema + handlers | 65 | Perps + Telarana handlers shipped; Bento/BUFX still stubs | Recommended |
 | 26 | Cross — error recovery + retry | 30 | Best-effort; no idempotency keys | Yes for prod trust |
-| 27 | Cross — observability | 10 | console.warn + toast | No for MVP |
-| 28 | Cross — testing | 25 | Unit in packages/perps; no e2e per surface | Recommended |
+| 27 | Cross — observability | 70 | `@bufi/logger` middleware on every API route; Sentry no-op scaffold (web+api) opt-in via DSN env | No |
+| 28 | Cross — testing | 35 | Unit in perps + perps-math (39 new) + fx-bento sqlite | Recommended |
 | 29 | Cross — deployment | 50 | Web/API individually deployable; keepers need infra | Yes for prod |
-| 30 | Cross — financial math package | 0 | Inline calc in components | No for MVP; yes for safety |
+| 30 | Cross — financial math package | 85 | `@bufi/perps-math` with 39 tests; panels migrated; loan was already SDK-sourced | No |
 
-**Overall: ~70%.**
+**Overall: ~80%.** (Simple average across 30 buckets after the six-PR superpower wave.)
 
 ---
 
@@ -266,31 +266,37 @@ Bucket #3 30% → 75%. Outstanding to reach 95%: true side derivation on trades
 (`perpsPositionEvent` join), live `markPrice` + computed `unrealizedPnl`,
 keeper-fed smoke test execution.
 
-### Sprint B — "Bento finishes the game loop" (1.5 days CC)
+### Sprint B — "Bento finishes the game loop" — **SHIPPED**
 
-Most distinctive product feature; biggest UX wow.
+- `apps/web/app/api/liveblocks/auth/route.ts` mints player-scoped tokens
+  after verifying X-Wallet-* headers (#21 → 95%).
+- `multiplayer.tsx` uses `buildSelectionCommitment` with per-round nonce
+  cached in useRef — real tile-hash commit, not a placeholder (#18 → 90%).
+- `useBentoClaim` hook + "Claim prize" CTA on RoundEndOverlay; wagmi
+  broadcast + toast; Merkle proof + leaf + root surfaced (#19 → 85%, #22 → 85%).
+- `createFxBentoSqlitePersistenceStore` (bun:sqlite, atomic txn, 2 tables)
+  opt-in via `BENTO_DB_PATH` (#20 → 95%).
 
-Tasks:
-- `apps/web/app/api/liveblocks/auth/route.ts` (30 min).
-- Lift tile selection from `ArcadeBoard` to `multiplayer.tsx` (2 hours).
-- Per-round nonce + commit-reveal wiring (2 hours).
-- SQLite adapter for `FxBentoPersistenceStore` (4 hours).
-- "Claim prize" CTA on `RoundEnd` overlay using `getBentoClaim` proof (1 hour).
-- Smoke test: 2 players join, commit, reveal, settle, claim.
+Remaining: live 2-player smoke run against testnet.
 
-### Sprint C — "Operational readiness" (1 day CC + 1 day human)
+### Sprint C — "Operational readiness" — **PARTIALLY SHIPPED**
 
-Lower flash, higher production safety.
+Shipped:
+- `CONTRACT_ADDRESSES_JSON` parser + `getContractAddressOverride` helper +
+  `AVALANCHE_FUJI_RPC_URL` / `ARC_TESTNET_RPC_URL` env vars (#24 → 80%).
+- `@bufi/logger` middleware on every API route; per-request requestId +
+  bound method/path; structured error + ok events (#27 → 70%).
+- Sentry no-op scaffold for web + api; dynamic-import + DSN-gated, no
+  forced dep until operator sets `SENTRY_DSN_*`.
 
-Tasks:
-- Address book reconciliation (2 hours).
-- Zod env validation in `apps/web/lib/env.ts` and `apps/api/src/env.ts`
-  (0.5 day).
-- Sentry frontend + backend with structured logger from `packages/logger`
-  (0.5 day).
-- One e2e smoke test per surface in `scripts/` (0.5 day).
+Outstanding:
+- One e2e smoke per surface in `scripts/` (perps already has
+  `smoke-perps.ts`; need bento + telarana smokes).
 - Human: deploy keepers (Railway/Fly/Render), Ponder (Railway + Neon), API
   (Vercel/Render).
+- Single source of truth on address book is partial — overrides work, but
+  `CONTRACTS[5042002].perps` in `src/index.ts` still has duplicates worth
+  stripping.
 
 ### Sprint D — "Lightweight charts migration" — **SHIPPED**
 
