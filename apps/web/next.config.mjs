@@ -13,6 +13,20 @@ const config = {
   turbopack: {
     root: workspaceRoot,
   },
+  // WalletConnect transitively pulls pino — needed at runtime under Node
+  // but Turbopack v16's bundler chokes on it (and its thread-stream/
+  // sonic-boom transports) under any layout. Mark them as runtime-external
+  // and let Node's CJS resolver handle them at first import. The nested
+  // pino@7 under @walletconnect/logger is patched out by the
+  // scripts/dedupe-walletconnect-pino.mjs postinstall step.
+  serverExternalPackages: [
+    "pino",
+    "pino-pretty",
+    "pino-abstract-transport",
+    "pino-std-serializers",
+    "thread-stream",
+    "sonic-boom",
+  ],
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [

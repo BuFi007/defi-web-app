@@ -1,0 +1,20 @@
+# Force the hoisted node_modules layout (default in npm/yarn) instead of
+# bun's newer isolated `.bun/<contenthash>/node_modules/<pkg>/` layout.
+#
+# Why: Next.js 16's Turbopack SSR externalizer reads the resolved module
+# path from node_modules, appends a content hash to the bare package name
+# (likely meant for cache-busting), then emits
+# `require("<pkg>-<hash>")` in the externals chunk. That require() fails
+# because no package by that mangled name exists.
+#
+# The hash appears to be derived from the isolated layout's directory hash,
+# so when bun puts pino at
+# `node_modules/.bun/pino@7.11.0/node_modules/pino/`, Turbopack mangles it.
+# With the hoisted layout pino lives at `node_modules/pino/` and Turbopack
+# resolves it cleanly.
+#
+# Trade-off: hoisted is slightly less strict about peer-dep isolation, but
+# that hasn't bitten this monorepo so far (workspaces aren't peer-graph
+# sensitive). Re-evaluate when Turbopack ships a fix.
+[install]
+linker = "hoisted"
