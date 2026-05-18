@@ -9,6 +9,8 @@
  */
 import type { Address, Hex } from "viem";
 
+import { resilientFetch } from "@/lib/api-client";
+
 const DEFAULT_API_URL = "http://localhost:3002";
 
 export function telaranaApiBaseUrl(): string {
@@ -57,7 +59,10 @@ async function unwrap<T>(response: Response): Promise<T> {
 export async function telaranaGet<T>(path: string, opts: TelaranaFetchOptions = {}): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (opts.session) Object.assign(headers, opts.session);
-  const response = await fetch(telaranaApiUrl(path), {
+  // TODO: wire `onUnauthorized` to a session re-sign helper once one is
+  // exposed by lib/telarana/session.ts (today it only reads cached proofs;
+  // re-signing requires the wallet adapter which lives in the React tree).
+  const response = await resilientFetch(telaranaApiUrl(path), {
     method: "GET",
     headers,
     signal: opts.signal,
@@ -75,7 +80,10 @@ export async function telaranaPost<T>(
     "Content-Type": "application/json",
   };
   if (opts.session) Object.assign(headers, opts.session);
-  const response = await fetch(telaranaApiUrl(path), {
+  // TODO: see telaranaGet — `onUnauthorized` would re-sign the typed-data
+  // session here, but the re-sign primitive currently lives in the wallet
+  // hook tree. Caller still parses the 401 via unwrap() for now.
+  const response = await resilientFetch(telaranaApiUrl(path), {
     method: "POST",
     headers,
     body: JSON.stringify(body, bigintReplacer),

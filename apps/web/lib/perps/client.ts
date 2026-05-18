@@ -9,6 +9,8 @@
 
 import type { Hex } from "viem";
 
+import { resilientFetch } from "@/lib/api-client";
+
 import {
   bufxApiUrl,
   walletSessionHeaders,
@@ -170,12 +172,28 @@ async function jsonOrThrow<T>(res: Response, path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+/**
+ * Read-endpoint 401 contract: perps wallet-session proofs are minted via a
+ * typed-data signature in the React tree (see `replacement-agent.ts`). When
+ * a read endpoint returns 401 (proof expired), the only recovery is for the
+ * user to re-sign — which we can't do from this module-level client without
+ * a wallet adapter. So we let 401s bubble; the calling hook is responsible
+ * for prompting a fresh sign and retrying. We DO opt-in to retry/backoff
+ * for 5xx / network errors on every read.
+ *
+ * Write endpoints that carry a user-signed intent (`submitPerpsIntent`) MUST
+ * NOT auto-refresh on 401 either — a fresh session would invalidate the
+ * already-signed payload's deadline assumptions. Idempotency-Key is still
+ * attached (via `resilientFetch`) so the API can dedupe the inevitable
+ * timeout-retry case safely.
+ */
+
 export async function fetchPerpsMarkets(args: {
   chainId: number;
   signal?: AbortSignal;
 }): Promise<PerpsMarketDto[]> {
   const path = "/perps/markets";
-  const res = await fetch(bufxApiUrl(path, { chainId: args.chainId }), {
+  const res = await resilientFetch(bufxApiUrl(path, { chainId: args.chainId }), {
     headers: { accept: "application/json" },
     signal: args.signal,
   });
@@ -188,7 +206,7 @@ export async function fetchPerpsQuote(args: {
   signal?: AbortSignal;
 }): Promise<PerpsQuoteDto> {
   const path = "/perps/quote";
-  const res = await fetch(bufxApiUrl(path), {
+  const res = await resilientFetch(bufxApiUrl(path), {
     method: "POST",
     headers: { accept: "application/json", "content-type": "application/json" },
     body: JSON.stringify(args.request),
@@ -204,7 +222,10 @@ export async function submitPerpsIntent(args: {
 }): Promise<PerpsIntentResponseDto> {
   const path = "/perps/intents";
   const headers: WalletSessionHeaders = walletSessionHeaders(args.proof);
-  const res = await fetch(bufxApiUrl(path), {
+  // No `onUnauthorized`: 401 here means the user-signed payload is stale and
+  // must be re-signed by the caller. Retry/backoff on 5xx is still useful
+  // because Idempotency-Key dedupes the write at the API.
+  const res = await resilientFetch(bufxApiUrl(path), {
     method: "POST",
     headers: {
       accept: "application/json",
@@ -222,7 +243,7 @@ export async function fetchPerpsIntent(args: {
   signal?: AbortSignal;
 }): Promise<PerpsIntentDto> {
   const path = `/perps/intents/${args.intentId}`;
-  const res = await fetch(bufxApiUrl(path), {
+  const res = await resilientFetch(bufxApiUrl(path), {
     headers: { accept: "application/json" },
     signal: args.signal,
   });
@@ -236,7 +257,8 @@ export async function fetchPerpsPositions(args: {
   signal?: AbortSignal;
 }): Promise<PerpsPositionDto[]> {
   const path = `/perps/positions/${args.address}`;
-  const res = await fetch(bufxApiUrl(path), {
+  // Read endpoint — 401 bubbles so the wallet-hook tree can re-sign and retry.
+  const res = await resilientFetch(bufxApiUrl(path), {
     headers: { accept: "application/json", ...walletSessionHeaders(args.proof) },
     signal: args.signal,
   });
@@ -252,7 +274,7 @@ export async function fetchPerpsTrades(args: {
   signal?: AbortSignal;
 }): Promise<PerpsTradeDto[]> {
   const path = `/perps/trades/${args.address}`;
-  const res = await fetch(bufxApiUrl(path), {
+  const res = await resilientFetch(bufxApiUrl(path), {
     headers: { accept: "application/json" },
     signal: args.signal,
   });
@@ -269,7 +291,7 @@ export async function fetchPerpsFunding(args: {
   signal?: AbortSignal;
 }): Promise<PerpsFundingDto[]> {
   const path = "/perps/funding";
-  const res = await fetch(
+  const res = await resilientFetch(
     bufxApiUrl(path, { chainId: args.chainId, marketId: args.marketId }),
     { headers: { accept: "application/json" }, signal: args.signal },
   );
@@ -282,7 +304,7 @@ export async function fetchPerpsLiquidationCandidates(args: {
   signal?: AbortSignal;
 }): Promise<unknown[]> {
   const path = "/perps/liquidations/candidates";
-  const res = await fetch(bufxApiUrl(path, { chainId: args.chainId }), {
+  const res = await resilientFetch(bufxApiUrl(path, { chainId: args.chainId }), {
     headers: { accept: "application/json" },
     signal: args.signal,
   });

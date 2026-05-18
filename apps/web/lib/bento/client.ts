@@ -2,6 +2,8 @@
 // Mirrors the pattern in lib/perps/replacement-agent.ts → `bufxApiBaseUrl`
 // so a single env var (NEXT_PUBLIC_API_URL) drives all backend calls.
 
+import { resilientFetch } from "@/lib/api-client";
+
 const DEFAULT_API_URL = "http://localhost:3002";
 
 export function bentoApiBaseUrl(): string {
@@ -69,7 +71,10 @@ async function jsonFetch<T>(
   url: string,
   init: RequestInit & { headers?: Record<string, string> } = {},
 ): Promise<T> {
-  const res = await fetch(url, {
+  // TODO: bento prod endpoints don't currently use a wallet-session header,
+  // so there's no `onUnauthorized` flow to wire. Add one when the join/leave
+  // routes start requiring a session proof.
+  const res = await resilientFetch(url, {
     ...init,
     headers: {
       accept: "application/json",
