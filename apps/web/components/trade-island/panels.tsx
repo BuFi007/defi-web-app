@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useBalance, useChainId } from "wagmi";
+import { formatUnits } from "viem";
 
 import { liquidationPriceFloat, requiredMarginFloat } from "@bufi/perps-math";
 
@@ -14,6 +15,32 @@ import { errMsg } from "@/utils";
 import { useMarkets, usePlaceOrder } from "@/lib/perps/hooks";
 import { getPerpsReplacementDevWallet } from "@/lib/perps/dev-mock-wallet";
 import type { PerpsMarketDto } from "@/lib/perps/client";
+
+// USDC token addresses per hub chain — perps margin is posted in USDC.
+// Spokes are excluded here because perps execution lives on the hubs.
+const USDC_BY_CHAIN: Record<number, `0x${string}`> = {
+  43113: "0x5425890298aed601595a70AB815c96711a31Bc65", // Fuji
+  5042002: "0x3600000000000000000000000000000000000000", // Arc
+};
+
+function useUsdcBalance(address: `0x${string}` | undefined): {
+  formatted: string;
+  isLoading: boolean;
+} {
+  const chainId = useChainId();
+  const token = USDC_BY_CHAIN[chainId];
+  const { data, isLoading } = useBalance({
+    address,
+    token,
+    chainId: (token ? chainId : undefined) as 43113 | 5042002 | undefined,
+    query: { enabled: Boolean(address && token) },
+  });
+  if (!data) return { formatted: "0", isLoading };
+  return {
+    formatted: formatUnits(data.value, data.decimals ?? 6),
+    isLoading,
+  };
+}
 
 export function OrderbookCard({ market }: { market: Market }) {
   const tickSize = market.price < 10 ? 0.0001 : market.price < 1000 ? 0.01 : 0.5;
@@ -136,6 +163,7 @@ export function OrderPanelCard({
   const { data: markets } = useMarkets();
   const placeOrder = usePlaceOrder();
   const liveMarket = useMemo(() => resolveLiveMarket(market.sym, markets), [market.sym, markets]);
+  const usdc = useUsdcBalance(address);
 
   const canTrade = Boolean(isConnected || devWallet);
   const hasSize = sizeV > 0;
@@ -431,19 +459,19 @@ export function OrderPanelCard({
       <div className="avail-line">
         {address ? (
           <>
-            Connected{" "}
+            Available{" "}
             <span className="mono" style={{ color: "var(--ink)", fontWeight: 800 }}>
+              {usdc.isLoading ? "…" : fmtUSD(Number(usdc.formatted))}
+            </span>{" "}
+            USDC ·{" "}
+            <span className="mono" style={{ color: "var(--muted)" }}>
               {shortAddress(address)}
             </span>
           </>
         ) : (
-          <>
-            Available{" "}
-            <span className="mono" style={{ color: "var(--ink)", fontWeight: 800 }}>
-              {fmtUSD(125420.5)}
-            </span>{" "}
-            USDC
-          </>
+          <span className="mono" style={{ color: "var(--muted)" }}>
+            Connect a wallet to see your USDC balance.
+          </span>
         )}
       </div>
     </div>

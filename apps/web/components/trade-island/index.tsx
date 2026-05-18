@@ -31,6 +31,7 @@ import { StablecoinBalances } from "@/components/stablecoin-balances";
 import { usePositions, useTrades } from "@/lib/perps/hooks";
 import type { PerpsPositionDto, PerpsTradeDto } from "@/lib/perps/client";
 import { safeBigInt, e18ToNumber } from "@/lib/perps/units";
+import { useLiveMarket } from "@/lib/perps/use-live-market";
 
 // Tiny media-query hook so the Trade tab can branch to the mobile layout
 // without bringing in a dependency. Server render returns false; client
@@ -866,16 +867,18 @@ export default function TradeIsland() {
     [marketSym]
   );
 
-  const [tick, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 1500);
-    return () => clearInterval(id);
-  }, []);
+  // Live price via Pyth Hermes WS bridged through apps/api /ws/markets/:sym.
+  // The hook auto-reconnects + flips to 'stale' if no tick for 5s. When the
+  // socket is silent (initial mount, env var missing in dev), we fall back
+  // to the static seed price from data.tsx so the chart never blanks.
+  const live = useLiveMarket(baseMarket.sym);
   const market = useMemo(() => {
-    if (!tick) return baseMarket;
-    const drift = (Math.sin(tick * 0.7) + Math.sin(tick * 0.31)) * baseMarket.price * 0.0006;
-    return { ...baseMarket, price: baseMarket.price + drift };
-  }, [baseMarket, tick]);
+    const livePrice = live.tick?.mark;
+    if (livePrice && Number.isFinite(livePrice) && livePrice > 0) {
+      return { ...baseMarket, price: livePrice };
+    }
+    return baseMarket;
+  }, [baseMarket, live.tick?.mark]);
 
   // Mock fallbacks: prevent unused-import warnings while the live API only
   // covers positions/history. PERP_MARKETS and MOCK_POSITIONS still feed the
