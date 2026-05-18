@@ -29,7 +29,9 @@ export const TELARANA_ABIS = {
   MorphoOracleAdapter: MorphoOracleAdapterAbi,
 } as const;
 
-export type TelaranaContractName =
+/** Contracts that every Telarana hub must define. Required by callers
+ *  like `LENDING_HUBS` (chains.ts) and `staticMarkets()`. */
+export type TelaranaRequiredContract =
   | "FxSpoke"
   | "FxHubMessageReceiver"
   | "FxGatewayHook"
@@ -43,16 +45,44 @@ export type TelaranaContractName =
   | "MorphoBlue"
   | "IrmMock";
 
+/** Contracts that are only present after the relevant deploy lands.
+ *  Callers must null-check before use. */
+export type TelaranaOptionalContract =
+  // M3 + M4 oracle adapters: deployed by `DeployFujiMxnbMarkets.s.sol`
+  // alongside the new MXNB-collateralized Morpho markets. Absent until
+  // the script broadcasts → market is skipped in the static fallback
+  // (the live registry read still picks it up via `listPools()`).
+  | "MorphoOracleAdapterM3"
+  | "MorphoOracleAdapterM4"
+  | "FxReceiptMXNB";
+
+export type TelaranaContractName =
+  | TelaranaRequiredContract
+  | TelaranaOptionalContract;
+
 export type TelaranaHubChainId = 43113 | 5042002;
 export type TelaranaHubName = "fuji" | "arc";
+
+/** Stablecoin symbols that may appear as Telarana loan or collateral
+ *  legs. Extend when a new market is added to the registry. */
+export type TelaranaMarketSymbol = "USDC" | "EURC" | "MXNB";
+
+/** Canonical market keys, mirroring `deployments/*.marketIds`. M3/M4 are
+ *  optional until the Fuji MXNB deploy lands; the type stays a closed
+ *  union so callers can exhaust it. */
+export type TelaranaMarketKey =
+  | "M1_EURC_USDC"
+  | "M2_USDC_EURC"
+  | "M3_MXNB_USDC"
+  | "M4_USDC_MXNB";
 
 export interface TelaranaMarket {
   /** Morpho-Blue market id (bytes32) computed from MarketParams. */
   id: Hex;
   /** Canonical key in deployments/*.marketIds (e.g. M1_EURC_USDC). */
-  key: "M1_EURC_USDC" | "M2_USDC_EURC";
-  loanSymbol: "USDC" | "EURC";
-  collateralSymbol: "USDC" | "EURC";
+  key: TelaranaMarketKey;
+  loanSymbol: TelaranaMarketSymbol;
+  collateralSymbol: TelaranaMarketSymbol;
   loanToken: Address;
   collateralToken: Address;
   /** Per-market Morpho oracle adapter that wraps the global FxOracle. */
@@ -63,8 +93,9 @@ interface TelaranaDeployment {
   chainId: TelaranaHubChainId;
   hubName: TelaranaHubName;
   hubLabel: string;
-  contracts: Record<TelaranaContractName, Address>;
-  marketIds: Record<TelaranaMarket["key"], Hex>;
+  contracts: Record<TelaranaRequiredContract, Address> &
+    Partial<Record<TelaranaOptionalContract, Address>>;
+  marketIds: Partial<Record<TelaranaMarketKey, Hex>>;
   markets: TelaranaMarket[];
 }
 
@@ -82,6 +113,16 @@ function asHex(value: unknown): Hex {
   return value as Hex;
 }
 
+function tryHex(value: unknown): Hex | null {
+  if (typeof value !== "string" || value.length === 0) return null;
+  return /^0x[0-9a-fA-F]+$/.test(value) ? (value as Hex) : null;
+}
+
+function tryAddress(value: unknown): Address | null {
+  if (typeof value !== "string") return null;
+  return /^0x[0-9a-fA-F]{40}$/.test(value) ? (value as Address) : null;
+}
+
 function buildDeployment(
   raw: typeof telaranaArcDeployment | typeof telaranaFujiDeployment,
   hubName: TelaranaHubName,
@@ -94,39 +135,81 @@ function buildDeployment(
   // Fuji has no native Circle EURC deployment — fall back to the MockEURC
   // shipped under contracts so the manifest loader doesn't crash at boot.
   const loanEURC = asAddress(external.EURC ?? contracts.MockEURC);
+  // MXNB: Bitso ships a real testnet issuer contract; on Fuji that's the
+  // canonical `external.MXNB`. Optional — chains without an MXNB deploy
+  // just skip the M3/M4 markets below.
+  const loanMXNB = tryAddress(external.MXNB);
+
+  const adapterM3 = tryAddress(contracts.MorphoOracleAdapterM3);
+  const adapterM4 = tryAddress(contracts.MorphoOracleAdapterM4);
+  const m3Id = tryHex(marketIds.M3_MXNB_USDC);
+  const m4Id = tryHex(marketIds.M4_USDC_MXNB);
+
+  const markets: TelaranaMarket[] = [
+    // Morpho M1 is EURC borrowed against USDC collateral; M2 is the inverse.
+    // We pin loan/collateral so the SDK doesn't have to re-read paramsOf().
+    {
+      id: asHex(marketIds.M1_EURC_USDC ?? ""),
+      key: "M1_EURC_USDC",
+      loanSymbol: "EURC",
+      collateralSymbol: "USDC",
+      loanToken: loanEURC,
+      collateralToken: loanUSDC,
+      morphoOracleAdapter: asAddress(contracts.MorphoOracleAdapterM1),
+    },
+    {
+      id: asHex(marketIds.M2_USDC_EURC ?? ""),
+      key: "M2_USDC_EURC",
+      loanSymbol: "USDC",
+      collateralSymbol: "EURC",
+      loanToken: loanUSDC,
+      collateralToken: loanEURC,
+      morphoOracleAdapter: asAddress(contracts.MorphoOracleAdapterM2),
+    },
+  ];
+
+  // M3 + M4 only register once `DeployFujiMxnbMarkets.s.sol` has run and
+  // the manifest carries both the marketId AND the adapter address. The
+  // four pieces (loan token, collateral token, adapter, marketId) are
+  // mutually dependent — partial config would mis-route reads.
+  if (loanMXNB && adapterM3 && m3Id) {
+    markets.push({
+      id: m3Id,
+      key: "M3_MXNB_USDC",
+      loanSymbol: "MXNB",
+      collateralSymbol: "USDC",
+      loanToken: loanMXNB,
+      collateralToken: loanUSDC,
+      morphoOracleAdapter: adapterM3,
+    });
+  }
+  if (loanMXNB && adapterM4 && m4Id) {
+    markets.push({
+      id: m4Id,
+      key: "M4_USDC_MXNB",
+      loanSymbol: "USDC",
+      collateralSymbol: "MXNB",
+      loanToken: loanUSDC,
+      collateralToken: loanMXNB,
+      morphoOracleAdapter: adapterM4,
+    });
+  }
+
   return {
     chainId: raw.chainId as TelaranaHubChainId,
     hubName,
     hubLabel,
     contracts: Object.fromEntries(
       Object.entries(contracts).map(([k, v]) => [k, asAddress(v)]),
-    ) as Record<TelaranaContractName, Address>,
+    ) as Record<TelaranaRequiredContract, Address> &
+      Partial<Record<TelaranaOptionalContract, Address>>,
     marketIds: {
       M1_EURC_USDC: asHex(marketIds.M1_EURC_USDC ?? ""),
       M2_USDC_EURC: asHex(marketIds.M2_USDC_EURC ?? ""),
+      ...(m3Id ? { M3_MXNB_USDC: m3Id } : {}),
+      ...(m4Id ? { M4_USDC_MXNB: m4Id } : {}),
     },
-    // Morpho M1 is EURC borrowed against USDC collateral; M2 is the inverse.
-    // We pin loan/collateral so the SDK doesn't have to re-read paramsOf().
-    markets: [
-      {
-        id: asHex(marketIds.M1_EURC_USDC ?? ""),
-        key: "M1_EURC_USDC",
-        loanSymbol: "EURC",
-        collateralSymbol: "USDC",
-        loanToken: loanEURC,
-        collateralToken: loanUSDC,
-        morphoOracleAdapter: asAddress(contracts.MorphoOracleAdapterM1),
-      },
-      {
-        id: asHex(marketIds.M2_USDC_EURC ?? ""),
-        key: "M2_USDC_EURC",
-        loanSymbol: "USDC",
-        collateralSymbol: "EURC",
-        loanToken: loanUSDC,
-        collateralToken: loanEURC,
-        morphoOracleAdapter: asAddress(contracts.MorphoOracleAdapterM2),
-      },
-    ],
+    markets,
   };
 }
 

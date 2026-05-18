@@ -117,6 +117,11 @@ export const usdcAmountSchema = z.string().regex(/^\d+(\.\d{1,6})?$/);
 
 export const fxMarketSymbol = z.enum([
   "USDC/EURC",
+  // M3 + M4 pair from DeployFujiMxnbMarkets.s.sol — the loan/collateral
+  // ordering matters: MXNB/USDC is the loan-MXNB, post-USDC market (M3);
+  // USDC/MXNB is the inverse (M4). Both must appear in the schema so
+  // intent builders accept either direction.
+  "MXNB/USDC",
   "USDC/MXNB",
   "USDC/BRL",
   "USDC/JPYC",

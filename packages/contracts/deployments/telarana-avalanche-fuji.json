@@ -33,11 +33,13 @@
     "CctpMessageTransmitterV2": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
     "CctpDomain": "1",
     "USDC": "0x5425890298aed601595a70AB815c96711a31Bc65",
+    "MXNB": "0xAB99d44185af87AeB08361588F00F59B0CE85eBb",
     "Pyth": "0x23f0e8FAeE7bbb405E7A7C3d60138FCfd43d7509",
     "GatewayWallet": "0x0077777d7EBA4688BDeF3E311b846F25870A19B9",
     "GatewayMinter": "0x0022222ABE238Cc2C7Bb1f21003F0a260052475B",
     "GatewayLocalDomain": 1
   },
+  "marketIdsNote": "Append M3_MXNB_USDC + M4_USDC_MXNB AFTER DeployFujiMxnbMarkets.s.sol broadcasts on Fuji. The script logs both marketIds AND the MorphoOracleAdapterM3 / MorphoOracleAdapterM4 addresses — copy all four into this manifest (marketIds here + adapter addresses into contracts) and SDK consumers pick them up automatically. Until then, the registry's on-chain listPools() read covers them (degraded only when RPC is offline).",
   "marketIds": {
     "M1_EURC_USDC": "0x7d99088a9fe61331c49a92eb16fa3794b0bc2862b211f5a70f31a64cef25029e",
     "M2_USDC_EURC": "0x1700104cf29eceb113e01a1bcdc913e5e10d3d37314cee235752aa88bf153197"
