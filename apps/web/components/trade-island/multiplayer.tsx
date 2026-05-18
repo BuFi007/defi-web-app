@@ -30,6 +30,27 @@ import { ALL_MARKETS, fmtUSD, type Market } from "./data";
 import { Hint } from "./hint";
 import { ArcadeBoard, type ArcadeSession, type PlacedChip } from "./arcade";
 
+// Perps markets use ISO pairs (EUR/USD), Bento dev rooms only accept the
+// stablecoin pairs declared in packages/fx-bento/src/schemas.ts:42. Map the
+// quoted currency to the matching stablecoin market; fall back to USDC/EURC.
+function mapPerpsSymToBentoMarket(sym: string | undefined): string {
+  const base = sym?.split("/")[0]?.toUpperCase() ?? "";
+  switch (base) {
+    case "EUR":
+      return "USDC/EURC";
+    case "JPY":
+      return "USDC/JPYC";
+    case "MXN":
+      return "USDC/MXNB";
+    case "CAD":
+      return "USDC/QCAD";
+    case "BRL":
+      return "USDC/BRL";
+    default:
+      return "USDC/EURC";
+  }
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -745,7 +766,7 @@ export function ArcadeRoom({ market, onClose }: { market: Market; onClose: () =>
   const handleCreateRoom = useCallback(async () => {
     try {
       const created = await createDevRoom({
-        marketId: market.sym?.includes("/") ? market.sym : "USDC/EURC",
+        marketId: mapPerpsSymToBentoMarket(market.sym),
         entryFeeUsdc: 5,
         minPlayers: 2,
         maxPlayers: 6,

@@ -69,6 +69,8 @@ const corsMiddleware = createCorsMiddleware({
       "X-Wallet-TypedData",
       "X-Wallet-Signature",
       "Payment-Signature",
+      // Set by apps/web/lib/api-client.ts resilientFetch on POST/PUT/PATCH.
+      "Idempotency-Key",
     ],
     exposeHeaders: ["X-Request-Id", "X-Response-Time"],
     maxAge: 600,
