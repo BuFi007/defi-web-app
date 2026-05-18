@@ -93,6 +93,11 @@ jobs:
         env:
           NODE_ENV: test
           PORT: "3002"
+          # Deterministic test private key — matches the
+          # NEXT_PUBLIC_PERPS_REPLACEMENT_E2E_PRIVATE_KEY default used
+          # by the dev wallet shim. Smoke-perps signs an intent with
+          # this key against the local API; no real funds at risk.
+          SMOKE_TRADER_PRIVATE_KEY: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         run: |
           set -euo pipefail
           # `bun --cwd <dir> run <script>` regressed in bun 1.3.10 — the
