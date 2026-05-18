@@ -109,6 +109,30 @@ perpsRoutes.get("/replacement-needed", async (c) => {
   return c.json(jsonSafe({ events }));
 });
 
+// Public, no-auth count endpoint. Lets the web client poll cheaply
+// (every 30s) without minting a wallet-session signature first — only
+// when count > 0 does the client request a session signature to fetch
+// the actual event payloads via the authenticated endpoint above.
+//
+// SECURITY: returns only a count, no payload data, no PII. The address
+// is already public (it's in the URL the caller supplied). Reading the
+// number of pending residuals for any address is not sensitive — the
+// payloads (which contain order details) remain auth-gated.
+perpsRoutes.get("/replacement-needed/count", async (c) => {
+  const address = c.req.query("address");
+  if (!address || !/^0x[0-9a-fA-F]{40}$/.test(address)) {
+    return c.json({ error: "address must be a 0x-prefixed 20-byte hex" }, 400);
+  }
+  const events = await tradingDb.events.list({
+    type: PERPS_REPLACEMENT_NEEDED_EVENT,
+    actor: address.toLowerCase() as `0x${string}`,
+    // Cap the read — we only need to know "is it zero or non-zero"
+    // for the agent to decide whether to ask for a session signature.
+    limit: 50,
+  });
+  return c.json({ count: events.length });
+});
+
 perpsRoutes.post("/intents/:id/replacement/prepare", async (c) => {
   const session = c.get("walletSession") as WalletSession | null;
   if (!session) return c.json({ error: "wallet session required" }, 401);
