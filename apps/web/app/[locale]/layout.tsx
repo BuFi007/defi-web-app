@@ -5,7 +5,7 @@ import LayoutMusic from "@/components/layout-music";
 import { ThemeProvider } from "@/components/theme-provider";
 import SpiderwebPattern from "@/components/magicui/spiderweb-pattern";
 import { cn } from "@/utils";
-import Providers from "@/context/DynamicProviders";
+import Providers from "@/context/ClientProviders";
 import { I18nProviderClient } from "@/locales/client";
 import { TranslationProvider } from "@/context/TranslationContext";
 import Loading from "./loading";
