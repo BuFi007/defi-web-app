@@ -533,9 +533,9 @@
   background: var(--surface);
   border: 1.5px solid var(--border);
   border-radius: 16px;
-  padding: 14px 16px 16px;
+  padding: 10px 14px 12px;
   display: flex; flex-direction: column;
-  gap: 11px;
+  gap: 8px;
   align-self: stretch;
 }
 .lo-action-head { display: flex; align-items: center; justify-content: space-between; }
@@ -583,13 +583,13 @@
 /* Amount input */
 .lo-amount-input {
   width: 100%;
-  height: 62px;
-  padding: 0 18px;
+  height: 50px;
+  padding: 0 16px;
   background: var(--surface);
   border: 1.5px solid var(--border);
   border-radius: 12px;
   font-family: 'Nunito', sans-serif;
-  font-size: 32px; font-weight: 800;
+  font-size: 26px; font-weight: 800;
   color: var(--ink);
   letter-spacing: -0.02em;
   outline: 0;
@@ -697,8 +697,8 @@
 /* Impact readout — large outcome numbers below the CTA */
 .lo-impact {
   display: flex; flex-direction: column;
-  gap: 8px;
-  padding: 14px 16px 14px;
+  gap: 6px;
+  padding: 10px 14px 10px;
   background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-3) 100%);
   border-radius: 14px;
   border: 1px solid var(--border);
@@ -723,7 +723,7 @@
 }
 .lo-impact-big {
   font-family: 'Nunito', sans-serif;
-  font-size: 36px; font-weight: 800;
+  font-size: 28px; font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.05;
   color: var(--ink);
@@ -734,7 +734,7 @@
 .lo-impact-grid {
   display: grid; grid-template-columns: 1fr 1fr;
   gap: 6px;
-  padding-top: 8px;
+  padding-top: 6px;
   border-top: 1px dashed var(--border);
 }
 .lo-impact-mini { display: flex; flex-direction: column; gap: 2px; }

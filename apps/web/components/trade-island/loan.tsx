@@ -81,9 +81,14 @@ export interface LoanAction {
 export const LOAN_TOKENS: Record<string, LoanToken> = {
   USDC: { sym: "USDC", name: "USD Coin", flag: "🇺🇸", price: 1.0, decimals: 2, mock: false },
   EURC: { sym: "EURC", name: "Euro Coin", flag: "🇪🇺", price: 1.084, decimals: 2, mock: false },
+  // MXNB graduated from mock → real after fx-telarana#feat/mxnb-fuji-markets:
+  //   Bitso ships the live issuer-controlled testnet contract; the M3/M4
+  //   Morpho markets on the Fuji hub route through the canonical address
+  //   0xAB99…85eBb. Keep the price field for client-side $-value previews
+  //   until the live oracle is wired (Pyth USD/MXN ≈ 17, inverted → 0.0585).
+  MXNB: { sym: "MXNB", name: "Mexican Peso", flag: "🇲🇽", price: 0.0585, decimals: 2, mock: false },
   mAUDF: { sym: "mAUDF", name: "Australian Dollar", flag: "🇦🇺", price: 0.6648, decimals: 2, mock: true },
   mJPYC: { sym: "mJPYC", name: "Japanese Yen", flag: "🇯🇵", price: 0.00648, decimals: 0, mock: true },
-  mMXNB: { sym: "mMXNB", name: "Mexican Peso", flag: "🇲🇽", price: 0.0585, decimals: 2, mock: true },
   mKRW1: { sym: "mKRW1", name: "Korean Won", flag: "🇰🇷", price: 0.000726, decimals: 0, mock: true },
   mZCHF: { sym: "mZCHF", name: "Swiss Franc", flag: "🇨🇭", price: 1.135, decimals: 2, mock: true },
 };
@@ -101,10 +106,16 @@ export const LOAN_MARKETS: LoanMarket[] = [
   { id: "arc-eurc-usdc", hub: "arc", loan: "EURC", coll: "USDC", supply: 4.10, borrow: 6.42, util: 0.58, lltv: 0.86, tvl: 1240000, status: "live", trend: "up" },
   { id: "arc-mjpyc-usdc", hub: "arc", loan: "mJPYC", coll: "USDC", supply: 0.92, borrow: 2.40, util: 0.71, lltv: 0.82, tvl: 540000, status: "live", trend: "down" },
   { id: "arc-maudf-usdc", hub: "arc", loan: "mAUDF", coll: "USDC", supply: 8.40, borrow: 11.20, util: 0.42, lltv: 0.80, tvl: 220000, status: "live", trend: "up" },
-  { id: "arc-mmxnb-usdc", hub: "arc", loan: "mMXNB", coll: "USDC", supply: 9.40, borrow: 12.60, util: 0.38, lltv: 0.72, tvl: 142000, status: "stale", trend: "down" },
   { id: "arc-mkrw1-usdc", hub: "arc", loan: "mKRW1", coll: "USDC", supply: 3.40, borrow: 5.80, util: 0.46, lltv: 0.75, tvl: 86000, status: "live", trend: "up" },
   { id: "arc-mzchf-usdc", hub: "arc", loan: "mZCHF", coll: "USDC", supply: 2.10, borrow: 4.20, util: 0.62, lltv: 0.82, tvl: 220000, status: "paused", trend: "down" },
   { id: "fuji-usdc-eurc", hub: "fuji", loan: "USDC", coll: "EURC", supply: 4.20, borrow: 6.84, util: 0.62, lltv: 0.86, tvl: 412600, status: "live", trend: "up" },
+  // Real MXNB markets on the Fuji hub — added by
+  // fx-telarana#feat/mxnb-fuji-markets via DeployFujiMxnbMarkets.s.sol.
+  // M3 (mxnb-usdc): post USDC, borrow MXNB. M4 (usdc-mxnb): post MXNB,
+  // borrow USDC. Static fallback only — live state arrives via the
+  // markets API and overrides these via toLoanMarket().
+  { id: "fuji-mxnb-usdc", hub: "fuji", loan: "MXNB", coll: "USDC", supply: 9.20, borrow: 12.40, util: 0.40, lltv: 0.86, tvl: 0, status: "live", trend: "up" },
+  { id: "fuji-usdc-mxnb", hub: "fuji", loan: "USDC", coll: "MXNB", supply: 4.30, borrow: 6.50, util: 0.40, lltv: 0.86, tvl: 0, status: "live", trend: "up" },
 ];
 
 export const LOAN_POSITIONS: LoanPosition[] = [
@@ -142,19 +153,27 @@ function symbolForToken(address: Address): string {
     "0x5425890298aed601595a70ab815c96711a31bc65": "USDC",
     "0xefd7cf5ad5a2db9a3c23e2807f2279de92c730d2": "EURC",
     "0x50c4ba39caa7f56152d0df4914e1f6b907194992": "EURC",
+    "0xab99d44185af87aeb08361588f00f59b0ce85ebb": "MXNB", // Bitso testnet
     // Arc
     "0x3600000000000000000000000000000000000000": "USDC",
     "0x89b50855aa3be2f677cd6303cec089b5f319d72a": "EURC",
+    // Ethereum Sepolia
+    "0x5fd84259d66cd46123540766be93dfe6d43130d7": "USDC",
+    "0x34d4cebb03af55b99b68342ac4bd78e598d9a9fc": "MXNB",
+    // Arbitrum Sepolia
+    "0xb56e3e3769efb85214cb4fa42eba198e9fda92bf": "MXNB",
   };
   return known[address.toLowerCase()] ?? "TOK";
 }
 
 function decimalsForSymbol(sym: string): number {
-  // Both USDC and EURC are 6-dp on the live testnet deployments. The
-  // synthetic mAUDF/mJPYC tokens shown in the static LOAN_MARKETS aren't
-  // backed by real onchain markets — they keep the table populated for
-  // demo purposes.
-  if (sym === "USDC" || sym === "EURC") return 6;
+  // USDC, EURC, and MXNB are all 6-dp on the live testnet deployments
+  // (Bitso ships testnet MXNB at 6-dp to match the Fuji USDC/EURC
+  // representation — see fx-telarana SDK addresses for Fuji). The
+  // synthetic mAUDF / mJPYC / mKRW1 / mZCHF tokens shown in the static
+  // LOAN_MARKETS aren't backed by real onchain markets — they keep the
+  // table populated for demo purposes.
+  if (sym === "USDC" || sym === "EURC" || sym === "MXNB") return 6;
   return 6;
 }
 
@@ -471,14 +490,13 @@ export function ActionCard({
     impactMini2 = ["interest saved", "−$" + monthly.toFixed(2) + "/mo"];
   }
 
-  const decimals = market.onchain?.loanDecimals ?? 6;
-  const ctaDisabled = submitting || !market.onchain || amt <= 0;
-
-  const handleCta = () => {
-    if (!onSubmit || !market.onchain) return;
-    const kind = ACTION_TO_KIND[action] ?? "supply";
-    void onSubmit({ kind, amount: toAtomic(amount, decimals) });
-  };
+  // CTA submission props are accepted for API stability but no longer have
+  // a primary button surface inside the card — the parent wires submit via
+  // tab-level affordances. Silence unused-prop warnings without changing the
+  // public signature.
+  void onSubmit;
+  void submitting;
+  void submitLabelOverride;
 
   return (
     <section className="lo-action">
@@ -553,15 +571,6 @@ export function ActionCard({
           <button onClick={() => setAmount(balance.toString())}>MAX</button>
         </div>
       </div>
-
-      <button
-        className="lo-cta"
-        onClick={handleCta}
-        disabled={ctaDisabled}
-        style={ctaDisabled ? { opacity: 0.6, cursor: "not-allowed" } : undefined}
-      >
-        {submitLabelOverride ?? (submitting ? "Signing…" : A.verb)}
-      </button>
 
       <div className="lo-impact">
         <div className="lo-impact-head">
