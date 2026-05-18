@@ -63,9 +63,20 @@ export default function Providers({ children }: { children: ReactNode }) {
             });
           },
           onWalletConnectionFailed: (walletConnector, error) => {
+            // Unwrap the Error to plain fields — `console.error(obj)` was
+            // printing `[object Error]` and hiding the real message/code,
+            // which made diagnosis impossible from console alone.
+            const err = error as
+              | (Error & { code?: number; data?: unknown })
+              | undefined;
             console.error("Dynamic wallet connection failed", {
-              error,
-              wallet: walletConnector.name,
+              wallet: walletConnector?.name,
+              chainId: walletConnector?.connectedChain,
+              message: err?.message,
+              code: err?.code,
+              name: err?.name,
+              stack: err?.stack?.split("\n").slice(0, 4).join("\n"),
+              data: err?.data,
             });
           },
         },
