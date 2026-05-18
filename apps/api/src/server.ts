@@ -153,7 +153,11 @@ export default {
       if (upgraded) return undefined;
       return new Response("expected websocket upgrade", { status: 426 });
     }
-    return app.fetch(req);
+    // Pass `process.env` as Hono's env so `c.env[envKey]` works under Bun.
+    // worker-base (designed for Cloudflare Workers) reads CORS gating via
+    // `c.env["NODE_ENV"]`; under CF the runtime binds env, under Bun we have
+    // to hand it in.
+    return app.fetch(req, process.env);
   },
   websocket: marketsWebSocketHandler,
 };
