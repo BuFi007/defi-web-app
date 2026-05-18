@@ -96,7 +96,7 @@ function wrapDedupe(base: Logger): Logger {
   let lastAt = 0;
   const out = {} as Logger;
   for (const lvl of levels) {
-    (out as Record<string, (...args: unknown[]) => void>)[lvl] = (
+    (out as unknown as Record<string, (...args: unknown[]) => void>)[lvl] = (
       ...args: unknown[]
     ) => {
       let key: string;
