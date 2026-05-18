@@ -79,11 +79,11 @@ not writing, API not reading the read-store, hook not invalidating, etc.).
 | 25 | Cross — ponder schema + handlers | 95 | All four surfaces wired: Perps + Telarana + BUFX + Bento (5 contracts × 2 chains, 18 events, 2 new tables `arcadeRound`/`arcadeSettlement`). | No |
 | 26 | Cross — error recovery + retry | 80 | `resilientFetch` shipped: retry/backoff/Retry-After, auto-Idempotency-Key, 401 hook, AbortSignal. Adopted across all 3 clients. 16 tests. | No |
 | 27 | Cross — observability | 70 | `@bufi/logger` middleware on every API route; Sentry no-op scaffold (web+api) opt-in via DSN env | No |
-| 28 | Cross — testing | 70 | Unit (perps + perps-math 39 + fx-bento sqlite + api-client 16) + smoke trio (perps/bento/telarana) + smoke-all orchestrator. No e2e per surface yet. | No |
+| 28 | Cross — testing | 95 | Unit (perps + perps-math 39 + fx-bento sqlite + api-client 16) + 27 Hono route integration tests + smoke trio + smoke-all + Playwright e2e (arcade BENTO_E2E lifecycle + loan + perps) + CI workflow. | No |
 | 29 | Cross — deployment | 50 | Web/API individually deployable; keepers need infra | Yes for prod |
 | 30 | Cross — financial math package | 85 | `@bufi/perps-math` with 39 tests; panels migrated; loan was already SDK-sourced | No |
 
-**Overall: ~86%.** (Simple average across 30 buckets after 13 PRs of work.)
+**Overall: ~87%.** (Simple average across 30 buckets after 16 PRs of work.)
 
 ---
 
