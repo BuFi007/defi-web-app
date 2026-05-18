@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Icon, FlagPair, fmtUSD, fmtPct, makeOrderbook, type Market } from "./data";
 import { Hint } from "./hint";
 import { CandleChart } from "./chart";
+import { Slider } from "@/components/ui/slider";
 
 export function OrderbookCard({ market }: { market: Market }) {
   const tickSize = market.price < 10 ? 0.0001 : market.price < 1000 ? 0.01 : 0.5;
@@ -148,17 +149,15 @@ export function OrderPanelCard({ market }: { market: Market }) {
               </button>
             </div>
           </div>
-          <div
-            className="slider"
-            onClick={(e) => {
-              const r = e.currentTarget.getBoundingClientRect();
-              const p = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
-              setLev(Math.max(1, Math.round(p * market.leverage)));
-            }}
-          >
-            <div className="track" style={{ width: `${(lev / market.leverage) * 100}%` }} />
-            <div className="thumb" style={{ left: `${(lev / market.leverage) * 100}%` }} />
-          </div>
+          <Slider
+            value={[lev]}
+            min={1}
+            max={market.leverage}
+            step={1}
+            onValueChange={([v]) => setLev(v)}
+            aria-label="Leverage"
+            className="my-2"
+          />
           <div className="lev-presets">
             {presets
               .filter((p) => p <= market.leverage)

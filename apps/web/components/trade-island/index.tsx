@@ -23,11 +23,28 @@ import {
   LOAN_HUBS,
 } from "./loan";
 import { ArcadeRoom } from "./multiplayer";
+import { MobileTrade } from "./mobile-trade";
+import { MarketPicker } from "./market-picker";
+
+// Tiny media-query hook so the Trade tab can branch to the mobile layout
+// without bringing in a dependency. Server render returns false; client
+// hydrates with the actual match and subscribes to changes.
+function useMediaQuery(query: string) {
+  const [match, setMatch] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mql = window.matchMedia(query);
+    const update = () => setMatch(mql.matches);
+    update();
+    mql.addEventListener?.("change", update);
+    return () => mql.removeEventListener?.("change", update);
+  }, [query]);
+  return match;
+}
 
 const TAB_HINTS: Record<string, string> = {
   loan: "Lend and borrow FX stablecoins across hubs. Earn yield or take a collateralized loan.",
   trade: "Order book trading with leverage. Live charts, limit/market orders, manage positions.",
-  markets: "Browse every market that's open right now — forex pairs and perpetuals.",
   positions: "See your open positions, unrealized PnL, and adjust take-profit / stop-loss.",
   leaders: "Top traders by PnL and ROI. Tap Copy to mirror their trades automatically.",
   history: "A timeline of every trade you've closed. Filterable, exportable.",
@@ -48,133 +65,6 @@ const TABS: TabDef[] = [
   { id: "history", label: "History", icon: "doc" },
 ];
 
-function Sparkline({ market }: { market: Market }) {
-  const data = useMemo(() => {
-    let seed = Math.floor(market.price * 1000);
-    const rand = () => {
-      seed = (seed * 9301 + 49297) % 233280;
-      return seed / 233280;
-    };
-    const arr: number[] = [];
-    let p = market.price * 0.985;
-    for (let i = 0; i < 30; i++) {
-      p += (rand() - 0.5) * market.price * 0.008;
-      arr.push(p);
-    }
-    arr.push(market.price);
-    return arr;
-  }, [market.sym]);
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const W = 100;
-  const H = 32;
-  const path = data
-    .map((v, i) => {
-      const x = (i / (data.length - 1)) * W;
-      const y = H - ((v - min) / (max - min || 1)) * H;
-      return (i === 0 ? "M" : "L") + x.toFixed(1) + "," + y.toFixed(1);
-    })
-    .join(" ");
-  const fill = path + ` L${W},${H} L0,${H} Z`;
-  const color = market.change >= 0 ? "var(--profit-ink)" : "var(--loss-ink)";
-  const fillColor = market.change >= 0 ? "var(--profit)" : "var(--loss)";
-  return (
-    <svg className="sparkline" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
-      <path d={fill} fill={fillColor} fillOpacity=".35" />
-      <path d={path} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function MarketsTab({
-  marketSym,
-  setMarketSym,
-  setTab,
-}: {
-  marketSym: string;
-  setMarketSym: (s: string) => void;
-  setTab: (s: string) => void;
-}) {
-  const [filter, setFilter] = useState("all");
-  const filters = [
-    { id: "all", label: "All Markets", count: ALL_MARKETS.length, hint: "Every market available right now — forex + perpetuals." },
-    { id: "forex", label: "Forex", count: FX_MARKETS.length, hint: "Currency pairs settled in USD. Up to 100× leverage." },
-    { id: "perp", label: "Perps", count: PERP_MARKETS.length, hint: "Perpetual futures on crypto. Funding paid every 8h." },
-    { id: "favorites", label: "Favorites", count: 3, hint: "Markets you've starred. Quick access here." },
-  ];
-  const list = filter === "all" ? ALL_MARKETS : ALL_MARKETS.filter((m) => m.type === filter);
-  return (
-    <div className="markets-tab">
-      <div className="markets-filter">
-        {filters.map((f) => (
-          <button
-            key={f.id}
-            className={"filter-btn " + (filter === f.id ? "active" : "")}
-            onClick={() => setFilter(f.id)}
-            title={f.hint}
-          >
-            {f.label}
-            <span className="filter-count">{f.count}</span>
-          </button>
-        ))}
-        <div style={{ flex: 1 }} />
-        <div className="search-pill">
-          <Icon name="search" size={14} />
-          <input placeholder="Search markets..." />
-        </div>
-      </div>
-      <div className="markets-grid">
-        {list.map((m) => (
-          <div
-            key={m.sym}
-            className={"market-card " + (marketSym === m.sym ? "active" : "")}
-            onClick={() => {
-              setMarketSym(m.sym);
-              setTab("trade");
-            }}
-          >
-            <div className="mc-head">
-              <FlagPair a={m.flagA} b={m.flagB} size={26} />
-              <div className="mc-sym-block">
-                <div className="mc-sym">{m.sym}</div>
-                <div className="mc-type">{m.type === "perp" ? `Perpetual · ${m.leverage}x` : `Forex · ${m.leverage}x`}</div>
-              </div>
-              <span className={"pill " + (m.change >= 0 ? "profit" : "loss")} title="24h price change">
-                {fmtPct(m.change)}
-              </span>
-            </div>
-            <div className="mc-price mono" title="Latest mark price">
-              {m.price.toFixed(m.price < 10 ? 4 : m.price < 1000 ? 2 : 1)}
-            </div>
-            <div className="mc-meta">
-              <div title="Difference between bid and ask">
-                <span className="ml">Spread</span>
-                <span className="mv mono">{m.spread.toFixed(m.price < 10 ? 5 : 3)}</span>
-              </div>
-              {m.funding !== undefined ? (
-                <div title="Funding rate paid between longs and shorts every 8h">
-                  <span className="ml">Funding</span>
-                  <span
-                    className="mv mono"
-                    style={{ color: m.funding >= 0 ? "var(--profit-ink)" : "var(--loss-ink)" }}
-                  >
-                    {(m.funding * 100).toFixed(4)}%
-                  </span>
-                </div>
-              ) : (
-                <div title="Total notional traded in the last 24 hours">
-                  <span className="ml">24h Vol</span>
-                  <span className="mv mono">$1.4B</span>
-                </div>
-              )}
-            </div>
-            <Sparkline market={m} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function LeadersTab() {
   const leaders = [
@@ -198,7 +88,7 @@ function LeadersTab() {
           </button>
         ))}
       </div>
-      <table className="table leaders-table">
+      <table className="table leaders-table table-desktop-only">
         <thead>
           <tr>
             <th>
@@ -287,6 +177,29 @@ function LeadersTab() {
           ))}
         </tbody>
       </table>
+      <div className="leader-cards" aria-label="Top traders">
+        {leaders.map((l) => (
+          <article key={l.name} className="leader-card">
+            <span className={"rank-badge rank-" + (l.rank <= 3 ? l.rank : "n")}>{l.rank}</span>
+            <div className="leader-avatar" aria-hidden="true">{l.avatar}</div>
+            <div className="leader-card-meta">
+              <div className="leader-card-name">@{l.name}</div>
+              <div className="leader-card-sub">
+                <span className="mono">{l.winrate}% win</span>
+                <span className="mono">{l.trades} trades</span>
+                <span className="mono">{l.copy.toLocaleString()} ☆</span>
+              </div>
+            </div>
+            <div className="leader-card-pnl">
+              <span className="leader-card-pnl-v mono">+{fmtUSD(l.pnl)}</span>
+              <span className="leader-card-pnl-l">30d PnL</span>
+            </div>
+            <button className="copy-btn">
+              <Icon name="copy" size={12} /> Copy @{l.name}
+            </button>
+          </article>
+        ))}
+      </div>
     </div>
   );
 }
@@ -302,6 +215,7 @@ function HistoryTab() {
   ];
   const totalPnl = trades.reduce((s, t) => s + t.pnl, 0);
   const wins = trades.filter((t) => t.pnl > 0).length;
+  const [showMoreStats, setShowMoreStats] = useState(false);
   return (
     <div className="history-tab">
       <div className="history-summary">
@@ -326,20 +240,28 @@ function HistoryTab() {
           </div>
           <div className="hsum-v mono">{Math.round((wins / trades.length) * 100)}%</div>
         </div>
-        <div className="hsum-card">
+        <div className={"hsum-card hsum-more" + (showMoreStats ? " open" : "")}>
           <div className="hsum-l">
             Avg. Hold <Hint w={220}>Average time between opening and closing a trade today.</Hint>
           </div>
           <div className="hsum-v mono">2h 14m</div>
         </div>
-        <div className="hsum-card">
+        <div className={"hsum-card hsum-more" + (showMoreStats ? " open" : "")}>
           <div className="hsum-l">
             Fees Paid <Hint w={220}>Total trading and funding fees paid today.</Hint>
           </div>
           <div className="hsum-v mono">{fmtUSD(trades.reduce((s, t) => s + t.fee, 0))}</div>
         </div>
       </div>
-      <table className="table">
+      <button
+        type="button"
+        className="hsum-toggle"
+        onClick={() => setShowMoreStats((v) => !v)}
+        aria-expanded={showMoreStats}
+      >
+        {showMoreStats ? "Hide" : "Show"} avg hold + fees
+      </button>
+      <table className="table table-desktop-only">
         <thead>
           <tr>
             <th>Time</th>
@@ -403,6 +325,114 @@ function HistoryTab() {
           })}
         </tbody>
       </table>
+      <div className="hist-cards" aria-label="Closed trades today">
+        {trades.map((t, i) => {
+          const m = ALL_MARKETS.find((mm) => mm.sym === t.sym);
+          const dec = t.entry < 10 ? 4 : t.entry < 1000 ? 2 : 1;
+          return (
+            <article key={i} className="hist-card">
+              <header className="hist-card-head">
+                <FlagPair a={m?.flagA || "◎"} b={m?.flagB || "$"} size={22} />
+                <div className="hist-card-meta">
+                  <div className="hist-card-sym">
+                    {t.sym}{" "}
+                    <span className={"side-tag " + t.side} style={{ marginLeft: 4 }}>
+                      {t.side.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="hist-card-time mono">{t.time}</div>
+                </div>
+                <div className={"hist-card-pnl mono " + (t.pnl >= 0 ? "profit" : "loss")}>
+                  {t.pnl >= 0 ? "+" : ""}
+                  {fmtUSD(t.pnl)}
+                </div>
+              </header>
+              <dl className="hist-card-grid">
+                <div>
+                  <dt>Size</dt>
+                  <dd className="mono">{t.size.toLocaleString()}</dd>
+                </div>
+                <div>
+                  <dt>Entry</dt>
+                  <dd className="mono">{t.entry.toFixed(dec)}</dd>
+                </div>
+                <div>
+                  <dt>Exit</dt>
+                  <dd className="mono">{t.exit.toFixed(dec)}</dd>
+                </div>
+                <div>
+                  <dt>Fee</dt>
+                  <dd className="mono muted">{fmtUSD(t.fee)}</dd>
+                </div>
+              </dl>
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PerpsPositionCards() {
+  return (
+    <div className="pos-cards" aria-label="Open perp positions">
+      {MOCK_POSITIONS.map((p, i) => {
+        const m = ALL_MARKETS.find((mm) => mm.sym === p.sym);
+        const dec = p.entry < 10 ? 4 : p.entry < 1000 ? 2 : 1;
+        const pnlPct = (p.pnl / p.margin) * 100;
+        return (
+          <article key={i} className="pos-card">
+            <header className="pos-card-head">
+              <FlagPair a={m?.flagA || "◎"} b={m?.flagB || "$"} size={22} />
+              <div className="pos-card-meta">
+                <div className="pos-card-sym">{p.sym}</div>
+                <div className="pos-card-sub">{p.leverage}x · Cross</div>
+              </div>
+              <span className={"side-tag " + p.side}>{p.side.toUpperCase()}</span>
+              <div className={"pos-card-pnl mono " + (p.pnl >= 0 ? "profit" : "loss")}>
+                <div className="pos-card-pnl-v">
+                  {p.pnl >= 0 ? "+" : ""}
+                  {fmtUSD(p.pnl)}
+                </div>
+                <div className="pos-card-pnl-pct">{fmtPct(pnlPct)}</div>
+              </div>
+            </header>
+            <dl className="pos-card-grid">
+              <div>
+                <dt>Size</dt>
+                <dd className="mono">{p.size.toLocaleString()}</dd>
+              </div>
+              <div>
+                <dt>Margin</dt>
+                <dd className="mono">{fmtUSD(p.margin)}</dd>
+              </div>
+              <div>
+                <dt>Entry</dt>
+                <dd className="mono">{p.entry.toFixed(dec)}</dd>
+              </div>
+              <div>
+                <dt>Mark</dt>
+                <dd className="mono">{p.mark.toFixed(dec)}</dd>
+              </div>
+              <div>
+                <dt>Liq.</dt>
+                <dd className="mono" style={{ color: "var(--loss-ink)" }}>
+                  {p.liq.toFixed(dec)}
+                </dd>
+              </div>
+              <div>
+                <dt>TP/SL</dt>
+                <dd>
+                  <button className="copy-btn" style={{ padding: "3px 8px" }}>
+                    <Icon name="plus" size={10} /> Set
+                  </button>
+                </dd>
+              </div>
+            </dl>
+            <button className="pos-card-close">Close position</button>
+          </article>
+        );
+      })}
     </div>
   );
 }
@@ -451,7 +481,7 @@ function PerpsPositionsView() {
           </div>
         </div>
       </div>
-      <table className="table">
+      <table className="table table-desktop-only">
         <thead>
           <tr>
             <th>Market</th>
@@ -531,6 +561,7 @@ function PerpsPositionsView() {
           })}
         </tbody>
       </table>
+      <PerpsPositionCards />
     </div>
   );
 }
@@ -704,7 +735,25 @@ function PositionsOnlyTab() {
   );
 }
 
-function TradeTab({ market }: { market: Market }) {
+function TradeTab({
+  market,
+  marketSym,
+  setMarketSym,
+}: {
+  market: Market;
+  marketSym: string;
+  setMarketSym: (s: string) => void;
+}) {
+  // Switch to the dedicated mobile layout under the `lg` breakpoint. Matches
+  // the island.css cutover at 1023.98px so the two systems agree.
+  const isMobile = useMediaQuery("(max-width: 1023.98px)");
+  if (isMobile) {
+    return (
+      <div className="trade-tab trade-tab-mobile">
+        <MobileTrade market={market} marketSym={marketSym} setMarketSym={setMarketSym} />
+      </div>
+    );
+  }
   return (
     <div className="trade-tab">
       <div className="trade-layout">
@@ -768,15 +817,7 @@ export default function TradeIsland() {
         </div>
         <div className="island-summary">
           {tab === "trade" && (
-            <button className="market-mini" onClick={() => setTab("markets")}>
-              <FlagPair a={market.flagA} b={market.flagB} size={20} />
-              <span style={{ fontWeight: 800, fontSize: 13 }}>{market.sym}</span>
-              <span className="mono" style={{ fontWeight: 800, fontSize: 13 }}>
-                {market.price.toFixed(dec)}
-              </span>
-              <span className={"pill " + (market.change >= 0 ? "profit" : "loss")}>{fmtPct(market.change)}</span>
-              <Icon name="chev" size={11} />
-            </button>
+            <MarketPicker market={market} setMarketSym={setMarketSym} />
           )}
           <div className="acct-mini">
             <span className="acct-l">Equity</span>
@@ -800,9 +841,10 @@ export default function TradeIsland() {
       </header>
 
       <div className={"island-body " + (arcade && tab === "trade" ? "arcade-on" : "")}>
-        {tab === "trade" && !arcade && <TradeTab market={market} />}
+        {tab === "trade" && !arcade && (
+          <TradeTab market={market} marketSym={marketSym} setMarketSym={setMarketSym} />
+        )}
         {tab === "trade" && arcade && <ArcadeRoom market={market} onClose={() => setArcade(false)} />}
-        {tab === "markets" && <MarketsTab marketSym={marketSym} setMarketSym={setMarketSym} setTab={setTab} />}
         {tab === "positions" && <PositionsOnlyTab />}
         {tab === "loan" && <LoanTab />}
         {tab === "leaders" && <LeadersTab />}

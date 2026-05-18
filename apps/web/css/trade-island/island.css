@@ -300,20 +300,665 @@ body.island-mode #root { width: 100%; max-width: 1600px; margin: 0 auto; display
 .hsum-v.loss { color: var(--loss); }
 .history-tab .table, .positions-only-tab .table { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
 
-/* Compact responsive tweaks */
+/* Compact responsive tweaks (still apply to ≥1024 widths). Below 1024 the
+   TradeTab component branches to <MobileTrade /> so the .trade-layout grid
+   no longer renders — these only narrow the desktop columns down to ~1024. */
 @media (max-width: 1240px) {
   .trade-layout { grid-template-columns: 200px 1fr 290px; gap: 10px; padding: 10px; }
 }
 @media (max-width: 1080px) {
   .trade-layout { grid-template-columns: 1fr 290px; }
   .t-orderbook { display: none; }
-}
-@media (max-width: 820px) {
-  .trade-layout { grid-template-columns: 1fr; }
-  .t-order { order: -1; }
   .history-summary { grid-template-columns: repeat(3, 1fr); }
   .island-tabs { gap: 2px; padding: 3px; }
   .island-tab { padding: 6px 9px; font-size: 11.5px; }
   .island-tab span:first-of-type { display: none; }
   .acct-mini .acct-l { display: none; }
 }
+
+/* Mobile + tablet (≤1023px): the LayoutMusic radio + Header are pinned, the
+   middle `.flex-1.overflow-y-auto` container in app/[locale]/layout.tsx
+   handles page scroll. We only need to make sure inner content can grow:
+   the previous `Container` had a hard `overflow-hidden` that clipped long
+   tabs on phone (now `overflow-visible md:overflow-hidden`). */
+
+/* Phone-only (<768px): edge-to-edge, no chrome, free height.
+   Tablet (768-1023) keeps the island's ring/rounded so the animated
+   canvas behind it (visible from md:) peeks through the gutters. */
+@media (max-width: 767.98px) {
+  body.island-mode { padding: 0; }
+  .island {
+    border-radius: 0;
+    border: 0;
+    box-shadow: none;
+    flex: none;
+    align-self: auto;
+    min-height: 0;
+    max-height: none;
+  }
+  .island-body { overflow-y: visible; min-height: 0; }
+}
+
+/* Tablet: free the height cap (so mobile-trade layout fits) but keep
+   the island's visual chrome so the canvas peeks around the edges. */
+@media (min-width: 768px) and (max-width: 1023.98px) {
+  .island {
+    min-height: 0;
+    max-height: none;
+  }
+  .island-body { overflow-y: visible; min-height: 0; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   MobileTrade — phone + tablet portrait (≤1023.98px).
+   Chart-first, tabbed (Chart / Order Book / Trades), sticky CTAs.
+   ───────────────────────────────────────────────────────────── */
+@media (max-width: 1023.98px) {
+  .trade-tab-mobile { padding: 0; display: block; }
+  .mobile-trade {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px 0;
+    /* Height-lock the column to the viewport minus chrome (island-header ~52px
+       + page header ~64px) and minus the fixed CTA bar (~84px) and the radio
+       player (~72px). This makes .mt-body's flex:1 child consume all remaining
+       space so the chart fills the viewport without being obscured by the CTA. */
+    height: calc(100dvh - 52px - 64px - 84px - 72px - env(safe-area-inset-bottom, 0px));
+    min-height: 480px;
+    box-sizing: border-box;
+  }
+
+  /* Price header doubles as the market switcher (≤1 tap to switch market).
+     Single-row layout: [flag][sym/lev][price][chg] with H/L/Vol as a thin
+     mono row underneath. Total card height ~64-72px on phone. */
+  .mt-price-bar {
+    display: grid;
+    grid-template-columns: auto auto 1fr auto;
+    column-gap: 8px;
+    row-gap: 4px;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    text-align: left;
+    width: 100%;
+    transition: border-color .15s;
+  }
+  .mt-price-bar:active { border-color: var(--border-strong); }
+  .mt-price-sym {
+    display: flex; align-items: center; gap: 5px;
+    font-weight: 800; font-size: 13px; color: var(--ink);
+    min-width: 0;
+  }
+  .mt-price-sym .pill { padding: 1px 5px; font-size: 9.5px; }
+  .mt-price-v {
+    font-weight: 800; font-size: 18px; letter-spacing: -.01em; line-height: 1.1;
+    text-align: right;
+    justify-self: end;
+  }
+  .mt-price-chg {
+    font-weight: 800; font-size: 11.5px;
+    padding: 2px 7px; border-radius: 999px;
+    line-height: 1.1;
+  }
+  .mt-price-chg.profit { color: var(--profit-ink); background: var(--profit-soft); }
+  .mt-price-chg.loss { color: var(--loss-ink); background: var(--loss-soft); }
+  .mt-price-stats {
+    grid-column: 1 / -1;
+    display: flex; gap: 14px;
+    font-size: 10px; font-weight: 700;
+    color: var(--ink-3);
+    margin-top: 2px;
+  }
+  .mt-price-stats > span { display: inline-flex; gap: 5px; align-items: baseline; }
+  .mt-price-stats em {
+    font-style: normal; font-weight: 800; color: var(--ink-4);
+    letter-spacing: .04em; text-transform: uppercase; font-size: 9px;
+  }
+  .mt-price-stats .mono { color: var(--ink-2); font-size: 10.5px; }
+
+  /* Inner tab strip — Binance pattern */
+  .mt-inner-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    padding: 2px;
+    background: var(--surface-3);
+    border-radius: 11px;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .mt-inner-tab {
+    padding: 6px 0;
+    font-weight: 800; font-size: 12px;
+    color: var(--ink-3);
+    border-radius: 9px;
+    transition: background .15s, color .15s;
+  }
+  .mt-inner-tab.active {
+    background: var(--surface);
+    color: var(--primary-ink);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Timeframe strip (shown on the Chart inner tab only). On phone, this sits
+     above the chart and gets pulled visually onto the chart's top edge via
+     negative-margin so it doesn't claim its own row. */
+  .mt-tf-row {
+    display: flex; gap: 3px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 0;
+    flex-shrink: 0;
+  }
+  .mt-tf-row::-webkit-scrollbar { display: none; }
+  .mt-tf-row .tf-btn {
+    padding: 4px 9px; font-size: 11px; font-weight: 800;
+    background: var(--surface-3); color: var(--ink-3);
+    border-radius: 7px; flex-shrink: 0;
+  }
+  .mt-tf-row .tf-btn.active {
+    background: var(--surface); color: var(--primary-ink);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Body holds whichever inner panel is active. Chart flex-fills the
+     available space inside .mobile-trade (which is height-locked to the
+     viewport minus chrome/CTA). */
+  .mt-body {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  .mt-chart-wrap {
+    flex: 1;
+    min-height: 280px;
+    position: relative;
+    background: var(--surface);
+  }
+  .mt-chart-wrap .chart-area { height: 100%; }
+  .mt-chart-wrap .chart-canvas { width: 100%; height: 100%; display: block; }
+
+  /* Compact orderbook reuses the desktop ob-row styles for color parity.
+     OB + Trades panels flex-fill inside .mt-body and scroll internally so
+     the page-scroll doesn't push the chart away when the user explores. */
+  .mt-ob { padding: 6px 0 0; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  .mt-ob-cols {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    padding: 4px 12px 6px;
+    font-size: 10px; font-weight: 800;
+    color: var(--ink-4);
+    letter-spacing: .04em; text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .mt-ob-cols span:nth-child(2),
+  .mt-ob-cols span:nth-child(3) { text-align: right; }
+  .mt-ob-rows { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+  .mt-ob-rows .ob-row { padding: 4px 12px; font-size: 12.5px; }
+
+  /* Recent trades list */
+  .mt-trades { padding: 6px 0 0; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  .mt-trades-head {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    padding: 4px 12px 6px;
+    font-size: 10px; font-weight: 800;
+    color: var(--ink-4);
+    letter-spacing: .04em; text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .mt-trades-head span:nth-child(2),
+  .mt-trades-head span:nth-child(3) { text-align: right; }
+  .mt-trades-rows { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+  .mt-trade-row {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    padding: 5px 12px; font-size: 12.5px;
+  }
+  .mt-trade-row .size, .mt-trade-row .time { text-align: right; }
+  .mt-trade-row .time { color: var(--ink-3); }
+  .mt-trade-row.buy  .price { color: var(--profit-ink); font-weight: 700; }
+  .mt-trade-row.sell .price { color: var(--loss-ink); font-weight: 700; }
+
+  /* Sticky Long / Short — passes the reach test. position:fixed pins to
+     viewport; we lift it 72px above the bottom to clear the persistent
+     radio player. Reserved padding-bottom on .mobile-trade prevents
+     overlap with scrolling content. */
+  .mt-cta-bar {
+    position: fixed;
+    left: 0; right: 0;
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    z-index: 50;
+    display: flex; flex-direction: column;
+    gap: 4px;
+    padding: 6px 12px 8px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -8px 24px rgba(40, 25, 90, .06);
+  }
+  /* When a bottom sheet is open, drop the floating CTA so it doesn't
+     stack on top of the sheet's order button. */
+  body:has(.mt-sheet-backdrop) .mt-cta-bar { display: none; }
+  .mt-cta-avail {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 11px; font-weight: 700; color: var(--ink-3);
+  }
+  .mt-cta-avail .mt-pl {
+    font-size: 10px; font-weight: 800;
+    color: var(--ink-4);
+    letter-spacing: .06em; text-transform: uppercase;
+  }
+  .mt-cta-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .mt-cta {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 12px 0;
+    border-radius: 14px;
+    font-weight: 800; font-size: 15px;
+    color: white;
+    transition: transform .12s;
+  }
+  .mt-cta:active { transform: translateY(1px); }
+  .mt-cta.long  { background: var(--profit); color: white; }
+  .mt-cta.short { background: var(--loss); color: var(--loss-ink); }
+
+  /* Bottom-sheet shell shared by market picker + order entry. */
+  .mt-sheet-backdrop {
+    position: fixed; inset: 0; z-index: 60;
+    background: rgba(31, 23, 64, .45);
+    display: flex; align-items: flex-end; justify-content: stretch;
+    animation: mt-fade .18s ease-out;
+  }
+  @keyframes mt-fade { from { opacity: 0; } to { opacity: 1; } }
+  .mt-sheet {
+    width: 100%;
+    max-height: 86vh;
+    background: var(--surface);
+    border-top-left-radius: 22px;
+    border-top-right-radius: 22px;
+    box-shadow: 0 -8px 32px rgba(40, 25, 90, .25);
+    display: flex; flex-direction: column;
+    animation: mt-slide .22s cubic-bezier(.2, .8, .2, 1);
+    overflow: hidden;
+  }
+  @keyframes mt-slide { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .mt-sheet-head {
+    position: relative;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 16px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .mt-sheet-handle {
+    position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+    width: 36px; height: 4px; border-radius: 999px;
+    background: var(--border-2);
+  }
+  .mt-sheet-title {
+    font-weight: 800; font-size: 14px; color: var(--ink);
+    display: flex; align-items: center;
+  }
+  .mt-sheet-close {
+    width: 30px; height: 30px; border-radius: 9px;
+    background: var(--surface-3); color: var(--ink-2);
+    display: flex; align-items: center; justify-content: center;
+    transform: rotate(45deg);
+  }
+  .mt-sheet-body { flex: 1; min-height: 0; overflow: hidden; display: flex; }
+  /* Reuse the desktop OrderPanelCard inside the sheet, but make it fill */
+  .mt-sheet-body .card.order-card {
+    flex: 1; min-height: 0;
+    border: 0; border-radius: 0; box-shadow: none;
+  }
+  .mt-sheet-body .order-head { padding-top: 12px; }
+
+  /* Market picker sheet */
+  .mt-sheet-market { max-height: 80vh; }
+  .mt-mkt-tabs { display: flex; gap: 4px; padding: 10px 16px 4px; }
+  .mt-mkt-tab {
+    padding: 6px 12px; font-size: 12px; font-weight: 800;
+    color: var(--ink-3); background: var(--surface-3);
+    border-radius: 9px;
+  }
+  .mt-mkt-tab.active { background: var(--primary-soft); color: var(--primary-ink); }
+  .mt-mkt-list { flex: 1; overflow-y: auto; padding: 4px 8px 16px; }
+  .mt-mkt-row {
+    display: grid; grid-template-columns: auto 1fr auto;
+    gap: 12px; align-items: center;
+    width: 100%; text-align: left;
+    padding: 10px 12px;
+    border-radius: 12px;
+    transition: background .12s;
+  }
+  .mt-mkt-row:active { background: var(--surface-2); }
+  .mt-mkt-row.active { background: var(--primary-softer); }
+  .mt-mkt-meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .mt-mkt-sym { font-weight: 800; font-size: 13.5px; color: var(--ink); }
+  .mt-mkt-type { font-size: 10.5px; font-weight: 700; color: var(--ink-3); }
+  .mt-mkt-price { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+  .mt-mkt-price .mono { font-weight: 800; font-size: 13px; color: var(--ink); }
+  .mt-mkt-chg {
+    font-size: 11px; font-weight: 800;
+    padding: 1px 7px; border-radius: 999px;
+  }
+  .mt-mkt-chg.profit { background: var(--profit-soft); color: var(--profit-ink); }
+  .mt-mkt-chg.loss  { background: var(--loss-soft);  color: var(--loss-ink); }
+}
+
+/* Card layouts (Positions / History) — visible only on mobile/tablet.
+   Desktop uses the existing .table. We use display: grid + dl/dt/dd so
+   it's readable to assistive tech and naturally semantic. */
+.pos-cards, .hist-cards, .leader-cards { display: none; }
+.hsum-toggle { display: none; }
+@media (max-width: 1023.98px) {
+  .table-desktop-only { display: none; }
+  .pos-cards, .hist-cards, .leader-cards {
+    display: flex; flex-direction: column; gap: 10px;
+  }
+
+  .pos-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .pos-card-head {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto auto;
+    column-gap: 10px;
+    row-gap: 2px;
+    align-items: center;
+  }
+  .pos-card-head > svg, .pos-card-head .market-flag-pair { grid-row: 1 / 3; }
+  .pos-card-meta { display: flex; flex-direction: column; min-width: 0; grid-column: 2; }
+  .pos-card-sym { font-weight: 800; font-size: 14px; color: var(--ink); }
+  .pos-card-sub { font-size: 10.5px; font-weight: 700; color: var(--ink-3); }
+  .pos-card-head .side-tag { grid-column: 2; align-self: start; justify-self: start; }
+  .pos-card-pnl {
+    grid-column: 3; grid-row: 1 / 3;
+    display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15;
+  }
+  .pos-card-pnl-v { font-size: 15px; font-weight: 800; }
+  .pos-card-pnl-pct { font-size: 11px; font-weight: 700; opacity: .8; }
+  .pos-card-pnl.profit { color: var(--profit-ink); }
+  .pos-card-pnl.loss { color: var(--loss-ink); }
+
+  .pos-card-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px 16px;
+    margin: 0; padding: 10px 0 0;
+    border-top: 1px dashed var(--border);
+  }
+  .pos-card-grid > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .pos-card-grid dt {
+    font-size: 10px; font-weight: 800; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--ink-4);
+  }
+  .pos-card-grid dd {
+    margin: 0; font-size: 13px; font-weight: 700; color: var(--ink);
+  }
+  .pos-card-close {
+    width: 100%;
+    padding: 11px 0;
+    border-radius: 12px;
+    background: var(--surface-3);
+    color: var(--ink-2);
+    font-weight: 800; font-size: 13px;
+    transition: background .12s, color .12s;
+  }
+  .pos-card-close:active { background: var(--loss-soft); color: var(--loss-ink); }
+
+  /* History cards reuse pos-card chrome with a smaller grid. */
+  .hist-card { display: flex; flex-direction: column; gap: 10px; padding: 11px 14px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+  .hist-card-head {
+    display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
+  }
+  .hist-card-meta { display: flex; flex-direction: column; min-width: 0; }
+  .hist-card-sym { font-weight: 800; font-size: 13.5px; color: var(--ink); }
+  .hist-card-time { font-size: 10.5px; font-weight: 700; color: var(--ink-3); }
+  .hist-card-pnl { font-size: 14px; font-weight: 800; text-align: right; }
+  .hist-card-pnl.profit { color: var(--profit-ink); }
+  .hist-card-pnl.loss { color: var(--loss-ink); }
+  .hist-card-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 12px; margin: 0;
+    padding-top: 8px; border-top: 1px dashed var(--border);
+  }
+  .hist-card-grid > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .hist-card-grid dt { font-size: 9.5px; font-weight: 800; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--ink-4); }
+  .hist-card-grid dd { margin: 0; font-size: 12.5px; font-weight: 700; color: var(--ink); }
+  .hist-card-grid dd.muted { color: var(--ink-3); font-weight: 700; }
+
+  /* Leaderboard mobile cards — tappable surface w/ obvious Copy CTA. */
+  .leader-cards { gap: 8px; }
+  .leader-card {
+    display: grid;
+    grid-template-columns: auto auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+  }
+  .leader-card .rank-badge { width: 30px; height: 30px; font-size: 13px; }
+  .leader-avatar {
+    width: 36px; height: 36px; border-radius: 11px;
+    background: var(--surface-3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 19px;
+  }
+  .leader-card-meta { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+  .leader-card-name { font-weight: 800; font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .leader-card-sub {
+    display: flex; gap: 8px;
+    font-size: 11px; font-weight: 700; color: var(--ink-3);
+  }
+  .leader-card-sub .mono { color: var(--ink-2); }
+  .leader-card-pnl {
+    display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2;
+  }
+  .leader-card-pnl-v { font-size: 14px; font-weight: 800; color: var(--profit-ink); }
+  .leader-card-pnl-l {
+    font-size: 9.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--ink-4);
+  }
+  .leader-card .copy-btn {
+    grid-column: 1 / 5;
+    margin-top: 4px;
+    padding: 10px 0;
+    justify-content: center;
+    width: 100%;
+    font-size: 12.5px;
+  }
+}
+
+/* Mobile-only typography squeeze (header tabs, equity pill, arcade glyph). */
+@media (max-width: 480px) {
+
+  /* Header gets tight, equity hidden, ARCADE shrinks to glyph */
+  .island-header { gap: 8px; padding: 8px 8px 8px 10px; }
+  .island-tabs { gap: 2px; padding: 3px; }
+  .island-tab { padding: 6px 8px; font-size: 11px; }
+  .island-tab .tab-pill { font-size: 9px; padding: 0 5px; }
+  /* Show only tab icon below 480px (label hidden via 1000px rule already) */
+  .island-summary { gap: 6px; }
+  .market-mini { display: none; }
+  /* Equity pill: collapse to a compact mono number; hide secondary label + pnl */
+  .acct-mini { padding: 5px 8px; gap: 4px; }
+  .acct-mini .acct-l { display: none; }
+  .acct-mini .acct-v { font-size: 11.5px; }
+  .acct-mini .pill { display: none; }
+  /* ARCADE button: icon-only */
+  .mode-switch { padding: 0 8px !important; gap: 0; }
+  .mode-switch .mode-label { display: none; }
+  .mode-switch .mode-glyph { font-size: 15px; }
+
+  /* Trade tab — desktop 3-col grid is replaced by MobileTrade (see styles
+     below). Old stacked .trade-layout rules are no longer needed at this
+     breakpoint because TradeTab branches to <MobileTrade /> in TSX. */
+  .trade-tab-mobile .trade-layout { display: none; }
+
+  /* History / Positions summary: only show 'more' toggle on phone (≤480).
+     Tablet has room for all 5 in 3-col rows. */
+  .history-summary { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .hsum-card { padding: 10px 10px; }
+  .hsum-v { font-size: 14px; }
+  .hsum-l { font-size: 10px; }
+  .hsum-toggle {
+    display: none;
+    align-self: flex-start;
+    padding: 6px 12px; font-size: 11.5px; font-weight: 800;
+    background: var(--surface-3); color: var(--ink-2);
+    border-radius: 9px;
+  }
+  .hsum-toggle:active { background: var(--primary-soft); color: var(--primary-ink); }
+  @media (max-width: 480px) {
+    .history-summary { grid-template-columns: repeat(3, 1fr); }
+    .hsum-more { display: none; }
+    .hsum-more.open { display: flex; flex-direction: column; gap: 4px; }
+    .history-summary:has(.hsum-more.open) { grid-template-columns: repeat(2, 1fr); }
+    .hsum-toggle { display: inline-flex; align-items: center; }
+  }
+
+  /* Tables are hidden on mobile (see .table-desktop-only above) and the
+     card layouts (.pos-cards/.hist-cards/.leader-cards) take over. No
+     horizontal scroll wrapper needed. */
+  .history-tab, .positions-only-tab, .leaders-tab { padding: 12px 12px 14px; }
+
+  /* Markets grid → single column */
+  .markets-grid { grid-template-columns: 1fr; gap: 10px; }
+  .markets-tab { padding: 12px; }
+  .markets-filter { gap: 4px; }
+  .filter-btn { padding: 7px 10px; font-size: 11.5px; }
+  .search-pill { width: 100%; }
+  .search-pill input { width: 100%; }
+
+  /* Positions sub-tabs: compact */
+  .pp-subtabs { width: 100%; }
+  .pp-subtab { padding: 7px 10px; font-size: 12px; flex: 1; justify-content: center; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   MarketPicker — popover that replaces the markets tab. The
+   trigger is the existing .market-mini chip in the island header.
+   ───────────────────────────────────────────────────────────── */
+.mp-popover {
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow:
+    0 1px 2px rgba(40, 25, 90, 0.04),
+    0 12px 32px rgba(60, 45, 130, 0.16);
+}
+.mp-head {
+  padding: 10px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.mp-filters {
+  display: flex;
+  gap: 4px;
+  background: var(--surface-3);
+  border-radius: 10px;
+  padding: 3px;
+}
+.mp-filter {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 8px;
+  font-weight: 800;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  border-radius: 8px;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.mp-filter:hover { color: var(--ink); }
+.mp-filter.active {
+  background: var(--surface);
+  color: var(--primary-ink);
+  box-shadow: var(--shadow-sm);
+}
+.mp-filter-count {
+  font-size: 10px;
+  padding: 0 5px;
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+  border-radius: 999px;
+  font-weight: 800;
+}
+.mp-filter.active .mp-filter-count { background: var(--surface-3); }
+.mp-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  height: 32px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--ink-3);
+  transition: border-color .15s;
+}
+.mp-search:focus-within { border-color: var(--primary); color: var(--ink); }
+.mp-search input {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  min-width: 0;
+}
+.mp-search input::placeholder { color: var(--ink-3); }
+
+.mp-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  max-height: 360px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mp-empty {
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.mp-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  transition: background .12s;
+  cursor: pointer;
+}
+.mp-row:hover { background: var(--surface-3); }
+.mp-row.active { background: var(--primary-soft); }
+.mp-row-meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.mp-row-sym { font-weight: 800; font-size: 13px; color: var(--ink); }
+.mp-row-type { font-size: 10.5px; font-weight: 700; color: var(--ink-3); }
+.mp-row-price { font-weight: 800; font-size: 13px; color: var(--ink); }
+

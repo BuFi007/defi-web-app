@@ -2,9 +2,9 @@
    Hero + portfolio · Market combobox (left) + Action card (right) · Positions table. */
 
 .lo-shell {
-  padding: 20px 28px 24px;
+  padding: 14px 28px 20px;
   display: flex; flex-direction: column;
-  gap: 18px;
+  gap: 14px;
   overflow: hidden;
   min-height: 0;
   height: 100%;
@@ -72,39 +72,47 @@
 .loss   { color: var(--loss-ink) !important; }
 
 /* ───── HERO ────────────────────────────────────────────── */
+/* Desktop: single inline strip — eyebrow + h1 + caption left, stats as pills right.
+   Goal: keep total hero ≤ 48px so the strip below has maximum room. */
 .lo-hero {
-  display: flex; align-items: flex-end; justify-content: space-between;
-  gap: 24px;
-  padding: 4px 2px 0;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 18px;
+  padding: 0 2px;
   flex-wrap: wrap;
 }
-.lo-hero-l { display: flex; flex-direction: column; gap: 2px; max-width: 560px; }
+.lo-hero-l {
+  display: flex; align-items: baseline; flex-wrap: wrap;
+  gap: 4px 12px;
+  min-width: 0;
+  max-width: none;
+}
 .lo-hero-h {
   font-family: 'Nunito', sans-serif;
-  font-weight: 800; font-size: 26px;
-  color: var(--ink); letter-spacing: -0.02em; line-height: 1.1;
-  margin: 2px 0 2px;
+  font-weight: 800; font-size: 18px;
+  color: var(--ink); letter-spacing: -0.01em; line-height: 1.15;
+  margin: 0;
 }
 .lo-hero-p {
-  font-size: 13px; font-weight: 600;
-  color: var(--ink-2); line-height: 1.4; margin: 0;
+  font-size: 11.5px; font-weight: 600;
+  color: var(--ink-3); line-height: 1.3; margin: 0;
 }
 
-.lo-hero-r { display: flex; gap: 8px; }
+.lo-hero-r { display: flex; gap: 6px; }
+/* Compact inline pill: label and value baseline-aligned on one row */
 .lo-stat {
-  display: flex; flex-direction: column; gap: 2px;
-  padding: 8px 14px;
+  display: inline-flex; align-items: baseline; gap: 6px;
+  padding: 5px 10px;
   background: var(--surface);
   border: 1.5px solid var(--border);
-  border-radius: 12px;
-  min-width: 104px;
+  border-radius: 999px;
+  min-width: 0;
 }
 .lo-stat-l {
-  font-size: 10px; font-weight: 800;
+  font-size: 9.5px; font-weight: 800;
   color: var(--ink-3); letter-spacing: .08em; text-transform: uppercase;
 }
 .lo-stat-v {
-  font-size: 16px; font-weight: 800;
+  font-size: 13px; font-weight: 800;
   color: var(--ink); letter-spacing: -0.01em;
 }
 
@@ -112,10 +120,21 @@
 .lo-strip {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(380px, 1fr);
+  /* Lock the row track to the strip's parent height so the inner
+     .lo-table-wrap / .lo-action don't grow past the shell and clip.
+     Children carry `min-height: 0 + overflow: auto` so they scroll inside. */
+  grid-template-rows: minmax(0, 1fr);
   gap: 18px;
   align-items: stretch;
+  min-height: 0;
 }
-@media (max-width: 1080px) { .lo-strip { grid-template-columns: 1fr; } }
+@media (max-width: 1080px) {
+  .lo-strip {
+    grid-template-columns: 1fr;
+    /* On stacked layouts let each row grow as needed; page scroll handles the rest */
+    grid-template-rows: auto;
+  }
+}
 
 .lo-strip-market {
   display: flex; flex-direction: column;
@@ -827,15 +846,25 @@
 }
 
 /* ───── RESPONSIVE ──────────────────────────────────────── */
+/* 769–1080 (small laptop / large tablet): keep the compact desktop hero —
+   only tighten shell padding. We DO NOT bump the h1 back up here because the
+   shell still has limited vertical room (≤768px viewports). */
 @media (max-width: 1080px) {
-  .lo-shell { padding: 20px 22px 24px; gap: 18px; }
-  .lo-hero-h { font-size: 26px; }
+  .lo-shell { padding: 16px 22px 20px; gap: 14px; }
 }
 @media (max-width: 880px) {
   .lo-shell { padding: 16px 16px 20px; }
+  /* Below 880 we have more vertical room (stack happens) — restore a slightly
+     larger hero for legibility, and let stats fill the row */
+  .lo-hero { align-items: flex-end; }
   .lo-hero-h { font-size: 22px; }
   .lo-hero-r { width: 100%; }
-  .lo-stat { flex: 1; min-width: 0; padding: 8px 12px; }
+  .lo-stat {
+    flex: 1; min-width: 0; padding: 8px 12px;
+    flex-direction: column; align-items: flex-start; gap: 2px;
+    border-radius: 12px;
+  }
+  .lo-stat-v { font-size: 16px; }
   .lo-combo-syms { font-size: 18px; }
   .lo-amount-input { height: 56px; font-size: 28px; }
   .lo-cta { height: 50px; font-size: 16px; }
@@ -845,4 +874,101 @@
   }
   .lo-positions-thead > :nth-child(2), .lo-positions-row > :nth-child(2),
   .lo-positions-thead > :nth-child(4), .lo-positions-row > :nth-child(4) { display: none; }
+}
+
+/* Mobile: stack hero stats 2-up, markets/action stack vertically, slim markets table */
+@media (max-width: 480px) {
+  /* Desktop locks shell height + strip flex:1 so inner cards scroll independently.
+     On mobile we want the island body to scroll one column of content. */
+  .lo-shell { padding: 12px 10px 16px; gap: 12px; height: auto; min-height: 0; overflow: visible; }
+  .lo-shell .lo-strip { flex: none; overflow: visible; min-height: 0; }
+  .lo-table-wrap, .lo-action { height: auto; overflow: hidden; }
+  /* Cap markets list so it doesn't dominate; user can scroll inside */
+  .lo-table { overflow-y: auto; overflow-x: hidden; max-height: 320px; }
+  .lo-hero { gap: 10px; padding: 2px 2px 0; }
+  .lo-hero-h { font-size: 20px; }
+  .lo-hero-p { font-size: 12px; }
+  /* Stats become a horizontal-scroll mini-pill row so they don't dominate
+     vertical space. Hero header collapses to one column above. */
+  .lo-hero-r {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .lo-hero-r::-webkit-scrollbar { display: none; }
+  .lo-stat {
+    flex: 0 0 auto;
+    padding: 7px 12px;
+    min-width: 0;
+    border-radius: 999px;
+    display: flex; flex-direction: row; align-items: baseline; gap: 6px;
+  }
+  .lo-stat-l { font-size: 9.5px; letter-spacing: .08em; }
+  .lo-stat-v { font-size: 13px; }
+
+  /* Strip: stack everything vertically; market list scrolls inside its wrapper */
+  .lo-strip { grid-template-columns: 1fr; gap: 12px; }
+
+  /* Markets table: collapse to 3 columns — pair, supply%, borrow%.
+     Hide UTIL, TVL, and sparkline cells (the trigger keeps detail) */
+  .lo-table-wrap { padding: 10px 10px 6px; }
+  .lo-table-thead,
+  .lo-trow {
+    grid-template-columns: minmax(0, 1.7fr) .9fr .9fr;
+    gap: 8px;
+    padding: 9px 6px;
+  }
+  .lo-table-thead > :nth-child(n+4),
+  .lo-trow > :nth-child(n+4) { display: none; }
+  .lo-trow-syms { font-size: 13px; }
+  .lo-trow-num { font-size: 12px; }
+  .lo-table-head { flex-direction: column; align-items: stretch; gap: 8px; }
+  .lo-hub-filter { overflow-x: auto; scrollbar-width: none; }
+  .lo-hub-filter::-webkit-scrollbar { display: none; }
+
+  /* Action card: full width, tighter padding */
+  .lo-action { padding: 12px 12px 14px; gap: 10px; }
+  .lo-tabs { gap: 6px; }
+  .lo-tab { padding: 7px 10px; font-size: 12px; min-width: 64px; }
+  .lo-amount-input { height: 52px; font-size: 24px; padding: 0 14px; }
+  /* Flip button sits inside the input — needs more right padding */
+  .lo-amount-shell .lo-amount-input { padding-right: 120px; }
+  .lo-flip { padding: 5px 8px 5px 10px; gap: 6px; }
+  .lo-flip-pair { font-size: 11.5px; }
+  .lo-flip-l { display: none; }
+  .lo-cta { height: 48px; font-size: 15px; }
+  .lo-impact { padding: 12px 12px; gap: 6px; }
+  .lo-impact-big { font-size: 28px; }
+  .lo-impact-mini-v { font-size: 13px; }
+
+  /* Positions block (left column): keep 3 cols (pair, market, value) */
+  .lo-positions { padding: 10px 12px 4px; }
+  .lo-positions-thead, .lo-positions-row {
+    grid-template-columns: 1.4fr 1fr .8fr;
+    gap: 8px;
+    padding: 8px 2px;
+  }
+  .lo-positions-thead > :nth-child(2), .lo-positions-row > :nth-child(2),
+  .lo-positions-thead > :nth-child(4), .lo-positions-row > :nth-child(4) { display: none; }
+
+  /* Dropdown grid */
+  .lo-combo-dd-head, .lo-combo-dd-row {
+    grid-template-columns: 1.6fr .8fr .8fr;
+    gap: 8px;
+  }
+  .lo-combo-dd-head > :nth-child(n+4),
+  .lo-combo-dd-row > :nth-child(n+4) { display: none; }
+}
+
+/* Tablet (481–768px): hero stats in single row, strip stays stacked */
+@media (min-width: 481px) and (max-width: 768px) {
+  .lo-shell { padding: 16px 14px 18px; }
+  .lo-strip { grid-template-columns: 1fr; }
+  .lo-hero-r { display: flex; gap: 10px; }
+  .lo-stat { flex: 1; min-width: 0; }
 }

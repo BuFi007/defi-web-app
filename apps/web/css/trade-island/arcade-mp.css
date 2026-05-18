@@ -323,3 +323,43 @@
   .arcade2.mp { padding-right: 18px; }
   .leaderboard-panel { display: none; }
 }
+
+/* Tablet: 2 room cards per row */
+@media (min-width: 481px) and (max-width: 768px) {
+  .lobby-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Mobile: stack room cards 1-up, lobby head wraps */
+@media (max-width: 480px) {
+  .lobby { padding: 14px 14px 16px; gap: 12px; }
+  .lobby-head { flex-wrap: wrap; gap: 10px; }
+  .lobby-title { flex-basis: 100%; }
+  .lobby-title h2 { font-size: 20px; }
+  .lobby-wallet { padding: 6px 10px; align-items: flex-start; }
+  .lobby-wallet-amt { font-size: 12.5px; }
+  .lobby-grid { grid-template-columns: 1fr; gap: 10px; }
+  .room-card { padding: 14px 14px; gap: 10px; }
+  .room-badge { width: 36px; height: 36px; font-size: 18px; }
+  .room-name { font-size: 14px; }
+  .room-fee-amt { font-size: 16px; }
+
+  /* Round-end card centered modal — full width */
+  .re-card { min-width: auto; padding: 22px 18px; }
+  .re-title { font-size: 22px; }
+
+  /* Countdown intro shrinks */
+  .countdown-intro { padding: 24px; gap: 20px; }
+  .ci-number-wrap { width: 180px; height: 180px; }
+  .ci-number { font-size: 130px; }
+  .ci-number.go { font-size: 88px; }
+
+  /* Waiting room compact */
+  .waiting { padding: 16px; gap: 14px; }
+  .waiting-head h2 { font-size: 20px; }
+  .waiting-circle { width: 120px; height: 120px; }
+  .waiting-clock-num { font-size: 32px; }
+  .waiting-roster { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .roster-slot { padding: 8px 10px; gap: 8px; }
+  .roster-avatar { width: 28px; height: 28px; }
+  .roster-name { font-size: 12px; }
+}

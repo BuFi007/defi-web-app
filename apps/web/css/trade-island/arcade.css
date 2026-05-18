@@ -708,3 +708,34 @@
   .dock-stats { grid-template-columns: repeat(2, 1fr); }
   .arcade2-dock { grid-template-columns: 1fr; }
 }
+
+/* Mobile: tighter arcade game padding + smaller top bar */
+@media (max-width: 480px) {
+  .arcade2 { padding: 10px 12px 12px; gap: 10px; }
+  .arcade2-bar { padding: 10px 12px; border-radius: 16px; gap: 8px; grid-template-columns: 1fr; }
+  .bar-left, .bar-center, .bar-right { justify-content: center; flex-wrap: wrap; }
+  .round-timer { min-width: auto; padding: 6px 12px; gap: 8px; }
+  .round-time { font-size: 18px; }
+  .arcade2-canvas { min-height: 320px; border-radius: 18px; }
+  .arcade2-dock {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 16px;
+  }
+  .arcade2-dock .dock-stats {
+    grid-template-columns: repeat(3, 1fr);
+    border-left: 0;
+    border-top: 1px dashed var(--border-2);
+    padding-left: 0;
+    padding-top: 10px;
+  }
+  .chip-picker { gap: 4px; flex-wrap: wrap; }
+  .chip-pick { width: 36px; height: 36px; font-size: 19px; border-radius: 10px; }
+  .stake-picker, .round-picker { gap: 4px; flex-wrap: wrap; }
+  .stake-pick { padding: 6px 10px; font-size: 12px; min-width: 38px; }
+  .round-pick { padding: 6px 10px; font-size: 11px; }
+  .dstat-v { font-size: 13px; }
+  .exit-pro { padding: 6px 10px; font-size: 11px; }
+  .streak-pill2 { padding: 5px 10px 5px 8px; }
+}
