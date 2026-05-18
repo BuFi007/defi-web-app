@@ -91,7 +91,9 @@ function buildDeployment(
   const marketIds = raw.marketIds as Record<string, string>;
   const external = (raw.external ?? {}) as Record<string, unknown>;
   const loanUSDC = asAddress(external.USDC);
-  const loanEURC = asAddress(external.EURC);
+  // Fuji has no native Circle EURC deployment — fall back to the MockEURC
+  // shipped under contracts so the manifest loader doesn't crash at boot.
+  const loanEURC = asAddress(external.EURC ?? contracts.MockEURC);
   return {
     chainId: raw.chainId as TelaranaHubChainId,
     hubName,
