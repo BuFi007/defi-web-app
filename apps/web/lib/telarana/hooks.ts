@@ -12,6 +12,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Address, Hex } from "viem";
 import { useAccount, useSignTypedData } from "wagmi";
 
+import { toast } from "@/components/ui/use-toast";
+
 import {
   fetchIntentNonce,
   fetchMarkets,
@@ -32,6 +34,41 @@ import {
   writeCachedSession,
   type TelaranaWalletSessionProof,
 } from "./session";
+
+/**
+ * Backend errors arrive as `Error` instances annotated with `code`/`status`
+ * by client.ts → `unwrap`. The fx-telarana package wraps Pyth/Redstone
+ * staleness as `OracleStaleError` with code `ORACLE_STALE` (status 503).
+ */
+export const ORACLE_STALE_CODE = "ORACLE_STALE" as const;
+
+export function isOracleStaleError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { code?: string; name?: string; message?: string };
+  if (e.code === ORACLE_STALE_CODE) return true;
+  if (e.name === "OracleStaleError") return true;
+  // Last-ditch substring match for backends that surface the message raw.
+  return typeof e.message === "string" && /oracle.*stale|stale.*price/i.test(e.message);
+}
+
+/**
+ * Module-level cooldown shared by every quote/submit caller. We dedupe
+ * toasts so a burst of refresh polls only nags the user once per cooldown
+ * window.
+ */
+const ORACLE_STALE_TOAST_COOLDOWN_MS = 5_000;
+let lastOracleStaleToastAt = 0;
+
+export function emitOracleStaleToast(): void {
+  const now = Date.now();
+  if (now - lastOracleStaleToastAt < ORACLE_STALE_TOAST_COOLDOWN_MS) return;
+  lastOracleStaleToastAt = now;
+  toast({
+    title: "Oracle price is stale",
+    description: "Retry in a moment — fresh Pyth/Redstone data is on its way.",
+    variant: "destructive",
+  });
+}
 
 const MARKETS_REFRESH_MS = 30_000;
 const POSITIONS_REFRESH_MS = 20_000;
@@ -101,6 +138,7 @@ export function usePositions(address: Address | undefined): PositionsState {
       setPositions(data.positions);
       setError(null);
     } catch (err) {
+      if (isOracleStaleError(err)) emitOracleStaleToast();
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
@@ -162,6 +200,7 @@ export function useQuoteBorrow(body: BorrowQuoteBody | null): QuoteBorrowState {
       })
       .catch((err) => {
         if (cancelled) return;
+        if (isOracleStaleError(err)) emitOracleStaleToast();
         setError(err instanceof Error ? err.message : String(err));
         setQuote(null);
       })
@@ -356,6 +395,7 @@ export function useLendingAction(): UseLendingActionResult {
 
         return { intent, verified, signature };
       } catch (err) {
+        if (isOracleStaleError(err)) emitOracleStaleToast();
         const message = err instanceof Error ? err.message : String(err);
         setError(message);
         throw err;

@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Address } from "viem";
 import { useAccount } from "wagmi";
 
 import { useToast } from "@/components/ui/use-toast";
 import {
+  emitOracleStaleToast,
+  isOracleStaleError,
   useMarkets,
   usePositions,
   useLendingAction,
@@ -398,6 +400,11 @@ interface ActionCardProps {
   /** Click handler invoked after CTA. Receives the parsed input. */
   onSubmit?: (input: { kind: LendingActionKind; amount: bigint }) => Promise<void> | void;
   submitting?: boolean;
+  /**
+   * Replaces the CTA verb when set (e.g. "Oracle stale — retry…" during the
+   * 5s cooldown the parent imposes after an ORACLE_STALE error).
+   */
+  submitLabelOverride?: string;
   /** Optional live debt for the impact panel. */
   liveDebt?: number;
   /** Optional alternative markets list for the flip-pair lookup. */
@@ -414,6 +421,7 @@ export function ActionCard({
   balance: balanceOverride,
   onSubmit,
   submitting = false,
+  submitLabelOverride,
   liveDebt,
   marketsList,
 }: ActionCardProps) {
@@ -552,7 +560,7 @@ export function ActionCard({
         disabled={ctaDisabled}
         style={ctaDisabled ? { opacity: 0.6, cursor: "not-allowed" } : undefined}
       >
-        {submitting ? "Signing…" : A.verb}
+        {submitLabelOverride ?? (submitting ? "Signing…" : A.verb)}
       </button>
 
       <div className="lo-impact">
@@ -672,6 +680,23 @@ export function LoanTab() {
   const [actionId, setActionId] = useState("lend");
   const [amount, setAmount] = useState("");
 
+  // When the API reports ORACLE_STALE we lock the CTA for 5s so users
+  // don't hammer the backend while Pyth/Redstone catches up. The hook
+  // emits the toast itself; we add a cooldown for the button only.
+  const [oracleStaleUntil, setOracleStaleUntil] = useState<number>(0);
+  const [now, setNow] = useState<number>(() => Date.now());
+  const cooldownTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (oracleStaleUntil <= now) return;
+    const id = window.setTimeout(() => setNow(Date.now()), oracleStaleUntil - now);
+    cooldownTimerRef.current = id;
+    return () => {
+      window.clearTimeout(id);
+      cooldownTimerRef.current = null;
+    };
+  }, [oracleStaleUntil, now]);
+  const oracleStaleActive = oracleStaleUntil > now;
+
   const enrichedMarkets = useMemo(() => mergeMockAndLiveMarkets(liveMarkets.map(toLoanMarket)), [liveMarkets]);
 
   const market = enrichedMarkets.find((m) => m.id === selectedId) ?? enrichedMarkets[0];
@@ -738,6 +763,15 @@ export function LoanTab() {
       setAmount("");
       refreshPositions();
     } catch (err) {
+      if (isOracleStaleError(err)) {
+        // Hook-level catch hasn't fired for the submit path — it lives in
+        // useLendingAction.submit. Emit once here and skip the generic
+        // "Signing failed" toast so users get a single, clear message.
+        emitOracleStaleToast();
+        setOracleStaleUntil(Date.now() + 5_000);
+        setNow(Date.now());
+        return;
+      }
       const message = err instanceof Error ? err.message : String(err);
       toast({ title: "Signing failed", description: message, variant: "destructive" });
     }
@@ -798,7 +832,8 @@ export function LoanTab() {
           onFlipMarket={setSelectedId}
           marketsList={enrichedMarkets}
           onSubmit={handleSubmit}
-          submitting={actionSubmitting}
+          submitting={actionSubmitting || oracleStaleActive}
+          submitLabelOverride={oracleStaleActive ? "Oracle stale — retry…" : undefined}
           liveDebt={liveDebt}
         />
       </div>

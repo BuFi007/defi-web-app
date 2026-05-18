@@ -8,8 +8,8 @@
 
 import "./handlers/bufx";
 import "./handlers/perps";
+import "./handlers/telarana";
 
 // import "./handlers/bento";
-// import "./handlers/telarana";
 
 export {};

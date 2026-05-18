@@ -159,6 +159,7 @@ export const arcadePlacement = onchainTable("arcade_placement", (t) => ({
 
 export const telaranaLoan = onchainTable("telarana_loan", (t) => ({
   positionId: t.text().primaryKey(),
+  chainId: t.integer().notNull(),
   borrower: t.hex().notNull(),
   marketId: t.text().notNull(),
   collateralAmount: t.bigint().notNull(),
@@ -166,4 +167,65 @@ export const telaranaLoan = onchainTable("telarana_loan", (t) => ({
   healthFactorBps: t.integer().notNull(),
   status: t.text().notNull(),
   openedAt: t.bigint().notNull(),
+  openedTxHash: t.hex().notNull(),
+  repaidAt: t.bigint(),
+  repaidTxHash: t.hex(),
+  liquidatedAt: t.bigint(),
+  liquidatedTxHash: t.hex(),
+  updatedAt: t.bigint().notNull(),
+}));
+
+/**
+ * Mirrors GatewayHubRouteConfigured (TelaranaGatewayHubHook): the FX route is
+ * the cross-chain market in v0 — pair of source/destination USDC plus the
+ * Circle Gateway wallet/minter pair. We treat the routeId as the canonical
+ * marketId so the API can join telaranaLoan rows against it.
+ */
+export const telaranaMarket = onchainTable("telarana_market", (t) => ({
+  marketId: t.text().primaryKey(),
+  chainId: t.integer().notNull(),
+  routeId: t.hex().notNull(),
+  sourceDomain: t.integer().notNull(),
+  destinationDomain: t.integer().notNull(),
+  sourceUsdc: t.hex().notNull(),
+  destinationUsdc: t.hex().notNull(),
+  sourceGatewayWallet: t.hex().notNull(),
+  destinationGatewayMinter: t.hex().notNull(),
+  signerMode: t.integer().notNull(),
+  enabled: t.boolean().notNull(),
+  metadataRef: t.hex(),
+  registeredAt: t.bigint().notNull(),
+  updatedAt: t.bigint().notNull(),
+}));
+
+/**
+ * FxOracle ConfigUpdated snapshot. The liquidation scanner re-reads HF on
+ * each block; this table just exposes the latest staleness bounds so the
+ * API can surface "oracle window: 30s" without an extra read.
+ */
+export const telaranaOracleConfig = onchainTable("telarana_oracle_config", (t) => ({
+  chainId: t.integer().primaryKey(),
+  maxAge: t.bigint().notNull(),
+  maxDeviationBps: t.bigint().notNull(),
+  maxConfidenceBps: t.bigint().notNull(),
+  updatedAt: t.bigint().notNull(),
+  updatedTxHash: t.hex().notNull(),
+}));
+
+/**
+ * FxHubMessageReceiver deposit lifecycle (Fuji spoke). Lets the UI show
+ * "pending CCTP attestation" / "stranded — sweep available" without
+ * polling the contract.
+ */
+export const telaranaDeposit = onchainTable("telarana_deposit", (t) => ({
+  messageNonce: t.text().primaryKey(),
+  chainId: t.integer().notNull(),
+  beneficiary: t.hex().notNull(),
+  amount: t.bigint().notNull(),
+  status: t.text().notNull(), // executed | stranded | swept
+  reason: t.hex(),
+  executedAt: t.bigint(),
+  strandedAt: t.bigint(),
+  sweptAt: t.bigint(),
+  updatedTxHash: t.hex().notNull(),
 }));
