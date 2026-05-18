@@ -570,15 +570,27 @@
 [data-theme="dark"] .lo-tab.tone-2 { background: linear-gradient(95deg, #2a1f6a, #1a1340 30%, #1a1340 70%, #4a1f3e); }
 [data-theme="dark"] .lo-tab.tone-3 { background: linear-gradient(95deg, #1f3d72, #1a1340 30%, #1a1340 70%, #2a1f6a); }
 [data-theme="dark"] .lo-tab.tone-4 { background: linear-gradient(95deg, #1d3f2c, #1a1340 30%, #1a1340 70%, #4a2f1f); }
-.lo-tab:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 0 rgba(31, 23, 64, .12); }
+.lo-tab:hover {
+  transform: translate(-1px, -1px);
+  /* Hover shadow uses purpleDanis at low alpha — same brand language as
+     the active state, just softer. */
+  box-shadow: 3px 3px 0 0 rgba(105, 84, 207, 0.18);
+  border-color: rgba(105, 84, 207, 0.5);
+}
 .lo-tab.active {
-  border-color: var(--ink);
+  /* Brutalism block-shadow in the brand purple instead of the legacy
+     black ink. Matches purpleDanis (#6954CF) so the active tab reads as
+     "selected" without reading as "warning" the way black-on-pastel did. */
+  border-color: #6954CF;
   border-width: 2px;
-  box-shadow: 3px 3px 0 0 var(--ink);
+  box-shadow: 3px 3px 0 0 #6954CF;
   transform: translate(-1px, -1px);
   z-index: 2;
 }
-[data-theme="dark"] .lo-tab.active { border-color: var(--primary); box-shadow: 3px 3px 0 0 var(--primary); }
+[data-theme="dark"] .lo-tab.active {
+  border-color: var(--primary);
+  box-shadow: 3px 3px 0 0 var(--primary);
+}
 
 /* Amount input */
 .lo-amount-input {

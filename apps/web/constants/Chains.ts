@@ -49,13 +49,13 @@ export const Avalanche = {
     name: "Avalanche",
     symbol: "AVAX",
     decimals: 18,
-    iconUrls: ["https://app.dynamic.xyz/assets/networks/avax.svg"],
+    iconUrls: ["/networks/avax.svg"],
   },
   rpcUrls: ["https://rpc.ankr.com/avalanche"],
   vanityName: "Avalanche ",
   chainName: "Avalanche",
   networkId: 43114,
-  iconUrls: ["https://app.dynamic.xyz/assets/networks/avax.svg"],
+  iconUrls: ["/networks/avax.svg"],
 };
 
 export const AvalancheFuji = {
@@ -67,13 +67,13 @@ export const AvalancheFuji = {
     name: "Avalanche",
     symbol: "AVAX",
     decimals: 18,
-    iconUrls: ["https://app.dynamic.xyz/assets/networks/avax.svg"],
+    iconUrls: ["/networks/avax.svg"],
   },
   rpcUrls: ["https://api.avax-test.network/ext/bc/C/rpc"],
   vanityName: "Avalanche Fuji",
   chainName: "AvalancheFuji",
   networkId: 43113,
-  iconUrls: ["https://app.dynamic.xyz/assets/networks/avax.svg"],
+  iconUrls: ["/networks/avax.svg"],
 };
 
 export const Arbitrum = {
@@ -84,7 +84,7 @@ export const Arbitrum = {
     name: "Arbitrum",
     symbol: "ARB",
     decimals: 18,
-    iconUrls: ["https://app.dynamic.xyz/assets/networks/arbitrum.svg"],
+    iconUrls: ["/networks/arbitrum.svg"],
   },
   rpcUrls: [
     `https://arb-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`,
@@ -93,7 +93,7 @@ export const Arbitrum = {
   vanityName: "Arbitrum",
   chainName: "Arbitrum",
   networkId: 42161,
-  iconUrls: ["https://app.dynamic.xyz/assets/networks/arbitrum.svg"],
+  iconUrls: ["/networks/arbitrum.svg"],
 };
 
 export const ArbitrumSepolia = {
@@ -104,7 +104,7 @@ export const ArbitrumSepolia = {
     name: "Arbitrum",
     symbol: "ARB",
     decimals: 18,
-    iconUrls: ["https://app.dynamic.xyz/assets/networks/arbitrum.svg"],
+    iconUrls: ["/networks/arbitrum.svg"],
   },
   rpcUrls: [
     `https://arb-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`,
@@ -113,7 +113,7 @@ export const ArbitrumSepolia = {
   vanityName: "Arbitrum Sepolia",
   chainName: "ArbitrumSepolia",
   networkId: 421614,
-  iconUrls: ["https://app.dynamic.xyz/assets/networks/arbitrum.svg"],
+  iconUrls: ["/networks/arbitrum.svg"],
 };
 
 export const ZkSync = {
@@ -278,12 +278,12 @@ export const Sepolia = {
     name: "Ethereum",
     symbol: "ETH",
     decimals: 18,
-    iconUrls: ["https://app.dynamic.xyz/assets/networks/eth.svg"],
+    iconUrls: ["/networks/eth.svg"],
   },
   rpcUrls: ["https://rpc.sepolia.org"],
   blockExplorerUrls: ["https://sepolia.etherscan.io/"],
   vanityName: "Ethereum Sepolia",
   chainName: "Sepolia",
   networkId: 11155111,
-  iconUrls: ["https://app.dynamic.xyz/assets/networks/eth.svg"],
+  iconUrls: ["/networks/eth.svg"],
 };

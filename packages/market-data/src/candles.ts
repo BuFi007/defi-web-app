@@ -109,26 +109,34 @@ async function fetchPonderCandles(opts: GetCandlesOptions): Promise<Candle[]> {
     console.warn("[market-data] no fetch impl available; returning empty");
     return [];
   }
-  const base = opts.apiBaseUrl ?? "/api";
-  const url = `${base}/perps/candles/${encodeURIComponent(opts.marketId)}?tf=${encodeURIComponent(opts.tf)}${
-    opts.limit ? `&limit=${opts.limit}` : ""
-  }`;
+  // Resolve apiBaseUrl from options or NEXT_PUBLIC_API_URL. Misnamed
+  // "ponder" historically — actually points at apps/api's Pyth Benchmarks
+  // proxy at /perps/markets/:sym/candles. The legacy /api/perps/candles
+  // path is gone; this is now the canonical historical-OHLCV surface.
+  const baseFromEnv =
+    typeof process !== "undefined"
+      ? (process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BUFI_API_URL)
+      : undefined;
+  const base = opts.apiBaseUrl ?? baseFromEnv ?? "/api";
+  const url = `${base.replace(/\/$/, "")}/perps/markets/${encodeURIComponent(
+    opts.marketId,
+  )}/candles?tf=${encodeURIComponent(opts.tf)}${opts.limit ? `&limit=${opts.limit}` : ""}`;
   try {
     const res = await fetchImpl(url);
     if (!res.ok) {
-      console.warn(`[market-data] /perps/candles ${res.status}; returning empty`);
+      console.warn(`[market-data] candles fetch ${res.status}; returning empty`);
       return [];
     }
     const json = (await res.json()) as { candles?: Candle[] } | Candle[];
     const arr = Array.isArray(json) ? json : json.candles ?? [];
-    // Defensive normalization — ponder may emit ms timestamps; lightweight-charts
-    // wants seconds.
+    // Defensive normalization — some sources emit ms timestamps;
+    // lightweight-charts wants seconds.
     return arr.map((c) => ({
       ...c,
       time: c.time > 1e12 ? Math.floor(c.time / 1000) : c.time,
     }));
   } catch (err) {
-    console.warn("[market-data] /perps/candles fetch failed; returning empty", err);
+    console.warn("[market-data] candles fetch failed; returning empty", err);
     return [];
   }
 }

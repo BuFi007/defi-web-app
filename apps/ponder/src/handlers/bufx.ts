@@ -48,6 +48,8 @@ import type { Context } from "ponder:registry";
 import { bufxRequest, telaranaGatewayContext } from "ponder:schema";
 import type { Address, Hex } from "viem";
 
+import { lowerHex, lowerHexOrNull } from "@bufi/shared-types/hex";
+
 type AnyVenueEventName =
   | "BuFxVenueRequestRouterFuji:BuFxRequestAccepted"
   | "BuFxVenueRequestRouterArc:BuFxRequestAccepted"
@@ -254,9 +256,9 @@ async function upsertBufxRequest(args: UpsertBufxRequestArgs): Promise<void> {
     requestType: args.requestType ? lowerHex(args.requestType) : (existing?.requestType ?? null),
     marketId: args.marketId ? lowerHex(args.marketId) : (existing?.marketId ?? null),
     trader: args.trader ? lowerHex(args.trader) : (existing?.trader ?? null),
-    referrer: args.referrer ? lowerHexOrNull(args.referrer) : (existing?.referrer ?? null),
+    referrer: args.referrer ? lowerHexOrNull(args.referrer, { treatZeroAsNull: true }) : (existing?.referrer ?? null),
     campaignId: args.campaignId
-      ? lowerHexOrNull(args.campaignId)
+      ? lowerHexOrNull(args.campaignId, { treatZeroAsNull: true })
       : (existing?.campaignId ?? null),
     amount: args.amount ?? existing?.amount ?? null,
     status: nextStatus,
@@ -354,7 +356,7 @@ async function upsertGatewayContext(args: UpsertGatewayContextArgs): Promise<voi
     amount: args.amount,
     minAmountOut: args.minAmountOut,
     spotRouteId: lowerHex(args.spotRouteId),
-    metadataRef: lowerHexOrNull(args.metadataRef),
+    metadataRef: lowerHexOrNull(args.metadataRef, { treatZeroAsNull: true }),
   };
 
   await args.context.db
@@ -375,12 +377,3 @@ async function upsertGatewayContext(args: UpsertGatewayContextArgs): Promise<voi
     });
 }
 
-function lowerHex<T extends Hex>(value: T): T {
-  return value.toLowerCase() as T;
-}
-
-function lowerHexOrNull(value: Hex | undefined | null): Hex | null {
-  if (!value) return null;
-  if (/^0x0+$/i.test(value)) return null;
-  return value.toLowerCase() as Hex;
-}

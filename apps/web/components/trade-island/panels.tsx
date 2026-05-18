@@ -1,41 +1,94 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useBalance, useChainId } from "wagmi";
+import { formatUnits } from "viem";
 
 import { liquidationPriceFloat, requiredMarginFloat } from "@bufi/perps-math";
 
-import { Icon, FlagPair, fmtUSD, fmtPct, makeOrderbook, type Market } from "./data";
+import { Icon, fmtUSD, fmtPct, type Market } from "./data";
+import { TokenIconPair } from "./token-icon";
 import { Hint } from "./hint";
 import { CandleChart } from "./chart";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/components/ui/use-toast";
+import { errMsg } from "@/utils";
 import { useMarkets, usePlaceOrder } from "@/lib/perps/hooks";
+import { useMarketStats } from "@/lib/perps/use-market-stats";
+import { usePendingIntents } from "@/lib/perps/use-pending-intents";
 import { getPerpsReplacementDevWallet } from "@/lib/perps/dev-mock-wallet";
 import type { PerpsMarketDto } from "@/lib/perps/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
+// USDC token addresses per hub chain — perps margin is posted in USDC.
+// Spokes are excluded here because perps execution lives on the hubs.
+const USDC_BY_CHAIN: Record<number, `0x${string}`> = {
+  43113: "0x5425890298aed601595a70AB815c96711a31Bc65", // Fuji
+  5042002: "0x3600000000000000000000000000000000000000", // Arc
+};
+
+function useUsdcBalance(address: `0x${string}` | undefined): {
+  formatted: string;
+  isLoading: boolean;
+} {
+  const chainId = useChainId();
+  const token = USDC_BY_CHAIN[chainId];
+  const { data, isLoading } = useBalance({
+    address,
+    token,
+    chainId: (token ? chainId : undefined) as 43113 | 5042002 | undefined,
+    query: { enabled: Boolean(address && token) },
+  });
+  if (!data) return { formatted: "0", isLoading };
+  return {
+    formatted: formatUnits(data.value, data.decimals ?? 6),
+    isLoading,
+  };
+}
+
+// Replaces the legacy fake CLOB. This system uses a price-time matcher
+// (apps/keeper-perps-matcher), not a resting-order book — what we show
+// here is the matcher's pending-intent queue grouped by limit price.
+// Bids = pending longs waiting to be matched. Asks = pending shorts.
 export function OrderbookCard({ market }: { market: Market }) {
-  const tickSize = market.price < 10 ? 0.0001 : market.price < 1000 ? 0.01 : 0.5;
   const decimals = market.price < 10 ? 4 : market.price < 1000 ? 2 : 1;
-  const ob = useMemo(() => makeOrderbook(market.price, tickSize, 11), [market.sym, market.price, tickSize]);
-  const spread = ob.asks[0].price - ob.bids[0].price;
-  const spreadPct = (spread / market.price) * 100;
+  const { data: markets } = useMarkets();
+  const liveMarket = useMemo(
+    () => resolveLiveMarket(market.sym, markets),
+    [market.sym, markets],
+  );
+  const { data: book, isLoading } = usePendingIntents(liveMarket?.marketId, 10);
+  const bids = book?.bids ?? [];
+  const asks = book?.asks ?? [];
+  const mid = book?.mid ?? market.price;
+  const spread =
+    bids.length > 0 && asks.length > 0 ? asks[0].price - bids[0].price : null;
+  const spreadPct = spread != null && mid > 0 ? (spread / mid) * 100 : null;
+  const maxTotal = book?.maxTotal ?? 1;
+
   return (
     <div className="card orderbook-card">
       <div className="card-head ob-head">
         <div className="card-title">
-          <span className="card-icon">
-            <Icon name="list" size={15} />
-          </span>
           <span>
-            Order Book{" "}
-            <Hint w={260}>
-              Live buy (bids, green) and sell (asks, pink) orders at each price. The deeper the row, the more size sitting there.
+            Pending Intents{" "}
+            <Hint w={300}>
+              This is not a traditional order book — it&apos;s the
+              price-time matcher&apos;s pending-intent queue. Bids =
+              pending longs waiting to be matched. Asks = pending shorts.
+              Counts collapse multiple intents at the same price level.
             </Hint>
           </span>
         </div>
-        <span className="pill muted" title="Tick size — the smallest price increment in this market">
-          {tickSize < 1 ? tickSize.toFixed(4) : tickSize}
+        <span
+          className="pill muted"
+          title="Total pending intents on this market"
+        >
+          {book?.totalPending ?? 0}
         </span>
       </div>
       <div className="ob-cols">
@@ -43,34 +96,69 @@ export function OrderbookCard({ market }: { market: Market }) {
         <span>Size</span>
         <span>Total</span>
       </div>
-      <div className="ob-rows" style={{ display: "flex", flexDirection: "column" }}>
-        {[...ob.asks].reverse().map((a, i) => (
-          <div key={"a" + i} className="ob-row ask">
-            <div className="bar" style={{ width: `${(a.total / ob.maxTotal) * 100}%` }} />
-            <span className="v price mono">{a.price.toFixed(decimals)}</span>
-            <span className="v size mono">{a.size.toFixed(2)}</span>
-            <span className="v total mono">{a.total.toFixed(2)}</span>
-          </div>
-        ))}
+      <div className="ob-rows">
+        <div className="ob-half ob-half-asks">
+          {asks.length === 0 ? (
+            <div className="ob-empty">
+              <span className="ob-empty-label mono">
+                {isLoading ? "loading…" : "no pending shorts"}
+              </span>
+            </div>
+          ) : (
+            // Asks render closest-to-spread first visually (lowest ask
+            // touches the spread line). flex-direction column-reverse
+            // gives us that without re-sorting the array.
+            [...asks].map((a, i) => (
+              <div key={"a" + i} className="ob-row ask">
+                <div
+                  className="bar"
+                  style={{ width: `${(a.total / maxTotal) * 100}%` }}
+                />
+                <span className="v price mono">{a.price.toFixed(decimals)}</span>
+                <span className="v size mono">{a.size.toFixed(2)}</span>
+                <span className="v total mono">{a.total.toFixed(2)}</span>
+              </div>
+            ))
+          )}
+        </div>
         <div className="ob-spread">
           <span className="last mono">
-            {market.price.toFixed(decimals)}
-            <span style={{ color: market.change >= 0 ? "var(--profit-ink)" : "var(--loss-ink)" }}>
+            {mid.toFixed(decimals)}
+            <span
+              style={{
+                color: market.change >= 0 ? "var(--profit-ink)" : "var(--loss-ink)",
+              }}
+            >
               {market.change >= 0 ? "↑" : "↓"}
             </span>
           </span>
           <span className="meta">
-            Spread {spread.toFixed(decimals + 1)} ({spreadPct.toFixed(3)}%)
+            {spread != null && spreadPct != null
+              ? `Spread ${spread.toFixed(decimals + 1)} (${spreadPct.toFixed(3)}%)`
+              : `${book?.totalPending ?? 0} pending`}
           </span>
         </div>
-        {ob.bids.map((b, i) => (
-          <div key={"b" + i} className="ob-row bid">
-            <div className="bar" style={{ width: `${(b.total / ob.maxTotal) * 100}%` }} />
-            <span className="v price mono">{b.price.toFixed(decimals)}</span>
-            <span className="v size mono">{b.size.toFixed(2)}</span>
-            <span className="v total mono">{b.total.toFixed(2)}</span>
-          </div>
-        ))}
+        <div className="ob-half ob-half-bids">
+          {bids.length === 0 ? (
+            <div className="ob-empty">
+              <span className="ob-empty-label mono">
+                {isLoading ? "loading…" : "no pending longs"}
+              </span>
+            </div>
+          ) : (
+            bids.map((b, i) => (
+              <div key={"b" + i} className="ob-row bid">
+                <div
+                  className="bar"
+                  style={{ width: `${(b.total / maxTotal) * 100}%` }}
+                />
+                <span className="v price mono">{b.price.toFixed(decimals)}</span>
+                <span className="v size mono">{b.size.toFixed(2)}</span>
+                <span className="v total mono">{b.total.toFixed(2)}</span>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
@@ -103,14 +191,23 @@ function resolveLiveMarket(uiSym: string, markets: PerpsMarketDto[] | undefined)
 export function OrderPanelCard({
   market,
   initialSide,
+  leverage: externalLeverage,
+  setLeverage: setExternalLeverage,
 }: {
   market: Market;
   /** Mobile bottom-sheet pre-selects which side the trader tapped on the sticky CTAs. */
   initialSide?: "long" | "short";
+  /** When provided, leverage is controlled by the parent (lifted state
+   *  so the ChartCard pill stays in sync). When omitted, falls back to
+   *  local state — the mobile bottom-sheet path doesn't lift. */
+  leverage?: number;
+  setLeverage?: (n: number) => void;
 }) {
   const [orderType, setOrderType] = useState("limit");
   const [marginMode, setMarginMode] = useState("cross");
-  const [lev, setLev] = useState(market.leverage > 50 ? 25 : 10);
+  const [internalLev, setInternalLev] = useState(market.leverage > 50 ? 25 : 10);
+  const lev = externalLeverage ?? internalLev;
+  const setLev = setExternalLeverage ?? setInternalLev;
   const [size, setSize] = useState("");
   const [price, setPrice] = useState("");
   const [showAdv, setShowAdv] = useState(false);
@@ -135,6 +232,7 @@ export function OrderPanelCard({
   const { data: markets } = useMarkets();
   const placeOrder = usePlaceOrder();
   const liveMarket = useMemo(() => resolveLiveMarket(market.sym, markets), [market.sym, markets]);
+  const usdc = useUsdcBalance(address);
 
   const canTrade = Boolean(isConnected || devWallet);
   const hasSize = sizeV > 0;
@@ -187,8 +285,7 @@ export function OrderPanelCard({
         description: `${liveMarket.symbol} · ${apiKind.toUpperCase()} · intent ${shortDigest(result.digest)}`,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      toast({ variant: "destructive", title: "Order failed", description: message });
+      toast({ variant: "destructive", title: "Order failed", description: errMsg(error) });
     }
   };
 
@@ -431,47 +528,70 @@ export function OrderPanelCard({
       <div className="avail-line">
         {address ? (
           <>
-            Connected{" "}
+            Available{" "}
             <span className="mono" style={{ color: "var(--ink)", fontWeight: 800 }}>
+              {usdc.isLoading ? "…" : fmtUSD(Number(usdc.formatted))}
+            </span>{" "}
+            USDC ·{" "}
+            <span className="mono" style={{ color: "var(--muted)" }}>
               {shortAddress(address)}
             </span>
           </>
         ) : (
-          <>
-            Available{" "}
-            <span className="mono" style={{ color: "var(--ink)", fontWeight: 800 }}>
-              {fmtUSD(125420.5)}
-            </span>{" "}
-            USDC
-          </>
+          <span className="mono" style={{ color: "var(--muted)" }}>
+            Connect a wallet to see your USDC balance.
+          </span>
         )}
       </div>
     </div>
   );
 }
 
-export function ChartCard({ market }: { market: Market }) {
+export function ChartCard({
+  market,
+  selectedLeverage,
+}: {
+  market: Market;
+  /** Trader-selected leverage from the OrderPanelCard slider. The pill
+   *  in the chart header reflects this in real-time so the user sees
+   *  the leverage they're about to trade at, not the market's hard cap. */
+  selectedLeverage?: number;
+}) {
   const [tf, setTf] = useState("15m");
+  const [expanded, setExpanded] = useState(false);
   const tfs = ["1m", "5m", "15m", "1H", "4H", "1D", "1W"];
   const decimals = market.price < 10 ? 4 : market.price < 1000 ? 2 : 1;
-  return (
-    <div className="card chart-card">
+  const { data: stats } = useMarketStats(market.sym);
+  const high = stats?.high ?? null;
+  const low = stats?.low ?? null;
+  const vol = stats?.volume ?? null;
+  const changePct = stats?.changePct ?? market.change;
+  // Display the trader's actual chosen leverage when the panel lifted
+  // state into us; otherwise fall back to the market's hard ceiling so
+  // standalone uses (mobile, embed) still render something sensible.
+  const displayLeverage = selectedLeverage ?? market.leverage;
+  const headerInner = (
+    <>
       <div className="chart-head">
         <div className="chart-market">
-          <FlagPair a={market.flagA} b={market.flagB} size={26} />
+          <TokenIconPair base={market.base} quote={market.quote} size={26} />
           <div className="chart-price-block">
             <div className="chart-sym-row">
               <span className="chart-sym">{market.sym}</span>
-              <span className="pill primary">{market.leverage}x</span>
+              <span className="pill primary">{displayLeverage}x</span>
             </div>
             <div className="chart-price-row">
-              <span className="chart-price mono">{market.price.toFixed(decimals)}</span>
-              <span
-                className="chart-change mono"
-                style={{ color: market.change >= 0 ? "var(--profit)" : "var(--loss)" }}
-              >
-                {fmtPct(market.change)}
+              <span className="chart-price mono">
+                {market.price > 0 ? market.price.toFixed(decimals) : "—"}
               </span>
+              {market.price > 0 && (
+                <span
+                  className="chart-change mono"
+                  style={{ color: changePct >= 0 ? "var(--profit)" : "var(--loss)" }}
+                >
+                  {fmtPct(changePct)}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -483,7 +603,14 @@ export function ChartCard({ market }: { market: Market }) {
               </button>
             ))}
           </div>
-          <button className="icon-btn" style={{ width: 34, height: 34, borderRadius: 10 }}>
+          <button
+            type="button"
+            className="icon-btn"
+            style={{ width: 34, height: 34, borderRadius: 10 }}
+            onClick={() => setExpanded((e) => !e)}
+            title={expanded ? "Collapse chart" : "Open full-screen chart"}
+            aria-label={expanded ? "Collapse chart" : "Open full-screen chart"}
+          >
             <Icon name="expand" size={14} />
           </button>
         </div>
@@ -491,38 +618,43 @@ export function ChartCard({ market }: { market: Market }) {
       <div className="chart-substats">
         <div className="chart-stat">
           <span className="l">24h High</span>
-          <span className="v mono">{(market.price * 1.012).toFixed(decimals)}</span>
+          <span className="v mono">{high != null ? high.toFixed(decimals) : "—"}</span>
         </div>
         <div className="chart-stat">
           <span className="l">24h Low</span>
-          <span className="v mono">{(market.price * 0.988).toFixed(decimals)}</span>
+          <span className="v mono">{low != null ? low.toFixed(decimals) : "—"}</span>
         </div>
         <div className="chart-stat">
-          <span className="l">24h Vol</span>
-          <span className="v mono">{market.type === "perp" ? "$2.8B" : "$1.4B"}</span>
-        </div>
-        <div className="chart-stat">
-          <span className="l">Spread</span>
-          <span className="v mono">{market.spread.toFixed(decimals + 1)}</span>
-        </div>
-        {market.funding !== undefined && (
-          <div className="chart-stat">
-            <span className="l">Funding</span>
-            <span
-              className="v mono"
-              style={{ color: market.funding >= 0 ? "var(--profit)" : "var(--loss)" }}
-            >
-              {(market.funding * 100).toFixed(4)}%
-            </span>
-          </div>
-        )}
-        <div className="chart-stat" style={{ marginLeft: "auto" }}>
-          <span className="l">Open Interest</span>
-          <span className="v mono">$184.2M</span>
+          <span className="l">
+            24h Vol{" "}
+            <Hint w={240}>
+              FX feeds don&apos;t carry traded volume — the bar is a proxy
+              derived from per-bar price-change magnitude.
+            </Hint>
+          </span>
+          <span className="v mono">
+            {vol != null && Number.isFinite(vol) ? fmtUSD(vol) : "—"}
+          </span>
         </div>
       </div>
-      <CandleChart market={market} timeframe={tf} />
-    </div>
+    </>
+  );
+  return (
+    <>
+      <div className="card chart-card">
+        {headerInner}
+        <CandleChart market={market} timeframe={tf} source="ponder" liveSource="ws" />
+      </div>
+      <Dialog open={expanded} onOpenChange={setExpanded}>
+        <DialogContent size="full" className="p-0 h-[90vh] flex flex-col">
+          <DialogTitle className="sr-only">{market.sym} chart</DialogTitle>
+          <div className="card chart-card" style={{ height: "100%", border: 0, boxShadow: "none" }}>
+            {headerInner}
+            <CandleChart market={market} timeframe={tf} source="ponder" liveSource="ws" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

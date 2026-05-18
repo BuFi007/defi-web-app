@@ -18,28 +18,6 @@ export interface Market {
   funding?: number;
 }
 
-export interface Position {
-  sym: string;
-  side: "long" | "short";
-  size: number;
-  entry: number;
-  mark: number;
-  pnl: number;
-  margin: number;
-  leverage: number;
-  liq: number;
-}
-
-export interface OrderRow {
-  sym: string;
-  side: "long" | "short";
-  type: string;
-  size: number;
-  price: number;
-  filled: string;
-  time: string;
-}
-
 export interface Candle {
   o: number;
   h: number;
@@ -48,108 +26,57 @@ export interface Candle {
   v: number;
 }
 
-export interface OrderbookLevel {
-  price: number;
-  size: number;
-  total: number;
-}
-
-export interface Orderbook {
-  asks: OrderbookLevel[];
-  bids: OrderbookLevel[];
-  maxTotal: number;
-}
-
+// FX_MARKETS / PERP_MARKETS — these arrays seed the symbol registry +
+// UI decoration ONLY. `price` and `change` default to 0 here; the live
+// values come from useLiveMarket (Pyth Hermes WS) and useMarketStats
+// (Pyth Benchmarks 24 h) at runtime via TradeIsland. A non-zero seed
+// here would render once on first paint before the live data ticks,
+// which used to ship 2024-vintage EUR/USD ≈ 1.0842 / +0.32% to the
+// header pill — confusing for any trader actually checking the rate.
+//
+// `spread` and `funding` are also 0 today — both belong in a live
+// per-market feed; surfacing a static estimate is worse than no value.
+// Leverage / type / flags stay as protocol-config metadata.
 export const FX_MARKETS: Market[] = [
-  { sym: "EUR/USD", base: "EUR", quote: "USD", flagA: "🇪🇺", flagB: "🇺🇸", price: 1.0842, change: 0.32, leverage: 100, type: "forex", spread: 0.00012 },
-  { sym: "GBP/USD", base: "GBP", quote: "USD", flagA: "🇬🇧", flagB: "🇺🇸", price: 1.2716, change: -0.18, leverage: 100, type: "forex", spread: 0.00018 },
-  { sym: "USD/JPY", base: "USD", quote: "JPY", flagA: "🇺🇸", flagB: "🇯🇵", price: 154.42, change: 0.48, leverage: 100, type: "forex", spread: 0.012 },
-  { sym: "AUD/USD", base: "AUD", quote: "USD", flagA: "🇦🇺", flagB: "🇺🇸", price: 0.6648, change: -0.42, leverage: 50, type: "forex", spread: 0.00014 },
-  { sym: "USD/MXN", base: "USD", quote: "MXN", flagA: "🇺🇸", flagB: "🇲🇽", price: 17.082, change: 0.92, leverage: 50, type: "forex", spread: 0.008 },
-  { sym: "USD/CHF", base: "USD", quote: "CHF", flagA: "🇺🇸", flagB: "🇨🇭", price: 0.8814, change: 0.14, leverage: 100, type: "forex", spread: 0.00015 },
-  { sym: "NZD/USD", base: "NZD", quote: "USD", flagA: "🇳🇿", flagB: "🇺🇸", price: 0.6034, change: -0.65, leverage: 50, type: "forex", spread: 0.00018 },
-  { sym: "USD/CAD", base: "USD", quote: "CAD", flagA: "🇺🇸", flagB: "🇨🇦", price: 1.3624, change: 0.08, leverage: 100, type: "forex", spread: 0.00016 },
+  { sym: "EUR/USD", base: "EUR", quote: "USD", flagA: "🇪🇺", flagB: "🇺🇸", price: 0, change: 0, leverage: 100, type: "forex", spread: 0 },
+  { sym: "GBP/USD", base: "GBP", quote: "USD", flagA: "🇬🇧", flagB: "🇺🇸", price: 0, change: 0, leverage: 100, type: "forex", spread: 0 },
+  { sym: "USD/JPY", base: "USD", quote: "JPY", flagA: "🇺🇸", flagB: "🇯🇵", price: 0, change: 0, leverage: 100, type: "forex", spread: 0 },
+  { sym: "AUD/USD", base: "AUD", quote: "USD", flagA: "🇦🇺", flagB: "🇺🇸", price: 0, change: 0, leverage: 50, type: "forex", spread: 0 },
+  { sym: "USD/MXN", base: "USD", quote: "MXN", flagA: "🇺🇸", flagB: "🇲🇽", price: 0, change: 0, leverage: 50, type: "forex", spread: 0 },
+  { sym: "USD/CHF", base: "USD", quote: "CHF", flagA: "🇺🇸", flagB: "🇨🇭", price: 0, change: 0, leverage: 100, type: "forex", spread: 0 },
+  { sym: "NZD/USD", base: "NZD", quote: "USD", flagA: "🇳🇿", flagB: "🇺🇸", price: 0, change: 0, leverage: 50, type: "forex", spread: 0 },
+  { sym: "USD/CAD", base: "USD", quote: "CAD", flagA: "🇺🇸", flagB: "🇨🇦", price: 0, change: 0, leverage: 100, type: "forex", spread: 0 },
 ];
 
 export const PERP_MARKETS: Market[] = [
-  { sym: "BTC-PERP", base: "BTC", quote: "USD", flagA: "₿", flagB: "$", price: 67428.5, change: 2.18, leverage: 100, type: "perp", funding: 0.0084, spread: 0.5 },
-  { sym: "ETH-PERP", base: "ETH", quote: "USD", flagA: "Ξ", flagB: "$", price: 3142.8, change: 1.42, leverage: 50, type: "perp", funding: 0.0062, spread: 0.2 },
-  { sym: "SOL-PERP", base: "SOL", quote: "USD", flagA: "◎", flagB: "$", price: 156.42, change: -1.85, leverage: 50, type: "perp", funding: -0.0042, spread: 0.05 },
+  { sym: "BTC-PERP", base: "BTC", quote: "USD", flagA: "₿", flagB: "$", price: 0, change: 0, leverage: 100, type: "perp", funding: 0, spread: 0 },
+  { sym: "ETH-PERP", base: "ETH", quote: "USD", flagA: "Ξ", flagB: "$", price: 0, change: 0, leverage: 50, type: "perp", funding: 0, spread: 0 },
+  { sym: "SOL-PERP", base: "SOL", quote: "USD", flagA: "◎", flagB: "$", price: 0, change: 0, leverage: 50, type: "perp", funding: 0, spread: 0 },
 ];
 
 export const ALL_MARKETS: Market[] = [...FX_MARKETS, ...PERP_MARKETS];
 
-export const MOCK_POSITIONS: Position[] = [
-  { sym: "EUR/USD", side: "long", size: 50000, entry: 1.0812, mark: 1.0842, pnl: 150.0, margin: 500, leverage: 100, liq: 1.0746 },
-  { sym: "USD/JPY", side: "short", size: 30000, entry: 154.92, mark: 154.42, pnl: 96.85, margin: 1850, leverage: 100, liq: 156.3 },
-  { sym: "BTC-PERP", side: "long", size: 0.5, entry: 66200, mark: 67428.5, pnl: 614.25, margin: 331, leverage: 100, liq: 65540 },
-  { sym: "GBP/USD", side: "long", size: 25000, entry: 1.2748, mark: 1.2716, pnl: -80.0, margin: 250, leverage: 100, liq: 1.262 },
-];
+// MOCK_POSITIONS / MOCK_ORDERS removed 2026-05-18. The Positions tab now
+// reads live data via usePositions() (perps/positions/:address) and the
+// History tab via useTrades() (perps/trades/:address). Open-orders count
+// will land via a follow-up user-scoped intents-by-signer endpoint —
+// until that ships, the Open Orders summary cell renders an em-dash.
 
-export const MOCK_ORDERS: OrderRow[] = [
-  { sym: "EUR/USD", side: "long", type: "Limit", size: 25000, price: 1.079, filled: "0/25000", time: "17:24:12" },
-  { sym: "USD/MXN", side: "short", type: "Stop", size: 15000, price: 17.22, filled: "0/15000", time: "16:42:51" },
-  { sym: "BTC-PERP", side: "long", type: "Limit", size: 0.25, price: 66500, filled: "0/0.25", time: "14:18:03" },
-];
+// Number formatters moved to @/utils — re-exported here so the existing
+// "./data" import sites (multiplayer, arcade, panels, mobile-trade,
+// market-picker, stablecoin-balances) keep working unchanged.
+export { fmt, fmtUSD, fmtPct } from "@/utils";
 
-export function fmt(n: number | null | undefined, d = 2): string {
-  if (n == null || isNaN(n)) return "—";
-  return Number(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
-}
-export function fmtUSD(n: number | null | undefined, d = 2): string {
-  return "$" + fmt(n, d);
-}
-export function fmtPct(n: number, d = 2): string {
-  return (n >= 0 ? "+" : "") + n.toFixed(d) + "%";
-}
-
-export function makeCandles(basePrice: number, count = 120, _tickSize = 0.0001): Candle[] {
-  const out: Candle[] = [];
-  let p = basePrice * 0.985;
-  let seed = Math.floor(basePrice * 1000);
-  const rand = () => {
-    seed = (seed * 9301 + 49297) % 233280;
-    return seed / 233280;
-  };
-  for (let i = 0; i < count; i++) {
-    const drift = (rand() - 0.45) * basePrice * 0.004;
-    const o = p;
-    const c = p + drift;
-    const h = Math.max(o, c) + rand() * basePrice * 0.003;
-    const l = Math.min(o, c) - rand() * basePrice * 0.003;
-    const v = rand() * 1000 + 200;
-    out.push({ o, h, l, c, v });
-    p = c;
-  }
-  const lastSpread = basePrice * 0.002;
-  out[out.length - 1].c = basePrice;
-  out[out.length - 1].h = Math.max(out[out.length - 1].h, basePrice + lastSpread * 0.3);
-  out[out.length - 1].l = Math.min(out[out.length - 1].l, basePrice - lastSpread * 0.3);
-  return out;
-}
-
-export function makeOrderbook(price: number, tickSize = 0.0001, levels = 14): Orderbook {
-  let seed = Math.floor(price * 1000);
-  const rand = () => {
-    seed = (seed * 9301 + 49297) % 233280;
-    return seed / 233280;
-  };
-  const asks: OrderbookLevel[] = [];
-  const bids: OrderbookLevel[] = [];
-  let askTotal = 0;
-  let bidTotal = 0;
-  for (let i = 0; i < levels; i++) {
-    const ap = price + tickSize * (i + 1);
-    const aSize = rand() * 80 + 5;
-    askTotal += aSize;
-    asks.push({ price: ap, size: aSize, total: askTotal });
-    const bp = price - tickSize * (i + 1);
-    const bSize = rand() * 80 + 5;
-    bidTotal += bSize;
-    bids.push({ price: bp, size: bSize, total: bidTotal });
-  }
-  return { asks, bids, maxTotal: Math.max(askTotal, bidTotal) };
-}
+// makeCandles + makeOrderbook were removed 2026-05-18.
+//   * Chart now consumes `getCandles({ source: "ponder" })` from
+//     @bufi/market-data, which proxies /perps/markets/:sym/candles
+//     (Pyth Benchmarks-backed) via the API.
+//   * Orderbook now consumes `usePendingIntents()`
+//     from @/lib/perps/use-pending-intents, which hits
+//     /perps/intents/pending?marketId=X (the matcher's pending queue).
+// Both produced procedural fake series that haven't been the source of
+// truth in the UI for some time; removing them prevents future hands
+// from reintroducing them as a "quick fallback".
 
 export const ICONS: Record<string, string> = {
   home: '<path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V9.5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" fill="none"/>',

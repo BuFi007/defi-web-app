@@ -19,12 +19,24 @@ const I18N_CONFIG = {
 
 const I18nMiddleware = createI18nMiddleware(I18N_CONFIG);
 const LOCALE_COOKIE = "NEXT_LOCALE";
+// `NEXT_LOCALE` MUST be reachable from JS — next-international's
+// `useChangeLocale()` writes the cookie via `document.cookie` from
+// the client. An httpOnly attribute here silently swallowed those
+// client-side writes because the browser keeps the original
+// httpOnly cookie alongside the JS one, then the server reads the
+// stale httpOnly value first — so clicking the locale switcher
+// appeared to do nothing. The cookie content is UI state, not a
+// secret; httpOnly buys nothing.
+//
+// `sameSite: "lax"` (instead of strict) so the cookie still flows
+// on top-level navigations from external links into the site —
+// strict was breaking the language preference when users opened
+// the app from a Discord / Slack share.
 const LOCALE_COOKIE_OPTIONS = {
   path: "/" as const,
   maxAge: 60 * 60 * 24 * 365,
-  httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "strict" as const,
+  sameSite: "lax" as const,
 };
 
 const ALPHA_COOKIE_NAME = "bu_alpha_access";

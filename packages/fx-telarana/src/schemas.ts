@@ -1,6 +1,8 @@
 import { getAddress, isAddress, type Address, type Hex } from "viem";
 import { z } from "zod";
 
+import { BYTES32_REGEX } from "@bufi/shared-types/schemas";
+
 export const HUB_CHAIN_IDS = [43113, 5042002] as const;
 export type HubChainIdLiteral = (typeof HUB_CHAIN_IDS)[number];
 
@@ -156,7 +158,7 @@ export const borrowIntentRequest = borrowQuoteRequest.extend({
 
 export const borrowIntentResponse = z.object({
   intentId: z.string(),
-  digest: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+  digest: z.string().regex(BYTES32_REGEX),
 });
 
 export type BorrowQuoteRequest = z.infer<typeof borrowQuoteRequest>;

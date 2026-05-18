@@ -9,6 +9,7 @@ import {
 import type { Address, Hex } from "viem";
 
 import { FxPerpClearinghouseAbi } from "@bufi/contracts";
+import { lowerHex } from "@bufi/shared-types/hex";
 
 type PositionEventName =
   | "FxPerpClearinghouseArc:PositionIncreased"
@@ -200,8 +201,4 @@ function logId(event: { transaction: { hash: Hex }; log: { logIndex: number } })
 
 function positionId(marketId: Hex, trader: Address): string {
   return `${lowerHex(marketId)}:${lowerHex(trader)}`;
-}
-
-function lowerHex<T extends Hex>(value: T): T {
-  return value.toLowerCase() as T;
 }

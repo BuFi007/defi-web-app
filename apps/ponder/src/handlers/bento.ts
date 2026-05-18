@@ -111,6 +111,7 @@ import {
 import type { Address, Hex } from "viem";
 
 import { FxBentoRoomFactoryAbi } from "@bufi/contracts/bento";
+import { lowerHex } from "@bufi/shared-types/hex";
 
 // ─────────────────────────── Type aliases ──────────────────────────────────
 
@@ -970,6 +971,3 @@ function placementKey(args: {
   return `${roomKey(args.roomId)}:${lowerHex(args.player)}:${args.tileId}`;
 }
 
-function lowerHex<T extends Hex>(value: T): T {
-  return value.toLowerCase() as T;
-}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { FlagPair, fmtUSD, type Market } from "./data";
+import { fmtUSD, type Market } from "./data";
+import { TokenIconPair } from "./token-icon";
 import { Hint } from "./hint";
 import { LeaderboardPanel, type Player } from "./multiplayer";
 
@@ -509,7 +510,7 @@ export function ArcadeBoard({
       )}
       <div className="arcade2-bar">
         <div className="bar-left">
-          <FlagPair a={market.flagA} b={market.flagB} size={24} />
+          <TokenIconPair base={market.base} quote={market.quote} size={24} />
           <div className="bar-sym-block">
             <span className="bar-sym">{market.sym}</span>
             <span className="mono bar-spot-price">{price.toFixed(decimals)}</span>

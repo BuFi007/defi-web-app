@@ -5,6 +5,7 @@ import { useAccount, useChainId } from "wagmi";
 import {
   useDynamicContext,
   useIsLoggedIn,
+  useUserWallets,
 } from "@dynamic-labs/sdk-react-core";
 
 import { useDevWallet } from "@/lib/dev-wallet";
@@ -36,6 +37,12 @@ export function SessionBridge() {
   const wagmiChainId = useChainId();
   const isDynamicLoggedIn = useIsLoggedIn();
   const { primaryWallet } = useDynamicContext();
+  // userWallets is ALL wallets the Dynamic account has linked (extension
+  // + embedded + WalletConnect). primaryWallet picks one — but during
+  // social-auth bootstrap or when the user has multiple linked extensions
+  // without an explicit "set primary" choice, primaryWallet can be null
+  // even though there ARE usable wallet addresses in the account.
+  const userWallets = useUserWallets();
 
   useEffect(() => {
     const setIdentity = useBufiSessionStore.getState().setIdentity;
@@ -111,14 +118,30 @@ export function SessionBridge() {
     //    user's name, but the page is stuck on "Welcome / connect wallet"
     //    because status stays "anonymous").
     if (isDynamicLoggedIn || primaryWallet) {
-      const addr = (primaryWallet?.address ?? null) as
+      // Address resolution order:
+      //   1. primaryWallet — Dynamic's actively-selected wallet
+      //   2. wagmiAddress — set when DynamicWagmiConnector has bridged
+      //   3. userWallets[0] — first linked wallet on the account
+      //
+      // Without (3), users who logged in via social-auth + linked an
+      // existing wallet (no primary selected yet) saw the arcade gate
+      // fire "Connect a wallet" even though their address was visible
+      // in the header. (3) makes the gate trust any linked wallet so
+      // downstream actions can target it.
+      const firstLinked = userWallets[0]?.address as
         | `0x${string}`
-        | null;
-      const chainStr = primaryWallet?.connectedChain ?? null;
-      const chainNum =
-        chainStr && typeof chainStr === "string" && /^\d+$/.test(chainStr)
-          ? Number(chainStr)
-          : null;
+        | undefined;
+      const addr =
+        ((primaryWallet?.address as `0x${string}` | undefined) ??
+          (wagmiAddress as `0x${string}` | undefined) ??
+          firstLinked ??
+          null) as `0x${string}` | null;
+      // Dynamic's Wallet shape doesn't carry connectedChain as a
+      // documented field anymore — fall back to wagmi's chainId which
+      // tracks the connector's active chain. This is the same value
+      // useChainId() would return; we resolve it here so the store
+      // stays in sync with the active wallet.
+      const chainNum = wagmiChainId ?? null;
       setIdentity({
         status: "connected",
         address: addr,
@@ -142,6 +165,7 @@ export function SessionBridge() {
     wagmiChainId,
     isDynamicLoggedIn,
     primaryWallet,
+    userWallets,
   ]);
 
   return null;

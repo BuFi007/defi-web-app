@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Address } from "viem";
-import { useAccount } from "wagmi";
+import { useAccount, useBalance } from "wagmi";
+import { formatUnits } from "viem";
 
 import { useToast } from "@/components/ui/use-toast";
+import { errMsg } from "@/utils";
 import {
   emitOracleStaleToast,
   isOracleStaleError,
@@ -18,6 +20,8 @@ import type { TelaranaMarketSerialized, TelaranaPositionSerialized } from "@/lib
 import { formatHealthFactor, healthBucket, healthFactorFromE18, toAtomic } from "@/lib/telarana/health";
 
 import { Hint } from "./hint";
+import { TokenIcon } from "./token-icon";
+import { useMarketCandles } from "@/lib/perps/hooks";
 
 export interface LoanToken {
   sym: string;
@@ -30,10 +34,23 @@ export interface LoanToken {
 
 export interface LoanHub {
   id: string;
+  /** Long-form name shown in tooltips ("Arc Hub", "Fuji Hub"). */
   name: string;
+  /** Short display label for filter pills and breadcrumbs ("Arc",
+   *  "Fuji"). NOT the address — that lives on `address`. */
   short: string;
+  /** Brand colour for the per-hub badge / accent. */
   color: string;
+  /** Legacy text glyph fallback rendered only when no `iconUrl` resolves. */
   glyph: string;
+  /** Real chain logo (svg / png). Pulled from constants/Chains. */
+  iconUrl: string;
+  /** On-chain FxMarketRegistry address for the hub. Surfaced (shortened)
+   *  next to per-market rows so the user sees the contract they're
+   *  interacting with. */
+  address: `0x${string}`;
+  /** EVM chainId — used to build block-explorer hyperlinks. */
+  chainId: 43113 | 5042002;
 }
 
 export type LoanMarketStatus = "live" | "paused" | "stale";
@@ -93,10 +110,70 @@ export const LOAN_TOKENS: Record<string, LoanToken> = {
   mZCHF: { sym: "mZCHF", name: "Swiss Franc", flag: "🇨🇭", price: 1.135, decimals: 2, mock: true },
 };
 
-export const LOAN_HUBS: Record<string, LoanHub> = {
-  arc: { id: "arc", name: "Arc Hub", short: "Arc", color: "#6b5bff", glyph: "◆" },
-  fuji: { id: "fuji", name: "Fuji Hub", short: "Fuji", color: "#e84142", glyph: "▲" },
+// FxMarketRegistry addresses per hub — surfaced in the UI in place of
+// the human-readable hub.short label so users see the actual on-chain
+// contract a borrow / lend touches. Sourced from the contracts package
+// manifests: packages/contracts/deployments/telarana-{arc-testnet,
+// avalanche-fuji}.json → contracts.FxMarketRegistry.
+const HUB_REGISTRY_ADDRESS: Readonly<Record<string, `0x${string}`>> = {
+  arc: "0x813232259c9b922e7571F15220617C80581f1464",
+  fuji: "0x7ba745b979e027992ECFa51207666e3F5B46cF0a",
 };
+
+const shortHex = (addr: string): string =>
+  addr.length > 12 ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : addr;
+
+/**
+ * Block-explorer address URL for the chains the loan tab touches.
+ * Returns a per-chain explorer base — Snowtrace for Fuji, Arcscan for
+ * Arc Testnet. Caller renders an `<a target="_blank">` so the page
+ * opens in a new tab. Extend the switch when more spoke hubs go live.
+ */
+export const blockExplorerUrl = (
+  chainId: number,
+  address: `0x${string}`,
+): string => {
+  switch (chainId) {
+    case 43113:
+      return `https://testnet.snowtrace.io/address/${address}`;
+    case 5042002:
+      return `https://testnet.arcscan.app/address/${address}`;
+    case 11155111:
+      return `https://sepolia.etherscan.io/address/${address}`;
+    case 421614:
+      return `https://sepolia.arbiscan.io/address/${address}`;
+    default:
+      return `https://etherscan.io/address/${address}`;
+  }
+};
+
+export const LOAN_HUBS: Record<string, LoanHub> = {
+  arc: {
+    id: "arc",
+    name: "Arc Hub",
+    short: "Arc",
+    color: "#1a1340",
+    // Arc's official mark — lives under public/networks/. The HubPip
+    // wrapper places it on a tinted background so it reads cleanly.
+    iconUrl: "/networks/arc.svg",
+    glyph: "◆",
+    address: HUB_REGISTRY_ADDRESS.arc,
+    chainId: 5042002,
+  },
+  fuji: {
+    id: "fuji",
+    name: "Fuji Hub",
+    short: "Fuji",
+    color: "#e84142",
+    iconUrl: "/networks/avax.svg",
+    glyph: "▲",
+    address: HUB_REGISTRY_ADDRESS.fuji,
+    chainId: 43113,
+  },
+};
+
+export const hubRegistryAddress = (hubId: string): `0x${string}` | null =>
+  HUB_REGISTRY_ADDRESS[hubId] ?? null;
 
 // Static mock fallback. Other surfaces (trade-island/index.tsx LoanFloor)
 // still import LOAN_MARKETS/LOAN_POSITIONS directly, so we preserve these
@@ -139,7 +216,7 @@ const ACTION_TO_KIND: Record<string, LendingActionKind> = {
 };
 
 const HUB_CHAIN_IDS = { arc: 5042002 as const, fuji: 43113 as const };
-const HUB_NAME_BY_CHAIN_ID: Record<number, "arc" | "fuji"> = { 5042002: "arc", 43113: "fuji" };
+export const HUB_NAME_BY_CHAIN_ID: Record<number, "arc" | "fuji"> = { 5042002: "arc", 43113: "fuji" };
 
 const fmtCompact = (n: number) =>
   n >= 1e6 ? "$" + (n / 1e6).toFixed(2) + "M" : n >= 1e3 ? "$" + (n / 1e3).toFixed(0) + "k" : "$" + n.toFixed(0);
@@ -147,20 +224,29 @@ const fmtCompact = (n: number) =>
 const fmtAmt = (n: number) =>
   n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1e3 ? (n / 1e3).toFixed(0) + "k" : n.toFixed(0);
 
-function symbolForToken(address: Address): string {
+export function symbolForToken(address: Address): string {
+  // All addresses lower-cased. Sources: Circle canonical testnet docs
+  // (developers.circle.com/stablecoins) for USDC + EURC, Bitso for MXNB.
+  // Both MockEURC AND Circle's real testnet EURC on Fuji are mapped to
+  // "EURC" — the on-chain Morpho M1/M2 markets currently use the mock,
+  // while user wallets hold Circle's real one.
   const known: Record<string, string> = {
-    // Fuji
+    // Avalanche Fuji
     "0x5425890298aed601595a70ab815c96711a31bc65": "USDC",
-    "0xefd7cf5ad5a2db9a3c23e2807f2279de92c730d2": "EURC",
-    "0x50c4ba39caa7f56152d0df4914e1f6b907194992": "EURC",
+    "0xefd7cf5ad5a2db9a3c23e2807f2279de92c730d2": "EURC", // FxReceiptEURC
+    "0x50c4ba39caa7f56152d0df4914e1f6b907194992": "EURC", // MockEURC (M1/M2)
+    "0x5e44db7996c682e92a960b65ac713a54ad815c6b": "EURC", // Circle real EURC
     "0xab99d44185af87aeb08361588f00f59b0ce85ebb": "MXNB", // Bitso testnet
-    // Arc
+    // Arc Testnet
     "0x3600000000000000000000000000000000000000": "USDC",
     "0x89b50855aa3be2f677cd6303cec089b5f319d72a": "EURC",
     // Ethereum Sepolia
-    "0x5fd84259d66cd46123540766be93dfe6d43130d7": "USDC",
+    "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238": "USDC", // Circle canonical
+    "0x5fd84259d66cd46123540766be93dfe6d43130d7": "USDC", // (legacy: actually OP Sepolia — kept for backward-compat)
+    "0x08210f9170f89ab7658f0b5e3ff39b0e03c594d4": "EURC",
     "0x34d4cebb03af55b99b68342ac4bd78e598d9a9fc": "MXNB",
     // Arbitrum Sepolia
+    "0x75faf114eafb1bdbe2f0316df893fd58ce46aa4d": "USDC", // Circle canonical
     "0xb56e3e3769efb85214cb4fa42eba198e9fda92bf": "MXNB",
   };
   return known[address.toLowerCase()] ?? "TOK";
@@ -184,8 +270,23 @@ function bpsFromWad(value: bigint | string): number {
 
 /**
  * Liftover: turn a serialized fx-telarana market into the LoanMarket row
- * shape the existing UI knows how to render. APYs default to 0 because the
- * IRM read isn't exposed on the API yet (TODO: irm.borrowRateView).
+ * shape the existing UI knows how to render.
+ *
+ * APY/APR derivation. The Fuji + Arc deployments wire `IrmMock`
+ * (Morpho's reference IRM mock) at the manifest's `IrmMock` address.
+ * Its formula is, verbatim:
+ *
+ *   borrowRateView(_, Market m) = totalBorrow.wDivDown(totalSupply) / SECONDS_PER_YEAR
+ *
+ * So `borrowRate (per second, WAD) × SECONDS_PER_YEAR / 1e18` simplifies
+ * to `utilization` (fraction). i.e. **APR = utilization** on the mock IRM.
+ * Supply APY ≈ borrowAPR × utilization × (1 − fee); the Morpho `fee`
+ * field defaults to 0, so `supplyAPY ≈ util²` on these markets.
+ *
+ * When the protocol swaps in a non-mock IRM, this needs to become a
+ * proper `viem.readContract({ functionName: "borrowRateView" })` per
+ * market — exposed via the SDK so the API can include it in the
+ * /fx-telarana/markets response.
  */
 function toLoanMarket(market: TelaranaMarketSerialized): LoanMarket {
   const loanSym = symbolForToken(market.loanToken);
@@ -197,13 +298,17 @@ function toLoanMarket(market: TelaranaMarketSerialized): LoanMarket {
   const tvlAtomic = supplyAssets - borrowAssets;
   const tvl = Number(tvlAtomic / 10n ** 4n) / 100; // 6-dp → USD
   const lltv = Number(BigInt(market.lltv) / 10n ** 14n) / 10_000;
+  // IrmMock: borrowAPR ≡ utilization (fraction). Convert to percentage
+  // for the UI. Supply ≈ borrow × util (Morpho fee defaults to 0).
+  const borrow = util * 100;
+  const supply = util * util * 100;
   return {
     id: `${hub}-${loanSym.toLowerCase()}-${collSym.toLowerCase()}`,
     hub,
     loan: loanSym,
     coll: collSym,
-    supply: 0,
-    borrow: 0,
+    supply,
+    borrow,
     util,
     lltv,
     tvl,
@@ -223,27 +328,70 @@ function toLoanMarket(market: TelaranaMarketSerialized): LoanMarket {
 void bpsFromWad; // reserved for future APY surfacing
 
 export function FxChip({ sym, size = 28 }: { sym: string; size?: number }) {
-  const t = LOAN_TOKENS[sym];
-  if (!t) return null;
-  return (
-    <span
-      className="fx-chip"
-      style={{ width: size, height: size, fontSize: Math.round(size * 0.7) }}
-      title={t.name}
-    >
-      {t.flag}
-    </span>
-  );
+  // Real token artwork via STABLE_TOKEN_LIST (with synthetic m-prefix
+  // remapping inside TokenIcon). Falls back to a coloured monogram
+  // when the symbol isn't recognised.
+  const meta = LOAN_TOKENS[sym];
+  return <TokenIcon sym={sym} size={size} title={meta?.name ?? sym} />;
 }
 
-export function HubPip({ hub, size = 14 }: { hub: LoanHub; size?: number }) {
+export function HubPip({ hub, size = 18 }: { hub: LoanHub; size?: number }) {
+  // Render the chain's official mark on a neutral light background.
+  //
+  // Why not hub.color: the canonical chain SVGs (avax, eth, arbitrum,
+  // arc) ship with their brand fill already applied — avax.svg is red,
+  // arc.svg is dark, etc. Putting them on a wrapper that uses the same
+  // hub.color makes the icon disappear (red on red). The neutral
+  // surface lets each brand-coloured logo read on its own.
+  //
+  // Falls back to the text glyph if the image fails to load.
   return (
     <span
       className="hub-pip"
-      style={{ background: hub.color, width: size, height: size, fontSize: Math.round(size * 0.55) }}
+      style={{
+        // Subtle ring tinted to the brand colour, neutral fill so the
+        // coloured SVG paths read on top.
+        background: "var(--surface)",
+        boxShadow: `inset 0 0 0 1.5px ${hub.color}40`,
+        width: size,
+        height: size,
+        fontSize: Math.round(size * 0.55),
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: "50%",
+        overflow: "hidden",
+        flexShrink: 0,
+      }}
       title={hub.name}
     >
-      {hub.glyph}
+      {hub.iconUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={hub.iconUrl}
+          alt={hub.name}
+          width={size}
+          height={size}
+          style={{
+            // 65% inner → ~17.5% padding on each side. Logos with
+            // their own circular background (Avalanche red disc, Eth
+            // diamond) still look anchored, and the bare-glyph SVGs
+            // (Arc letter) get breathing room from the ring.
+            width: "65%",
+            height: "65%",
+            objectFit: "contain",
+            display: "block",
+          }}
+          onError={(e) => {
+            // Hide the broken image so the text glyph shows through.
+            (e.currentTarget as HTMLImageElement).style.display = "none";
+          }}
+        />
+      ) : (
+        <span style={{ color: hub.color, lineHeight: 1, fontWeight: 800 }}>
+          {hub.glyph}
+        </span>
+      )}
     </span>
   );
 }
@@ -255,65 +403,170 @@ export function StatusTag({ status }: { status: LoanMarketStatus }) {
   return null;
 }
 
+/**
+ * Map a loan-market loan/collateral pair to the Pyth Benchmarks FX
+ * symbol that feeds it. Returns null for markets where the two legs are
+ * both USD-pegged (no meaningful price line) or where no upstream feed
+ * exists (synthetic m-prefixed placeholders that haven't been wired to
+ * an issuer contract yet).
+ */
+function loanMarketPythSymbol(market: LoanMarket): string | null {
+  const a = market.loan.toUpperCase();
+  const b = market.coll.toUpperCase();
+  // Both legs are USD-anchored → no price movement to chart.
+  const isUsdPeg = (sym: string) =>
+    sym === "USDC" || sym === "USDT" || sym === "DAI" || sym === "USD";
+  if (isUsdPeg(a) && isUsdPeg(b)) return null;
+  const nonUsd = isUsdPeg(a) ? b : a;
+  switch (nonUsd) {
+    case "EURC":
+    case "EUR":
+      return "EUR/USD";
+    case "MXNB":
+    case "MMXNB":
+    case "MXN":
+      return "USD/MXN";
+    case "MJPYC":
+    case "JPYC":
+    case "JPY":
+      return "USD/JPY";
+    case "MAUDF":
+    case "AUDF":
+    case "AUD":
+      return "AUD/USD";
+    case "MKRW1":
+    case "KRW1":
+    case "KRW":
+      return "USD/KRW";
+    case "MZCHF":
+    case "ZCHF":
+    case "CHF":
+      return "USD/CHF";
+    case "BRLA":
+    case "BRL":
+      return "USD/BRL";
+    default:
+      return null;
+  }
+}
+
+/**
+ * Inline SVG sparkline driven by Pyth Benchmarks candles (the same
+ * source the main chart consumes). 24×1h candles per market — cached
+ * 60s by react-query, so a table with 8 rows hits Benchmarks once per
+ * symbol per minute. Falls back to an em-dash when the loan pair has
+ * no associated FX feed (synthetic markets, USD/USD pairs).
+ *
+ * lightweight-charts is intentionally NOT mounted per row — that
+ * library is ~120 KB and mounting it 8× costs more than the data fetch.
+ * A flat SVG <path> built from close prices reads the same way for a
+ * 24-point timeline and keeps the table snappy.
+ */
 export function MarketSpark({ market }: { market: LoanMarket }) {
-  const data = useMemo(() => {
-    let seed = market.id.split("").reduce((s, c) => s + c.charCodeAt(0), 0);
-    const rand = () => {
-      seed = (seed * 9301 + 49297) % 233280;
-      return seed / 233280;
-    };
-    const arr: number[] = [];
-    let v = market.util * 0.92;
-    for (let i = 0; i < 60; i++) {
-      v += (rand() - 0.5) * 0.025;
-      v = Math.max(0.18, Math.min(0.92, v));
-      arr.push(v);
-    }
-    arr.push(market.util);
-    return arr;
-  }, [market.id, market.util]);
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const W = 320;
-  const H = 80;
-  const pad = 4;
-  const innerH = H - pad * 2;
-  const pts: [number, number][] = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * W;
-    const y = pad + innerH - ((v - min) / (max - min || 1)) * innerH;
-    return [x, y];
+  const feed = loanMarketPythSymbol(market);
+  const { data: resp, isLoading } = useMarketCandles({
+    sym: feed ?? undefined,
+    tf: "1H",
+    limit: 24,
   });
-  const path = pts.reduce((acc, [x, y], i) => {
-    if (i === 0) return `M${x.toFixed(2)},${y.toFixed(2)}`;
-    const [px, py] = pts[i - 1];
-    const cx = (px + x) / 2;
-    return acc + ` Q${cx.toFixed(2)},${py.toFixed(2)} ${cx.toFixed(2)},${((py + y) / 2).toFixed(2)} T${x.toFixed(2)},${y.toFixed(2)}`;
-  }, "");
-  const fill = path + ` L${W},${H} L0,${H} Z`;
-  const up = market.trend === "up";
+
+  if (!feed) {
+    return (
+      <span
+        className="lo-spark"
+        title="No FX feed for this market"
+        style={{
+          display: "inline-block",
+          width: "100%",
+          textAlign: "center",
+          color: "var(--ink-4)",
+          fontWeight: 700,
+          fontSize: 11,
+        }}
+      >
+        —
+      </span>
+    );
+  }
+
+  const candles = resp?.candles ?? [];
+  if (isLoading || candles.length < 2) {
+    return (
+      <span
+        className="lo-spark"
+        style={{
+          display: "block",
+          width: "100%",
+          height: 28,
+          background: "var(--surface-3)",
+          borderRadius: 4,
+          opacity: 0.4,
+        }}
+      />
+    );
+  }
+
+  const closes = candles.map((c) => c.c);
+  const min = Math.min(...closes);
+  const max = Math.max(...closes);
+  const range = max - min || 1;
+  const first = closes[0];
+  const last = closes[closes.length - 1];
+  const up = last >= first;
   const stroke = up ? "var(--profit-ink)" : "var(--loss-ink)";
-  const gradId = "sg-" + market.id;
-  const lastX = pts[pts.length - 1][0];
-  const lastY = pts[pts.length - 1][1];
+  const gradId = `sg-${market.id}`;
+
+  const W = 120;
+  const H = 28;
+  const pad = 2;
+  const innerW = W - pad * 2;
+  const innerH = H - pad * 2;
+  const pts = closes.map((c, i) => {
+    const x = pad + (i / (closes.length - 1)) * innerW;
+    const y = pad + innerH - ((c - min) / range) * innerH;
+    return [x, y] as const;
+  });
+  const linePath = pts
+    .map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`)
+    .join(" ");
+  const fillPath = `${linePath} L${pts[pts.length - 1][0].toFixed(2)},${H} L${pts[0][0].toFixed(2)},${H} Z`;
+  const changePct = ((last - first) / first) * 100;
+
   return (
-    <svg className="lo-spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+    <svg
+      className="lo-spark"
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      style={{ display: "block", width: "100%", height: H }}
+      role="img"
+      aria-label={`${feed} 24h sparkline (${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%)`}
+    >
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={stroke} stopOpacity=".28" />
+          <stop offset="0%" stopColor={stroke} stopOpacity="0.25" />
           <stop offset="100%" stopColor={stroke} stopOpacity="0" />
         </linearGradient>
       </defs>
-      <path d={fill} fill={`url(#${gradId})`} />
+      <path d={fillPath} fill={`url(#${gradId})`} />
       <path
-        d={path}
+        d={linePath}
         fill="none"
         stroke={stroke}
-        strokeWidth="1.8"
-        strokeLinejoin="round"
+        strokeWidth="1.5"
         strokeLinecap="round"
+        strokeLinejoin="round"
         vectorEffect="non-scaling-stroke"
       />
-      <circle cx={lastX} cy={lastY} r="3.2" fill="var(--surface)" stroke={stroke} strokeWidth="1.8" vectorEffect="non-scaling-stroke" />
+      <circle
+        cx={pts[pts.length - 1][0]}
+        cy={pts[pts.length - 1][1]}
+        r="1.8"
+        fill="var(--surface)"
+        stroke={stroke}
+        strokeWidth="1.4"
+        vectorEffect="non-scaling-stroke"
+      />
+      <title>{`${feed} · 24h ${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%`}</title>
     </svg>
   );
 }
@@ -382,8 +635,21 @@ function MarketsTable({
                     {m.status !== "live" && <StatusTag status={m.status} />}
                   </div>
                   <div className="lo-trow-hub">
-                    <HubPip hub={hub} size={10} />
-                    <span>{hub.short}</span>
+                    <HubPip hub={hub} size={18} />
+                    <span style={{ fontWeight: 700 }}>{hub.short}</span>
+                    <span className="lo-trow-divider" aria-hidden="true">·</span>
+                    <a
+                      className="mono lo-trow-addr"
+                      href={blockExplorerUrl(hub.chainId, hub.address)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`FxMarketRegistry — open on ${
+                        hub.chainId === 5042002 ? "Arcscan" : "Snowtrace"
+                      }`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {shortHex(hub.address)}
+                    </a>
                     <span className="lo-trow-lltv">· {Math.round(m.lltv * 100)}% LLTV</span>
                   </div>
                 </div>
@@ -448,8 +714,29 @@ export function ActionCard({
   const A = ACTIONS.find((a) => a.id === action) || ACTIONS[0];
   const rate = A.side === "supply" ? market.supply : market.borrow;
   const rateLabel = A.side === "supply" ? "APY" : "APR";
-  const balance =
-    balanceOverride ?? (action === "withdraw" || action === "repay" ? 4820.4 : 12840.21);
+
+  // Wallet balance for the loan token on the hub chain. The card lists
+  // this as "BALANCE" above the amount input — for lend/borrow it's the
+  // wallet amount available; for withdraw/repay the parent must pass
+  // `balanceOverride` with the user's supplied / debt position (read
+  // from telarana, not the wallet). Without that override AND without a
+  // connected wallet we show 0 — never the legacy 12,840.21 placeholder.
+  const { address: walletAddress } = useAccount();
+  const onchain = market.onchain;
+  const walletBalance = useBalance({
+    address: walletAddress,
+    token: onchain?.loanToken as `0x${string}` | undefined,
+    chainId: onchain?.hubChainId,
+    query: {
+      enabled: Boolean(
+        walletAddress && onchain?.loanToken && onchain?.hubChainId,
+      ),
+    },
+  });
+  const walletBalanceFloat = walletBalance.data
+    ? Number(formatUnits(walletBalance.data.value, walletBalance.data.decimals ?? 6))
+    : 0;
+  const balance = balanceOverride ?? walletBalanceFloat;
   const amt = parseFloat(amount) || 0;
   const usd = amt * loan.price;
   const inverse = findInverse(market, marketsList ?? LOAN_MARKETS);
@@ -482,11 +769,18 @@ export function ActionCard({
     impactMini1 = ["in " + loan.sym, amt.toLocaleString(undefined, { maximumFractionDigits: 2 })];
     impactMini2 = ["stops earning", "−$" + monthly.toFixed(2) + "/mo"];
   } else {
-    const debt = liveDebt ?? 2073.6;
+    // repay action — debt comes from telarana position read. No
+    // fallback: when the parent doesn't know the user's debt yet (no
+    // wallet connected, or position hasn't loaded), show the input as
+    // "—" rather than fake numbers.
+    const debt = liveDebt;
     impactTitle = "You will free";
     impactBig = "$" + usd.toFixed(2);
     impactBigClass = "ink";
-    impactMini1 = ["debt left", "−$" + Math.max(0, debt - usd).toFixed(2)];
+    impactMini1 = [
+      "debt left",
+      debt != null ? `−$${Math.max(0, debt - usd).toFixed(2)}` : "—",
+    ];
     impactMini2 = ["interest saved", "−$" + monthly.toFixed(2) + "/mo"];
   }
 
@@ -636,7 +930,19 @@ export function Positions({ onJump }: { onJump: (id: string) => void }) {
                   <span className="mkt-coll">{m.coll}</span>
                 </span>
                 <span className="lo-pos-hub">
-                  via <HubPip hub={hub} size={10} /> {hub.short}
+                  via <HubPip hub={hub} size={18} /> {hub.short} ·{" "}
+                  <a
+                    className="mono lo-trow-addr"
+                    href={blockExplorerUrl(hub.chainId, hub.address)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`FxMarketRegistry — open on ${
+                      hub.chainId === 5042002 ? "Arcscan" : "Snowtrace"
+                    }`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {shortHex(hub.address)}
+                  </a>
                 </span>
               </div>
               <div className="lo-pos-num mono">{fmtAmt(p.amount)}</div>
@@ -666,13 +972,13 @@ function mergeMockAndLiveMarkets(live: LoanMarket[]): LoanMarket[] {
   return [...live, ...LOAN_MARKETS.filter((m) => !liveIds.has(m.id))];
 }
 
-function liveSupplyValueUsd(position: TelaranaPositionSerialized, loanDecimals = 6): number {
+export function liveSupplyValueUsd(position: TelaranaPositionSerialized, loanDecimals = 6): number {
   const supplyAtomic = BigInt(position.supplyAssets);
   if (supplyAtomic === 0n) return 0;
   return Number(supplyAtomic / 10n ** BigInt(Math.max(loanDecimals - 2, 0))) / 100;
 }
 
-function liveBorrowValueUsd(position: TelaranaPositionSerialized, loanDecimals = 6): number {
+export function liveBorrowValueUsd(position: TelaranaPositionSerialized, loanDecimals = 6): number {
   const borrowAtomic = BigInt(position.borrowAssets);
   if (borrowAtomic === 0n) return 0;
   return Number(borrowAtomic / 10n ** BigInt(Math.max(loanDecimals - 2, 0))) / 100;
@@ -719,14 +1025,11 @@ export function LoanTab() {
     }
   }, [enrichedMarkets, market]);
 
-  const totalSupplied = positions.reduce((sum, p) => sum + liveSupplyValueUsd(p), 0);
-  const totalBorrowed = positions.reduce((sum, p) => sum + liveBorrowValueUsd(p), 0);
-  const fallbackSupplied = LOAN_POSITIONS.filter((p) => p.kind === "supply").reduce((s, p) => s + p.value, 0);
-  const fallbackBorrowed = LOAN_POSITIONS.filter((p) => p.kind === "borrow").reduce((s, p) => s + p.value, 0);
-  const showLiveStats = positions.length > 0 || address;
-  const suppliedDisplay = showLiveStats ? totalSupplied : fallbackSupplied;
-  const borrowedDisplay = showLiveStats ? totalBorrowed : fallbackBorrowed;
-  const netWorth = suppliedDisplay - borrowedDisplay;
+  // Hero stats (net worth / supplied / borrowed) were removed 2026-05-18
+  // because the no-wallet fallback rendered LOAN_POSITIONS demo numbers
+  // as if they were live. When the wallet's positions feed is wired the
+  // right way, surface these inside the position list, not in a header
+  // band that lies on first paint.
 
   const onchainPositionForMarket = market?.onchain
     ? positions.find(
@@ -781,52 +1084,26 @@ export function LoanTab() {
         setNow(Date.now());
         return;
       }
-      const message = err instanceof Error ? err.message : String(err);
-      toast({ title: "Signing failed", description: message, variant: "destructive" });
+      toast({ title: "Signing failed", description: errMsg(err), variant: "destructive" });
     }
   };
 
   return (
     <div className="lo-shell">
-      <div className="lo-hero">
-        <div className="lo-hero-l">
-          <span className="lo-eyebrow">FX Money Market</span>
-          <h1 className="lo-hero-h">Lend &amp; borrow stablecoin FX</h1>
-          <p className="lo-hero-p">
-            Park your dollars to earn yield, or borrow another currency against them. Live on Arc and Fuji.
-            {marketsError && (
-              <span className="loss" style={{ marginLeft: 8 }}>
-                · markets feed: {marketsError}
-              </span>
-            )}
-            {hf !== null && (
-              <span style={{ marginLeft: 8 }} className={"mono " + healthBucketClass(hf)}>
-                · HF {formatHealthFactor(hf)}
-              </span>
-            )}
-          </p>
+      {(marketsError || hf !== null) && (
+        <div className="lo-status-strip">
+          {marketsError && (
+            <span className="loss mono" style={{ fontSize: 11, fontWeight: 700 }}>
+              markets feed: {marketsError}
+            </span>
+          )}
+          {hf !== null && (
+            <span className={"mono " + healthBucketClass(hf)} style={{ fontSize: 11, fontWeight: 700 }}>
+              HF {formatHealthFactor(hf)}
+            </span>
+          )}
         </div>
-        <div className="lo-hero-r">
-          <div className="lo-stat">
-            <span className="lo-stat-l">Net worth</span>
-            <span className="lo-stat-v mono">
-              ${netWorth.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-            </span>
-          </div>
-          <div className="lo-stat">
-            <span className="lo-stat-l">Supplied</span>
-            <span className="lo-stat-v mono profit">
-              ${suppliedDisplay.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-            </span>
-          </div>
-          <div className="lo-stat">
-            <span className="lo-stat-l">Borrowed</span>
-            <span className="lo-stat-v mono loss">
-              ${borrowedDisplay.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-            </span>
-          </div>
-        </div>
-      </div>
+      )}
 
       <div className="lo-strip">
         <div className="lo-strip-market">

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useAccount, useBalance } from "wagmi";
 import { formatUnits, type Address } from "viem";
+import type { WagmiChainId } from "@/utils/chain";
 import {
   Popover,
   PopoverContent,
@@ -38,7 +39,7 @@ const toToken = (
     // TokenChip only checks for the native sentinel; ERC-20 stables can
     // safely carry the deployed address or a placeholder when Pending.
     address: address ?? "0x",
-    chainId: cfg.chainId,
+    chainId: cfg.chainId as NonNullable<WagmiChainId>,
     decimals,
     symbol: asset,
     name: meta.name,
@@ -63,7 +64,7 @@ const TokenBalanceRow: React.FC<{
   const bal = useBalance({
     address: walletAddress,
     token: (address ?? undefined) as Address | undefined,
-    chainId: cfg.chainId,
+    chainId: cfg.chainId as NonNullable<WagmiChainId>,
     query: { enabled: canFetch },
   });
 
@@ -103,7 +104,7 @@ const useUsdcAcrossChains = (walletAddress: Address | undefined): number => {
     const bal = useBalance({
       address: walletAddress,
       token: deployment?.address as Address | undefined,
-      chainId: cfg.chainId,
+      chainId: cfg.chainId as NonNullable<WagmiChainId>,
       query: { enabled },
     });
     return bal.data ? Number(formatUnits(bal.data.value, decimals)) : 0;
@@ -181,6 +182,7 @@ export const StablecoinBalances: React.FC = () => {
             onChange={(v) => setActiveChainId(Number(v))}
             chains={SPOKE_CHAINS.map((c) => c.chain)}
             label="Network"
+            variant="ghost"
           />
         </div>
 

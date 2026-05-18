@@ -130,19 +130,14 @@ const HeaderSkeleton: React.FC = () => {
 };
 
 const HomePageSkeleton: React.FC = () => {
+  // The outer layout (apps/web/app/[locale]/layout.tsx) is a flex column
+  // with `items-center justify-center`. `w-full` would defeat the
+  // horizontal centering — keep the skeleton intrinsically sized via
+  // `max-w-5xl` only, no `w-full` wrapper.
   return (
-    <div className="w-full max-w-5xl mx-auto">
-      <div className="flex justify-center w-full">
-        <div className="flex justify-center gap-4 m-4">
-          <Skeleton className="h-11 w-40 rounded-md" />
-          <Skeleton className="h-11 w-40 rounded-md" />
-        </div>
-      </div>
-
-      <div className="p-10 overflow-hidden flex flex-col items-center justify-center w-full">
-        <div className="relative max-w-5xl w-full rounded-lg border-2 border-black dark:border-white bg-background px-8 py-4 shadow-lg">
-          <MoneyMarketBentoSkeleton />
-        </div>
+    <div className="w-full max-w-5xl px-4 py-6 mx-auto">
+      <div className="relative w-full rounded-2xl border-2 border-purpleDanis/40 dark:border-violetDanis/40 bg-background px-6 py-5 shadow-lg">
+        <MoneyMarketBentoSkeleton />
       </div>
     </div>
   );

@@ -4,8 +4,9 @@ import { useMemo, useState } from "react";
 import { useEmbeddedWallet, useUserWallets } from "@dynamic-labs/sdk-react-core";
 import { WalletCards } from "lucide-react";
 
-const shortenAddress = (address: string) =>
-  `${address.slice(0, 6)}...${address.slice(-4)}`;
+import { truncateAddress } from "@/utils";
+
+const shortenAddress = (address: string) => truncateAddress(address, 6);
 
 export default function WalletModule() {
   const wallets = useUserWallets();

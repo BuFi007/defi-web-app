@@ -63,7 +63,7 @@ async function LocalizedShell({
                   "rounded-md h-screen flex flex-col overflow-hidden relative",
                   bgVariant === "radial"
                     ? "bg-radial-lightPurple dark:bg-radial-darkPurple"
-                    : "bg-gradient-to-br from-indigo-100 via-violet-200 to-cyan-300 dark:from-[#0b0a18] dark:via-[#16122d] dark:to-[#1d1838]"
+                    : "bg-gradient-to-br from-indigo-100 via-violet-200 to-cyan-300 dark:from-[#0b0a18] dark:via-[#16122d] dark:to-[#1d1838]",
                 )}
               >
                 {/* Light mode — soft linear-gradient fade (the "blur" effect) */}
@@ -74,7 +74,7 @@ async function LocalizedShell({
                   y={-1}
                   className={cn(
                     "fixed inset-0 pointer-events-none opacity-45 dark:hidden",
-                    "[mask-image:linear-gradient(to_bottom_right,white,transparent,transparent)]"
+                    "[mask-image:linear-gradient(to_bottom_right,white,transparent,transparent)]",
                   )}
                 />
                 {/* Dark mode — denser tile, full visibility */}
@@ -84,14 +84,14 @@ async function LocalizedShell({
                   x={-1}
                   y={-1}
                   className={cn(
-                    "fixed inset-0 pointer-events-none opacity-95 hidden dark:block"
+                    "fixed inset-0 pointer-events-none opacity-95 hidden dark:block",
                   )}
                 />
                 <div className="shrink-0 relative z-30 bg-transparent">
                   <Header />
                 </div>
                 <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
-                  <div className="container mx-auto px-0 py-0 md:py-4 relative flex flex-col h-full">
+                  <div className="container mx-auto relative flex flex-col h-full">
                     <Container>
                       <div className="relative w-full flex-1 flex flex-col">
                         <div className="w-full flex-1 flex flex-col items-center justify-center">

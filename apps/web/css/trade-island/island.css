@@ -9,14 +9,19 @@ body.island-mode {
 }
 body.island-mode #root { width: 100%; max-width: 1600px; margin: 0 auto; display: flex; }
 
-/* Island container */
+/* Dynamic island container.
+ *
+ * Width morphs per-tab via framer-motion (see trade-island/index.tsx) so
+ * `width: 100%` is left to the motion-controlled inline style and only
+ * `max-width` is animated. flex-1 sticks so the island absorbs vertical
+ * space from the wrapper.
+ */
 .island {
   flex: 1;
   align-self: stretch;
-  width: 100%;
   display: flex; flex-direction: column;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1.5px solid rgba(105, 84, 207, 0.18);
   border-radius: 28px;
   box-shadow:
     0 1px 2px rgba(40, 25, 90, 0.04),
@@ -35,6 +40,17 @@ body.island-mode #root { width: 100%; max-width: 1600px; margin: 0 auto; display
   min-height: min(560px, calc(100vh - 230px));
   max-height: calc(100vh - 230px);
   transition: min-height .4s cubic-bezier(.4, 0, .2, 1), max-height .4s cubic-bezier(.4, 0, .2, 1);
+
+  /* Discord banner is 50px tall and rendered above the header chrome.
+     When it's up, the flex-1 scroll area shrinks but the island's
+     230px chrome reservation doesn't — so the island bottom kissed
+     the music bar for the first 20 s of every fresh session.
+     Tighten by the banner height while it's open. ActionBanner sets
+     `data-banner="open"` on body when it mounts. */
+}
+body[data-banner="open"] .island {
+  min-height: min(560px, calc(100vh - 280px));
+  max-height: calc(100vh - 280px);
   position: relative;
 }
 .island.collapsed { min-height: 64px; }
@@ -503,7 +519,14 @@ body.island-mode #root { width: 100%; max-width: 1600px; margin: 0 auto; display
   }
   .mt-ob-cols span:nth-child(2),
   .mt-ob-cols span:nth-child(3) { text-align: right; }
-  .mt-ob-rows { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+  /* Same vertical-center pattern as desktop OrderbookCard: 1fr / auto /
+   * 1fr keeps the spread row in the geometric center regardless of
+   * side-fill. min-height: 0 lets each half scroll independently. */
+  .mt-ob-rows {
+    flex: 1; min-height: 0;
+    display: grid; grid-template-rows: 1fr auto 1fr;
+    -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  }
   .mt-ob-rows .ob-row { padding: 4px 12px; font-size: 12.5px; }
 
   /* Recent trades list */

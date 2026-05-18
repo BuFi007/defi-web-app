@@ -18,6 +18,23 @@ export default function ActionBanner() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Tell downstream layout the banner is consuming vertical space. The
+  // trade-island CSS reads `[data-banner="open"]` on the body to tighten
+  // its max-height — otherwise the island fills flex-1 + 50px and its
+  // bottom kisses the music bar while the banner is up. Cleared as soon
+  // as the banner unmounts (timer expiry or user dismiss).
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (isVisible) {
+      document.body.dataset.banner = "open";
+      return () => {
+        delete document.body.dataset.banner;
+      };
+    }
+    delete document.body.dataset.banner;
+    return undefined;
+  }, [isVisible]);
+
   return (
     <AnimatePresence initial={false}>
       {isVisible && (

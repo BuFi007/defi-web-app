@@ -79,6 +79,26 @@ export function truncateAddress(address: string, length: number = 6): string {
   }
 }
 
+export function errMsg(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+export function fmt(n: number | null | undefined, d = 2): string {
+  if (n == null || isNaN(n)) return "—";
+  return Number(n).toLocaleString("en-US", {
+    minimumFractionDigits: d,
+    maximumFractionDigits: d,
+  });
+}
+
+export function fmtUSD(n: number | null | undefined, d = 2): string {
+  return "$" + fmt(n, d);
+}
+
+export function fmtPct(n: number, d = 2): string {
+  return (n >= 0 ? "+" : "") + n.toFixed(d) + "%";
+}
+
 export const text = {
   body: "font-sans text-ock-foreground text-base leading-normal",
   caption: "font-sans text-ock-foreground text-bold text-xs leading-4",

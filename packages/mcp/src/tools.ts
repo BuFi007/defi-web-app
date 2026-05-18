@@ -1,10 +1,16 @@
 import { z } from "zod";
 
+import {
+  ADDRESS_REGEX,
+  HEX_REGEX,
+  BYTES32_REGEX,
+} from "@bufi/shared-types/schemas";
+
 import type { ToolDefinition } from "./registry";
 
-const addressLike = z.string().regex(/^0x[a-fA-F0-9]{40}$/);
-const hexLike = z.string().regex(/^0x[a-fA-F0-9]+$/);
-const bytes32 = z.string().regex(/^0x[a-fA-F0-9]{64}$/);
+const addressLike = z.string().regex(ADDRESS_REGEX);
+const hexLike = z.string().regex(HEX_REGEX);
+const bytes32 = z.string().regex(BYTES32_REGEX);
 const chainIdLike = z.union([z.literal(43113), z.literal(5042002)]);
 const usdcAmount = z.string().regex(/^\d+(\.\d{1,6})?$/);
 const intString = z.string().regex(/^-?\d+$/);
