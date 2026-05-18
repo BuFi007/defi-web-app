@@ -11,7 +11,10 @@ import {
 } from "@bufi/perps";
 import { createCircleGatewayVerifier, mockVerifier } from "@bufi/x402";
 
-import { createPonderPerpsSettlementReaderFromEnv } from "./ponder-client";
+import {
+  createPonderPerpsPositionReaderFromEnv,
+  createPonderPerpsSettlementReaderFromEnv,
+} from "./ponder-client";
 
 const env = serverEnv();
 
@@ -24,10 +27,12 @@ export const hermes = createHermesClient();
 export const bentoService = createInMemoryFxBentoService();
 export const telaranaService = createFxTelaranaService();
 const perpsMarkets = livePerpsMarkets();
+export const perpsPositionReader = createPonderPerpsPositionReaderFromEnv(process.env);
 export const perpsService = createPerpsService({
   markets: perpsMarkets,
   quoteReader: createViemPerpsQuoteReader({ markets: perpsMarkets }),
   nonceReader: createViemPerpsNonceReader(),
+  positionReader: perpsPositionReader ?? undefined,
   intentStore: tradingDb.perpsIntents,
   maxOracleStaleSeconds: env.PYTH_MAX_STALE_SECONDS,
 });

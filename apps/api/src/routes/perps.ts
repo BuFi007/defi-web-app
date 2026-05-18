@@ -192,9 +192,58 @@ perpsRoutes.get("/positions/:address", async (c) => {
   return c.json({ address, positions: await perpsService.listPositions(address) });
 });
 
-perpsRoutes.get("/trades/:address", (c) =>
-  c.json({ address: c.req.param("address"), trades: [] }),
-);
+perpsRoutes.get("/trades/:address", async (c) => {
+  const address = c.req.param("address");
+  if (!perpsSettlementReader) {
+    return c.json({ address, trades: [] });
+  }
+  // Settlements are public on-chain events; unauthenticated reads match
+  // the frontend `fetchPerpsTrades` contract (no wallet-session headers).
+  const session = c.get("walletSession") as WalletSession | null;
+  const chainId = Number(c.req.query("chainId") ?? session?.chainId ?? 5042002);
+  const limit = c.req.query("limit") ? Number(c.req.query("limit")) : undefined;
+  if (limit !== undefined && (!Number.isInteger(limit) || limit <= 0)) {
+    return c.json({ error: "limit must be a positive integer" }, 400);
+  }
+  try {
+    const rows = await perpsSettlementReader.listSettlements({
+      chainId,
+      trader: address,
+      limit,
+    });
+    const traderLower = address.toLowerCase();
+    const trades = rows.map((row) => {
+      const fillSizeE18 = String(row.fillSizeE18);
+      const fillPriceE18 = String(row.fillPriceE18);
+      const isTaker = row.taker.toLowerCase() === traderLower;
+      // Settlement event itself does not carry per-side intent; treat taker
+      // flow as long and maker as short as an MVP placeholder. UI uses this
+      // only for row coloring; correctness ships with Sprint E (per-side
+      // join against perps_position_event).
+      const side: "long" | "short" = isTaker ? "long" : "short";
+      const sizeAtomic =
+        (BigInt(fillSizeE18) * BigInt(fillPriceE18)) /
+        1_000_000_000_000_000_000_000_000_000_000n;
+      const absAtomic = sizeAtomic < 0n ? -sizeAtomic : sizeAtomic;
+      const sizeUsdc = `${(absAtomic / 1_000_000n).toString()}.${(absAtomic % 1_000_000n)
+        .toString()
+        .padStart(6, "0")}`;
+      return {
+        marketId: row.marketId,
+        side,
+        sizeUsdc,
+        priceE18: fillPriceE18,
+        fillSizeE18,
+        fillPriceE18,
+        txHash: row.txHash ?? "0x",
+        blockTimestamp: row.blockTimestamp !== undefined ? Number(BigInt(row.blockTimestamp)) : 0,
+      };
+    });
+    return c.json(jsonSafe({ address, trades }));
+  } catch (e) {
+    return c.json({ error: (e as Error).message }, errorStatus(e));
+  }
+});
 
 perpsRoutes.get("/funding", async (c) => {
   const chainId = Number(c.req.query("chainId") ?? 5042002);
