@@ -33,6 +33,29 @@ import {
 const POLL_MS = 8_000;
 const REJECT_KEY = "perps-replacement-session-rejected";
 
+// FEATURE GATE — off by default.
+//
+// The agent polls a private endpoint every 8s, which requires a fresh
+// wallet-session typed-data signature on cold start. For users who just
+// connected MetaMask the first time, the dApp's `eth_signTypedData_v4`
+// permission isn't granted yet, so MetaMask rejects with EIP-1193 4100
+// and the agent loops the request every 8s — surfaced as repeated
+// "MetaMask - RPC Error: not been authorized" spam in the console even
+// when the user never asked for anything.
+//
+// This auto-poll is a defensive feature for residual order recovery —
+// useful for active perp traders, but actively harmful for new users
+// completing their first connect. Gated off by default; production can
+// flip via `NEXT_PUBLIC_PERPS_REPLACEMENT_AGENT=1`. The BENTO_E2E /
+// PERPS_REPLACEMENT_E2E dev shims keep their own paths (they don't
+// touch this flag).
+function isAgentEnabled(): boolean {
+  // Always on when the dev replacement shim is active (E2E harnesses
+  // expect the poll). Otherwise gate strictly on the env opt-in.
+  if (process.env.NEXT_PUBLIC_PERPS_REPLACEMENT_E2E === "1") return true;
+  return process.env.NEXT_PUBLIC_PERPS_REPLACEMENT_AGENT === "1";
+}
+
 function isUserRejection(error: unknown): boolean {
   if (error instanceof UserRejectedRequestError) return true;
   const anyErr = error as { code?: number; name?: string; message?: string } | null;
@@ -331,6 +354,9 @@ export function PerpsReplacementAgent() {
   );
 
   useEffect(() => {
+    // Hard gate — see isAgentEnabled() comment above. Off by default to
+    // prevent the 8s sign-poll from ambushing fresh MetaMask connects.
+    if (!isAgentEnabled()) return;
     if (!isAgentConnected || !effectiveAddress) return;
     // Re-check sticky rejection whenever the address changes; user may have
     // switched wallets to a non-rejected one.
