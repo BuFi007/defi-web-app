@@ -56,7 +56,7 @@ not writing, API not reading the read-store, hook not invalidating, etc.).
 | 2 | Perps — keepers (matcher/funding/liquidator) | 85 | Live, polling, settling on-chain | None |
 | 3 | Perps — indexer → API reads | 75 | `/positions/:address` + `/trades/:address` read Ponder via `PerpsPositionReader`/`perpsSettlementReader`; mark + unrealized PnL still snapshot | No |
 | 4 | Perps — frontend wiring | 95 | Long/Short signs + posts intent, hooks ready | None |
-| 5 | Perps — order book / chart live data | 55 | WS scaffold end-to-end: Bun-native `/ws/markets/:marketId` (1s ticks + 250ms OB deltas, deterministic mock), reconnecting client, `useLiveMarket` hook, chart opt-in via `liveSource='ws'`. Pyth/real OB pending. | No |
+| 5 | Perps — order book / chart live data | 80 | Real Pyth Hermes SSE feeding /ws/markets/:marketId (verified mark=1.1647 EUR/USD live); 3-layer fallback (SSE→poll→mock). 250ms OB deltas still mock. | No |
 | 6 | Perps — chart engine swap to lightweight-charts | 80 | `lightweight-charts` v5 candle + volume + line, kawaii tokens preserved, mock + Ponder + WS adapter | No (PriceLines wire-up pending live position data) |
 | 7 | Telarana — contracts | 100 | Deployed Fuji + Arc | None |
 | 8 | Telarana — SDK + math | 95 | quote/health/oracle real | None |
@@ -76,14 +76,14 @@ not writing, API not reading the read-store, hook not invalidating, etc.).
 | 22 | Bento — merkle proof verification | 85 | Proof + leaf + root rendered as monospace block in Claim modal | None |
 | 23 | Cross — wallet session auth | 85 | Works across surfaces; 3 patterns to unify | No |
 | 24 | Cross — env/secrets/addresses | 80 | Zod schema + cached `CONTRACT_ADDRESSES_JSON` parser + RPC env vars + `getContractAddressOverride` helper | No |
-| 25 | Cross — ponder schema + handlers | 80 | Perps + Telarana + BUFX handlers shipped; Bento gated on config update (empty ABI + Fuji address) | No |
+| 25 | Cross — ponder schema + handlers | 95 | All four surfaces wired: Perps + Telarana + BUFX + Bento (5 contracts × 2 chains, 18 events, 2 new tables `arcadeRound`/`arcadeSettlement`). | No |
 | 26 | Cross — error recovery + retry | 80 | `resilientFetch` shipped: retry/backoff/Retry-After, auto-Idempotency-Key, 401 hook, AbortSignal. Adopted across all 3 clients. 16 tests. | No |
 | 27 | Cross — observability | 70 | `@bufi/logger` middleware on every API route; Sentry no-op scaffold (web+api) opt-in via DSN env | No |
-| 28 | Cross — testing | 35 | Unit in perps + perps-math (39 new) + fx-bento sqlite | Recommended |
+| 28 | Cross — testing | 70 | Unit (perps + perps-math 39 + fx-bento sqlite + api-client 16) + smoke trio (perps/bento/telarana) + smoke-all orchestrator. No e2e per surface yet. | No |
 | 29 | Cross — deployment | 50 | Web/API individually deployable; keepers need infra | Yes for prod |
 | 30 | Cross — financial math package | 85 | `@bufi/perps-math` with 39 tests; panels migrated; loan was already SDK-sourced | No |
 
-**Overall: ~85%.** (Simple average across 30 buckets after the 9-PR superpower fleet.)
+**Overall: ~86%.** (Simple average across 30 buckets after 13 PRs of work.)
 
 ---
 
