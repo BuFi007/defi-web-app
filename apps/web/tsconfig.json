@@ -16,7 +16,6 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "types": [],
-    "allowArbitraryExtensions": true,
     "jsx": "react-jsx",
     "incremental": true,
     "plugins": [
