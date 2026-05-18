@@ -431,7 +431,14 @@
       "version": "0.1.0",
       "devDependencies": {
         "typescript": "5",
+        "zod": "3.25.76",
       },
+      "peerDependencies": {
+        "zod": "^3.25.0",
+      },
+      "optionalPeers": [
+        "zod",
+      ],
     },
     "packages/x402": {
       "name": "@bufi/x402",

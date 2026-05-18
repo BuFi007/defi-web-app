@@ -43,6 +43,8 @@ import {
 } from "ponder:schema";
 import type { Address, Hex } from "viem";
 
+import { lowerHex, lowerHexOrNull } from "@bufi/shared-types/hex";
+
 type LoanEventName =
   | "TelaranaGatewayHubHookArc:GatewayHubTransferRequested"
   | "TelaranaGatewayHubHookArc:GatewayAtomicFxSwapRequested"
@@ -74,7 +76,7 @@ ponder.on("TelaranaGatewayHubHookArc:GatewayHubRouteConfigured", async ({ event,
     destinationGatewayMinter: lowerHex(event.args.destinationGatewayMinter),
     signerMode: Number(event.args.signerMode),
     enabled: event.args.enabled,
-    metadataRef: lowerHexOrNull(event.args.metadataRef),
+    metadataRef: lowerHexOrNull(event.args.metadataRef, { treatZeroAsNull: true }),
     registeredAt: event.block.timestamp,
     updatedAt: event.block.timestamp,
   };
@@ -352,13 +354,3 @@ function marketId(routeId: Hex): string {
   return lowerHex(routeId);
 }
 
-function lowerHex<T extends Hex>(value: T): T {
-  return value.toLowerCase() as T;
-}
-
-function lowerHexOrNull(value: Hex | undefined | null): Hex | null {
-  if (!value) return null;
-  // bytes32(0) is a sentinel for "no metadata".
-  if (/^0x0+$/i.test(value)) return null;
-  return value.toLowerCase() as Hex;
-}

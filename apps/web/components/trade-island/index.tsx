@@ -30,6 +30,7 @@ import { MarketPicker } from "./market-picker";
 import { StablecoinBalances } from "@/components/stablecoin-balances";
 import { usePositions, useTrades } from "@/lib/perps/hooks";
 import type { PerpsPositionDto, PerpsTradeDto } from "@/lib/perps/client";
+import { safeBigInt, e18ToNumber } from "@/lib/perps/units";
 
 // Tiny media-query hook so the Trade tab can branch to the mobile layout
 // without bringing in a dependency. Server render returns false; client
@@ -97,21 +98,6 @@ function liveToPositionRow(p: PerpsPositionDto): PositionRow {
     marketId: p.marketId,
   };
 }
-
-function safeBigInt(value: string | undefined): bigint | null {
-  if (!value) return null;
-  try {
-    return BigInt(value);
-  } catch {
-    return null;
-  }
-}
-
-function e18ToNumber(value: bigint | null): number | null {
-  if (value === null) return null;
-  return Number(value) / 1e18;
-}
-
 
 function LeadersTab() {
   const leaders = [

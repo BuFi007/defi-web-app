@@ -92,16 +92,10 @@ export const MOCK_ORDERS: OrderRow[] = [
   { sym: "BTC-PERP", side: "long", type: "Limit", size: 0.25, price: 66500, filled: "0/0.25", time: "14:18:03" },
 ];
 
-export function fmt(n: number | null | undefined, d = 2): string {
-  if (n == null || isNaN(n)) return "—";
-  return Number(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
-}
-export function fmtUSD(n: number | null | undefined, d = 2): string {
-  return "$" + fmt(n, d);
-}
-export function fmtPct(n: number, d = 2): string {
-  return (n >= 0 ? "+" : "") + n.toFixed(d) + "%";
-}
+// Number formatters moved to @/utils — re-exported here so the existing
+// "./data" import sites (multiplayer, arcade, panels, mobile-trade,
+// market-picker, stablecoin-balances) keep working unchanged.
+export { fmt, fmtUSD, fmtPct } from "@/utils";
 
 export function makeCandles(basePrice: number, count = 120, _tickSize = 0.0001): Candle[] {
   const out: Candle[] = [];

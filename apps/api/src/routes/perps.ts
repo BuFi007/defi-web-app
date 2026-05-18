@@ -10,10 +10,15 @@ import {
 } from "@bufi/perps";
 import { paymentRequired } from "@bufi/x402";
 
-import type { WalletSession } from "@bufi/shared-types";
-
 import {
-  errorStatus,
+  assertAddressMatches,
+  getChainIdFromQuery,
+  getSession,
+  jsonError,
+  jsonOk,
+  parseBody,
+} from "../helpers";
+import {
   jsonSafe,
   paymentVerifier,
   perpsService,
@@ -28,21 +33,18 @@ const sellerForX402 = () =>
   process.env.X402_RECEIVER_ADDRESS ?? "0x000000000000000000000000000000000000dEaD";
 
 perpsRoutes.get("/markets", async (c) => {
-  const chainId = Number(c.req.query("chainId") ?? 5042002);
-  return c.json({ markets: await perpsService.listMarkets(chainId) });
+  const cid = getChainIdFromQuery(c, 5042002);
+  if (!cid.ok) return cid.response;
+  return c.json({ markets: await perpsService.listMarkets(cid.chainId) });
 });
 
 perpsRoutes.post("/quote", async (c) => {
-  const raw = await c.req.json().catch(() => ({}));
-  const parsed = perpsQuoteRequest.safeParse(raw);
-  if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
+  const body = await parseBody(c, perpsQuoteRequest);
+  if (!body.ok) return body.response;
   try {
-    const out = await perpsService.quote(parsed.data);
-    c.var.log.info("route_ok");
-    return c.json(out);
+    return jsonOk(c, await perpsService.quote(body.data));
   } catch (e) {
-    c.var.log.error("route_error", { err: (e as Error).message });
-    return c.json({ error: (e as Error).message }, errorStatus(e));
+    return jsonError(c, e);
   }
 });
 
@@ -57,41 +59,32 @@ perpsRoutes.use(
   }),
 );
 perpsRoutes.post("/quote/premium", async (c) => {
-  const raw = await c.req.json().catch(() => ({}));
-  const parsed = perpsQuoteRequest.safeParse(raw);
-  if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
+  const body = await parseBody(c, perpsQuoteRequest);
+  if (!body.ok) return body.response;
   try {
-    const out = { premium: true, quote: await perpsService.quote(parsed.data) };
-    c.var.log.info("route_ok");
-    return c.json(out);
+    return jsonOk(c, { premium: true, quote: await perpsService.quote(body.data) });
   } catch (e) {
-    c.var.log.error("route_error", { err: (e as Error).message });
-    return c.json({ error: (e as Error).message }, errorStatus(e));
+    return jsonError(c, e);
   }
 });
 
 perpsRoutes.post("/intents", async (c) => {
-  const session = c.get("walletSession") as WalletSession | null;
-  if (!session) return c.json({ error: "wallet session required" }, 401);
-  const raw = await c.req.json().catch(() => ({}));
-  const parsed = perpsIntentRequest.safeParse(raw);
-  if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
-  if (parsed.data.trader.toLowerCase() !== session.address.toLowerCase()) {
-    return c.json({ error: "trader must match session address" }, 403);
-  }
+  const s = getSession(c);
+  if (!s.ok) return s.response;
+  const body = await parseBody(c, perpsIntentRequest);
+  if (!body.ok) return body.response;
+  const match = assertAddressMatches(c, body.data.trader, s.session);
+  if (!match.ok) return match.response;
   try {
-    const out = jsonSafe(await perpsService.createIntent(parsed.data));
-    c.var.log.info("route_ok");
-    return c.json(out);
+    return jsonOk(c, jsonSafe(await perpsService.createIntent(body.data)));
   } catch (e) {
-    c.var.log.error("route_error", { err: (e as Error).message });
-    return c.json({ error: (e as Error).message }, errorStatus(e));
+    return jsonError(c, e);
   }
 });
 
 perpsRoutes.get("/replacement-needed", async (c) => {
-  const session = c.get("walletSession") as WalletSession | null;
-  if (!session) return c.json({ error: "wallet session required" }, 401);
+  const s = getSession(c);
+  if (!s.ok) return s.response;
   const after = c.req.query("after") ? Number(c.req.query("after")) : undefined;
   const limit = c.req.query("limit") ? Number(c.req.query("limit")) : undefined;
   if (after !== undefined && !Number.isFinite(after)) {
@@ -102,7 +95,7 @@ perpsRoutes.get("/replacement-needed", async (c) => {
   }
   const events = await tradingDb.events.list({
     type: PERPS_REPLACEMENT_NEEDED_EVENT,
-    actor: session.address,
+    actor: s.session.address,
     after,
     limit,
   });
@@ -134,57 +127,56 @@ perpsRoutes.get("/replacement-needed/count", async (c) => {
 });
 
 perpsRoutes.post("/intents/:id/replacement/prepare", async (c) => {
-  const session = c.get("walletSession") as WalletSession | null;
-  if (!session) return c.json({ error: "wallet session required" }, 401);
+  const s = getSession(c);
+  if (!s.ok) return s.response;
   const originalIntentId = c.req.param("id");
   const original = await perpsService.getIntent(originalIntentId);
   if (!original) return c.json({ error: "intent not found" }, 404);
-  if (original.trader.toLowerCase() !== session.address.toLowerCase()) {
-    return c.json({ error: "trader must match session address" }, 403);
-  }
-  const raw = await c.req.json().catch(() => ({}));
-  const parsed = perpsReplacementPrepareRequest.safeParse({ ...raw, originalIntentId });
-  if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
+  const match = assertAddressMatches(c, original.trader, s.session);
+  if (!match.ok) return match.response;
+  const body = await parseBody(c, perpsReplacementPrepareRequest);
+  if (!body.ok) return body.response;
   try {
-    const out = jsonSafe(await perpsService.prepareReplacementIntent(parsed.data));
-    c.var.log.info("route_ok");
-    return c.json(out);
+    return jsonOk(
+      c,
+      jsonSafe(
+        await perpsService.prepareReplacementIntent({ ...body.data, originalIntentId }),
+      ),
+    );
   } catch (e) {
-    c.var.log.error("route_error", { err: (e as Error).message });
-    return c.json({ error: (e as Error).message }, errorStatus(e));
+    return jsonError(c, e);
   }
 });
 
 perpsRoutes.post("/intents/:id/replacement", async (c) => {
-  const session = c.get("walletSession") as WalletSession | null;
-  if (!session) return c.json({ error: "wallet session required" }, 401);
+  const s = getSession(c);
+  if (!s.ok) return s.response;
   const originalIntentId = c.req.param("id");
   const original = await perpsService.getIntent(originalIntentId);
   if (!original) return c.json({ error: "intent not found" }, 404);
-  if (original.trader.toLowerCase() !== session.address.toLowerCase()) {
-    return c.json({ error: "trader must match session address" }, 403);
-  }
-  const raw = await c.req.json().catch(() => ({}));
-  const parsed = perpsReplacementSubmitRequest.safeParse({ ...raw, originalIntentId });
-  if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
+  const match = assertAddressMatches(c, original.trader, s.session);
+  if (!match.ok) return match.response;
+  const body = await parseBody(c, perpsReplacementSubmitRequest);
+  if (!body.ok) return body.response;
   try {
-    const out = jsonSafe(await perpsService.createReplacementIntent(parsed.data));
-    c.var.log.info("route_ok");
-    return c.json(out);
+    return jsonOk(
+      c,
+      jsonSafe(
+        await perpsService.createReplacementIntent({ ...body.data, originalIntentId }),
+      ),
+    );
   } catch (e) {
-    c.var.log.error("route_error", { err: (e as Error).message });
-    return c.json({ error: (e as Error).message }, errorStatus(e));
+    return jsonError(c, e);
   }
 });
 
 perpsRoutes.get("/intents/:id/reconciliation", async (c) => {
-  const session = c.get("walletSession") as WalletSession | null;
-  if (!session) return c.json({ error: "wallet session required" }, 401);
+  const s = getSession(c);
+  if (!s.ok) return s.response;
   const intent = await perpsService.getIntent(c.req.param("id"));
   if (!intent) return c.json({ error: "intent not found" }, 404);
-  if (intent.trader.toLowerCase() !== session.address.toLowerCase()) {
-    return c.json({ error: "trader must match session address" }, 403);
-  }
+  const match = assertAddressMatches(c, intent.trader, s.session);
+  if (!match.ok) return match.response;
   const settlementTx = c.req.query("settlementTx")?.toLowerCase();
   const limit = c.req.query("limit") ? Number(c.req.query("limit")) : undefined;
   if (limit !== undefined && (!Number.isInteger(limit) || limit <= 0)) {
@@ -211,8 +203,7 @@ perpsRoutes.get("/intents/:id/reconciliation", async (c) => {
       }),
     );
   } catch (e) {
-    c.var.log.error("route_error", { err: (e as Error).message });
-    return c.json({ error: (e as Error).message }, errorStatus(e));
+    return jsonError(c, e);
   }
 });
 
@@ -223,11 +214,17 @@ perpsRoutes.get("/intents/:id", async (c) => {
 });
 
 perpsRoutes.get("/positions/:address", async (c) => {
-  const session = c.get("walletSession") as WalletSession | null;
+  const s = getSession(c);
+  if (!s.ok) return s.response;
   const address = c.req.param("address");
-  if (!session) return c.json({ error: "wallet session required" }, 401);
-  if (address.toLowerCase() !== session.address.toLowerCase()) {
-    return c.json({ error: "cannot inspect another wallet's private positions" }, 403);
+  const match = assertAddressMatches(c, address, s.session, "address");
+  if (!match.ok) {
+    // Override the default 403 message to preserve the existing wire
+    // contract; clients check substring matches for "another wallet".
+    return c.json(
+      { error: "cannot inspect another wallet's private positions" },
+      403,
+    );
   }
   return c.json({ address, positions: await perpsService.listPositions(address) });
 });
@@ -239,8 +236,9 @@ perpsRoutes.get("/trades/:address", async (c) => {
   }
   // Settlements are public on-chain events; unauthenticated reads match
   // the frontend `fetchPerpsTrades` contract (no wallet-session headers).
-  const session = c.get("walletSession") as WalletSession | null;
-  const chainId = Number(c.req.query("chainId") ?? session?.chainId ?? 5042002);
+  const sessionMaybe = getSession(c);
+  const sessionChainId = sessionMaybe.ok ? sessionMaybe.session.chainId : undefined;
+  const chainId = Number(c.req.query("chainId") ?? sessionChainId ?? 5042002);
   const limit = c.req.query("limit") ? Number(c.req.query("limit")) : undefined;
   if (limit !== undefined && (!Number.isInteger(limit) || limit <= 0)) {
     return c.json({ error: "limit must be a positive integer" }, 400);
@@ -281,19 +279,24 @@ perpsRoutes.get("/trades/:address", async (c) => {
     });
     return c.json(jsonSafe({ address, trades }));
   } catch (e) {
-    c.var.log.error("route_error", { err: (e as Error).message });
-    return c.json({ error: (e as Error).message }, errorStatus(e));
+    return jsonError(c, e);
   }
 });
 
 perpsRoutes.get("/funding", async (c) => {
-  const chainId = Number(c.req.query("chainId") ?? 5042002);
-  return c.json({ funding: await perpsService.funding(chainId, c.req.query("marketId") ?? undefined) });
+  const cid = getChainIdFromQuery(c, 5042002);
+  if (!cid.ok) return cid.response;
+  return c.json({
+    funding: await perpsService.funding(cid.chainId, c.req.query("marketId") ?? undefined),
+  });
 });
 
 perpsRoutes.get("/liquidations/candidates", async (c) => {
-  const chainId = Number(c.req.query("chainId") ?? 5042002);
-  return c.json(jsonSafe({ candidates: await perpsService.liquidationCandidates(chainId) }));
+  const cid = getChainIdFromQuery(c, 5042002);
+  if (!cid.ok) return cid.response;
+  return c.json(
+    jsonSafe({ candidates: await perpsService.liquidationCandidates(cid.chainId) }),
+  );
 });
 
 export { perpsRoutes };

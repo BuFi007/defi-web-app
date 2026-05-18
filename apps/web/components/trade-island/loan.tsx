@@ -5,6 +5,7 @@ import type { Address } from "viem";
 import { useAccount } from "wagmi";
 
 import { useToast } from "@/components/ui/use-toast";
+import { errMsg } from "@/utils";
 import {
   emitOracleStaleToast,
   isOracleStaleError,
@@ -781,8 +782,7 @@ export function LoanTab() {
         setNow(Date.now());
         return;
       }
-      const message = err instanceof Error ? err.message : String(err);
-      toast({ title: "Signing failed", description: message, variant: "destructive" });
+      toast({ title: "Signing failed", description: errMsg(err), variant: "destructive" });
     }
   };
 

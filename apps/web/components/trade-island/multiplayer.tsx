@@ -20,6 +20,7 @@ import {
 } from "@/lib/bento/client";
 import { useDevWallet } from "@/lib/dev-wallet";
 import { useBufiAddress, useBufiIsDevMock } from "@/lib/session";
+import { truncateAddress } from "@/utils";
 import {
   useBentoClaim,
   useBentoLeaderboard,
@@ -117,10 +118,6 @@ const PLAYER_PALETTE: Omit<Player, "score" | "chipsUsedThisRound" | "lastDelta" 
 const DEFAULT_CHIP_BUDGET = 10;
 const DEFAULT_DURATION_SEC = 45;
 const BENTO_CHAIN_ID = 43113;
-
-function truncateAddress(addr: string): string {
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-}
 
 function truncateHex(hex: string, head = 10, tail = 8): string {
   if (hex.length <= head + tail + 1) return hex;

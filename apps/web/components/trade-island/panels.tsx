@@ -10,6 +10,7 @@ import { Hint } from "./hint";
 import { CandleChart } from "./chart";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/components/ui/use-toast";
+import { errMsg } from "@/utils";
 import { useMarkets, usePlaceOrder } from "@/lib/perps/hooks";
 import { getPerpsReplacementDevWallet } from "@/lib/perps/dev-mock-wallet";
 import type { PerpsMarketDto } from "@/lib/perps/client";
@@ -187,8 +188,7 @@ export function OrderPanelCard({
         description: `${liveMarket.symbol} · ${apiKind.toUpperCase()} · intent ${shortDigest(result.digest)}`,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      toast({ variant: "destructive", title: "Order failed", description: message });
+      toast({ variant: "destructive", title: "Order failed", description: errMsg(error) });
     }
   };
 
