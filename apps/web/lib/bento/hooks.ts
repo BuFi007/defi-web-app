@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  type BentoClaim,
   type BentoSimulatorRoom,
   type BentoTransactionPayload,
+  getBentoClaim,
   getBentoLeaderboard,
   getBentoRoom,
   listBentoRooms,
@@ -157,6 +159,48 @@ export function useCommitSelectionPrepare() {
     [],
   );
   return useMemo(() => ({ prepare, loading }), [prepare, loading]);
+}
+
+/**
+ * Poll the API for the player's claim proof. Only enabled after the room
+ * finalises — pass `enabled=false` during play to avoid a thundering herd
+ * of 404s while the settlement merkle tree is still being built.
+ *
+ * Cadence is slow on purpose; settlement is a once-per-room event so we
+ * trade latency for backend load.
+ */
+const CLAIM_POLL_MS = 5_000;
+
+export function useBentoClaim(args: {
+  roomId: string | null;
+  address: `0x${string}` | undefined;
+  chainId?: number;
+  enabled?: boolean;
+}) {
+  const enabled = !!(args.enabled && args.roomId && args.address);
+  const [state, setState] = useState<RequestState<BentoClaim>>({
+    data: null,
+    error: null,
+    loading: enabled,
+  });
+
+  const fetch = useCallback(async () => {
+    if (!args.roomId || !args.address) return;
+    try {
+      const claim = await getBentoClaim({
+        roomId: args.roomId,
+        address: args.address,
+        chainId: args.chainId,
+      });
+      setState({ data: claim, error: null, loading: false });
+    } catch (err) {
+      setState((prev) => ({ data: prev.data, error: err as Error, loading: false }));
+    }
+  }, [args.roomId, args.address, args.chainId]);
+
+  useInterval(fetch, CLAIM_POLL_MS, enabled);
+
+  return { ...state, refetch: fetch };
 }
 
 export function useRevealSelectionPrepare() {

@@ -1,7 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { encodeAbiParameters, keccak256, type Hex } from "viem";
 import { useAccount, useChainId, useSendTransaction, useSwitchChain } from "wagmi";
+
+import {
+  buildSelectedTilesHash,
+  buildSelectionCommitment,
+  prepareClaimPrizeTransaction,
+} from "@bufi/fx-bento";
 
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -10,6 +17,7 @@ import {
   devJoinRoom,
 } from "@/lib/bento/client";
 import {
+  useBentoClaim,
   useBentoLeaderboard,
   useBentoRoom,
   useBentoRooms,
@@ -65,6 +73,72 @@ const BENTO_CHAIN_ID = 43113;
 
 function truncateAddress(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
+function truncateHex(hex: string, head = 10, tail = 8): string {
+  if (hex.length <= head + tail + 1) return hex;
+  return `${hex.slice(0, head)}…${hex.slice(-tail)}`;
+}
+
+/**
+ * Generate a cryptographically-random 32-byte nonce. Used as the
+ * unguessable salt in the commit-reveal hash so an opponent who sees the
+ * commitment cannot reconstruct your tile selection.
+ */
+function generateNonce(): Hex {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  let hex = "0x";
+  for (const b of bytes) hex += b.toString(16).padStart(2, "0");
+  return hex as Hex;
+}
+
+/**
+ * Convert this round's placed chips to the on-chain TileSelection shape.
+ * The contract expects parallel `rows[]`/`cols[]` arrays (one entry per
+ * placed chip, NOT a set of unique rows + set of unique cols — that
+ * loses position info). chipCount mirrors `rows.length`.
+ *
+ * `clientStateHash` binds the placement metadata that doesn't live in
+ * the row/col arrays (chipId emoji + stake) so the keeper can replay the
+ * placement deterministically.
+ */
+function selectionFromPlacements(placements: PlacedChip[]): {
+  rows: number[];
+  cols: number[];
+  chipCount: number;
+  clientStateHash: Hex;
+} | null {
+  if (placements.length === 0) return null;
+  // The on-chain TileSelectionSchema rejects rows[]/cols[] longer than 5.
+  // The arcade board already caps "my chips per round" at 5, but be
+  // defensive in case that limit shifts.
+  const capped = placements.slice(0, 5);
+  const rows = capped.map((c) => c.row);
+  const cols = capped.map((c) => c.col);
+  const meta = capped.map((c) => ({
+    chipId: c.chipId,
+    stake: BigInt(Math.max(0, Math.round(c.stake))),
+  }));
+  const clientStateHash = keccak256(
+    encodeAbiParameters(
+      [
+        { name: "version", type: "string" },
+        { name: "rows", type: "uint8[]" },
+        { name: "cols", type: "uint8[]" },
+        { name: "chipIds", type: "string[]" },
+        { name: "stakes", type: "uint256[]" },
+      ],
+      [
+        "bento-arcade-client-v1",
+        rows,
+        cols,
+        meta.map((m) => m.chipId),
+        meta.map((m) => m.stake),
+      ],
+    ),
+  );
+  return { rows, cols, chipCount: capped.length, clientStateHash };
 }
 
 function roomBadgeFor(market: string): string {
@@ -362,20 +436,50 @@ export function LeaderboardPanel({
   );
 }
 
+export interface ClaimPanelState {
+  /** True if the API has finalised settlement and produced a proof. */
+  ready: boolean;
+  /** True while waiting for the indexer to publish the settlement root. */
+  pending: boolean;
+  /** Already claimed on-chain. */
+  claimed: boolean;
+  /** Wei amount as a string (avoid losing precision through JS numbers). */
+  amount: string | null;
+  /** Sibling hashes the contract uses to walk to the merkle root. */
+  proof: Hex[];
+  /** keccak256(roomId, player, amount) — the player's row in the tree. */
+  leaf: Hex | null;
+  /** Root the contract verifies the leaf against. */
+  settlementRoot: Hex | null;
+  /** True while the wallet is broadcasting / waiting for confirmation. */
+  submitting: boolean;
+  /** Last on-chain tx hash if the claim succeeded. */
+  txHash: `0x${string}` | null;
+  /** Surfaced API/RPC error, if any. */
+  error: string | null;
+}
+
 export function RoundEndOverlay({
   players,
   roundNum,
   totalRounds: _totalRounds,
   isFinal,
   onNext,
+  onClaim,
+  claim,
 }: {
   players: Player[];
   roundNum: number;
   totalRounds: number;
   isFinal: boolean;
   onNext: () => void;
+  /** Async — broadcasts the claim tx through wagmi. */
+  onClaim?: () => Promise<void> | void;
+  claim?: ClaimPanelState;
 }) {
   const sorted = [...players].sort((a, b) => b.score - a.score);
+  const showClaim = isFinal && !!claim;
+  const youWonOnchain = !!claim?.amount && claim.amount !== "0";
   return (
     <div className="round-end">
       <div className="re-card">
@@ -412,6 +516,108 @@ export function RoundEndOverlay({
             </div>
           ))}
         </div>
+
+        {showClaim && claim && (
+          <div className="re-claim">
+            <div className="re-claim-head">
+              <span className="lobby-eyebrow">
+                CLAIM{" "}
+                <Hint w={280}>
+                  Your prize is unlocked via a Merkle proof. The contract verifies the
+                  proof against the on-chain settlement root before releasing USDC.
+                </Hint>
+              </span>
+              <span
+                className={
+                  "mono re-claim-amt " + (youWonOnchain ? "profit" : "")
+                }
+              >
+                {claim.amount ? `${claim.amount} wei` : "—"}
+              </span>
+            </div>
+            {(claim.settlementRoot || (claim.proof && claim.proof.length > 0) || claim.leaf) && (
+              <div className="re-claim-proof mono" aria-label="Merkle proof inputs">
+                {claim.settlementRoot && (
+                  <div className="re-claim-row">
+                    <span className="re-claim-label">root</span>
+                    <span className="re-claim-val" title={claim.settlementRoot}>
+                      {truncateHex(claim.settlementRoot)}
+                    </span>
+                  </div>
+                )}
+                {claim.leaf && (
+                  <div className="re-claim-row">
+                    <span className="re-claim-label">leaf</span>
+                    <span className="re-claim-val" title={claim.leaf}>
+                      {truncateHex(claim.leaf)}
+                    </span>
+                  </div>
+                )}
+                {claim.proof?.map((p, idx) => (
+                  <div className="re-claim-row" key={`${idx}-${p}`}>
+                    <span className="re-claim-label">proof[{idx}]</span>
+                    <span className="re-claim-val" title={p}>
+                      {truncateHex(p)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {claim.error && (
+              <div className="re-claim-error" role="alert">
+                {claim.error}
+              </div>
+            )}
+            {!claim.ready && claim.pending && (
+              <div className="re-claim-status apy-l">
+                Waiting for settlement proof…
+              </div>
+            )}
+            {claim.claimed && (
+              <div className="re-claim-status apy-l">Already claimed.</div>
+            )}
+            {claim.txHash && (
+              <div className="re-claim-status apy-l mono" title={claim.txHash}>
+                tx {truncateHex(claim.txHash)}
+              </div>
+            )}
+            {onClaim && (
+              <button
+                className="play-again-btn"
+                onClick={() => {
+                  void onClaim();
+                }}
+                disabled={
+                  !claim.ready ||
+                  claim.claimed ||
+                  claim.submitting ||
+                  !youWonOnchain
+                }
+                title={
+                  !claim.ready
+                    ? "Proof not ready yet"
+                    : claim.claimed
+                      ? "Already claimed"
+                      : !youWonOnchain
+                        ? "No prize to claim"
+                        : "Broadcast claim transaction"
+                }
+              >
+                <span className="pa-spark">✦</span>
+                <span>
+                  {claim.submitting
+                    ? "Claiming…"
+                    : claim.claimed
+                      ? "Claimed"
+                      : claim.ready && youWonOnchain
+                        ? "Claim prize"
+                        : "No prize"}
+                </span>
+              </button>
+            )}
+          </div>
+        )}
+
         <button className="play-again-btn" onClick={onNext}>
           <span className="pa-spark">✦</span>
           <span>{isFinal ? "Back to lobby" : `Round ${roundNum + 1} →`}</span>
@@ -439,6 +645,22 @@ export function ArcadeRoom({ market, onClose }: { market: Market; onClose: () =>
   const { sendTransactionAsync } = useSendTransaction();
   const { toast } = useToast();
 
+  // Per-round nonces keyed by `roundIndex`. The same nonce must be used at
+  // commit AND reveal time — losing it means the contract rejects the
+  // reveal as `commitment_mismatch`. Stored in a ref so re-renders during
+  // the round don't fire generation again.
+  const nonceCacheRef = useRef<Map<number, Hex>>(new Map());
+
+  // Claim flow state — populated when the room reaches `final` phase and
+  // the indexer publishes a settlement root we can verify against.
+  const [claimSubmitting, setClaimSubmitting] = useState(false);
+  const [claimTxHash, setClaimTxHash] = useState<`0x${string}` | null>(null);
+  const [claimError, setClaimError] = useState<string | null>(null);
+  // Local "claimed" tracker — the API's `claimed` field is best-effort
+  // until the indexer picks up the event, so we mirror the success
+  // optimistically in component state to keep the button disabled.
+  const [claimedLocal, setClaimedLocal] = useState(false);
+
   const { data: roomsData, loading: roomsLoading, refetch: refetchRooms } = useBentoRooms();
   const { data: roomData } = useBentoRoom(joinedRoomId);
   const { data: leaderboard } = useBentoLeaderboard(joinedRoomId);
@@ -446,6 +668,14 @@ export function ArcadeRoom({ market, onClose }: { market: Market; onClose: () =>
   const { prepare: prepareJoin } = useJoinRoomPrepare();
   const { prepare: prepareCommit } = useCommitSelectionPrepare();
   const { prepare: prepareReveal } = useRevealSelectionPrepare();
+
+  const claimEnabled = phase === "final" && !!joinedRoomId && !!address;
+  const { data: claimData, refetch: refetchClaim } = useBentoClaim({
+    roomId: joinedRoomId,
+    address,
+    chainId: BENTO_CHAIN_ID,
+    enabled: claimEnabled,
+  });
 
   const rooms = useMemo(() => (roomsData ?? []).map(bentoRoomToRoom), [roomsData]);
 
@@ -551,35 +781,72 @@ export function ArcadeRoom({ market, onClose }: { market: Market; onClose: () =>
   }, [phase, round]);
 
   const finishRound = useCallback(
-    async (_settled: PlacedChip[], myHits: PlacedChip[]) => {
-      // Player-side scoring is advisory — the contract attestor computes the
-      // authoritative score from the Pyth snapshot at lock + settle time. We
-      // commit the local placement hash so the contract can verify the reveal.
-      const delta = myHits.reduce(
-        (s, c) => s + Math.round((c as PlacedChip & { score?: number }).score ?? 0),
-        0,
-      );
-      if (joinedRoomId && delta > 0 && room) {
-        try {
-          // Build a placeholder commitment so the round-end overlay shows progress.
-          // Real commit-reveal needs a per-round nonce + selected-tiles hash —
-          // wiring that to the board UI is the next step.
-          const commitmentSeed = `0x${(delta + round)
-            .toString(16)
-            .padStart(64, "0")}` as `0x${string}`;
-          await prepareCommit({
-            roomId: joinedRoomId,
-            chainId: BENTO_CHAIN_ID,
-            roundIndex: round - 1,
-            commitment: commitmentSeed,
-          }).catch(() => undefined);
-        } catch {
-          // Non-fatal: commit prep failure should not block the round-end UI.
-        }
-      }
+    async (
+      _settled: PlacedChip[],
+      _myHits: PlacedChip[],
+      myPlacements: PlacedChip[],
+    ) => {
+      // Move the UI forward optimistically — chain confirmation latency
+      // shouldn't gate the leaderboard overlay.
       setPhase("roundEnd");
+
+      if (!joinedRoomId || !room || !address) return;
+      const selection = selectionFromPlacements(myPlacements);
+      if (!selection) return;
+
+      const roundIndex = round - 1;
+      let nonce = nonceCacheRef.current.get(roundIndex);
+      if (!nonce) {
+        nonce = generateNonce();
+        nonceCacheRef.current.set(roundIndex, nonce);
+      }
+
+      try {
+        // Build the canonical commitment that binds (chainId, roomId,
+        // roundIndex, player, selectedTilesHash, nonce). The same helpers
+        // run on the contract side, so a mismatch here surfaces as a
+        // CommitmentManager revert at reveal time.
+        const selectedTilesHash = buildSelectedTilesHash(selection);
+        const commitment = buildSelectionCommitment({
+          chainId: BENTO_CHAIN_ID,
+          roomId: joinedRoomId,
+          roundIndex,
+          player: address,
+          selectedTilesHash,
+          nonce,
+        });
+
+        const commitPayload = await prepareCommit({
+          roomId: joinedRoomId,
+          chainId: BENTO_CHAIN_ID,
+          roundIndex,
+          commitment,
+        });
+        await sendPrepared(commitPayload);
+
+        // Reveal in the same flow. In the production keeper-flow the
+        // reveal is gated server-side until the lock window closes — for
+        // now the API accepts immediate reveals and the simulator records
+        // them; an out-of-order reveal becomes a no-op on chain.
+        const revealPayload = await prepareReveal({
+          roomId: joinedRoomId,
+          chainId: BENTO_CHAIN_ID,
+          roundIndex,
+          selection,
+          nonce,
+        });
+        await sendPrepared(revealPayload);
+      } catch (err) {
+        // Non-fatal: surface a toast so devs see why the chain didn't
+        // pick up the round, but never block the UI.
+        toast({
+          title: "Commit/reveal failed",
+          description: (err as Error).message,
+          variant: "destructive",
+        });
+      }
     },
-    [joinedRoomId, room, round, prepareCommit],
+    [joinedRoomId, room, address, round, prepareCommit, prepareReveal, sendPrepared, toast],
   );
 
   const nextRound = useCallback(() => {
@@ -600,12 +867,119 @@ export function ArcadeRoom({ market, onClose }: { market: Market; onClose: () =>
     setPhase("lobby");
     setJoinedRoomId(null);
     setRound(1);
+    setClaimedLocal(false);
+    setClaimTxHash(null);
+    setClaimError(null);
+    nonceCacheRef.current.clear();
   }, []);
 
-  // Reveal helper exposed for future board wiring (no-op until UI calls it).
-  // Keeping the prepareReveal hook reachable so devs grepping for the verb
-  // find the integration point.
-  void prepareReveal;
+  // Compute the merkle leaf locally so the UI can render it BEFORE the
+  // claim tx is broadcast — this is what the user is being asked to
+  // approve, so they (or a script) can verify it matches the on-chain
+  // settlement root.
+  const claimLeaf = useMemo<Hex | null>(() => {
+    if (!claimData || !address || !claimData.amount || claimData.amount === "0") {
+      return null;
+    }
+    try {
+      const amount = BigInt(claimData.amount);
+      // Match buildPrizeLeaf in @bufi/fx-bento — keccak256 over
+      // (roomId, player, amount) packed via abi.encode.
+      const roomIdBig = (() => {
+        try {
+          return BigInt(claimData.roomId);
+        } catch {
+          // Dev simulator uses string ids like `room_xxx`; the API
+          // returns them unchanged and the contract-side path is not
+          // wired to those. Fall back to 0 so the UI still renders a
+          // recognisable placeholder.
+          return 0n;
+        }
+      })();
+      return keccak256(
+        encodeAbiParameters(
+          [
+            { name: "roomId", type: "uint256" },
+            { name: "player", type: "address" },
+            { name: "amount", type: "uint256" },
+          ],
+          [roomIdBig, address, amount],
+        ),
+      );
+    } catch {
+      return null;
+    }
+  }, [claimData, address]);
+
+  const claimState = useMemo<ClaimPanelState | undefined>(() => {
+    if (phase !== "final" || !joinedRoomId) return undefined;
+    return {
+      ready: !!claimData?.claimable && !!claimData?.proofReady,
+      pending: !!claimData && !claimData.claimable,
+      claimed: !!claimData?.claimed || claimedLocal,
+      amount: claimData?.amount ?? null,
+      proof: claimData?.proof ?? [],
+      leaf: claimLeaf,
+      settlementRoot: claimData?.settlementRoot ?? null,
+      submitting: claimSubmitting,
+      txHash: claimTxHash,
+      error: claimError,
+    };
+  }, [
+    phase,
+    joinedRoomId,
+    claimData,
+    claimLeaf,
+    claimedLocal,
+    claimSubmitting,
+    claimTxHash,
+    claimError,
+  ]);
+
+  const handleClaim = useCallback(async () => {
+    if (!claimData || !joinedRoomId || !address) return;
+    if (!claimData.claimable || !claimData.proofReady) {
+      toast({ title: "Proof not ready", description: "Try again in a moment." });
+      return;
+    }
+    if (claimData.amount === "0") return;
+    try {
+      setClaimSubmitting(true);
+      setClaimError(null);
+      await ensureChain();
+      const request = prepareClaimPrizeTransaction(
+        { chainId: BENTO_CHAIN_ID },
+        {
+          roomId: claimData.roomId,
+          amount: claimData.amount,
+          proof: claimData.proof,
+        },
+      );
+      const hash = await sendTransactionAsync({
+        to: request.to,
+        data: request.data,
+        value: BigInt(request.value),
+      });
+      setClaimTxHash(hash);
+      setClaimedLocal(true);
+      toast({
+        title: "Claim broadcast",
+        description: `Tx ${truncateAddress(hash)}`,
+      });
+      // Re-fetch so `claimed` flips once the indexer catches up.
+      setTimeout(() => refetchClaim(), 4_000);
+    } catch (err) {
+      const message = (err as Error).message ?? "claim failed";
+      setClaimError(message);
+      toast({
+        title: "Claim failed",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setClaimSubmitting(false);
+    }
+  }, [claimData, joinedRoomId, address, ensureChain, sendTransactionAsync, toast, refetchClaim]);
 
   if (phase === "lobby") {
     return (
@@ -647,6 +1021,8 @@ export function ArcadeRoom({ market, onClose }: { market: Market; onClose: () =>
           totalRounds={room.rounds}
           isFinal={isFinal}
           onNext={isFinal ? backToLobby : nextRound}
+          claim={claimState}
+          onClaim={isFinal ? handleClaim : undefined}
         />
       )}
     </div>

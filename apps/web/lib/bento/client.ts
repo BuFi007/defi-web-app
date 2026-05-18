@@ -151,11 +151,7 @@ export async function getBentoLeaderboard(roomId: string): Promise<{
   return jsonFetch(bentoUrl(`/rooms/${encodeURIComponent(roomId)}/leaderboard`));
 }
 
-export async function getBentoClaim(args: {
-  roomId: string;
-  address: `0x${string}`;
-  chainId?: number;
-}): Promise<{
+export interface BentoClaim {
   roomId: string;
   address: string;
   claimable: boolean;
@@ -165,7 +161,13 @@ export async function getBentoClaim(args: {
   proofReady: boolean;
   settlementRoot: `0x${string}` | null;
   source: string;
-}> {
+}
+
+export async function getBentoClaim(args: {
+  roomId: string;
+  address: `0x${string}`;
+  chainId?: number;
+}): Promise<BentoClaim> {
   return jsonFetch(
     bentoUrl(`/rooms/${encodeURIComponent(args.roomId)}/claims/${args.address}`, {
       chainId: args.chainId,
