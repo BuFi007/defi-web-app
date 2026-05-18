@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { useAccount } from "wagmi";
 
+import { liquidationPriceFloat, requiredMarginFloat } from "@bufi/perps-math";
+
 import { Icon, FlagPair, fmtUSD, fmtPct, makeOrderbook, type Market } from "./data";
 import { Hint } from "./hint";
 import { CandleChart } from "./chart";
@@ -118,9 +120,11 @@ export function OrderPanelCard({
   const sizeV = parseFloat(size) || 0;
   const priceV = parseFloat(price) || market.price;
   const notional = sizeV * priceV;
-  const reqMargin = notional / lev;
-  const liqLong = priceV * (1 - 0.8 / lev);
-  const liqShort = priceV * (1 + 0.8 / lev);
+  // Margin + liq price now go through @bufi/perps-math (bigint internally).
+  // Semantics preserved: reqMargin = notional/lev; liq = price * (1 ∓ 0.8/lev).
+  const reqMargin = requiredMarginFloat(notional, lev);
+  const liqLong = liquidationPriceFloat({ entryPrice: priceV, notionalUsd: notional, leverage: lev, side: "long" });
+  const liqShort = liquidationPriceFloat({ entryPrice: priceV, notionalUsd: notional, leverage: lev, side: "short" });
   const types = ["Market", "Limit", "Stop", "TP/SL"];
   const presets = [1, 2, 5, 10, 25, 50, 100];
   const sizePcts = [25, 50, 75, 100];

@@ -18,6 +18,7 @@
     "@bufi/location": "workspace:*",
     "@bufi/market-data": "workspace:*",
     "@bufi/perps": "workspace:*",
+    "@bufi/perps-math": "workspace:*",
     "@bufi/shared-types": "workspace:*",
     "@dynamic-labs/ethereum": "4.83.1",
     "@dynamic-labs/ethereum-aa": "4.83.1",

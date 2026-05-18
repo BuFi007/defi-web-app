@@ -1,0 +1,21 @@
+{
+  "name": "@bufi/perps-math",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pure perps + lending math helpers (bigint-only, no floats). Owned by codex/all-backends-integration bucket #30.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./decimal": "./src/decimal.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "bun-types": "1.3.10",
+    "typescript": "5"
+  }
+}
