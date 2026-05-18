@@ -9,6 +9,10 @@ import {
   reconcilePerpsIntentWithSettlements,
 } from "@bufi/perps";
 import { paymentRequired } from "@bufi/x402";
+import {
+  compute24hStats,
+  fetchBenchmarksHistory,
+} from "@bufi/market-data";
 
 import {
   assertAddressMatches,
@@ -27,6 +31,12 @@ import {
   tradingDb,
 } from "../services";
 
+// UI timeframe ("15m") → Pyth Benchmarks resolution token ("15"). The
+// helper in @bufi/market-data accepts the same string; we cap the limit
+// here so a misbehaving caller can't request 10k candles.
+const MAX_CANDLES = 500;
+const DEFAULT_CANDLE_LIMIT = 200;
+
 const perpsRoutes = new Hono();
 
 const sellerForX402 = () =>
@@ -36,6 +46,128 @@ perpsRoutes.get("/markets", async (c) => {
   const cid = getChainIdFromQuery(c, 5042002);
   if (!cid.ok) return cid.response;
   return c.json({ markets: await perpsService.listMarkets(cid.chainId) });
+});
+
+// GET /perps/markets/:sym/candles?tf=15m&limit=200
+// Historical OHLCV via Pyth Benchmarks (TradingView UDF shim).
+// `:sym` is the UI symbol ("EUR/USD"); the helper maps it to FX.EUR/USD.
+// Returns empty `candles` array when the symbol isn't mapped or
+// Benchmarks 404s — caller renders empty + the live tail.
+perpsRoutes.get("/markets/:sym/candles", async (c) => {
+  const sym = decodeURIComponent(c.req.param("sym"));
+  const tf = c.req.query("tf") ?? "15m";
+  const limitRaw = Number(c.req.query("limit") ?? DEFAULT_CANDLE_LIMIT);
+  const limit = Number.isFinite(limitRaw)
+    ? Math.min(Math.max(1, Math.floor(limitRaw)), MAX_CANDLES)
+    : DEFAULT_CANDLE_LIMIT;
+  try {
+    const candles = await fetchBenchmarksHistory({
+      uiSymbol: sym,
+      tf,
+      limit,
+      baseUrl: process.env.PYTH_BENCHMARKS_URL,
+    });
+    return jsonOk(c, {
+      sym,
+      tf,
+      source: candles.length ? "pyth-benchmarks" : "empty",
+      candles,
+    });
+  } catch (e) {
+    return jsonError(c, e);
+  }
+});
+
+// GET /perps/markets/:sym/stats
+// 24h high / low / volume-proxy / change% — derived from the same
+// Benchmarks 15m candle stream (cached upstream by Pyth).
+perpsRoutes.get("/markets/:sym/stats", async (c) => {
+  const sym = decodeURIComponent(c.req.param("sym"));
+  try {
+    const candles = await fetchBenchmarksHistory({
+      uiSymbol: sym,
+      tf: "15m",
+      limit: 200,
+      baseUrl: process.env.PYTH_BENCHMARKS_URL,
+    });
+    const stats = compute24hStats(candles);
+    return jsonOk(c, {
+      sym,
+      source: candles.length ? "pyth-benchmarks" : "empty",
+      ...stats,
+    });
+  } catch (e) {
+    return jsonError(c, e);
+  }
+});
+
+// GET /perps/intents/pending?marketId=0x...&depth=10
+// Returns pending intents grouped by price level (bids = long, asks
+// = short). Architecturally honest: this system uses a price-time
+// matcher, NOT a CLOB. There's no resting-order book — these are
+// signed intents waiting for a counterparty. The UI renders them as
+// a book-style view because that's what traders expect to see.
+perpsRoutes.get("/intents/pending", async (c) => {
+  const marketId = c.req.query("marketId");
+  if (!marketId) return c.json({ error: "marketId is required" }, 400);
+  const depthRaw = Number(c.req.query("depth") ?? 10);
+  const depth = Number.isFinite(depthRaw)
+    ? Math.min(Math.max(1, Math.floor(depthRaw)), 50)
+    : 10;
+  try {
+    const all = await tradingDb.perpsIntents.list({ status: "pending" });
+    const market = all.filter(
+      (i) => i.marketId.toLowerCase() === marketId.toLowerCase(),
+    );
+    // Group by 1e18-scaled limit price. Bucket on price floor so close
+    // limit orders coalesce visually. Bucket size = 0.0001 in price
+    // terms for FX, derived from priceE18 modulo 1e14.
+    const BUCKET_E18 = 100_000_000_000_000n; // 1e14 → 0.0001 in float price
+    const bids = new Map<string, { sizeE18: bigint; count: number }>();
+    const asks = new Map<string, { sizeE18: bigint; count: number }>();
+    for (const i of market) {
+      // Skip market orders (priceE18 === 0) — they execute immediately
+      // and don't sit in the book.
+      const priceE18 = BigInt(i.priceE18 || "0");
+      if (priceE18 === 0n) continue;
+      const bucket = ((priceE18 / BUCKET_E18) * BUCKET_E18).toString();
+      const remaining =
+        BigInt(i.remainingSizeDelta || "0") || BigInt(i.sizeDelta || "0");
+      const absSize = remaining < 0n ? -remaining : remaining;
+      if (absSize === 0n) continue;
+      const side = i.side === "long" ? bids : asks;
+      const existing = side.get(bucket) ?? { sizeE18: 0n, count: 0 };
+      existing.sizeE18 += absSize;
+      existing.count += 1;
+      side.set(bucket, existing);
+    }
+    const toLevel = ([priceE18, agg]: [
+      string,
+      { sizeE18: bigint; count: number },
+    ]) => ({
+      priceE18,
+      sizeE18: agg.sizeE18.toString(),
+      count: agg.count,
+    });
+    // Bids: best (highest price) first. Asks: best (lowest price) first.
+    const bidLevels = Array.from(bids.entries())
+      .map(toLevel)
+      .sort((a, b) => Number(BigInt(b.priceE18) - BigInt(a.priceE18)))
+      .slice(0, depth);
+    const askLevels = Array.from(asks.entries())
+      .map(toLevel)
+      .sort((a, b) => Number(BigInt(a.priceE18) - BigInt(b.priceE18)))
+      .slice(0, depth);
+    return jsonOk(c, {
+      marketId,
+      depth,
+      bids: bidLevels,
+      asks: askLevels,
+      totalPending: market.length,
+    });
+  } catch (e) {
+    return jsonError(c, e);
+  }
 });
 
 perpsRoutes.post("/quote", async (c) => {

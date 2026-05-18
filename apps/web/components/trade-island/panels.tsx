@@ -6,13 +6,15 @@ import { formatUnits } from "viem";
 
 import { liquidationPriceFloat, requiredMarginFloat } from "@bufi/perps-math";
 
-import { Icon, FlagPair, fmtUSD, fmtPct, makeOrderbook, type Market } from "./data";
+import { Icon, FlagPair, fmtUSD, fmtPct, type Market } from "./data";
 import { Hint } from "./hint";
 import { CandleChart } from "./chart";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/components/ui/use-toast";
 import { errMsg } from "@/utils";
 import { useMarkets, usePlaceOrder } from "@/lib/perps/hooks";
+import { useMarketStats } from "@/lib/perps/use-market-stats";
+import { usePendingIntents } from "@/lib/perps/use-pending-intents";
 import { getPerpsReplacementDevWallet } from "@/lib/perps/dev-mock-wallet";
 import type { PerpsMarketDto } from "@/lib/perps/client";
 
@@ -42,12 +44,26 @@ function useUsdcBalance(address: `0x${string}` | undefined): {
   };
 }
 
+// Replaces the legacy fake CLOB. This system uses a price-time matcher
+// (apps/keeper-perps-matcher), not a resting-order book — what we show
+// here is the matcher's pending-intent queue grouped by limit price.
+// Bids = pending longs waiting to be matched. Asks = pending shorts.
 export function OrderbookCard({ market }: { market: Market }) {
-  const tickSize = market.price < 10 ? 0.0001 : market.price < 1000 ? 0.01 : 0.5;
   const decimals = market.price < 10 ? 4 : market.price < 1000 ? 2 : 1;
-  const ob = useMemo(() => makeOrderbook(market.price, tickSize, 11), [market.sym, market.price, tickSize]);
-  const spread = ob.asks[0].price - ob.bids[0].price;
-  const spreadPct = (spread / market.price) * 100;
+  const { data: markets } = useMarkets();
+  const liveMarket = useMemo(
+    () => resolveLiveMarket(market.sym, markets),
+    [market.sym, markets],
+  );
+  const { data: book, isLoading } = usePendingIntents(liveMarket?.marketId, 10);
+  const bids = book?.bids ?? [];
+  const asks = book?.asks ?? [];
+  const mid = book?.mid ?? market.price;
+  const spread =
+    bids.length > 0 && asks.length > 0 ? asks[0].price - bids[0].price : null;
+  const spreadPct = spread != null && mid > 0 ? (spread / mid) * 100 : null;
+  const maxTotal = book?.maxTotal ?? 1;
+
   return (
     <div className="card orderbook-card">
       <div className="card-head ob-head">
@@ -56,14 +72,20 @@ export function OrderbookCard({ market }: { market: Market }) {
             <Icon name="list" size={15} />
           </span>
           <span>
-            Order Book{" "}
-            <Hint w={260}>
-              Live buy (bids, green) and sell (asks, pink) orders at each price. The deeper the row, the more size sitting there.
+            Pending Intents{" "}
+            <Hint w={300}>
+              This is not a traditional order book — it&apos;s the
+              price-time matcher&apos;s pending-intent queue. Bids =
+              pending longs waiting to be matched. Asks = pending shorts.
+              Counts collapse multiple intents at the same price level.
             </Hint>
           </span>
         </div>
-        <span className="pill muted" title="Tick size — the smallest price increment in this market">
-          {tickSize < 1 ? tickSize.toFixed(4) : tickSize}
+        <span
+          className="pill muted"
+          title="Total pending intents on this market"
+        >
+          {book?.totalPending ?? 0}
         </span>
       </div>
       <div className="ob-cols">
@@ -72,9 +94,19 @@ export function OrderbookCard({ market }: { market: Market }) {
         <span>Total</span>
       </div>
       <div className="ob-rows" style={{ display: "flex", flexDirection: "column" }}>
-        {[...ob.asks].reverse().map((a, i) => (
+        {asks.length === 0 && !isLoading && (
+          <div className="ob-row" style={{ opacity: 0.4, justifyContent: "center", padding: "8px 0" }}>
+            <span className="mono" style={{ fontSize: 11 }}>
+              no pending shorts
+            </span>
+          </div>
+        )}
+        {[...asks].reverse().map((a, i) => (
           <div key={"a" + i} className="ob-row ask">
-            <div className="bar" style={{ width: `${(a.total / ob.maxTotal) * 100}%` }} />
+            <div
+              className="bar"
+              style={{ width: `${(a.total / maxTotal) * 100}%` }}
+            />
             <span className="v price mono">{a.price.toFixed(decimals)}</span>
             <span className="v size mono">{a.size.toFixed(2)}</span>
             <span className="v total mono">{a.total.toFixed(2)}</span>
@@ -82,18 +114,34 @@ export function OrderbookCard({ market }: { market: Market }) {
         ))}
         <div className="ob-spread">
           <span className="last mono">
-            {market.price.toFixed(decimals)}
-            <span style={{ color: market.change >= 0 ? "var(--profit-ink)" : "var(--loss-ink)" }}>
+            {mid.toFixed(decimals)}
+            <span
+              style={{
+                color: market.change >= 0 ? "var(--profit-ink)" : "var(--loss-ink)",
+              }}
+            >
               {market.change >= 0 ? "↑" : "↓"}
             </span>
           </span>
           <span className="meta">
-            Spread {spread.toFixed(decimals + 1)} ({spreadPct.toFixed(3)}%)
+            {spread != null && spreadPct != null
+              ? `Spread ${spread.toFixed(decimals + 1)} (${spreadPct.toFixed(3)}%)`
+              : `${book?.totalPending ?? 0} pending`}
           </span>
         </div>
-        {ob.bids.map((b, i) => (
+        {bids.length === 0 && !isLoading && (
+          <div className="ob-row" style={{ opacity: 0.4, justifyContent: "center", padding: "8px 0" }}>
+            <span className="mono" style={{ fontSize: 11 }}>
+              no pending longs
+            </span>
+          </div>
+        )}
+        {bids.map((b, i) => (
           <div key={"b" + i} className="ob-row bid">
-            <div className="bar" style={{ width: `${(b.total / ob.maxTotal) * 100}%` }} />
+            <div
+              className="bar"
+              style={{ width: `${(b.total / maxTotal) * 100}%` }}
+            />
             <span className="v price mono">{b.price.toFixed(decimals)}</span>
             <span className="v size mono">{b.size.toFixed(2)}</span>
             <span className="v total mono">{b.total.toFixed(2)}</span>
@@ -482,6 +530,16 @@ export function ChartCard({ market }: { market: Market }) {
   const [tf, setTf] = useState("15m");
   const tfs = ["1m", "5m", "15m", "1H", "4H", "1D", "1W"];
   const decimals = market.price < 10 ? 4 : market.price < 1000 ? 2 : 1;
+  // 24h H/L/Vol/change% from Pyth Benchmarks via the api. The hook
+  // returns null fields when Benchmarks 404s on this symbol; we render
+  // em-dashes so the row never collapses.
+  const { data: stats } = useMarketStats(market.sym);
+  const high = stats?.high ?? null;
+  const low = stats?.low ?? null;
+  const vol = stats?.volume ?? null;
+  // Change% prefers the Benchmarks 24h delta; falls back to the market
+  // prop (kept as the static seed) for symbols Benchmarks doesn't cover.
+  const changePct = stats?.changePct ?? market.change;
   return (
     <div className="card chart-card">
       <div className="chart-head">
@@ -496,9 +554,9 @@ export function ChartCard({ market }: { market: Market }) {
               <span className="chart-price mono">{market.price.toFixed(decimals)}</span>
               <span
                 className="chart-change mono"
-                style={{ color: market.change >= 0 ? "var(--profit)" : "var(--loss)" }}
+                style={{ color: changePct >= 0 ? "var(--profit)" : "var(--loss)" }}
               >
-                {fmtPct(market.change)}
+                {fmtPct(changePct)}
               </span>
             </div>
           </div>
@@ -519,37 +577,26 @@ export function ChartCard({ market }: { market: Market }) {
       <div className="chart-substats">
         <div className="chart-stat">
           <span className="l">24h High</span>
-          <span className="v mono">{(market.price * 1.012).toFixed(decimals)}</span>
+          <span className="v mono">{high != null ? high.toFixed(decimals) : "—"}</span>
         </div>
         <div className="chart-stat">
           <span className="l">24h Low</span>
-          <span className="v mono">{(market.price * 0.988).toFixed(decimals)}</span>
+          <span className="v mono">{low != null ? low.toFixed(decimals) : "—"}</span>
         </div>
         <div className="chart-stat">
-          <span className="l">24h Vol</span>
-          <span className="v mono">{market.type === "perp" ? "$2.8B" : "$1.4B"}</span>
-        </div>
-        <div className="chart-stat">
-          <span className="l">Spread</span>
-          <span className="v mono">{market.spread.toFixed(decimals + 1)}</span>
-        </div>
-        {market.funding !== undefined && (
-          <div className="chart-stat">
-            <span className="l">Funding</span>
-            <span
-              className="v mono"
-              style={{ color: market.funding >= 0 ? "var(--profit)" : "var(--loss)" }}
-            >
-              {(market.funding * 100).toFixed(4)}%
-            </span>
-          </div>
-        )}
-        <div className="chart-stat" style={{ marginLeft: "auto" }}>
-          <span className="l">Open Interest</span>
-          <span className="v mono">$184.2M</span>
+          <span className="l">
+            24h Vol{" "}
+            <Hint w={240}>
+              FX feeds don&apos;t carry traded volume — the bar is a proxy
+              derived from per-bar price-change magnitude.
+            </Hint>
+          </span>
+          <span className="v mono">
+            {vol != null && Number.isFinite(vol) ? fmtUSD(vol) : "—"}
+          </span>
         </div>
       </div>
-      <CandleChart market={market} timeframe={tf} />
+      <CandleChart market={market} timeframe={tf} source="ponder" liveSource="ws" />
     </div>
   );
 }

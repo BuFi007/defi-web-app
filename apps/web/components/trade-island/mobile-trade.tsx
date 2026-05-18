@@ -24,11 +24,31 @@ import {
   Icon,
   fmtPct,
   fmtUSD,
-  makeOrderbook,
   type Market,
 } from "./data";
 import { CandleChart } from "./chart";
 import { OrderPanelCard } from "./panels";
+import { useMarkets } from "@/lib/perps/hooks";
+import { usePendingIntents } from "@/lib/perps/use-pending-intents";
+import type { PerpsMarketDto } from "@/lib/perps/client";
+
+// Same heuristic as panels.tsx → resolveLiveMarket. Inlined here to keep
+// mobile-trade dependency-free of the desktop panels module.
+function resolvePerpMarketId(uiSym: string, markets: PerpsMarketDto[] | undefined): string | undefined {
+  if (!markets || markets.length === 0) return undefined;
+  const enabled = markets.filter((m) => m.enabled);
+  const pool = enabled.length > 0 ? enabled : markets;
+  const base = uiSym.split(/[/-]/)[0]?.toUpperCase() ?? "";
+  const baseAliases: Record<string, string[]> = {
+    EUR: ["EURC"], JPY: ["JPYC", "TJPYC"], MXN: ["MXNB", "TMXNB"], CHF: ["CHFC", "TCHFC"],
+  };
+  const candidates = [base, ...(baseAliases[base] ?? [])];
+  for (const c of candidates) {
+    const hit = pool.find((m) => m.symbol.toUpperCase().startsWith(c));
+    if (hit) return hit.marketId;
+  }
+  return pool[0]?.marketId;
+}
 
 type InnerTab = "chart" | "book" | "trades";
 
@@ -64,14 +84,16 @@ function makeRecentTrades(price: number, seedKey: string): RecentTrade[] {
 }
 
 function CompactOrderbook({ market }: { market: Market }) {
-  const tickSize = market.price < 10 ? 0.0001 : market.price < 1000 ? 0.01 : 0.5;
   const dec = market.price < 10 ? 4 : market.price < 1000 ? 2 : 1;
-  const ob = useMemo(
-    () => makeOrderbook(market.price, tickSize, 10),
-    [market.sym, market.price, tickSize],
-  );
-  const spread = ob.asks[0].price - ob.bids[0].price;
-  const spreadPct = (spread / market.price) * 100;
+  const { data: markets } = useMarkets();
+  const marketId = resolvePerpMarketId(market.sym, markets);
+  const { data: book, isLoading } = usePendingIntents(marketId, 10);
+  const bids = book?.bids ?? [];
+  const asks = book?.asks ?? [];
+  const mid = book?.mid ?? market.price;
+  const spread = bids.length > 0 && asks.length > 0 ? asks[0].price - bids[0].price : null;
+  const spreadPct = spread != null && mid > 0 ? (spread / mid) * 100 : null;
+  const maxTotal = book?.maxTotal ?? 1;
   return (
     <div className="mt-ob">
       <div className="mt-ob-cols">
@@ -80,9 +102,14 @@ function CompactOrderbook({ market }: { market: Market }) {
         <span>Total</span>
       </div>
       <div className="mt-ob-rows">
-        {[...ob.asks].reverse().map((a, i) => (
+        {asks.length === 0 && !isLoading && (
+          <div className="ob-row" style={{ opacity: 0.4, justifyContent: "center", padding: "6px 0" }}>
+            <span className="mono" style={{ fontSize: 10 }}>no pending shorts</span>
+          </div>
+        )}
+        {[...asks].reverse().map((a, i) => (
           <div key={"a" + i} className="ob-row ask">
-            <div className="bar" style={{ width: `${(a.total / ob.maxTotal) * 100}%` }} />
+            <div className="bar" style={{ width: `${(a.total / maxTotal) * 100}%` }} />
             <span className="v price mono">{a.price.toFixed(dec)}</span>
             <span className="v size mono">{a.size.toFixed(2)}</span>
             <span className="v total mono">{a.total.toFixed(2)}</span>
@@ -90,20 +117,25 @@ function CompactOrderbook({ market }: { market: Market }) {
         ))}
         <div className="ob-spread">
           <span className="last mono">
-            {market.price.toFixed(dec)}
-            <span
-              style={{ color: market.change >= 0 ? "var(--profit-ink)" : "var(--loss-ink)" }}
-            >
+            {mid.toFixed(dec)}
+            <span style={{ color: market.change >= 0 ? "var(--profit-ink)" : "var(--loss-ink)" }}>
               {market.change >= 0 ? "↑" : "↓"}
             </span>
           </span>
           <span className="meta">
-            Spread {spread.toFixed(dec + 1)} ({spreadPct.toFixed(3)}%)
+            {spread != null && spreadPct != null
+              ? `Spread ${spread.toFixed(dec + 1)} (${spreadPct.toFixed(3)}%)`
+              : `${book?.totalPending ?? 0} pending`}
           </span>
         </div>
-        {ob.bids.map((b, i) => (
+        {bids.length === 0 && !isLoading && (
+          <div className="ob-row" style={{ opacity: 0.4, justifyContent: "center", padding: "6px 0" }}>
+            <span className="mono" style={{ fontSize: 10 }}>no pending longs</span>
+          </div>
+        )}
+        {bids.map((b, i) => (
           <div key={"b" + i} className="ob-row bid">
-            <div className="bar" style={{ width: `${(b.total / ob.maxTotal) * 100}%` }} />
+            <div className="bar" style={{ width: `${(b.total / maxTotal) * 100}%` }} />
             <span className="v price mono">{b.price.toFixed(dec)}</span>
             <span className="v size mono">{b.size.toFixed(2)}</span>
             <span className="v total mono">{b.total.toFixed(2)}</span>

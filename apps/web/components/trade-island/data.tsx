@@ -48,18 +48,6 @@ export interface Candle {
   v: number;
 }
 
-export interface OrderbookLevel {
-  price: number;
-  size: number;
-  total: number;
-}
-
-export interface Orderbook {
-  asks: OrderbookLevel[];
-  bids: OrderbookLevel[];
-  maxTotal: number;
-}
-
 export const FX_MARKETS: Market[] = [
   { sym: "EUR/USD", base: "EUR", quote: "USD", flagA: "🇪🇺", flagB: "🇺🇸", price: 1.0842, change: 0.32, leverage: 100, type: "forex", spread: 0.00012 },
   { sym: "GBP/USD", base: "GBP", quote: "USD", flagA: "🇬🇧", flagB: "🇺🇸", price: 1.2716, change: -0.18, leverage: 100, type: "forex", spread: 0.00018 },
@@ -120,29 +108,6 @@ export function makeCandles(basePrice: number, count = 120, _tickSize = 0.0001):
   out[out.length - 1].h = Math.max(out[out.length - 1].h, basePrice + lastSpread * 0.3);
   out[out.length - 1].l = Math.min(out[out.length - 1].l, basePrice - lastSpread * 0.3);
   return out;
-}
-
-export function makeOrderbook(price: number, tickSize = 0.0001, levels = 14): Orderbook {
-  let seed = Math.floor(price * 1000);
-  const rand = () => {
-    seed = (seed * 9301 + 49297) % 233280;
-    return seed / 233280;
-  };
-  const asks: OrderbookLevel[] = [];
-  const bids: OrderbookLevel[] = [];
-  let askTotal = 0;
-  let bidTotal = 0;
-  for (let i = 0; i < levels; i++) {
-    const ap = price + tickSize * (i + 1);
-    const aSize = rand() * 80 + 5;
-    askTotal += aSize;
-    asks.push({ price: ap, size: aSize, total: askTotal });
-    const bp = price - tickSize * (i + 1);
-    const bSize = rand() * 80 + 5;
-    bidTotal += bSize;
-    bids.push({ price: bp, size: bSize, total: bidTotal });
-  }
-  return { asks, bids, maxTotal: Math.max(askTotal, bidTotal) };
 }
 
 export const ICONS: Record<string, string> = {

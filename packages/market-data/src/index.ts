@@ -28,6 +28,16 @@ export {
   type UnsubscribePythStream,
 } from "./pyth-stream";
 
+export {
+  fetchBenchmarksHistory,
+  pythBenchmarksSymbol,
+  tfToBenchmarksResolution,
+  tfToSeconds,
+  compute24hStats,
+  BENCHMARKS_DEFAULT_BASE_URL,
+  type FetchBenchmarksHistoryOptions,
+} from "./benchmarks";
+
 export const HERMES_DEFAULT_BASE_URL = "https://hermes.pyth.network";
 
 const pythParsedPrice = z.object({
