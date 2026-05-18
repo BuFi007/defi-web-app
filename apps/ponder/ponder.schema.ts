@@ -145,6 +145,32 @@ export const arcadeRoom = onchainTable("arcade_room", (t) => ({
   endsAt: t.bigint().notNull(),
   prizePoolUsdc: t.bigint().notNull(),
   rakeBps: t.integer().notNull(),
+  // Additive columns wired by the Bento handlers ─────────────────────────
+  // RoomCreated → contract-read snapshot fields:
+  poolId: t.hex(),
+  entryToken: t.hex(),
+  minPlayers: t.integer(),
+  rounds: t.integer(),
+  roundDuration: t.integer(),
+  lockBuffer: t.integer(),
+  gridConfigHash: t.hex(),
+  payoutHash: t.hex(),
+  isPrivate: t.boolean(),
+  // RoomLocked / RoomSettled / SettlementManager:
+  lockedAt: t.bigint(),
+  settledAt: t.bigint(),
+  finalizedAt: t.bigint(),
+  cancelledAt: t.bigint(),
+  resultsRoot: t.hex(),
+  payoutSchemaHash: t.hex(),
+  payoutTotal: t.bigint(),
+  protocolFee: t.bigint(),
+  metadataURI: t.text(),
+  // Replay cursor (mirrors perps.ts):
+  eventBlock: t.bigint(),
+  eventTxHash: t.hex(),
+  eventLogIndex: t.integer(),
+  updatedAt: t.bigint(),
 }));
 
 export const arcadePlacement = onchainTable("arcade_placement", (t) => ({
@@ -155,6 +181,65 @@ export const arcadePlacement = onchainTable("arcade_placement", (t) => ({
   chips: t.integer().notNull(),
   commitment: t.hex(),
   revealedAt: t.bigint(),
+  // Additive columns wired by the Bento handlers ─────────────────────────
+  chainId: t.integer(),
+  roundIndex: t.integer(),
+  joinedAt: t.bigint(),
+  joinedTxHash: t.hex(),
+  leftAt: t.bigint(),
+  refundedAt: t.bigint(),
+  refundedAmount: t.bigint(),
+  commitmentTxHash: t.hex(),
+  revealedSelectionHash: t.hex(),
+  revealedTxHash: t.hex(),
+  prizeAmount: t.bigint(),
+  claimedAt: t.bigint(),
+  claimedTxHash: t.hex(),
+  // Replay cursor:
+  eventBlock: t.bigint(),
+  eventTxHash: t.hex(),
+  eventLogIndex: t.integer(),
+}));
+
+/**
+ * Per-round lifecycle (FXBentoRoundManager). Each room runs N rounds; this
+ * table captures anchor + settlement prices so the UI can render the
+ * round-by-round price chart without a contract read per round.
+ */
+export const arcadeRound = onchainTable("arcade_round", (t) => ({
+  id: t.text().primaryKey(), // `${roomId}:${roundIndex}`
+  roomId: t.text().notNull(),
+  chainId: t.integer().notNull(),
+  roundIndex: t.integer().notNull(),
+  startTime: t.bigint(),
+  lockTime: t.bigint(),
+  endTime: t.bigint(),
+  anchorSnapshotId: t.bigint(),
+  anchorPrice: t.text(), // int256 → keep as decimal string
+  settlementSnapshotId: t.bigint(),
+  settlementPrice: t.text(),
+  status: t.text().notNull(), // started | anchor_recorded | settled
+  eventBlock: t.bigint(),
+  eventTxHash: t.hex(),
+  eventLogIndex: t.integer(),
+  updatedAt: t.bigint(),
+}));
+
+/**
+ * FXBentoSettlementManager challenge lifecycle. Optional — surfaces disputes
+ * if/when they happen on Arc.
+ */
+export const arcadeSettlement = onchainTable("arcade_settlement", (t) => ({
+  id: t.text().primaryKey(), // `${roomId}:${stage}:${logIndex}`
+  roomId: t.text().notNull(),
+  chainId: t.integer().notNull(),
+  stage: t.text().notNull(), // submitted | challenged | resolved | finalized | rescued
+  resultsRoot: t.hex(),
+  metadataURI: t.text(),
+  challengeAccepted: t.boolean(),
+  blockTimestamp: t.bigint().notNull(),
+  txHash: t.hex().notNull(),
+  logIndex: t.integer().notNull(),
 }));
 
 export const telaranaLoan = onchainTable("telarana_loan", (t) => ({
