@@ -11,6 +11,16 @@ export {
   type GetCandlesOptions,
 } from "./candles";
 
+export {
+  subscribeMarketTicks,
+  buildWsUrl,
+  type SubscribeOptions,
+  type Tick,
+  type ObDelta,
+  type ObLevel,
+  type MarketsWsEvent,
+} from "./ws";
+
 export const HERMES_DEFAULT_BASE_URL = "https://hermes.pyth.network";
 
 const pythParsedPrice = z.object({

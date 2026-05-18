@@ -17,6 +17,11 @@ import { marketsRoutes } from "./routes/markets";
 import { mcpRoutes } from "./routes/mcp";
 import { perpsRoutes } from "./routes/perps";
 import { spotRoutes } from "./routes/spot";
+import {
+  makeUpgradeData,
+  marketsWebSocketHandler,
+  parseMarketsWsPath,
+} from "./routes/ws";
 import { x402Routes } from "./routes/x402";
 import { initApiSentry } from "./sentry";
 import { walletSession } from "./wallet-session";
@@ -127,9 +132,30 @@ app.onError(errorHandler as unknown as ErrorHandler);
 app.notFound(notFoundHandler as unknown as NotFoundHandler);
 
 // Bun's entry — uses `Bun.serve` semantics via `export default`.
+//
+// We wrap `app.fetch` so the WebSocket upgrade for `/ws/markets/:marketId`
+// runs *before* Hono routing. Bun's `server.upgrade(req, { data })` returns
+// `true` on a successful handshake (Bun has already sent the 101 response),
+// in which case we MUST return `undefined`. All other paths fall through to
+// the Hono app unchanged.
 export default {
   port,
-  fetch: app.fetch,
+  fetch(
+    req: Request,
+    server: { upgrade: (req: Request, opts?: { data?: unknown }) => boolean },
+  ) {
+    const url = new URL(req.url);
+    const marketId = parseMarketsWsPath(url.pathname);
+    if (marketId) {
+      const upgraded = server.upgrade(req, {
+        data: makeUpgradeData({ marketId, log }),
+      });
+      if (upgraded) return undefined;
+      return new Response("expected websocket upgrade", { status: 426 });
+    }
+    return app.fetch(req);
+  },
+  websocket: marketsWebSocketHandler,
 };
 
 log.info({ port }, "server.boot");

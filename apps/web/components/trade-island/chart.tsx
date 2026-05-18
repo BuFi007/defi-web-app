@@ -41,6 +41,7 @@ import {
   type Candle,
   type CandleSource,
 } from "@bufi/market-data";
+import { useLiveMarket } from "@/lib/perps/use-live-market";
 import type { Market } from "./data";
 
 export interface CandleChartProps {
@@ -48,6 +49,14 @@ export interface CandleChartProps {
   timeframe: string;
   /** Defaults to `'mock'` until Sprint A wires ponder + Sprint E wires WS. */
   source?: CandleSource;
+  /**
+   * Optional realtime overlay. Defaults to `'mock'` so existing callers and
+   * tests see identical behavior. When set to `'ws'` the chart subscribes to
+   * the live-market WebSocket and updates the last candle's close on each
+   * tick via `series.update(...)`. If the WS is down or `NEXT_PUBLIC_API_URL`
+   * is unset, the chart silently falls back to the historical/mock series.
+   */
+  liveSource?: "ws" | "mock";
   /** Faint mid/oracle overlay; same length as candles array, aligned by index. */
   oracleLine?: number[];
   /** PriceLine overlays — render only when a value is provided. */
@@ -117,6 +126,7 @@ export function CandleChart({
   market,
   timeframe,
   source = "mock",
+  liveSource = "mock",
   oracleLine,
   liquidationPrice,
   entryPrice,
@@ -128,7 +138,15 @@ export function CandleChart({
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const oracleSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const priceLinesRef = useRef<IPriceLine[]>([]);
+  // Tracks the last seed candle pushed into the series so live updates fold
+  // the new mark into the *latest* bar instead of appending a fresh one.
+  const lastCandleRef = useRef<Candle | null>(null);
   const [hover, setHover] = useState<Candle | null>(null);
+
+  // Subscribe to the live WS feed only when the caller opted in. The hook
+  // gracefully returns `tick === null` + `status === 'error'` when the env
+  // var is missing, so the chart silently keeps rendering historical data.
+  const live = useLiveMarket(market.sym, { enabled: liveSource === "ws" });
 
   // Chart lifecycle — create once, dispose on unmount.
   useEffect(() => {
@@ -258,6 +276,7 @@ export function CandleChart({
       }));
       candleSeries.setData(candleData);
       volumeSeries.setData(volumeData);
+      lastCandleRef.current = candles.length ? candles[candles.length - 1] : null;
 
       if (oracleLine && oracleLine.length === candles.length) {
         const oracleData: LineData<UTCTimestamp>[] = candles.map((c, i) => ({
@@ -322,6 +341,54 @@ export function CandleChart({
       );
     }
   }, [entryPrice, liquidationPrice, markPrice]);
+
+  // Live-tick fold-in. Only runs when `liveSource === 'ws'` AND the hook has
+  // delivered a tick. We mutate the in-memory `lastCandleRef` so subsequent
+  // ticks compose against the rolling high/low instead of resetting on every
+  // re-render. `series.update(...)` with the existing time → in-place update;
+  // with a new time → append. Never `setData` here — that thrashes the chart.
+  useEffect(() => {
+    if (liveSource !== "ws") return;
+    const tick = live.tick;
+    if (!tick) return;
+    const candleSeries = candleSeriesRef.current;
+    if (!candleSeries) return;
+    const seed = lastCandleRef.current;
+    if (!seed) return;
+    const mark = tick.mark;
+    if (!Number.isFinite(mark) || mark <= 0) return;
+    // Fold the new mark into the last seed candle. If the WS server has
+    // rolled into a new bucket (`tick.lastCandle.time > seed.time`), append
+    // a fresh candle; lightweight-charts requires monotonic times.
+    let next: Candle;
+    if (tick.lastCandle.time > seed.time) {
+      next = {
+        time: tick.lastCandle.time,
+        o: mark,
+        h: mark,
+        l: mark,
+        c: mark,
+        v: 0,
+      };
+    } else {
+      next = {
+        time: seed.time,
+        o: seed.o,
+        h: Math.max(seed.h, mark),
+        l: Math.min(seed.l, mark),
+        c: mark,
+        v: seed.v,
+      };
+    }
+    candleSeries.update({
+      time: next.time as UTCTimestamp,
+      open: next.o,
+      high: next.h,
+      low: next.l,
+      close: next.c,
+    });
+    lastCandleRef.current = next;
+  }, [liveSource, live.tick]);
 
   // Crosshair → OHLC tooltip. We render into a small overlay anchored top-left
   // so we don't fight the existing `.chart-substats` row above the chart.
