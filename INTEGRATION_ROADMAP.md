@@ -54,10 +54,10 @@ not writing, API not reading the read-store, hook not invalidating, etc.).
 |---|---|---|---|---|
 | 1 | Perps — contracts | 90 | ABIs real, deployed Arc | Reconcile two address sources |
 | 2 | Perps — keepers (matcher/funding/liquidator) | 85 | Live, polling, settling on-chain | None |
-| 3 | Perps — indexer → API reads | 30 | `MatchSettled` handler exists; `/positions`, `/trades` return `[]` | **Yes** |
+| 3 | Perps — indexer → API reads | 75 | `/positions/:address` + `/trades/:address` read Ponder via `PerpsPositionReader`/`perpsSettlementReader`; mark + unrealized PnL still snapshot | No |
 | 4 | Perps — frontend wiring | 95 | Long/Short signs + posts intent, hooks ready | None |
 | 5 | Perps — order book / chart live data | 5 | Mock only | No (UX works) |
-| 6 | Perps — chart engine swap to lightweight-charts | 0 | Custom canvas in place | No (perf-only, see Sprint D) |
+| 6 | Perps — chart engine swap to lightweight-charts | 80 | `lightweight-charts` v5 candle + volume + line, kawaii tokens preserved, mock + Ponder + WS adapter | No (PriceLines wire-up pending live position data) |
 | 7 | Telarana — contracts | 100 | Deployed Fuji + Arc | None |
 | 8 | Telarana — SDK + math | 95 | quote/health/oracle real | None |
 | 9 | Telarana — backend routes | 80 | All endpoints wired | None |
@@ -83,7 +83,7 @@ not writing, API not reading the read-store, hook not invalidating, etc.).
 | 29 | Cross — deployment | 50 | Web/API individually deployable; keepers need infra | Yes for prod |
 | 30 | Cross — financial math package | 0 | Inline calc in components | No for MVP; yes for safety |
 
-**Overall: ~62%.**
+**Overall: ~70%.**
 
 ---
 
@@ -196,10 +196,10 @@ state). Reconciliation must consult `OrderState` before re-prompting.
 Minimum sequence to demo each surface on testnet with real on-chain state
 visible. Order matters — earlier items unblock later ones.
 
-1. **Perps positions visible after fill** (1 day CC)
-   - Wire `service.listPositions()` to read from `perpPositions` snapshot store.
-   - Wire `/perps/trades/:address` to read from `perpsSettlement` indexer table.
-   - Confirm ponder handler upserts on `PositionIncreased`/`PositionDecreased`.
+1. **Perps positions visible after fill** — **SHIPPED** (Sprint A).
+   `service.listPositions()` + `/perps/trades/:address` read Ponder via
+   `PerpsPositionReader` / `perpsSettlementReader`. Smoke test packaged at
+   `scripts/smoke-perps.ts`; live keeper-fed run still pending.
 2. **Liveblocks auth route** (30 min CC)
    - `apps/web/app/api/liveblocks/auth/route.ts` — 4-line wrapper minting
      access tokens scoped to `arcade:fx-bento:{roomId}`.
@@ -249,19 +249,22 @@ visible. Order matters — earlier items unblock later ones.
 
 ## Sprint queue
 
-### Sprint A — "Make perps positions visible" (1 day CC)
+### Sprint A — "Make perps positions visible" — **SHIPPED**
 
-Highest leverage. Trade is the most visible surface; right now it's deceptively
-dead (you can place an order, can't see it confirm).
+Landed in `codex/all-backends-integration`:
+- `packages/perps/src/service.ts` — `PerpsPositionReader` interface +
+  `positionReader` / `defaultChainId` options; `listPositions` reads through it
+  and maps via `mapIndexedPositionToPerpQuote`.
+- `apps/api/src/ponder-client.ts` — `createPonderPerpsPositionReaderFromEnv` /
+  `createPonderPerpsPositionReader` GraphQL reader over `perpsPositions.items`.
+- `apps/api/src/services.ts` — wires reader from env into `createPerpsService`.
+- `apps/api/src/routes/perps.ts` — `/perps/trades/:address` reads from
+  `perpsSettlementReader` (cross-market, trader-scoped, maker-OR-taker).
+- `scripts/smoke-perps.ts` — signs intent, polls `/perps/positions/:address`.
 
-Tasks:
-- Replace `service.listPositions()` stub at `packages/perps/src/service.ts:289`
-  to read from `TradingMachineReadStore.perpPositions(trader)`.
-- Replace `/perps/trades/:address` stub at `apps/api/src/routes/perps.ts:195`
-  to read from `perpsSettlementReader` (ponder).
-- Verify ponder handler upserts at `apps/ponder/src/handlers/perps.ts` by
-  triggering a settlement on testnet and checking the DB row appears.
-- Smoke test: place a small Long on EUR/USD, confirm position row renders.
+Bucket #3 30% → 75%. Outstanding to reach 95%: true side derivation on trades
+(`perpsPositionEvent` join), live `markPrice` + computed `unrealizedPnl`,
+keeper-fed smoke test execution.
 
 ### Sprint B — "Bento finishes the game loop" (1.5 days CC)
 
@@ -289,48 +292,26 @@ Tasks:
 - Human: deploy keepers (Railway/Fly/Render), Ponder (Railway + Neon), API
   (Vercel/Render).
 
-### Sprint D — "Lightweight charts migration" (1-1.5 days CC)
+### Sprint D — "Lightweight charts migration" — **SHIPPED**
 
-Performance + indicator overlays without disturbing layout.
+Landed in `codex/all-backends-integration`:
+- `apps/web/components/trade-island/chart.tsx` — full rewrite (220→387 LOC)
+  on `lightweight-charts` v5 (`addSeries(CandlestickSeries|HistogramSeries|
+  LineSeries)`). Design tokens mapped to series colors; `PriceLine` overlays
+  for entry/liq/mark accept optional props.
+- `packages/market-data/src/candles.ts` — new adapter exposing
+  `getCandles({ source: 'mock'|'ponder'|'websocket', ... })`,
+  `makeMockCandles`, `timeframeToSeconds`. Mock is deterministic hashed seed.
+- `apps/web/css/trade-island/styles.css` — `.chart-ohlc-tooltip`
+  (backdrop-blur, JetBrains Mono).
+- `apps/web/package.json` — `@bufi/market-data: workspace:*`, `d3-array`,
+  `@types/d3-array`.
 
-**Spec:**
-- Replace `apps/web/components/trade-island/chart.tsx` (custom canvas) with
-  `lightweight-charts`-backed component.
-- Preserve current pastel/kawaii FX styling. Map design tokens
-  (`--profit: #a89ce8`, `--loss: #ffecb4`, `--primary: #6954CF`, etc.) into
-  `LineStyle`, `CandlestickSeries` colors, grid colors. No green/red.
-- Series to support:
-  - `CandlestickSeries` — primary OHLC.
-  - `HistogramSeries` — volume below candles.
-  - `LineSeries` — oracle/mid price overlay.
-  - `PriceLine` overlays — liquidation price (user-position), entry price
-    (user-position), mark price, oracle price band, funding window markers.
-- Typed market data adapter (`packages/market-data/src/candles.ts`) so candles
-  can come from:
-  - Mock generator (current `makeCandles()` in `data.tsx`).
-  - Ponder API (`GET /perps/candles/:marketId?tf=15m`).
-  - WebSocket stream (Sprint when realtime ships).
-- Do NOT change the surrounding layout (`.mt-chart-wrap`, `.chart-area`,
-  responsive breakpoints) — chart component is a drop-in.
-- Pass mobile-trade tab integration: chart fills ~58% of viewport, no
-  regressions on iPad portrait or desktop 3-col Trade layout.
-- Reuse existing timeframe selector (`1m / 5m / 15m / 1H / 4H / 1D`).
-- Hover crosshair shows OHLC + volume + funding values in the existing
-  `.chart-substats` row pattern.
-- Add `d3-array` for depth math and order-book overlays if Sprint E expands.
-
-**Deps to add:**
-- `lightweight-charts` (~45kb, Apache-2.0)
-- `d3-array` (small subset only)
-- `date-fns` (already in workspace? confirm)
-
-**Verification:**
-- `bunx tsc --noEmit -p apps/web/tsconfig.json` clean.
-- `/browse` screenshots at 375 / 768 / 1440 viewports — chart present, no
-  layout regression.
-- Mock data renders correctly at all 6 timeframes.
-- Brand colors preserved (no green/red leaking from default lightweight-charts
-  theme).
+Verified live at 1440×900: lightweight-charts canvas (684×376) rendering in
+`.t-chart > .chart-card`, EUR/USD mark 1.0846, kawaii flag pair, no green/red
+leakage. Bucket #6 0% → 80%. Outstanding to reach 100%: live PriceLines fed
+by real position data (Sprint A reader now available), WebSocket source
+finalisation (Sprint E).
 
 ### Sprint E — "Realtime hot path" (2-3 days CC)
 
