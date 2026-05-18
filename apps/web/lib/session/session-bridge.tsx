@@ -114,11 +114,12 @@ export function SessionBridge() {
       const addr = (primaryWallet?.address ?? null) as
         | `0x${string}`
         | null;
-      const chainStr = primaryWallet?.connectedChain ?? null;
-      const chainNum =
-        chainStr && typeof chainStr === "string" && /^\d+$/.test(chainStr)
-          ? Number(chainStr)
-          : null;
+      // Dynamic's Wallet shape doesn't carry connectedChain as a
+      // documented field anymore — fall back to wagmi's chainId which
+      // tracks the connector's active chain. This is the same value
+      // useChainId() would return; we resolve it here so the store
+      // stays in sync with the active wallet.
+      const chainNum = wagmiChainId ?? null;
       setIdentity({
         status: "connected",
         address: addr,
