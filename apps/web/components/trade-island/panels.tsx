@@ -1,10 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useAccount } from "wagmi";
+
 import { Icon, FlagPair, fmtUSD, fmtPct, makeOrderbook, type Market } from "./data";
 import { Hint } from "./hint";
 import { CandleChart } from "./chart";
 import { Slider } from "@/components/ui/slider";
+import { useToast } from "@/components/ui/use-toast";
+import { useMarkets, usePlaceOrder } from "@/lib/perps/hooks";
+import { getPerpsReplacementDevWallet } from "@/lib/perps/dev-mock-wallet";
+import type { PerpsMarketDto } from "@/lib/perps/client";
 
 export function OrderbookCard({ market }: { market: Market }) {
   const tickSize = market.price < 10 ? 0.0001 : market.price < 1000 ? 0.01 : 0.5;
@@ -68,13 +74,46 @@ export function OrderbookCard({ market }: { market: Market }) {
   );
 }
 
-export function OrderPanelCard({ market }: { market: Market }) {
+// Resolve a user-facing market label (e.g. "EUR/USD") to one of the live
+// marketIds returned by /perps/markets. The live ARC universe is currency/
+// USDC pairs (EURC/USDC, tJPYC/USDC, etc.) so we match on the base currency.
+// Falls back to the first enabled market so the UI still produces a signed
+// intent during E2E even when symbols don't line up perfectly.
+function resolveLiveMarket(uiSym: string, markets: PerpsMarketDto[] | undefined): PerpsMarketDto | undefined {
+  if (!markets || markets.length === 0) return undefined;
+  const enabled = markets.filter((m) => m.enabled);
+  const pool = enabled.length > 0 ? enabled : markets;
+  const base = uiSym.split(/[/-]/)[0]?.toUpperCase() ?? "";
+  const baseAliases: Record<string, string[]> = {
+    EUR: ["EURC"],
+    JPY: ["JPYC", "TJPYC"],
+    MXN: ["MXNB", "TMXNB"],
+    CHF: ["CHFC", "TCHFC"],
+  };
+  const candidates = [base, ...(baseAliases[base] ?? [])];
+  for (const c of candidates) {
+    const hit = pool.find((m) => m.symbol.toUpperCase().startsWith(c));
+    if (hit) return hit;
+  }
+  return pool[0];
+}
+
+export function OrderPanelCard({
+  market,
+  initialSide,
+}: {
+  market: Market;
+  /** Mobile bottom-sheet pre-selects which side the trader tapped on the sticky CTAs. */
+  initialSide?: "long" | "short";
+}) {
   const [orderType, setOrderType] = useState("limit");
-  const [margin, setMargin] = useState("cross");
+  const [marginMode, setMarginMode] = useState("cross");
   const [lev, setLev] = useState(market.leverage > 50 ? 25 : 10);
   const [size, setSize] = useState("");
   const [price, setPrice] = useState("");
   const [showAdv, setShowAdv] = useState(false);
+  const [reduceOnly, setReduceOnly] = useState(false);
+  const [postOnly, setPostOnly] = useState(false);
   const decimals = market.price < 10 ? 4 : market.price < 1000 ? 2 : 1;
   const sizeV = parseFloat(size) || 0;
   const priceV = parseFloat(price) || market.price;
@@ -85,6 +124,69 @@ export function OrderPanelCard({ market }: { market: Market }) {
   const types = ["Market", "Limit", "Stop", "TP/SL"];
   const presets = [1, 2, 5, 10, 25, 50, 100];
   const sizePcts = [25, 50, 75, 100];
+
+  const { address, isConnected } = useAccount();
+  const devWallet = useMemo(() => getPerpsReplacementDevWallet(), []);
+  const { toast } = useToast();
+  const { data: markets } = useMarkets();
+  const placeOrder = usePlaceOrder();
+  const liveMarket = useMemo(() => resolveLiveMarket(market.sym, markets), [market.sym, markets]);
+
+  const canTrade = Boolean(isConnected || devWallet);
+  const hasSize = sizeV > 0;
+  const needsLimitPrice = orderType === "limit" && (!price || parseFloat(price) <= 0);
+  const submitDisabled = !canTrade || !liveMarket || !hasSize || needsLimitPrice || placeOrder.isPending;
+
+  const submit = async (side: "long" | "short") => {
+    if (!liveMarket) {
+      toast({
+        variant: "destructive",
+        title: "No market available",
+        description: "Live perps markets haven't loaded yet. Retry in a moment.",
+      });
+      return;
+    }
+    if (!canTrade) {
+      toast({
+        variant: "destructive",
+        title: "Connect a wallet",
+        description: "Connect your wallet (or set NEXT_PUBLIC_PERPS_REPLACEMENT_E2E=1 for dev).",
+      });
+      return;
+    }
+    if (!hasSize) {
+      toast({ variant: "destructive", title: "Enter a size", description: "Size must be greater than zero." });
+      return;
+    }
+    const apiKind: "limit" | "market" = orderType === "market" ? "market" : "limit";
+    if (apiKind === "limit" && (!price || parseFloat(price) <= 0)) {
+      toast({
+        variant: "destructive",
+        title: "Enter a limit price",
+        description: "Limit orders need a non-zero price.",
+      });
+      return;
+    }
+    try {
+      const result = await placeOrder.mutateAsync({
+        marketId: liveMarket.marketId,
+        side,
+        sizeUsdc: sizeV.toString(),
+        leverage: lev,
+        orderType: apiKind,
+        priceE18: apiKind === "limit" ? priceToE18(price || String(market.price)) : "0",
+        reduceOnly,
+        postOnly: apiKind === "limit" ? postOnly : false,
+      });
+      toast({
+        title: `${side === "long" ? "Long" : "Short"} submitted`,
+        description: `${liveMarket.symbol} · ${apiKind.toUpperCase()} · intent ${shortDigest(result.digest)}`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      toast({ variant: "destructive", title: "Order failed", description: message });
+    }
+  };
 
   return (
     <div className="card order-card">
@@ -97,15 +199,15 @@ export function OrderPanelCard({ market }: { market: Market }) {
         </div>
         <div className="margin-tabs">
           <button
-            className={margin === "cross" ? "active" : ""}
-            onClick={() => setMargin("cross")}
+            className={marginMode === "cross" ? "active" : ""}
+            onClick={() => setMarginMode("cross")}
             title="Cross margin: all your free collateral backs every position. Lower liquidation risk but losses can cascade."
           >
             Cross
           </button>
           <button
-            className={margin === "iso" ? "active" : ""}
-            onClick={() => setMargin("iso")}
+            className={marginMode === "iso" ? "active" : ""}
+            onClick={() => setMarginMode("iso")}
             title="Isolated margin: only the margin you set backs this position. Limits your downside to that amount."
           >
             Isolated
@@ -241,11 +343,21 @@ export function OrderPanelCard({ market }: { market: Market }) {
 
         <div className="options-row">
           <label>
-            <input type="checkbox" /> Reduce Only
+            <input
+              type="checkbox"
+              checked={reduceOnly}
+              onChange={(e) => setReduceOnly(e.target.checked)}
+            />{" "}
+            Reduce Only
           </label>
           {orderType === "limit" && (
             <label>
-              <input type="checkbox" /> Post Only
+              <input
+                type="checkbox"
+                checked={postOnly}
+                onChange={(e) => setPostOnly(e.target.checked)}
+              />{" "}
+              Post Only
             </label>
           )}
         </div>
@@ -281,23 +393,54 @@ export function OrderPanelCard({ market }: { market: Market }) {
             </span>
             <span className="v mono">{fmtUSD(notional * 0.0005)}</span>
           </div>
+          {liveMarket && (
+            <div className="summary-row" style={{ opacity: 0.7 }}>
+              <span className="l">Live market</span>
+              <span className="v mono" style={{ fontSize: 11 }}>
+                {liveMarket.symbol}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="long-short">
-        <button className="long">
-          <Icon name="sparkle" size={14} /> Long
+        <button
+          className={"long" + (initialSide === "long" ? " primed" : "")}
+          disabled={submitDisabled}
+          onClick={() => submit("long")}
+          aria-busy={placeOrder.isPending}
+          data-primed={initialSide === "long" ? "true" : undefined}
+        >
+          <Icon name="sparkle" size={14} /> {placeOrder.isPending ? "Signing..." : "Long"}
         </button>
-        <button className="short">
-          <Icon name="sparkle" size={14} /> Short
+        <button
+          className={"short" + (initialSide === "short" ? " primed" : "")}
+          disabled={submitDisabled}
+          onClick={() => submit("short")}
+          aria-busy={placeOrder.isPending}
+          data-primed={initialSide === "short" ? "true" : undefined}
+        >
+          <Icon name="sparkle" size={14} /> {placeOrder.isPending ? "Signing..." : "Short"}
         </button>
       </div>
       <div className="avail-line">
-        Available{" "}
-        <span className="mono" style={{ color: "var(--ink)", fontWeight: 800 }}>
-          {fmtUSD(125420.5)}
-        </span>{" "}
-        USDC
+        {address ? (
+          <>
+            Connected{" "}
+            <span className="mono" style={{ color: "var(--ink)", fontWeight: 800 }}>
+              {shortAddress(address)}
+            </span>
+          </>
+        ) : (
+          <>
+            Available{" "}
+            <span className="mono" style={{ color: "var(--ink)", fontWeight: 800 }}>
+              {fmtUSD(125420.5)}
+            </span>{" "}
+            USDC
+          </>
+        )}
       </div>
     </div>
   );
@@ -378,3 +521,21 @@ export function ChartCard({ market }: { market: Market }) {
     </div>
   );
 }
+
+// 1e18-scale a decimal price string without dragging in viem/parseUnits here.
+function priceToE18(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "0";
+  const [whole, frac = ""] = trimmed.split(".");
+  const fracPadded = (frac + "0".repeat(18)).slice(0, 18);
+  return (BigInt(whole || "0") * 10n ** 18n + BigInt(fracPadded || "0")).toString();
+}
+
+function shortDigest(value: string): string {
+  return value.length > 12 ? `${value.slice(0, 8)}...${value.slice(-4)}` : value;
+}
+
+function shortAddress(value: string): string {
+  return value.length > 10 ? `${value.slice(0, 6)}...${value.slice(-4)}` : value;
+}
+

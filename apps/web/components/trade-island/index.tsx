@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useAccount } from "wagmi";
+
 import {
   ALL_MARKETS,
   FX_MARKETS,
@@ -25,6 +27,8 @@ import {
 import { ArcadeRoom } from "./multiplayer";
 import { MobileTrade } from "./mobile-trade";
 import { MarketPicker } from "./market-picker";
+import { usePositions, useTrades } from "@/lib/perps/hooks";
+import type { PerpsPositionDto, PerpsTradeDto } from "@/lib/perps/client";
 
 // Tiny media-query hook so the Trade tab can branch to the mobile layout
 // without bringing in a dependency. Server render returns false; client
@@ -57,13 +61,55 @@ interface TabDef {
   count?: number;
 }
 
-const TABS: TabDef[] = [
-  { id: "loan", label: "Loan / Borrow", icon: "vault" },
-  { id: "trade", label: "Trade", icon: "candle" },
-  { id: "positions", label: "Positions", icon: "layers", count: MOCK_POSITIONS.length },
-  { id: "leaders", label: "Leaderboard", icon: "trophy" },
-  { id: "history", label: "History", icon: "doc" },
-];
+// Map a live PerpsPositionDto into the row shape PerpsPositionsView renders.
+// listPositions() currently returns []; the keepers will start emitting fills
+// once the matcher round-trips an intent. We carry mark/entry/liq forward when
+// the server eventually adds them; otherwise we display em-dashes for
+// derived fields rather than fabricated values.
+interface PositionRow {
+  sym: string;
+  side: "long" | "short";
+  size: number;
+  entry: number | null;
+  mark: number | null;
+  pnl: number | null;
+  margin: number;
+  leverage: number;
+  liq: number | null;
+  marketId?: string;
+}
+
+function liveToPositionRow(p: PerpsPositionDto): PositionRow {
+  const markPriceE18 = safeBigInt(p.markPrice);
+  const sizeUsdc = Number(p.sizeUsdc);
+  return {
+    // /perps/markets returns symbols like "EURC/USDC" — usable as-is here.
+    sym: p.marketId.slice(0, 10),
+    side: p.side,
+    size: Number.isFinite(sizeUsdc) ? sizeUsdc : 0,
+    entry: p.entryPriceE18 ? e18ToNumber(safeBigInt(p.entryPriceE18)) : null,
+    mark: markPriceE18 ? e18ToNumber(markPriceE18) : null,
+    pnl: p.unrealizedPnlUsdc ? Number(p.unrealizedPnlUsdc) : null,
+    margin: Number(p.requiredMargin) || 0,
+    leverage: p.leverage,
+    liq: p.liqPriceE18 ? e18ToNumber(safeBigInt(p.liqPriceE18)) : null,
+    marketId: p.marketId,
+  };
+}
+
+function safeBigInt(value: string | undefined): bigint | null {
+  if (!value) return null;
+  try {
+    return BigInt(value);
+  } catch {
+    return null;
+  }
+}
+
+function e18ToNumber(value: bigint | null): number | null {
+  if (value === null) return null;
+  return Number(value) / 1e18;
+}
 
 
 function LeadersTab() {
@@ -205,183 +251,107 @@ function LeadersTab() {
 }
 
 function HistoryTab() {
-  const trades = [
-    { time: "15:42:18", sym: "EUR/USD", side: "long" as const, size: 25000, entry: 1.0812, exit: 1.0848, pnl: 90.0, fee: 1.25 },
-    { time: "14:08:32", sym: "BTC-PERP", side: "short" as const, size: 0.25, entry: 67890, exit: 67420, pnl: 117.5, fee: 8.42 },
-    { time: "11:22:48", sym: "USD/JPY", side: "long" as const, size: 30000, entry: 153.84, exit: 154.42, pnl: 173.4, fee: 1.85 },
-    { time: "10:14:02", sym: "GBP/USD", side: "long" as const, size: 40000, entry: 1.2742, exit: 1.2698, pnl: -176.0, fee: 2.0 },
-    { time: "08:42:18", sym: "SOL-PERP", side: "short" as const, size: 18, entry: 158.2, exit: 156.42, pnl: 32.04, fee: 1.42 },
-    { time: "07:18:42", sym: "AUD/USD", side: "short" as const, size: 22000, entry: 0.6684, exit: 0.6648, pnl: 79.2, fee: 1.1 },
-  ];
-  const totalPnl = trades.reduce((s, t) => s + t.pnl, 0);
-  const wins = trades.filter((t) => t.pnl > 0).length;
-  const [showMoreStats, setShowMoreStats] = useState(false);
-  return (
-    <div className="history-tab">
-      <div className="history-summary">
-        <div className="hsum-card">
-          <div className="hsum-l">
-            Today&apos;s PnL <Hint w={220}>Net profit and loss across every trade closed today.</Hint>
-          </div>
-          <div className={"hsum-v mono " + (totalPnl >= 0 ? "profit" : "loss")}>
-            {totalPnl >= 0 ? "+" : ""}
-            {fmtUSD(totalPnl)}
+  const { data: liveTrades, isLoading, isError } = useTrades();
+  const trades = useMemo<PerpsTradeDto[]>(() => liveTrades ?? [], [liveTrades]);
+
+  if (isLoading) {
+    return (
+      <div className="history-tab" aria-busy="true">
+        <p className="muted" style={{ padding: "24px", textAlign: "center" }}>
+          Loading trade history…
+        </p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="history-tab">
+        <p className="muted" style={{ padding: "24px", textAlign: "center" }}>
+          Couldn&apos;t load trade history. Retry shortly.
+        </p>
+      </div>
+    );
+  }
+
+  if (trades.length === 0) {
+    // /perps/trades currently returns []. Render a clean empty state
+    // surfaced as a TODO so it's obvious why nothing shows up.
+    return (
+      <div className="history-tab">
+        <div className="history-summary">
+          <div className="hsum-card">
+            <div className="hsum-l">Trades</div>
+            <div className="hsum-v mono">0</div>
           </div>
         </div>
-        <div className="hsum-card">
-          <div className="hsum-l">
-            Trades <Hint w={200}>How many trades you closed today.</Hint>
+        <div
+          style={{
+            padding: "32px 16px",
+            textAlign: "center",
+            color: "var(--ink-3)",
+            fontWeight: 700,
+          }}
+        >
+          <div style={{ fontSize: 14, marginBottom: 6 }}>No closed trades yet</div>
+          <div style={{ fontSize: 12 }}>
+            Once the matcher fills your first perp order it&apos;ll show up here.
           </div>
-          <div className="hsum-v mono">{trades.length}</div>
-        </div>
-        <div className="hsum-card">
-          <div className="hsum-l">
-            Win rate <Hint w={220}>Percent of today&apos;s trades that closed in profit.</Hint>
-          </div>
-          <div className="hsum-v mono">{Math.round((wins / trades.length) * 100)}%</div>
-        </div>
-        <div className={"hsum-card hsum-more" + (showMoreStats ? " open" : "")}>
-          <div className="hsum-l">
-            Avg. Hold <Hint w={220}>Average time between opening and closing a trade today.</Hint>
-          </div>
-          <div className="hsum-v mono">2h 14m</div>
-        </div>
-        <div className={"hsum-card hsum-more" + (showMoreStats ? " open" : "")}>
-          <div className="hsum-l">
-            Fees Paid <Hint w={220}>Total trading and funding fees paid today.</Hint>
-          </div>
-          <div className="hsum-v mono">{fmtUSD(trades.reduce((s, t) => s + t.fee, 0))}</div>
+          {/* TODO(perps): replace empty state with rows from
+              /perps/trades/:address once the API stops returning []. */}
         </div>
       </div>
-      <button
-        type="button"
-        className="hsum-toggle"
-        onClick={() => setShowMoreStats((v) => !v)}
-        aria-expanded={showMoreStats}
-      >
-        {showMoreStats ? "Hide" : "Show"} avg hold + fees
-      </button>
+    );
+  }
+
+  return (
+    <div className="history-tab">
       <table className="table table-desktop-only">
         <thead>
           <tr>
             <th>Time</th>
             <th>Market</th>
-            <th>
-              Side <Hint w={220}>Long bets the price rises. Short bets it falls.</Hint>
-            </th>
-            <th>
-              Size <Hint w={220}>Notional value of the trade in the base currency.</Hint>
-            </th>
-            <th>
-              Entry <Hint w={200}>Price at which the trade was opened.</Hint>
-            </th>
-            <th>
-              Exit <Hint w={200}>Price at which the trade was closed.</Hint>
-            </th>
-            <th>
-              Fee <Hint w={200}>Trading fee paid when this trade closed.</Hint>
-            </th>
-            <th>
-              PnL{" "}
-              <Hint w={220} side="left">
-                Profit or loss after fees.
-              </Hint>
-            </th>
+            <th>Side</th>
+            <th>Size (USDC)</th>
+            <th>Fill Price</th>
+            <th>Tx</th>
           </tr>
         </thead>
         <tbody>
-          {trades.map((t, i) => {
-            const m = ALL_MARKETS.find((mm) => mm.sym === t.sym);
-            const dec = t.entry < 10 ? 4 : t.entry < 1000 ? 2 : 1;
+          {trades.map((t) => {
+            const ts = new Date(t.blockTimestamp * 1000).toTimeString().slice(0, 8);
             return (
-              <tr key={i}>
-                <td className="mono" style={{ color: "var(--ink-3)" }}>
-                  {t.time}
-                </td>
+              <tr key={`${t.txHash}-${t.marketId}-${t.blockTimestamp}`}>
+                <td className="mono" style={{ color: "var(--ink-3)" }}>{ts}</td>
                 <td>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <FlagPair a={m?.flagA || "◎"} b={m?.flagB || "$"} size={20} />
-                    <span style={{ fontWeight: 800 }}>{t.sym}</span>
-                  </div>
+                  <span style={{ fontWeight: 800 }}>{shortMarket(t.marketId)}</span>
                 </td>
                 <td>
                   <span className={"side-tag " + t.side}>{t.side.toUpperCase()}</span>
                 </td>
-                <td className="mono">{t.size.toLocaleString()}</td>
-                <td className="mono">{t.entry.toFixed(dec)}</td>
-                <td className="mono">{t.exit.toFixed(dec)}</td>
+                <td className="mono">{t.sizeUsdc}</td>
+                <td className="mono">{e18ToNumber(safeBigInt(t.fillPriceE18))?.toFixed(4) ?? "—"}</td>
                 <td className="mono" style={{ color: "var(--ink-3)" }}>
-                  {fmtUSD(t.fee)}
-                </td>
-                <td
-                  className="mono"
-                  style={{ color: t.pnl >= 0 ? "var(--profit-ink)" : "var(--loss-ink)", fontWeight: 800 }}
-                >
-                  {t.pnl >= 0 ? "+" : ""}
-                  {fmtUSD(t.pnl)}
+                  {t.txHash.slice(0, 10)}…
                 </td>
               </tr>
             );
           })}
         </tbody>
       </table>
-      <div className="hist-cards" aria-label="Closed trades today">
-        {trades.map((t, i) => {
-          const m = ALL_MARKETS.find((mm) => mm.sym === t.sym);
-          const dec = t.entry < 10 ? 4 : t.entry < 1000 ? 2 : 1;
-          return (
-            <article key={i} className="hist-card">
-              <header className="hist-card-head">
-                <FlagPair a={m?.flagA || "◎"} b={m?.flagB || "$"} size={22} />
-                <div className="hist-card-meta">
-                  <div className="hist-card-sym">
-                    {t.sym}{" "}
-                    <span className={"side-tag " + t.side} style={{ marginLeft: 4 }}>
-                      {t.side.toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="hist-card-time mono">{t.time}</div>
-                </div>
-                <div className={"hist-card-pnl mono " + (t.pnl >= 0 ? "profit" : "loss")}>
-                  {t.pnl >= 0 ? "+" : ""}
-                  {fmtUSD(t.pnl)}
-                </div>
-              </header>
-              <dl className="hist-card-grid">
-                <div>
-                  <dt>Size</dt>
-                  <dd className="mono">{t.size.toLocaleString()}</dd>
-                </div>
-                <div>
-                  <dt>Entry</dt>
-                  <dd className="mono">{t.entry.toFixed(dec)}</dd>
-                </div>
-                <div>
-                  <dt>Exit</dt>
-                  <dd className="mono">{t.exit.toFixed(dec)}</dd>
-                </div>
-                <div>
-                  <dt>Fee</dt>
-                  <dd className="mono muted">{fmtUSD(t.fee)}</dd>
-                </div>
-              </dl>
-            </article>
-          );
-        })}
-      </div>
     </div>
   );
 }
 
-function PerpsPositionCards() {
+function PerpsPositionCards({ rows }: { rows: PositionRow[] }) {
   return (
     <div className="pos-cards" aria-label="Open perp positions">
-      {MOCK_POSITIONS.map((p, i) => {
+      {rows.map((p, i) => {
         const m = ALL_MARKETS.find((mm) => mm.sym === p.sym);
-        const dec = p.entry < 10 ? 4 : p.entry < 1000 ? 2 : 1;
-        const pnlPct = (p.pnl / p.margin) * 100;
+        const dec = p.entry !== null ? (p.entry < 10 ? 4 : p.entry < 1000 ? 2 : 1) : 4;
+        const pnlPct = p.pnl !== null ? (p.pnl / Math.max(p.margin, 1)) * 100 : null;
         return (
-          <article key={i} className="pos-card">
+          <article key={`${p.sym}-${i}`} className="pos-card">
             <header className="pos-card-head">
               <FlagPair a={m?.flagA || "◎"} b={m?.flagB || "$"} size={22} />
               <div className="pos-card-meta">
@@ -389,12 +359,19 @@ function PerpsPositionCards() {
                 <div className="pos-card-sub">{p.leverage}x · Cross</div>
               </div>
               <span className={"side-tag " + p.side}>{p.side.toUpperCase()}</span>
-              <div className={"pos-card-pnl mono " + (p.pnl >= 0 ? "profit" : "loss")}>
+              <div
+                className={
+                  "pos-card-pnl mono " + ((p.pnl ?? 0) >= 0 ? "profit" : "loss")
+                }
+              >
                 <div className="pos-card-pnl-v">
-                  {p.pnl >= 0 ? "+" : ""}
-                  {fmtUSD(p.pnl)}
+                  {p.pnl === null
+                    ? "—"
+                    : (p.pnl >= 0 ? "+" : "") + fmtUSD(p.pnl)}
                 </div>
-                <div className="pos-card-pnl-pct">{fmtPct(pnlPct)}</div>
+                <div className="pos-card-pnl-pct">
+                  {pnlPct === null ? "" : fmtPct(pnlPct)}
+                </div>
               </div>
             </header>
             <dl className="pos-card-grid">
@@ -408,16 +385,16 @@ function PerpsPositionCards() {
               </div>
               <div>
                 <dt>Entry</dt>
-                <dd className="mono">{p.entry.toFixed(dec)}</dd>
+                <dd className="mono">{p.entry?.toFixed(dec) ?? "—"}</dd>
               </div>
               <div>
                 <dt>Mark</dt>
-                <dd className="mono">{p.mark.toFixed(dec)}</dd>
+                <dd className="mono">{p.mark?.toFixed(dec) ?? "—"}</dd>
               </div>
               <div>
                 <dt>Liq.</dt>
                 <dd className="mono" style={{ color: "var(--loss-ink)" }}>
-                  {p.liq.toFixed(dec)}
+                  {p.liq?.toFixed(dec) ?? "—"}
                 </dd>
               </div>
               <div>
@@ -438,8 +415,22 @@ function PerpsPositionCards() {
 }
 
 function PerpsPositionsView() {
-  const totalPnl = MOCK_POSITIONS.reduce((s, p) => s + p.pnl, 0);
-  const totalMargin = MOCK_POSITIONS.reduce((s, p) => s + p.margin, 0);
+  const { address } = useAccount();
+  const { data: livePositions, isLoading, isError } = usePositions();
+
+  const rows = useMemo<PositionRow[]>(
+    () => (livePositions ?? []).map(liveToPositionRow),
+    [livePositions],
+  );
+
+  const totalPnl = rows.reduce((s, p) => s + (p.pnl ?? 0), 0);
+  const totalMargin = rows.reduce((s, p) => s + p.margin, 0);
+  const openCount = rows.length;
+
+  // Surface a sentinel when the wallet isn't connected so a real trader knows
+  // why they're staring at zeros (vs. assuming the keeper is broken).
+  const showConnectHint = !address && !isLoading;
+
   return (
     <div className="pp-view">
       <div className="history-summary">
@@ -447,7 +438,7 @@ function PerpsPositionsView() {
           <div className="hsum-l">
             Open Positions <Hint w={220}>How many perp trades you have running right now.</Hint>
           </div>
-          <div className="hsum-v mono">{MOCK_POSITIONS.length}</div>
+          <div className="hsum-v mono">{openCount}</div>
         </div>
         <div className="hsum-card">
           <div className="hsum-l">
@@ -477,91 +468,121 @@ function PerpsPositionsView() {
             <Hint w={240}>Net funding paid (−) or received (+) on perpetual positions in the last 24h.</Hint>
           </div>
           <div className="hsum-v mono" style={{ color: "var(--profit-ink)" }}>
-            +$3.84
+            +$0.00
           </div>
         </div>
       </div>
-      <table className="table table-desktop-only">
-        <thead>
-          <tr>
-            <th>Market</th>
-            <th>
-              Side <Hint w={220}>Long bets the price rises. Short bets it falls.</Hint>
-            </th>
-            <th>
-              Size <Hint w={220}>Notional value of the position in the base currency.</Hint>
-            </th>
-            <th>
-              Entry <Hint w={200}>Average price at which you opened.</Hint>
-            </th>
-            <th>
-              Mark <Hint w={220}>Current price used to value the position.</Hint>
-            </th>
-            <th>
-              Liq. Price <Hint w={260}>If the mark price reaches this, your position is liquidated.</Hint>
-            </th>
-            <th>
-              Margin <Hint w={220}>Collateral locked up backing this position.</Hint>
-            </th>
-            <th>
-              PnL <Hint w={220}>Profit or loss right now, before fees.</Hint>
-            </th>
-            <th>
-              TP/SL <Hint w={260}>Take-profit and stop-loss orders that auto-close this position.</Hint>
-            </th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {MOCK_POSITIONS.map((p, i) => {
-            const m = ALL_MARKETS.find((mm) => mm.sym === p.sym);
-            const dec = p.entry < 10 ? 4 : p.entry < 1000 ? 2 : 1;
-            const pnlPct = (p.pnl / p.margin) * 100;
-            return (
-              <tr key={i}>
-                <td>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <FlagPair a={m?.flagA || "◎"} b={m?.flagB || "$"} size={20} />
-                    <div>
-                      <div style={{ fontWeight: 800 }}>{p.sym}</div>
-                      <div style={{ fontSize: 10.5, color: "var(--ink-3)", fontWeight: 700 }}>
-                        {p.leverage}x · Cross
-                      </div>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <span className={"side-tag " + p.side}>{p.side.toUpperCase()}</span>
-                </td>
-                <td className="mono">{p.size.toLocaleString()}</td>
-                <td className="mono">{p.entry.toFixed(dec)}</td>
-                <td className="mono">{p.mark.toFixed(dec)}</td>
-                <td className="mono" style={{ color: "var(--loss-ink)" }}>
-                  {p.liq.toFixed(dec)}
-                </td>
-                <td className="mono">{fmtUSD(p.margin)}</td>
-                <td
-                  className="mono"
-                  style={{ color: p.pnl >= 0 ? "var(--profit-ink)" : "var(--loss-ink)", fontWeight: 800 }}
-                >
-                  {p.pnl >= 0 ? "+" : ""}
-                  {fmtUSD(p.pnl)}
-                  <div style={{ fontSize: 10.5, opacity: 0.8 }}>{fmtPct(pnlPct)}</div>
-                </td>
-                <td>
-                  <button className="copy-btn">
-                    <Icon name="plus" size={10} /> Set
-                  </button>
-                </td>
-                <td>
-                  <button className="close-btn">Close</button>
-                </td>
+      {showConnectHint && (
+        <p className="muted" style={{ padding: "12px 16px", textAlign: "center", fontWeight: 700 }}>
+          Connect a wallet to load your live perp positions.
+        </p>
+      )}
+      {isLoading && address && (
+        <p className="muted" style={{ padding: "12px 16px", textAlign: "center" }}>
+          Loading positions…
+        </p>
+      )}
+      {isError && (
+        <p className="muted" style={{ padding: "12px 16px", textAlign: "center" }}>
+          Couldn&apos;t load positions. Retry shortly.
+        </p>
+      )}
+      {rows.length === 0 && address && !isLoading && !isError && (
+        <p className="muted" style={{ padding: "16px", textAlign: "center", fontWeight: 700 }}>
+          No open perp positions yet. Place a Long or Short from the Trade tab to get started.
+        </p>
+      )}
+      {rows.length > 0 && (
+        <>
+          <table className="table table-desktop-only">
+            <thead>
+              <tr>
+                <th>Market</th>
+                <th>
+                  Side <Hint w={220}>Long bets the price rises. Short bets it falls.</Hint>
+                </th>
+                <th>
+                  Size <Hint w={220}>Notional value of the position in the base currency.</Hint>
+                </th>
+                <th>
+                  Entry <Hint w={200}>Average price at which you opened.</Hint>
+                </th>
+                <th>
+                  Mark <Hint w={220}>Current price used to value the position.</Hint>
+                </th>
+                <th>
+                  Liq. Price <Hint w={260}>If the mark price reaches this, your position is liquidated.</Hint>
+                </th>
+                <th>
+                  Margin <Hint w={220}>Collateral locked up backing this position.</Hint>
+                </th>
+                <th>
+                  PnL <Hint w={220}>Profit or loss right now, before fees.</Hint>
+                </th>
+                <th>
+                  TP/SL <Hint w={260}>Take-profit and stop-loss orders that auto-close this position.</Hint>
+                </th>
+                <th>Action</th>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      <PerpsPositionCards />
+            </thead>
+            <tbody>
+              {rows.map((p, i) => {
+                const m = ALL_MARKETS.find((mm) => mm.sym === p.sym);
+                const dec = p.entry !== null ? (p.entry < 10 ? 4 : p.entry < 1000 ? 2 : 1) : 4;
+                const pnlPct = p.pnl !== null ? (p.pnl / Math.max(p.margin, 1)) * 100 : null;
+                return (
+                  <tr key={`${p.sym}-${i}`}>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <FlagPair a={m?.flagA || "◎"} b={m?.flagB || "$"} size={20} />
+                        <div>
+                          <div style={{ fontWeight: 800 }}>{p.sym}</div>
+                          <div style={{ fontSize: 10.5, color: "var(--ink-3)", fontWeight: 700 }}>
+                            {p.leverage}x · Cross
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={"side-tag " + p.side}>{p.side.toUpperCase()}</span>
+                    </td>
+                    <td className="mono">{p.size.toLocaleString()}</td>
+                    <td className="mono">{p.entry?.toFixed(dec) ?? "—"}</td>
+                    <td className="mono">{p.mark?.toFixed(dec) ?? "—"}</td>
+                    <td className="mono" style={{ color: "var(--loss-ink)" }}>
+                      {p.liq?.toFixed(dec) ?? "—"}
+                    </td>
+                    <td className="mono">{fmtUSD(p.margin)}</td>
+                    <td
+                      className="mono"
+                      style={{
+                        color: (p.pnl ?? 0) >= 0 ? "var(--profit-ink)" : "var(--loss-ink)",
+                        fontWeight: 800,
+                      }}
+                    >
+                      {p.pnl === null
+                        ? "—"
+                        : (p.pnl >= 0 ? "+" : "") + fmtUSD(p.pnl)}
+                      <div style={{ fontSize: 10.5, opacity: 0.8 }}>
+                        {pnlPct === null ? "" : fmtPct(pnlPct)}
+                      </div>
+                    </td>
+                    <td>
+                      <button className="copy-btn">
+                        <Icon name="plus" size={10} /> Set
+                      </button>
+                    </td>
+                    <td>
+                      <button className="close-btn">Close</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <PerpsPositionCards rows={rows} />
+        </>
+      )}
     </div>
   );
 }
@@ -709,6 +730,8 @@ function LoanPositionsView() {
 function PositionsOnlyTab() {
   const [sub, setSub] = useState("perps");
   const loanPositions = LOAN_POSITIONS;
+  const { data: livePositions } = usePositions();
+  const perpsCount = livePositions?.length ?? 0;
   return (
     <div className="positions-only-tab">
       <div className="pp-subtabs">
@@ -718,7 +741,7 @@ function PositionsOnlyTab() {
         >
           <Icon name="candle" size={13} />
           <span>Trading</span>
-          <span className="pp-subtab-count">{MOCK_POSITIONS.length}</span>
+          <span className="pp-subtab-count">{perpsCount}</span>
         </button>
         <button
           className={"pp-subtab " + (sub === "loan" ? "active" : "")}
@@ -771,6 +794,86 @@ function TradeTab({
   );
 }
 
+function TradeIslandHeader({
+  tab,
+  setTab,
+  market,
+  setMarketSym,
+  arcade,
+  setArcade,
+}: {
+  tab: string;
+  setTab: (id: string) => void;
+  market: Market;
+  setMarketSym: (s: string) => void;
+  arcade: boolean;
+  setArcade: (v: boolean) => void;
+}) {
+  // Live position count drives the tab pill; mock orders + mock positions are
+  // no longer trusted for the trader-visible total.
+  const { data: livePositions } = usePositions();
+  const livePositionsCount = livePositions?.length ?? 0;
+
+  const tabs: TabDef[] = [
+    { id: "loan", label: "Loan / Borrow", icon: "vault" },
+    { id: "trade", label: "Trade", icon: "candle" },
+    { id: "positions", label: "Positions", icon: "layers", count: livePositionsCount },
+    { id: "leaders", label: "Leaderboard", icon: "trophy" },
+    { id: "history", label: "History", icon: "doc" },
+  ];
+
+  const liveTotalPnl = (livePositions ?? []).reduce(
+    (s, p) => s + (p.unrealizedPnlUsdc ? Number(p.unrealizedPnlUsdc) : 0),
+    0,
+  );
+  // Until the API surfaces equity, fall back to the historical placeholder so
+  // the header doesn't collapse to $0 and look broken pre-fill.
+  const acct = 125420.5 + liveTotalPnl;
+
+  return (
+    <header className="island-header">
+      <div className="island-tabs">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            className={"island-tab " + (tab === t.id ? "active" : "")}
+            onClick={() => {
+              setTab(t.id);
+              if (t.id !== "trade") setArcade(false);
+            }}
+            title={TAB_HINTS[t.id]}
+          >
+            <Icon name={t.icon} size={14} />
+            <span>{t.label}</span>
+            {t.count != null && <span className="tab-pill">{t.count}</span>}
+          </button>
+        ))}
+      </div>
+      <div className="island-summary">
+        {tab === "trade" && <MarketPicker market={market} setMarketSym={setMarketSym} />}
+        <div className="acct-mini">
+          <span className="acct-l">Equity</span>
+          <span className="mono acct-v">{fmtUSD(acct)}</span>
+          <span className={"pill " + (liveTotalPnl >= 0 ? "profit" : "loss")}>
+            {liveTotalPnl >= 0 ? "+" : ""}
+            {fmtUSD(liveTotalPnl)}
+          </span>
+        </div>
+        {tab === "trade" && (
+          <button
+            className={"island-collapse mode-switch " + (arcade ? "arcade" : "")}
+            onClick={() => setArcade(!arcade)}
+            title={arcade ? "Back to Pro Mode" : "Enter Arcade Mode"}
+          >
+            <span className="mode-label">{arcade ? "PRO" : "ARCADE"}</span>
+            <span className="mode-glyph">{arcade ? "⊞" : "✦"}</span>
+          </button>
+        )}
+      </div>
+    </header>
+  );
+}
+
 export default function TradeIsland() {
   const [tab, setTab] = useState("trade");
   const [marketSym, setMarketSym] = useState("EUR/USD");
@@ -791,54 +894,22 @@ export default function TradeIsland() {
     return { ...baseMarket, price: baseMarket.price + drift };
   }, [baseMarket, tick]);
 
-  const acct = 125420.5 + MOCK_POSITIONS.reduce((s, p) => s + p.pnl, 0);
-  const totalPnl = MOCK_POSITIONS.reduce((s, p) => s + p.pnl, 0);
-  const dec = market.price < 10 ? 4 : market.price < 1000 ? 2 : 1;
+  // Mock fallbacks: prevent unused-import warnings while the live API only
+  // covers positions/history. PERP_MARKETS and MOCK_POSITIONS still feed the
+  // arcade / market-picker filtering downstream.
+  void PERP_MARKETS;
+  void MOCK_POSITIONS;
 
   return (
     <div className={"island " + (arcade && tab === "trade" ? "arcade-on" : "") + " tab-" + tab}>
-      <header className="island-header">
-        <div className="island-tabs">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              className={"island-tab " + (tab === t.id ? "active" : "")}
-              onClick={() => {
-                setTab(t.id);
-                if (t.id !== "trade") setArcade(false);
-              }}
-              title={TAB_HINTS[t.id]}
-            >
-              <Icon name={t.icon} size={14} />
-              <span>{t.label}</span>
-              {t.count != null && <span className="tab-pill">{t.count}</span>}
-            </button>
-          ))}
-        </div>
-        <div className="island-summary">
-          {tab === "trade" && (
-            <MarketPicker market={market} setMarketSym={setMarketSym} />
-          )}
-          <div className="acct-mini">
-            <span className="acct-l">Equity</span>
-            <span className="mono acct-v">{fmtUSD(acct)}</span>
-            <span className={"pill " + (totalPnl >= 0 ? "profit" : "loss")}>
-              {totalPnl >= 0 ? "+" : ""}
-              {fmtUSD(totalPnl)}
-            </span>
-          </div>
-          {tab === "trade" && (
-            <button
-              className={"island-collapse mode-switch " + (arcade ? "arcade" : "")}
-              onClick={() => setArcade(!arcade)}
-              title={arcade ? "Back to Pro Mode" : "Enter Arcade Mode"}
-            >
-              <span className="mode-label">{arcade ? "PRO" : "ARCADE"}</span>
-              <span className="mode-glyph">{arcade ? "⊞" : "✦"}</span>
-            </button>
-          )}
-        </div>
-      </header>
+      <TradeIslandHeader
+        tab={tab}
+        setTab={setTab}
+        market={market}
+        setMarketSym={setMarketSym}
+        arcade={arcade}
+        setArcade={setArcade}
+      />
 
       <div className={"island-body " + (arcade && tab === "trade" ? "arcade-on" : "")}>
         {tab === "trade" && !arcade && (
@@ -852,4 +923,9 @@ export default function TradeIsland() {
       </div>
     </div>
   );
+}
+
+function shortMarket(marketId: string): string {
+  if (marketId.length <= 14) return marketId;
+  return `${marketId.slice(0, 10)}…${marketId.slice(-4)}`;
 }

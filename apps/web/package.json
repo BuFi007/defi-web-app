@@ -11,7 +11,13 @@
     "dynamic:webhooks:sync": "node scripts/sync-dynamic-webhooks.mjs"
   },
   "dependencies": {
+    "@bufi/contracts": "workspace:*",
+    "@bufi/fx-bento": "workspace:*",
+    "@bufi/fx-telarana": "workspace:*",
+    "@bufi/liveblocks": "workspace:*",
     "@bufi/location": "workspace:*",
+    "@bufi/perps": "workspace:*",
+    "@bufi/shared-types": "workspace:*",
     "@dynamic-labs/ethereum": "4.83.1",
     "@dynamic-labs/ethereum-aa": "4.83.1",
     "@dynamic-labs/sdk-react-core": "4.83.1",

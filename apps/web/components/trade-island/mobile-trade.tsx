@@ -247,7 +247,7 @@ function OrderSheet({
           </button>
         </div>
         <div className="mt-sheet-body">
-          <OrderPanelCard market={market} />
+          <OrderPanelCard market={market} initialSide={initialSide ?? undefined} />
         </div>
       </div>
     </div>

@@ -6,7 +6,9 @@
   "description": "ABI registry + per-chain contract addresses. Source of truth for what's deployed where.",
   "main": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./bento": "./src/bento.ts",
+    "./telarana": "./src/telarana.ts"
   },
   "scripts": {
     "sync": "bun ../../scripts/sync-contracts.mjs",

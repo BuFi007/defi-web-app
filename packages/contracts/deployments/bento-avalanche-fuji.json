@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "protocol": "FX² Arcade Protocol",
+  "game": "FX Bento",
+  "network": "avalanche-fuji",
+  "chainId": 43113,
+  "rpcUrl": "https://api.avax-test.network/ext/bc/C/rpc",
+  "contractsCommit": "dcd025f035b69eef0dccdb3e479b5336868f6356",
+  "deployer": "0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69",
+  "owner": "0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69",
+  "treasury": "0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69",
+  "indexerStartBlock": 55454938,
+  "poolManagerStartBlock": 55454914,
+  "addresses": {
+    "PoolManager": "0x44B50E93eCC7775aF99bcd04c30e1A00da80F63C",
+    "PoolRegistry": "0x2931c50745334d6dff9ec4e3106fe05b49717df1",
+    "ProtocolFeeVault": "0x7ac83373c6b74c7c5b0eee80fb36239a451dc899",
+    "FXBentoHook": "0x4959be2392a8a2ac27060c26c8f7d070ada9d0c0",
+    "FXBentoRoomFactory": "0xc7ade54428d51b5d0ceb42e7dd5a47d48515ace1",
+    "FXBentoRoomEscrow": "0x5d10d2c3b9951054845534b2f60a68ebc0898cd3",
+    "FXBentoRoundManager": "0x27dbda42adb904115cade37c949bbf670e0ff09d",
+    "FXBentoSettlementManager": "0xa73208b62af9a87fb5e2b694b27f510d70e17746",
+    "FXBentoCommitmentManager": "0xaad184861726627968718fde8b94ecac87eb5c5b"
+  },
+  "transactions": {
+    "PoolManager": "0x5002bbd6105487376c6f465002b8839d96f3884e98e52c405160b908b3ff0f6b",
+    "PoolRegistry": "0x8932dc8efd0d562b443a73709c73985e5f607273004dd02176c9d20c80cc71db",
+    "ProtocolFeeVault": "0x08178443b27b047401ecbf08c166e21e151a368d329950af12a131f0644402ee",
+    "FXBentoHook": "0x850b6453d3a858830d864c00de67d58f7ba8c14e9aa0eef1d7ba33f43166b9bd",
+    "FXBentoRoomFactory": "0x6a529e530f6681ec339d5bafa49c963420bfc0a24f57654d34859d165297de6f",
+    "FXBentoRoomEscrow": "0xa505503eeec52d1b18ede96015e7f7f1d34faad7af6294455f91f14adebd0951",
+    "FXBentoRoundManager": "0x647ce733ec4571bd77c15a2f123736db43a0f52030e5317971a6c73cf1f3a7fb",
+    "FXBentoSettlementManager": "0x0885da4b10f0569794890c2021210042ee929f7ca7576dc274b7ebbee89fd0ee",
+    "FXBentoCommitmentManager": "0x70e9b87de86cf2d9d336ae00e43bac6c09c7598ef2a20dbccc288a0bf84df534"
+  },
+  "backendEnv": {
+    "FX_BENTO_RPC_URL": "https://api.avax-test.network/ext/bc/C/rpc",
+    "FX_BENTO_CHAIN_ID": "43113",
+    "FX_BENTO_FROM_BLOCK": "55454938",
+    "FX_BENTO_FACTORY_ADDRESS": "0xc7ade54428d51b5d0ceb42e7dd5a47d48515ace1",
+    "FX_BENTO_ESCROW_ADDRESS": "0x5d10d2c3b9951054845534b2f60a68ebc0898cd3",
+    "FX_BENTO_SETTLEMENT_ADDRESS": "0xa73208b62af9a87fb5e2b694b27f510d70e17746",
+    "FX_BENTO_ROUND_MANAGER_ADDRESS": "0x27dbda42adb904115cade37c949bbf670e0ff09d",
+    "FX_BENTO_HOOK_ADDRESS": "0x4959be2392a8a2ac27060c26c8f7d070ada9d0c0",
+    "FX_BENTO_POOL_REGISTRY_ADDRESS": "0x2931c50745334d6dff9ec4e3106fe05b49717df1",
+    "FX_BENTO_COMMITMENT_MANAGER_ADDRESS": "0xaad184861726627968718fde8b94ecac87eb5c5b",
+    "FX_BENTO_PROTOCOL_FEE_VAULT_ADDRESS": "0x7ac83373c6b74c7c5b0eee80fb36239a451dc899"
+  },
+  "checks": {
+    "hookPermissions": true,
+    "hookPoolManager": true,
+    "factoryEscrow": true,
+    "vaultFeeNotifier": true,
+    "escrowSettlementManager": true,
+    "settlementRoundManager": true
+  }
+}

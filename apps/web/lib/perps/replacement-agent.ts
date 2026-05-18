@@ -5,6 +5,26 @@ const SESSION_TTL_SECONDS = 60 * 60 * 12;
 const SESSION_REFRESH_SKEW_SECONDS = 60;
 const HANDLED_LIMIT = 200;
 
+export interface WalletSessionTypedData {
+  domain: {
+    name: "BUFX Perps";
+    version: "1";
+    chainId: number;
+  };
+  types: {
+    WalletSession: Array<{ name: string; type: string }>;
+  };
+  primaryType: "WalletSession";
+  message: {
+    purpose: string;
+    wallet: `0x${string}`;
+    chainId: bigint;
+    origin: string;
+    iat: bigint;
+    exp: bigint;
+  };
+}
+
 export interface WalletSessionProof {
   address: string;
   chainId: number;
@@ -12,6 +32,8 @@ export interface WalletSessionProof {
   signature: Hex;
   iat: number;
   exp: number;
+  /** Present when the user signed an EIP-712 typed-data session. */
+  typedData?: WalletSessionTypedData;
 }
 
 export type WalletSessionHeaders = Record<string, string>;
@@ -64,27 +86,171 @@ export function bufxApiUrl(path: string, query?: Record<string, string | number 
   return url.toString();
 }
 
+const CHAIN_NAMES: Record<number, string> = {
+  43113: "Avalanche Fuji",
+  919: "Mode Sepolia",
+  5042002: "Arc Testnet",
+};
+
+const SESSION_TTL_HOURS = SESSION_TTL_SECONDS / 3600;
+
 export function buildWalletSessionMessage(args: {
   address: string;
   chainId: number;
   now?: number;
+  origin?: string;
 }): { message: string; iat: number; exp: number } {
   const iat = args.now ?? Math.floor(Date.now() / 1000);
   const exp = iat + SESSION_TTL_SECONDS;
-  return {
-    iat,
-    exp,
-    message: `BUFX wallet session;address:${args.address};chainId:${args.chainId};iat:${iat};exp:${exp}`,
-  };
+  const chainName = CHAIN_NAMES[args.chainId] ?? `Chain ${args.chainId}`;
+  const origin =
+    args.origin ?? (typeof window !== "undefined" ? window.location.origin : "https://bufi.finance");
+  const issuedHuman = formatUtc(iat);
+  const expiresHuman = formatUtc(exp);
+
+  // Backend regex (apps/api/src/wallet-session.ts) only requires `iat:<n>` and
+  // `exp:<n>` markers to appear anywhere in the message. We keep them inline so
+  // the rest of the body can be human-readable for wallet popups.
+  const message = [
+    "BUFX Perps · Keeper Session",
+    "",
+    `Sign in to authorize BUFX to replace your perp orders on your behalf for the next ${SESSION_TTL_HOURS} hours.`,
+    "This signature does NOT move funds and grants no spending authority.",
+    "",
+    `Wallet:   ${args.address}`,
+    `Network:  ${chainName} (${args.chainId})`,
+    `Origin:   ${origin}`,
+    `Issued:   ${issuedHuman} (iat:${iat})`,
+    `Expires:  ${expiresHuman} (exp:${exp})`,
+  ].join("\n");
+
+  return { iat, exp, message };
+}
+
+function formatUtc(unixSeconds: number): string {
+  const d = new Date(unixSeconds * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ` +
+    `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`
+  );
 }
 
 export function walletSessionHeaders(proof: WalletSessionProof): WalletSessionHeaders {
-  return {
+  const headers: WalletSessionHeaders = {
     "X-Wallet-Address": proof.address,
     "X-Wallet-ChainId": String(proof.chainId),
     "X-Wallet-Message": proof.message,
     "X-Wallet-Signature": proof.signature,
   };
+  if (proof.typedData) {
+    headers["X-Wallet-TypedData"] = serializeWalletSessionTypedData(proof.typedData);
+  }
+  return headers;
+}
+
+export function buildWalletSessionTypedData(args: {
+  address: `0x${string}`;
+  chainId: number;
+  now?: number;
+  origin?: string;
+}): { typedData: WalletSessionTypedData; iat: number; exp: number; message: string } {
+  const iat = args.now ?? Math.floor(Date.now() / 1000);
+  const exp = iat + SESSION_TTL_SECONDS;
+  const origin =
+    args.origin ?? (typeof window !== "undefined" ? window.location.origin : "https://bufi.finance");
+  const purpose =
+    `Authorize BUFX to replace your perp orders on your behalf for ${SESSION_TTL_HOURS} hours. ` +
+    `No funds move and no spending authority is granted.`;
+
+  const typedData: WalletSessionTypedData = {
+    domain: { name: "BUFX Perps", version: "1", chainId: args.chainId },
+    types: {
+      WalletSession: [
+        { name: "purpose", type: "string" },
+        { name: "wallet", type: "address" },
+        { name: "chainId", type: "uint256" },
+        { name: "origin", type: "string" },
+        { name: "iat", type: "uint256" },
+        { name: "exp", type: "uint256" },
+      ],
+    },
+    primaryType: "WalletSession",
+    message: {
+      purpose,
+      wallet: args.address,
+      chainId: BigInt(args.chainId),
+      origin,
+      iat: BigInt(iat),
+      exp: BigInt(exp),
+    },
+  };
+
+  // Plain-text fallback retained so the legacy backend personal_sign path
+  // and pre-existing cached sessions keep working through the rollout.
+  const message = `BUFX Perps session;wallet:${args.address};chainId:${args.chainId};iat:${iat};exp:${exp}`;
+
+  return { typedData, iat, exp, message };
+}
+
+export function serializeWalletSessionTypedData(typedData: WalletSessionTypedData): string {
+  return JSON.stringify(toJsonSafeTypedData(typedData));
+}
+
+interface JsonSafeTypedData {
+  domain: WalletSessionTypedData["domain"];
+  types: WalletSessionTypedData["types"];
+  primaryType: WalletSessionTypedData["primaryType"];
+  message: {
+    purpose: string;
+    wallet: `0x${string}`;
+    chainId: string;
+    origin: string;
+    iat: string;
+    exp: string;
+  };
+}
+
+function toJsonSafeTypedData(typedData: WalletSessionTypedData): JsonSafeTypedData {
+  return {
+    domain: typedData.domain,
+    types: typedData.types,
+    primaryType: typedData.primaryType,
+    message: {
+      purpose: typedData.message.purpose,
+      wallet: typedData.message.wallet,
+      chainId: typedData.message.chainId.toString(),
+      origin: typedData.message.origin,
+      iat: typedData.message.iat.toString(),
+      exp: typedData.message.exp.toString(),
+    },
+  };
+}
+
+function fromJsonSafeTypedData(raw: JsonSafeTypedData): WalletSessionTypedData {
+  return {
+    domain: raw.domain,
+    types: raw.types,
+    primaryType: raw.primaryType,
+    message: {
+      purpose: raw.message.purpose,
+      wallet: raw.message.wallet,
+      chainId: BigInt(raw.message.chainId),
+      origin: raw.message.origin,
+      iat: BigInt(raw.message.iat),
+      exp: BigInt(raw.message.exp),
+    },
+  };
+}
+
+interface CachedWalletSession {
+  address: string;
+  chainId: number;
+  message: string;
+  signature: Hex;
+  iat: number;
+  exp: number;
+  typedData?: JsonSafeTypedData;
 }
 
 export function readCachedWalletSession(address: string, chainId: number): WalletSessionProof | null {
@@ -92,12 +258,20 @@ export function readCachedWalletSession(address: string, chainId: number): Walle
   const raw = window.localStorage.getItem(walletSessionKey(address, chainId));
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as WalletSessionProof;
+    const parsed = JSON.parse(raw) as CachedWalletSession;
     const now = Math.floor(Date.now() / 1000);
     if (parsed.exp <= now + SESSION_REFRESH_SKEW_SECONDS) return null;
     if (parsed.address.toLowerCase() !== address.toLowerCase()) return null;
     if (parsed.chainId !== chainId) return null;
-    return parsed;
+    return {
+      address: parsed.address,
+      chainId: parsed.chainId,
+      message: parsed.message,
+      signature: parsed.signature,
+      iat: parsed.iat,
+      exp: parsed.exp,
+      typedData: parsed.typedData ? fromJsonSafeTypedData(parsed.typedData) : undefined,
+    };
   } catch {
     return null;
   }
@@ -105,9 +279,18 @@ export function readCachedWalletSession(address: string, chainId: number): Walle
 
 export function writeCachedWalletSession(proof: WalletSessionProof): void {
   if (typeof window === "undefined") return;
+  const serializable: CachedWalletSession = {
+    address: proof.address,
+    chainId: proof.chainId,
+    message: proof.message,
+    signature: proof.signature,
+    iat: proof.iat,
+    exp: proof.exp,
+    typedData: proof.typedData ? toJsonSafeTypedData(proof.typedData) : undefined,
+  };
   window.localStorage.setItem(
     walletSessionKey(proof.address, proof.chainId),
-    JSON.stringify(proof),
+    JSON.stringify(serializable),
   );
 }
 

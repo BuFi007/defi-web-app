@@ -2,6 +2,13 @@ import type { Address, Hex } from "viem";
 
 import type { ChainId } from "@bufi/shared-types";
 
+// Per-product manifest barrels — merged in from the 3 backend worktrees.
+// Consumers can import directly (`@bufi/contracts/bento`, `/perps`,
+// `/telarana`) for tighter typing OR namespace via this re-export.
+export * as Bento from "./bento";
+export * as Telarana from "./telarana";
+export * as Perps from "./perps-deployments";
+
 export {
   buFxFeeCollectorAbi,
 } from "./abis/BuFxFeeCollector";

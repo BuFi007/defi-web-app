@@ -54,6 +54,7 @@ const corsMiddleware = createCorsMiddleware({
       "X-Wallet-Address",
       "X-Wallet-ChainId",
       "X-Wallet-Message",
+      "X-Wallet-TypedData",
       "X-Wallet-Signature",
       "Payment-Signature",
     ],
