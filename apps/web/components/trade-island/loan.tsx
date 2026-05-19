@@ -677,10 +677,15 @@ function MarketsTable({
   market,
   markets,
   onSelect,
+  positions,
 }: {
   market: LoanMarket;
   markets: LoanMarket[];
   onSelect: (id: string) => void;
+  /** User's open telarana positions — used to surface lent/borrowed
+   *  amounts inline in the hover-expanded row detail. Empty array =
+   *  not connected or no positions yet. */
+  positions: TelaranaPositionSerialized[];
 }) {
   const [hubFilter, setHubFilter] = useState("all");
   const visible = markets.filter((m) => hubFilter === "all" || m.hub === hubFilter);
@@ -722,12 +727,24 @@ function MarketsTable({
           const sel = m.id === market.id;
           const hub = LOAN_HUBS[m.hub as HubKey];
           const disabled = m.status !== "live";
+          // Find the user's open position in THIS market (if any), so the
+          // hover-expanded detail can surface their lent/borrowed value.
+          const pos = m.onchain
+            ? positions.find(
+                (p) =>
+                  p.marketId.toLowerCase() === m.onchain!.marketId.toLowerCase() &&
+                  p.hubChainId === m.onchain!.hubChainId,
+              )
+            : undefined;
+          const supplyUsd = pos ? liveSupplyValueUsd(pos) : 0;
+          const borrowUsd = pos ? liveBorrowValueUsd(pos) : 0;
           return (
             <button
               key={m.id}
               className={"lo-trow " + (sel ? "sel " : "") + (disabled ? "dim " : "")}
               onClick={() => onSelect(m.id)}
             >
+              <div className="lo-trow-row">
               <div className="lo-trow-pair">
                 <span className="lo-trow-flags">
                   <FxChip sym={m.loan} size={26} />
@@ -751,20 +768,6 @@ function MarketsTable({
                       {shortHex(hub.address)}
                     </a>
                     {m.status !== "live" && <StatusTag status={m.status} />}
-                  </div>
-                  <div className="lo-trow-sub">
-                    <span className="lo-trow-sub-l">
-                      <HubPip hub={hub} size={14} />
-                      <span className="lo-trow-hub-l">{hub.short}</span>
-                      <span className="lo-trow-sep" aria-hidden="true">·</span>
-                      <span className="lo-trow-lltv">
-                        {fmtOrDash(m.lltv, (x) => `${Math.round(x * 100)}%`)} LLTV
-                      </span>
-                    </span>
-                    <MarketRowBalance
-                      market={m}
-                      walletAddress={walletAddress as Address | undefined}
-                    />
                   </div>
                 </div>
               </div>
@@ -817,6 +820,85 @@ function MarketsTable({
               <span className="lo-trow-spark">
                 <MarketSpark market={m} />
               </span>
+              </div>
+              {/* Sub line — hub · LLTV on the left, wallet balance on
+                  the right. Lives outside `.lo-trow-row`'s 6-col grid
+                  so it can use the FULL row width, instead of being
+                  squeezed into the narrow Market column and getting
+                  truncated. */}
+              <div className="lo-trow-sub">
+                <span className="lo-trow-sub-l">
+                  <HubPip hub={hub} size={14} />
+                  <span className="lo-trow-hub-l">{hub.short}</span>
+                  <span className="lo-trow-sep" aria-hidden="true">·</span>
+                  <span className="lo-trow-lltv">
+                    {fmtOrDash(m.lltv, (x) => `${Math.round(x * 100)}%`)} LLTV
+                  </span>
+                </span>
+                <MarketRowBalance
+                  market={m}
+                  walletAddress={walletAddress as Address | undefined}
+                />
+              </div>
+              {/* Hover-expanded detail. Always rendered; CSS collapses
+                  it to height: 0 when the row is idle and reveals it on
+                  hover or when the row is the selected market. */}
+              <div className="lo-trow-detail" aria-hidden={!sel}>
+                <div className="lo-trow-detail-item">
+                  <span className="lo-trow-detail-l">Your supply</span>
+                  <span className="lo-trow-detail-v mono profit">
+                    {supplyUsd > 0 ? (
+                      <AnimatedNumber
+                        value={supplyUsd}
+                        currency="USD"
+                        maximumFractionDigits={2}
+                      />
+                    ) : (
+                      "—"
+                    )}
+                  </span>
+                </div>
+                <div className="lo-trow-detail-item">
+                  <span className="lo-trow-detail-l">Your borrow</span>
+                  <span className="lo-trow-detail-v mono loss">
+                    {borrowUsd > 0 ? (
+                      <AnimatedNumber
+                        value={borrowUsd}
+                        currency="USD"
+                        maximumFractionDigits={2}
+                      />
+                    ) : (
+                      "—"
+                    )}
+                  </span>
+                </div>
+                <div className="lo-trow-detail-item">
+                  <span className="lo-trow-detail-l">Earn at this APY</span>
+                  <span className="lo-trow-detail-v mono">
+                    {m.supply != null && supplyUsd > 0 ? (
+                      <>
+                        +
+                        <AnimatedNumber
+                          value={(supplyUsd * m.supply) / 100}
+                          maximumFractionDigits={2}
+                        />
+                        /yr
+                      </>
+                    ) : m.supply != null ? (
+                      <>
+                        <AnimatedNumber
+                          value={m.supply}
+                          currency="%"
+                          maximumFractionDigits={2}
+                        />{" "}
+                        idle
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </span>
+                </div>
+              </div>
             </button>
           );
         })}
@@ -885,12 +967,21 @@ function MarketRowBalance({
   if (!Number.isFinite(human) || human === 0) {
     return <span className="lo-trow-bal lo-trow-bal-muted mono">0 {market.loan}</span>;
   }
+  // Compact notation (10M, 1.2B) once balances cross 10k — otherwise a
+  // 7-figure AUDF mint balance dominates the row's Market column and
+  // squeezes the hub label out of view. Title attribute still carries
+  // the full-precision value for hover inspection.
+  const isHuge = human >= 10_000;
   return (
-    <span className="lo-trow-bal mono" title={`${human} ${market.loan}`}>
+    <span
+      className="lo-trow-bal mono"
+      title={`${human.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${market.loan}`}
+    >
       <AnimatedNumber
         value={human}
         currency={null}
-        maximumFractionDigits={human >= 1 ? 2 : 4}
+        notation={isHuge ? "compact" : "standard"}
+        maximumFractionDigits={isHuge ? 2 : human >= 1 ? 2 : 4}
       />
       <span style={{ marginLeft: 4, color: "var(--ink-3)", fontWeight: 600 }}>
         {market.loan}
@@ -1096,6 +1187,24 @@ export function ActionCard({
         ))}
       </div>
 
+      {/* Quick-pick rail sits ABOVE the input and OUTSIDE its border —
+          right-aligned, with the percent chips followed by MAX as the
+          primary call to action. Keeping MAX rightmost keeps the muscle-
+          memory consistent with most DeFi inputs (Aave, Compound). */}
+      <div className="lo-amount-quick">
+        <button onClick={() => setAmount((balance / 4).toString())}>25%</button>
+        <button onClick={() => setAmount((balance / 2).toString())}>50%</button>
+        <button onClick={() => setAmount((balance * 0.75).toString())}>75%</button>
+        <button
+          type="button"
+          className="lo-amount-max"
+          onClick={() => setAmount(balance.toString())}
+          aria-label={`Use full balance of ${balance.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${loan.sym}`}
+        >
+          MAX
+        </button>
+      </div>
+
       <div className="lo-amount-shell">
         <input
           className="lo-amount-input mono"
@@ -1137,12 +1246,6 @@ export function ActionCard({
           BALANCE <span className="mono">{balance.toLocaleString(undefined, { maximumFractionDigits: 2 })} {loan.sym}</span>
           <span className="lo-balance-usd mono">≈ ${usd.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
         </span>
-        <div className="lo-amount-quick">
-          <button onClick={() => setAmount((balance / 4).toString())}>25%</button>
-          <button onClick={() => setAmount((balance / 2).toString())}>50%</button>
-          <button onClick={() => setAmount((balance * 0.75).toString())}>75%</button>
-          <button onClick={() => setAmount(balance.toString())}>MAX</button>
-        </div>
       </div>
 
       <div className="lo-impact">
@@ -1404,7 +1507,12 @@ export function LoanTab() {
 
       <div className="lo-strip">
         <div className="lo-strip-market">
-          <MarketsTable market={market} markets={enrichedMarkets} onSelect={setSelectedId} />
+          <MarketsTable
+            market={market}
+            markets={enrichedMarkets}
+            onSelect={setSelectedId}
+            positions={positions}
+          />
         </div>
         <ActionCard
           market={market}

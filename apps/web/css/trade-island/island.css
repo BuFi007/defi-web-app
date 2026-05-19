@@ -114,6 +114,81 @@ body[data-banner="open"] .island {
 }
 .market-mini:hover { border-color: var(--border-strong); }
 
+/* Dynamic Island morph anchor for the market chip. Mirrors the wallet
+   pattern: phantom holds the slot (at full hover-state width); pill +
+   panel share `layoutId="mkt-island"` so framer-motion animates the
+   geometry between them. */
+.mkt-island-anchor {
+  position: relative;
+  display: inline-flex;
+  isolation: isolate;
+}
+.market-mini--phantom {
+  visibility: hidden;
+  pointer-events: none;
+}
+.mkt-island-pill {
+  position: absolute;
+  top: 0; left: 0;
+  cursor: pointer;
+  z-index: 41;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.mkt-island-panel {
+  position: fixed;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  box-shadow: 0 12px 40px rgba(40, 25, 90, 0.18), 0 2px 4px rgba(40, 25, 90, 0.06);
+  z-index: 9001;
+  overflow: hidden;
+}
+[data-theme="dark"] .mkt-island-panel {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(132, 116, 255, 0.12);
+}
+.mkt-island-inner {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.mkt-island-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.mkt-island-head-l {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.mkt-island-head-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.mkt-island-sym {
+  font-family: 'Nunito', sans-serif;
+  font-size: 15px; font-weight: 800;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+}
+.mkt-island-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px; font-weight: 800;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
 .acct-mini {
   display: inline-flex; align-items: center; gap: 7px;
   padding: 6px 12px;
@@ -129,6 +204,244 @@ body[data-banner="open"] .island {
    morph on narrow viewports. */
 .acct-l { font-size: 10px; font-weight: 800; color: var(--ink-3); letter-spacing: .03em; text-transform: uppercase; }
 .acct-v { font-size: 13px; font-weight: 800; color: var(--ink); }
+
+/* Dynamic Island morph anchor. The phantom .acct-mini--phantom holds
+   the pill's slot in the header (visibility:hidden) so the layout
+   doesn't shift when the real pill morphs into the expanded panel.
+   Both the pill and panel are absolutely positioned over the phantom
+   at top:0 right:0, and share `layoutId` so framer-motion animates the
+   box transition. */
+.acct-island-anchor {
+  position: relative;
+  display: inline-block;
+  isolation: isolate;
+}
+.acct-mini--phantom {
+  visibility: hidden;
+  pointer-events: none;
+}
+.acct-island-pill {
+  position: absolute;
+  top: 0; right: 0;
+  cursor: pointer;
+  z-index: 9001;
+  overflow: hidden;
+}
+.acct-island-pill:hover { border-color: var(--border-strong); }
+
+/* APY-advertisement variant of the trigger pill. Same `layoutId` as the
+   regular pill so the morph between idle ↔ ad is fluid. Background is a
+   shifting purple/pink gradient; content sits above on a positioned
+   inner span so it reads cleanly on the moving backdrop. */
+.acct-island-ad {
+  position: absolute;
+  top: 0; right: 0;
+  color: #fff;
+  border-color: transparent;
+  cursor: pointer;
+  z-index: 9001;
+  overflow: hidden;
+  background: transparent;
+}
+.acct-island-ad-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    #6954cf 0%,
+    #8b6ff5 28%,
+    #c084fc 52%,
+    #f0abfc 70%,
+    #8b6ff5 100%
+  );
+  background-size: 220% 100%;
+  animation: acct-island-ad-shimmer 4.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  border-radius: inherit;
+  z-index: 0;
+}
+@keyframes acct-island-ad-shimmer {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.acct-island-ad-inner {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 12px; font-weight: 800;
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+}
+.acct-island-ad-icon { opacity: 0.92; }
+.acct-island-ad-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+  opacity: 0.85;
+}
+.acct-island-ad-apy {
+  font-size: 13.5px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.acct-island-ad-sep { opacity: 0.55; }
+.acct-island-ad-sub {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.88;
+  font-variant-numeric: tabular-nums;
+}
+.acct-island-ad-arrow {
+  margin-left: 2px;
+  opacity: 0.9;
+}
+
+.acct-island-panel {
+  position: absolute;
+  top: 0; right: 0;
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  box-shadow: 0 12px 40px rgba(40, 25, 90, 0.18), 0 2px 4px rgba(40, 25, 90, 0.06);
+  z-index: 9001;
+  overflow: hidden;
+}
+[data-theme="dark"] .acct-island-panel {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(132, 116, 255, 0.12);
+}
+.acct-island-panel-inner {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.acct-island-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.acct-island-head-l {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.acct-island-head-l .acct-l { font-size: 9.5px; }
+.acct-island-head-l .acct-v {
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.acct-island-head-r {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.acct-island-role {
+  font-family: 'Nunito', sans-serif;
+  font-size: 9px; font-weight: 800;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 999px;
+}
+.acct-island-role.is-hub {
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+}
+.acct-island-role.is-spoke {
+  background: var(--surface-3);
+  color: var(--ink-3);
+}
+.acct-island-close {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px;
+  border-radius: 8px;
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.acct-island-close:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+  border-color: var(--border);
+}
+
+.acct-island-network {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.acct-island-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  max-height: 320px;
+  overflow: hidden auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.acct-island-list::-webkit-scrollbar { width: 6px; }
+.acct-island-list::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}
+
+.acct-island-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+}
+.acct-island-foot-l {
+  font-size: 10px; font-weight: 800;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-3);
+}
+.acct-island-foot-v {
+  font-size: 13px; font-weight: 800;
+  color: var(--primary-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.acct-island-empty {
+  padding: 14px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink-3);
+  border-top: 1px solid var(--border);
+}
+
+.acct-island-scrim {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: default;
+  z-index: 9000;
+}
+
+/* Radix Select inside the wallet panel portals its dropdown to body
+   with its own z-index — bump it above the panel/scrim so the network
+   picker doesn't get trapped behind the wallet. The selector is
+   identified by `data-radix-select-content` (Radix sets this on the
+   floating viewport). */
+[data-radix-popper-content-wrapper] {
+  z-index: 9002 !important;
+}
 @media (max-width: 1140px) {
   .market-mini .mono { display: none; }
 }

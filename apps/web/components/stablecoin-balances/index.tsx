@@ -7,9 +7,9 @@ import { formatUnits, type Address } from "viem";
 import { AnimatePresence, motion } from "framer-motion";
 import type { WagmiChainId } from "@/utils/chain";
 import { ChainSelect } from "@/components/chain-select";
-import { BalanceDisplay } from "@/components/balance-display";
 import { TokenChip } from "@/components/token-chip";
-import { fmtUSD } from "@/components/trade-island/data";
+import { AnimatedNumber } from "@/components/animated-number";
+import { useMarkets as useTelaranaMarkets } from "@/lib/telarana/hooks";
 import {
   STABLE_TOKEN_LIST,
   type StableTokenType,
@@ -120,11 +120,19 @@ const TokenBalanceRow: React.FC<{
     <li className="flex items-center justify-between gap-3 px-2 py-2 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
       <TokenChip token={tokenForChip} chain={cfg.chain} />
       {row.deployed ? (
-        <BalanceDisplay
-          balance={row.formatted}
-          isLoading={row.isLoading}
-          symbol={row.asset}
-        />
+        row.isLoading ? (
+          <span className="text-[11px] font-bold text-zinc-400 mono">…</span>
+        ) : (
+          <span className="text-[12px] font-bold text-zinc-700 dark:text-zinc-200 mono tabular-nums">
+            <AnimatedNumber
+              value={row.balance}
+              currency={null}
+              maximumFractionDigits={row.balance >= 1 ? 2 : 4}
+              minimumFractionDigits={0}
+            />
+            <span className="text-zinc-400 dark:text-zinc-500 ml-1.5">{row.asset}</span>
+          </span>
+        )
       ) : (
         <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
           Pending
@@ -157,7 +165,18 @@ export const StablecoinBalances: React.FC = () => {
         .reduce((s, r) => s + r.usdValue, 0),
     [allChainsRows],
   );
-  const triggerLabel = isConnected ? fmtUSD(totalUsdEquivalent) : "—";
+  // Animated value pulled into a small render helper so the trigger pill,
+  // phantom (slot reservation), and panel header all show identical
+  // typography + animation. NumberFlow handles the digit transitions.
+  const triggerValue = isConnected ? (
+    <AnimatedNumber
+      value={totalUsdEquivalent}
+      maximumFractionDigits={2}
+      minimumFractionDigits={2}
+    />
+  ) : (
+    <>—</>
+  );
 
   const chainRows = allChainsRows[activeChain.chainId] ?? [];
   const sortedRows = React.useMemo(() => {
@@ -180,14 +199,65 @@ export const StablecoinBalances: React.FC = () => {
     [sortedRows],
   );
 
-  // Dynamic-Island morph: pill and panel share `layoutId="acct-fx-island"`,
-  // so framer-motion smoothly animates the box geometry between them.
-  // The pill stays in the header (its anchor); the panel is portaled to
-  // document.body and positioned with `position: fixed` over the pill's
-  // bounding rect, because the parent `.island` has `overflow: hidden`
-  // and would otherwise clip the morph.
+  // Dynamic-Island morph: pill, ad-pill, and panel all share
+  // `layoutId="acct-fx-island"`, so framer-motion smoothly animates the
+  // box geometry across the three states. The pill stays in the header
+  // (its anchor); the panel is portaled to document.body because the
+  // parent `.island` has `overflow: hidden` and would clip the morph.
   const [hover, setHover] = useState(false);
   const expanded = hover && !open;
+
+  // APY advertisement loop. Every ~45s while the wallet is closed and
+  // the user has idle balance, the pill morphs into a promotional
+  // variant showing the opportunity cost of NOT lending — "Earn 4.42%
+  // on $13M idle". Mirrors desk-v1's wallet ad pattern. Pulls live
+  // markets (cached by the loan tab too — no extra network cost).
+  const { markets: liveMarkets } = useTelaranaMarkets();
+  const bestSupplyApy = React.useMemo(() => {
+    let best = 0;
+    for (const m of liveMarkets ?? []) {
+      if (!m.state || !m.isLive) continue;
+      const supplyAssets = BigInt(m.state.totalSupplyAssets);
+      const borrowAssets = BigInt(m.state.totalBorrowAssets);
+      const util =
+        supplyAssets > 0n
+          ? Number((borrowAssets * 10_000n) / supplyAssets) / 10_000
+          : 0;
+      // IrmMock: supply ≈ util² (Morpho fee=0). Convert fraction → %.
+      const supply = util * util * 100;
+      if (supply > best) best = supply;
+    }
+    return best > 0 ? best : null;
+  }, [liveMarkets]);
+
+  const adEligible =
+    !open && isConnected && totalUsdEquivalent > 100 && bestSupplyApy != null;
+  const [adMode, setAdMode] = useState(false);
+  useEffect(() => {
+    if (!adEligible) {
+      setAdMode(false);
+      return;
+    }
+    // First ad fires 12s after eligibility kicks in (lets the page settle),
+    // then every 45s. Each impression lasts 5s.
+    let hideTimer: number | undefined;
+    const showAd = () => {
+      setAdMode(true);
+      hideTimer = window.setTimeout(() => setAdMode(false), 5000);
+    };
+    const first = window.setTimeout(showAd, 12_000);
+    const interval = window.setInterval(showAd, 45_000);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(interval);
+      if (hideTimer) window.clearTimeout(hideTimer);
+      setAdMode(false);
+    };
+  }, [adEligible]);
+
+  const opportunityYearly = bestSupplyApy
+    ? (totalUsdEquivalent * bestSupplyApy) / 100
+    : 0;
 
   const anchorRef = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
@@ -237,14 +307,14 @@ export const StablecoinBalances: React.FC = () => {
             pill morphs into the portaled panel. */}
         <span className="acct-mini acct-mini--phantom" aria-hidden="true">
           <span className="acct-l">Stablecoin FX Wallet</span>
-          <span className="mono acct-v">{triggerLabel}</span>
+          <span className="mono acct-v">{triggerValue}</span>
           <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
             <path d="M2 4 L5 7 L8 4" fill="none" stroke="currentColor" strokeWidth="1.5" />
           </svg>
         </span>
 
-        <AnimatePresence initial={false}>
-          {!open && (
+        <AnimatePresence initial={false} mode="popLayout">
+          {!open && !adMode && (
             <motion.button
               key="pill"
               type="button"
@@ -275,7 +345,7 @@ export const StablecoinBalances: React.FC = () => {
                   </motion.span>
                 )}
               </AnimatePresence>
-              <span className="mono acct-v">{triggerLabel}</span>
+              <span className="mono acct-v">{triggerValue}</span>
               <svg
                 width="10"
                 height="10"
@@ -292,6 +362,74 @@ export const StablecoinBalances: React.FC = () => {
                   strokeLinejoin="round"
                 />
               </svg>
+            </motion.button>
+          )}
+          {!open && adMode && bestSupplyApy != null && (
+            <motion.button
+              key="ad"
+              type="button"
+              layoutId="acct-fx-island"
+              className="acct-mini acct-island-pill acct-island-ad"
+              aria-label={`Earn ${bestSupplyApy.toFixed(2)}% APY by lending — click to view wallet`}
+              onClick={() => setOpen(true)}
+              transition={SPRING}
+              style={{ borderRadius: 12 }}
+            >
+              <span className="acct-island-ad-bg" aria-hidden="true" />
+              <motion.span
+                className="acct-island-ad-inner"
+                initial={{ opacity: 0, y: -2 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 2 }}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  aria-hidden="true"
+                  className="acct-island-ad-icon"
+                >
+                  <path
+                    d="M6 1.5L8 5.5H4L6 1.5Z M3 6.5h6v4H3z"
+                    fill="currentColor"
+                  />
+                </svg>
+                <span className="acct-island-ad-label">Earn</span>
+                <span className="mono acct-island-ad-apy">
+                  <AnimatedNumber
+                    value={bestSupplyApy}
+                    currency="%"
+                    maximumFractionDigits={2}
+                    minimumFractionDigits={2}
+                  />
+                </span>
+                <span className="acct-island-ad-sep" aria-hidden="true">·</span>
+                <span className="acct-island-ad-sub">
+                  +
+                  <AnimatedNumber
+                    value={opportunityYearly}
+                    maximumFractionDigits={0}
+                  />
+                  /yr
+                </span>
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 10 10"
+                  aria-hidden="true"
+                  className="acct-island-ad-arrow"
+                >
+                  <path
+                    d="M2 5 L8 5 M5 2 L8 5 L5 8"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </motion.span>
             </motion.button>
           )}
         </AnimatePresence>
@@ -342,7 +480,7 @@ export const StablecoinBalances: React.FC = () => {
                     <div className="acct-island-head">
                       <div className="acct-island-head-l">
                         <span className="acct-l">Stablecoin FX Wallet</span>
-                        <span className="mono acct-v">{triggerLabel}</span>
+                        <span className="mono acct-v">{triggerValue}</span>
                       </div>
                       <div className="acct-island-head-r">
                         <span
@@ -404,7 +542,13 @@ export const StablecoinBalances: React.FC = () => {
                           className="mono acct-island-foot-v"
                           title="Approximate sum of all token balances on this chain, converted to USDC face value via reference FX rates. Not a tradeable quote."
                         >
-                          ≈ {fmtUSD(chainUsdTotal)} USDC
+                          <span style={{ marginRight: 4 }}>≈</span>
+                          <AnimatedNumber
+                            value={chainUsdTotal}
+                            maximumFractionDigits={2}
+                            minimumFractionDigits={2}
+                          />
+                          <span style={{ marginLeft: 4 }}>USDC</span>
                         </span>
                       </div>
                     ) : (

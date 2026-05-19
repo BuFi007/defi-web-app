@@ -255,8 +255,8 @@
 .lo-table { display: flex; flex-direction: column; }
 .lo-table-thead {
   display: grid;
-  grid-template-columns: minmax(0, 1.7fr) .7fr .7fr .55fr .85fr 1.1fr;
-  gap: 14px;
+  grid-template-columns: minmax(0, 2.2fr) .6fr .6fr .5fr .75fr 1fr;
+  gap: 12px;
   padding: 8px 10px;
   font-family: 'Nunito', sans-serif;
   font-size: 10px; font-weight: 800;
@@ -265,11 +265,9 @@
   border-bottom: 1px solid var(--border);
 }
 .lo-trow {
-  display: grid;
-  grid-template-columns: minmax(0, 1.7fr) .7fr .7fr .55fr .85fr 1.1fr;
-  gap: 14px;
-  align-items: center;
-  padding: 11px 10px;
+  display: flex;
+  flex-direction: column;
+  padding: 9px 10px;
   background: transparent;
   border: 0;
   border-radius: 10px;
@@ -277,6 +275,75 @@
   cursor: pointer;
   transition: background .12s, transform .12s;
   position: relative;
+}
+.lo-trow-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) .6fr .6fr .5fr .75fr 1fr;
+  gap: 12px;
+  align-items: center;
+}
+/* Hover-expanded detail. Pinned to the BOTTOM-RIGHT corner of the row
+   (the dynamic island) — uses `align-self: flex-end` so the detail
+   reads as a compact chip in the corner rather than stretching across
+   the full row width. `max-height` + `opacity` + `padding-top` animate
+   together for a smooth reveal that doesn't push neighbouring rows. */
+.lo-trow-detail {
+  align-self: flex-end;
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 0 16px;
+  max-height: 0;
+  margin-top: 0;
+  padding: 0 4px;
+  opacity: 0;
+  overflow: hidden;
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  transition:
+    max-height .28s cubic-bezier(.22, 1, .36, 1),
+    margin-top .28s cubic-bezier(.22, 1, .36, 1),
+    padding .28s cubic-bezier(.22, 1, .36, 1),
+    opacity .22s ease,
+    border-color .22s ease,
+    background .22s ease;
+}
+.lo-trow:hover .lo-trow-detail,
+.lo-trow.sel .lo-trow-detail,
+.lo-trow:focus-visible .lo-trow-detail {
+  max-height: 60px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  opacity: 1;
+  border-color: var(--border);
+}
+.lo-trow.sel .lo-trow-detail {
+  background: rgba(255, 255, 255, 0.55);
+}
+[data-theme="dark"] .lo-trow.sel .lo-trow-detail {
+  background: rgba(0, 0, 0, 0.25);
+}
+.lo-trow-detail-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 0;
+  text-align: right;
+}
+.lo-trow-detail-l {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.lo-trow-detail-v {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .lo-trow + .lo-trow { border-top: 1px solid var(--border); }
 .lo-trow:hover { background: var(--surface-2); }
@@ -297,19 +364,83 @@
 .lo-trow-flags { display: inline-flex; flex-shrink: 0; }
 .lo-trow-flags > .fx-chip + .fx-chip { margin-left: -8px; box-shadow: 0 0 0 1.5px var(--surface); }
 .lo-trow.sel .lo-trow-flags > .fx-chip + .fx-chip { box-shadow: 0 0 0 1.5px var(--primary-soft); }
-.lo-trow-meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.lo-trow-meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .lo-trow-syms {
-  display: inline-flex; align-items: center; gap: 6px;
+  display: inline-flex; align-items: center; gap: 8px;
+  flex-wrap: nowrap;
+  min-width: 0;
   font-family: 'Nunito', sans-serif;
   font-size: 14px; font-weight: 800;
   letter-spacing: -0.005em;
+  white-space: nowrap;
 }
-.lo-trow-hub {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-size: 10.5px; font-weight: 700;
-  color: var(--ink-3);
+.lo-trow-addr {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0;
+  color: var(--ink-4);
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: color .15s ease;
 }
-.lo-trow-lltv { color: var(--ink-3); }
+.lo-trow-addr::after {
+  content: '';
+  display: inline-block;
+  width: 9px; height: 9px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M7 3h6v6M13 3L5 11M11 9v4H3V5h4'/></svg>") no-repeat center / contain;
+          mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M7 3h6v6M13 3L5 11M11 9v4H3V5h4'/></svg>") no-repeat center / contain;
+  opacity: 0;
+  transform: translate(-2px, 1px) scale(0.8);
+  transition: opacity .18s ease, transform .18s ease;
+}
+.lo-trow-addr:hover {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+.lo-trow-addr:hover::after {
+  opacity: 1;
+  transform: translate(0, 0) scale(1);
+}
+.lo-trow.sel .lo-trow-addr { color: var(--ink-3); }
+.lo-trow.sel .lo-trow-addr:hover { color: var(--primary-ink); }
+/* Independent meta line that lives BELOW the 6-col grid (.lo-trow-row),
+   spanning the full row width. Left = hub · LLTV, right = wallet
+   balance. Grid layout with hard boundaries so NumberFlow's inline-flex
+   wrapper can't overflow into the hub label. The left column shrinks +
+   ellipses; the right column sizes to its content. */
+.lo-trow-sub {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 6px 4px 0;
+  border-top: 1px dashed var(--border);
+  font-size: 12px; font-weight: 700;
+  color: var(--ink-2);
+  min-width: 0;
+}
+.lo-trow-sub-l {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lo-trow-hub-l { font-weight: 800; color: var(--ink); flex-shrink: 0; }
+.lo-trow-sep { color: var(--ink-4); flex-shrink: 0; }
+.lo-trow-lltv {
+  color: var(--ink-2); font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
 .lo-trow-num {
   font-size: 13px; font-weight: 800;
   color: var(--ink);
@@ -601,25 +732,28 @@
    balance, full ink when actionable. The popover-only
    .lo-confirm-submit class from main is intentionally dropped — the
    Confirm popover was removed in 7a9d364 in favor of an inline CTA. */
-.lo-trow-balrow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 3px;
-  font-size: 11.5px;
-  font-weight: 700;
-}
 .lo-trow-bal-l {
-  color: var(--ink-4);
-  letter-spacing: .04em;
+  color: var(--purpleDanis, var(--primary-ink));
+  letter-spacing: .08em;
   text-transform: uppercase;
   font-size: 9.5px;
   font-weight: 800;
+  flex-shrink: 0;
 }
 .lo-trow-bal {
+  display: inline-flex;
+  align-items: baseline;
   color: var(--profit-ink);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  justify-self: end;
+  /* No max-width / overflow:hidden here — compact notation (`10M`,
+     `1.2B`) keeps the value short; the auto-sized grid track lets the
+     suffix ("USDC", "EURC", "AUDF") render in full instead of being
+     clipped against a percentage cap that loops against its own track. */
 }
 .lo-trow-bal-muted {
   color: var(--ink-4);
@@ -715,18 +849,40 @@
 .lo-amount-input:focus { border-color: var(--ink); box-shadow: 0 0 0 4px rgba(31, 23, 64, .08); }
 [data-theme="dark"] .lo-amount-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(132, 116, 255, .15); }
 
+/* Lock the quick-pick row to a single line — `flex-wrap: nowrap` so the
+   25/50/75/MAX buttons stay at the same X position whether BALANCE is
+   "$3,640.49" or "$910.12". BALANCE takes the remaining space and ellipses
+   if it gets too long, instead of pushing the buttons to a new row (the
+   previous wrap behaviour shifted the buttons up/down on every MAX click,
+   which read as a layout bug). */
 .lo-amount-foot {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap;
+  gap: 12px; flex-wrap: nowrap;
+  min-width: 0;
 }
 .lo-balance {
   display: inline-flex; align-items: center; gap: 7px;
   font-weight: 800; font-size: 11px;
   color: var(--ink-3); letter-spacing: .08em; text-transform: uppercase;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .lo-balance .mono { color: var(--ink-2); letter-spacing: 0; text-transform: none; }
 .lo-balance-usd { color: var(--ink-3) !important; font-weight: 700 !important; }
-.lo-amount-quick { display: flex; gap: 4px; }
+/* Quick-pick rail. Sits ABOVE the input and OUTSIDE its border:
+   percent chips on the left, MAX (the prominent shortcut) on the right.
+   Right-aligned via `justify-content: flex-end` so it visually hangs off
+   the input's top edge regardless of the input's container width. */
+.lo-amount-quick {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: -2px;
+  width: 100%;
+}
 .lo-amount-quick button {
   padding: 4px 10px;
   background: var(--surface);
@@ -736,10 +892,29 @@
   font-weight: 800; font-size: 10.5px;
   color: var(--ink-2);
   cursor: pointer;
-  transition: all .12s;
+  transition: border-color .12s, color .12s, background .12s, transform .12s;
   letter-spacing: .04em;
 }
-.lo-amount-quick button:hover { border-color: var(--ink); color: var(--ink); }
+.lo-amount-quick button:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.lo-amount-quick button:active { transform: translateY(1px); }
+/* MAX gets the brand treatment — it's the primary shortcut, so it
+   reads as solid call-to-action vs. the muted percentage chips. */
+.lo-amount-quick .lo-amount-max {
+  padding: 4px 12px;
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary-ink);
+  letter-spacing: .08em;
+  margin-left: 4px;
+}
+.lo-amount-quick .lo-amount-max:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
 
 .lo-cta {
   width: 100%;
@@ -767,16 +942,25 @@
 .lo-cta:active { transform: translate(3px, 3px); box-shadow: 2px 2px 0 0 var(--ink); }
 [data-theme="dark"] .lo-cta { background: #ffd54a; color: #1f1740; border-color: #1f1740; box-shadow: 5px 5px 0 0 #1f1740; }
 
-/* Amount input shell + in-input flip button */
+/* Amount input shell + in-input flip button. Quick-pick rail (25/50/75
+   + MAX) sits OUTSIDE the input border on the top row — see
+   `.lo-amount-quick`. The shell now only houses the input itself and
+   the FLIP affordance, which sits at the right side centered. */
 .lo-amount-shell {
   position: relative;
   display: flex;
   align-items: stretch;
 }
-.lo-amount-shell .lo-amount-input { flex: 1; padding-right: 134px; }
+.lo-amount-shell .lo-amount-input {
+  flex: 1;
+  height: 56px;
+  padding-right: 134px;
+}
+
 .lo-flip {
   position: absolute;
-  right: 8px; top: 50%;
+  right: 8px;
+  top: 50%;
   transform: translateY(-50%);
   display: inline-flex; align-items: center; gap: 8px;
   padding: 6px 10px 6px 12px;
@@ -784,7 +968,7 @@
   border: 1.5px solid var(--border);
   border-radius: 12px;
   cursor: pointer;
-  transition: all .14s;
+  transition: border-color .14s, background .14s, transform .14s, box-shadow .14s;
   font-family: 'Nunito', sans-serif;
 }
 .lo-flip:hover {
@@ -1051,10 +1235,12 @@
   .lo-action { padding: 12px 12px 14px; gap: 10px; }
   .lo-tabs { gap: 6px; }
   .lo-tab { padding: 7px 10px; font-size: 12px; min-width: 64px; }
-  .lo-amount-input { height: 52px; font-size: 24px; padding: 0 14px; }
-  /* Flip button sits inside the input — needs more right padding */
-  .lo-amount-shell .lo-amount-input { padding-right: 120px; }
-  .lo-flip { padding: 5px 8px 5px 10px; gap: 6px; }
+  .lo-amount-input { font-size: 24px; padding: 0 14px; }
+  /* Narrow viewport: MAX + FLIP still stacked top-right / bottom-right
+     inside the same shell; tighten paddings + heights so they fit. */
+  .lo-amount-shell .lo-amount-input { height: 58px; padding-right: 128px; }
+  .lo-amount-max { height: 20px; padding: 0 7px; font-size: 10px; }
+  .lo-flip { padding: 4px 7px 4px 9px; gap: 6px; }
   .lo-flip-pair { font-size: 11.5px; }
   .lo-flip-l { display: none; }
   .lo-cta { height: 48px; font-size: 15px; }
