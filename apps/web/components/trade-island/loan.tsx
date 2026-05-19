@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { Address } from "viem";
 import { useAccount, useBalance } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
@@ -109,7 +109,12 @@ export const LOAN_TOKENS: Record<string, LoanToken> = {
   //   0xAB99…85eBb. Keep the price field for client-side $-value previews
   //   until the live oracle is wired (Pyth USD/MXN ≈ 17, inverted → 0.0585).
   MXNB: { sym: "MXNB", name: "Mexican Peso", flag: "🇲🇽", price: 0.0585, decimals: 2, mock: false },
-  mAUDF: { sym: "mAUDF", name: "Australian Dollar", flag: "🇦🇺", price: 0.6648, decimals: 2, mock: true },
+  // AUDF graduated from mock → real after fx-telarana#feat/mxnb-fuji-markets
+  // (the AUDF mints + Arc M3/M4 deploy): Forte ships the live issuer-controlled
+  // testnet contract on Eth Sepolia + Arc Testnet at the same canonical address
+  // 0xd2a5…7456b. Markets live on Arc; price field is for $-value previews
+  // until the live AUD/USD oracle is wired (Pyth ≈ 0.66).
+  AUDF: { sym: "AUDF", name: "Australian Dollar", flag: "🇦🇺", price: 0.6648, decimals: 2, mock: false },
   mJPYC: { sym: "mJPYC", name: "Japanese Yen", flag: "🇯🇵", price: 0.00648, decimals: 0, mock: true },
   mKRW1: { sym: "mKRW1", name: "Korean Won", flag: "🇰🇷", price: 0.000726, decimals: 0, mock: true },
   mZCHF: { sym: "mZCHF", name: "Swiss Franc", flag: "🇨🇭", price: 1.135, decimals: 2, mock: true },
@@ -187,7 +192,12 @@ export const LOAN_MARKETS: LoanMarket[] = [
   { id: "arc-usdc-eurc", hub: "arc", loan: "USDC", coll: "EURC", supply: 4.42, borrow: 7.04, util: 0.66, lltv: 0.86, tvl: 1820000, status: "live", trend: "up" },
   { id: "arc-eurc-usdc", hub: "arc", loan: "EURC", coll: "USDC", supply: 4.10, borrow: 6.42, util: 0.58, lltv: 0.86, tvl: 1240000, status: "live", trend: "up" },
   { id: "arc-mjpyc-usdc", hub: "arc", loan: "mJPYC", coll: "USDC", supply: 0.92, borrow: 2.40, util: 0.71, lltv: 0.82, tvl: 540000, status: "live", trend: "down" },
-  { id: "arc-maudf-usdc", hub: "arc", loan: "mAUDF", coll: "USDC", supply: 8.40, borrow: 11.20, util: 0.42, lltv: 0.80, tvl: 220000, status: "live", trend: "up" },
+  // Real AUDF markets on the Arc hub — added by fx-telarana#feat/mxnb-fuji-markets
+  // via DeployArcAudfMarkets.s.sol. M3 (audf-usdc): post USDC, borrow AUDF.
+  // M4 (usdc-audf): post AUDF, borrow USDC. Static fallback only — live
+  // state arrives via the markets API and overrides these via toLoanMarket().
+  { id: "arc-audf-usdc", hub: "arc", loan: "AUDF", coll: "USDC", supply: 9.20, borrow: 12.40, util: 0.40, lltv: 0.86, tvl: 0, status: "live", trend: "up" },
+  { id: "arc-usdc-audf", hub: "arc", loan: "USDC", coll: "AUDF", supply: 4.30, borrow: 6.50, util: 0.40, lltv: 0.86, tvl: 0, status: "live", trend: "up" },
   { id: "arc-mkrw1-usdc", hub: "arc", loan: "mKRW1", coll: "USDC", supply: 3.40, borrow: 5.80, util: 0.46, lltv: 0.75, tvl: 86000, status: "live", trend: "up" },
   { id: "arc-mzchf-usdc", hub: "arc", loan: "mZCHF", coll: "USDC", supply: 2.10, borrow: 4.20, util: 0.62, lltv: 0.82, tvl: 220000, status: "paused", trend: "down" },
   { id: "fuji-usdc-eurc", hub: "fuji", loan: "USDC", coll: "EURC", supply: 4.20, borrow: 6.84, util: 0.62, lltv: 0.86, tvl: 412600, status: "live", trend: "up" },
@@ -249,6 +259,7 @@ export function symbolForToken(address: Address): string {
     // Arc Testnet
     "0x3600000000000000000000000000000000000000": "USDC",
     "0x89b50855aa3be2f677cd6303cec089b5f319d72a": "EURC",
+    "0xd2a530170d71a9cfe1651fb468e2b98f7ed7456b": "AUDF", // Forte canonical (same address on Eth Sepolia)
     // Ethereum Sepolia
     "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238": "USDC", // Circle canonical
     "0x5fd84259d66cd46123540766be93dfe6d43130d7": "USDC", // (legacy: actually OP Sepolia — kept for backward-compat)
@@ -262,13 +273,12 @@ export function symbolForToken(address: Address): string {
 }
 
 function decimalsForSymbol(sym: string): number {
-  // USDC, EURC, and MXNB are all 6-dp on the live testnet deployments
-  // (Bitso ships testnet MXNB at 6-dp to match the Fuji USDC/EURC
-  // representation — see fx-telarana SDK addresses for Fuji). The
-  // synthetic mAUDF / mJPYC / mKRW1 / mZCHF tokens shown in the static
-  // LOAN_MARKETS aren't backed by real onchain markets — they keep the
-  // table populated for demo purposes.
-  if (sym === "USDC" || sym === "EURC" || sym === "MXNB") return 6;
+  // USDC, EURC, MXNB, and AUDF are all 6-dp on the live testnet deployments
+  // (Bitso ships MXNB at 6-dp, Forte ships AUDF at 6-dp; both match the
+  // Fuji/Arc USDC representation). The synthetic mJPYC / mKRW1 / mZCHF
+  // tokens shown in the static LOAN_MARKETS aren't backed by real onchain
+  // markets — they keep the table populated for demo purposes.
+  if (sym === "USDC" || sym === "EURC" || sym === "MXNB" || sym === "AUDF") return 6;
   return 6;
 }
 
@@ -1205,7 +1215,7 @@ export function ActionCard({
 
       <div className="lo-tabs">
         {ACTIONS.map((a, i) => (
-          <React.Fragment key={a.id}>
+          <Fragment key={a.id}>
             <button
               className={"lo-tab tone-" + (i + 1) + (action === a.id ? " active" : "")}
               onClick={() => setAction(a.id)}
@@ -1216,7 +1226,7 @@ export function ActionCard({
             {/* Vertical rule between the supply pair (lend / withdraw) and the
                 debt pair (borrow / repay). Pure visual grouping — not focusable. */}
             {i === 1 && <span className="lo-tab-divider" aria-hidden="true" />}
-          </React.Fragment>
+          </Fragment>
         ))}
       </div>
 
