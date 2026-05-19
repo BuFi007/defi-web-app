@@ -585,7 +585,11 @@ export function ChartCard({
 }) {
   const [tf, setTf] = useState("15m");
   const [expanded, setExpanded] = useState(false);
-  const tfs = ["1m", "5m", "15m", "1H", "4H", "1D", "1W"];
+  // 1W intentionally dropped: Pyth Benchmarks enforces a 1-year
+  // max-range on FX queries, so the weekly bar count is too sparse
+  // to render usefully. Reinstate once the data source supports
+  // multi-year weekly history.
+  const tfs = ["1m", "5m", "15m", "1H", "4H", "1D"];
   const decimals = market.price < 10 ? 4 : market.price < 1000 ? 2 : 1;
   const { data: stats } = useMarketStats(market.sym);
   const high = stats?.high ?? null;
