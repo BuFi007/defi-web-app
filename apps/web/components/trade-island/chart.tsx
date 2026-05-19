@@ -250,7 +250,18 @@ export function CandleChart({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Data load — re-fetches on market/timeframe/source change.
+  // Historical OHLCV load — fires on symbol / timeframe / source change.
+  // Pyth Hermes pushes a live mark price several times per second, which
+  // mutates `market.price`; if it lived in this dep list the load would
+  // re-fire (and flip the overlay back to "loading") on every tick. The
+  // live-tick fold-in effect below appends the new mark into the in-memory
+  // candle series instead, so the historical fetch genuinely only needs
+  // to re-run when the user picks a different market or timeframe.
+  // `basePrice` below is a synthesizer fallback used by the "mock" source
+  // when no real candles exist — we read it from a ref so updates to the
+  // live mark don't invalidate this effect's deps.
+  const basePriceRef = useRef(market.price);
+  basePriceRef.current = market.price;
   useEffect(() => {
     let cancelled = false;
     setChartStatus("loading");
@@ -259,7 +270,7 @@ export function CandleChart({
         source,
         marketId: market.sym,
         tf: timeframe,
-        basePrice: market.price,
+        basePrice: basePriceRef.current,
         limit: 200,
       });
       if (cancelled) return;
@@ -303,7 +314,13 @@ export function CandleChart({
     return () => {
       cancelled = true;
     };
-  }, [market.sym, market.price, timeframe, source, oracleLine]);
+    // Intentionally omit `market.price` and `oracleLine` — both update on
+    // every live tick (price) or on every parent re-render (oracleLine
+    // array identity), and re-running the 200-candle Pyth Benchmarks
+    // fetch on every tick is what was causing the chart overlay to flip
+    // between "loading" and "ready" several times per second.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [market.sym, timeframe, source]);
 
   // Flip out of 'empty' the moment a live tick arrives — the live-fold
   // effect below will append a candle to the series, so the overlay
