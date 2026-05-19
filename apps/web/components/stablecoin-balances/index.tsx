@@ -3,17 +3,13 @@
 import React, { useState } from "react";
 import { useAccount, useBalance } from "wagmi";
 import { formatUnits, type Address } from "viem";
+import { AnimatePresence, motion } from "framer-motion";
 import type { WagmiChainId } from "@/utils/chain";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { ChainSelect } from "@/components/chain-select";
 import { BalanceDisplay } from "@/components/balance-display";
 import { TokenChip } from "@/components/token-chip";
@@ -202,40 +198,67 @@ export const StablecoinBalances: React.FC = () => {
     [sortedRows],
   );
 
+  // Dynamic-Island-style trigger: idle is just the number; hover (or
+  // keyboard focus, or the popover being open) morphs the pill open to
+  // surface the full "Stablecoin FX Wallet" label inline. framer-motion's
+  // `layout` prop on the parent animates the width change smoothly, and
+  // AnimatePresence handles the label's appear/disappear without
+  // teleporting a separate tooltip element.
+  const [hover, setHover] = useState(false);
+  const expanded = hover || open;
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      {/* Force the hover tooltip closed while the popover is open so the
-          chip ("Stablecoin FX Wallet") doesn't float over the panel. */}
-      <Tooltip open={open ? false : undefined}>
-        <PopoverTrigger asChild>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              className="acct-mini"
-              aria-label="Open Stablecoin FX Wallet"
-            >
-              <span className="mono acct-v">{triggerLabel}</span>
-              <svg
-                width="10"
-                height="10"
-                viewBox="0 0 10 10"
-                aria-hidden="true"
-                className="ml-0.5 opacity-70"
+      <PopoverTrigger asChild>
+        <motion.button
+          type="button"
+          layout
+          transition={{ type: "spring", duration: 0.32, bounce: 0.18 }}
+          className="acct-mini"
+          aria-label="Open Stablecoin FX Wallet"
+          onMouseEnter={() => setHover(true)}
+          onMouseLeave={() => setHover(false)}
+          onFocus={() => setHover(true)}
+          onBlur={() => setHover(false)}
+        >
+          <AnimatePresence initial={false}>
+            {expanded && (
+              <motion.span
+                key="label"
+                layout
+                initial={{ opacity: 0, width: 0, marginRight: 0 }}
+                animate={{ opacity: 1, width: "auto", marginRight: 8 }}
+                exit={{ opacity: 0, width: 0, marginRight: 0 }}
+                transition={{ duration: 0.18 }}
+                className="acct-l"
+                style={{ overflow: "hidden", whiteSpace: "nowrap" }}
               >
-                <path
-                  d="M2 4 L5 7 L8 4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-          </TooltipTrigger>
-        </PopoverTrigger>
-        <TooltipContent sideOffset={8}>Stablecoin FX Wallet</TooltipContent>
-      </Tooltip>
+                Stablecoin FX Wallet
+              </motion.span>
+            )}
+          </AnimatePresence>
+          <motion.span layout className="mono acct-v">
+            {triggerLabel}
+          </motion.span>
+          <motion.svg
+            layout
+            width="10"
+            height="10"
+            viewBox="0 0 10 10"
+            aria-hidden="true"
+            className="ml-0.5 opacity-70"
+          >
+            <path
+              d="M2 4 L5 7 L8 4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </motion.svg>
+        </motion.button>
+      </PopoverTrigger>
       <PopoverContent
         align="end"
         sideOffset={8}

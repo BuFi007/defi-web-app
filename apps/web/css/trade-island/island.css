@@ -122,12 +122,13 @@ body[data-banner="open"] .island {
   border-radius: 12px;
   white-space: nowrap;
 }
+/* The .acct-l label is now ALWAYS rendered (framer-motion controls its
+   visibility via AnimatePresence — visible on hover/focus/popover-open,
+   collapsed otherwise). Don't hide it via a media query; that would
+   override the inline animated style and break the Dynamic Island
+   morph on narrow viewports. */
 .acct-l { font-size: 10px; font-weight: 800; color: var(--ink-3); letter-spacing: .03em; text-transform: uppercase; }
 .acct-v { font-size: 13px; font-weight: 800; color: var(--ink); }
-
-@media (max-width: 1280px) {
-  .acct-l { display: none; }
-}
 @media (max-width: 1140px) {
   .market-mini .mono { display: none; }
 }
@@ -332,7 +333,6 @@ body[data-banner="open"] .island {
   .island-tabs { gap: 2px; padding: 3px; }
   .island-tab { padding: 6px 9px; font-size: 11.5px; }
   .island-tab span:first-of-type { display: none; }
-  .acct-mini .acct-l { display: none; }
 }
 
 /* Mobile + tablet (≤1023px): the LayoutMusic radio + Header are pinned, the
@@ -818,7 +818,6 @@ body[data-banner="open"] .island {
   .market-mini { display: none; }
   /* Equity pill: collapse to a compact mono number; hide secondary label + pnl */
   .acct-mini { padding: 5px 8px; gap: 4px; }
-  .acct-mini .acct-l { display: none; }
   .acct-mini .acct-v { font-size: 11.5px; }
   .acct-mini .pill { display: none; }
   /* ARCADE button: icon-only */

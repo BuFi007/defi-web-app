@@ -27,6 +27,8 @@ import { formatHealthFactor, healthBucket, healthFactorFromE18, toAtomic } from 
 import { Hint } from "./hint";
 import { TokenIcon } from "./token-icon";
 import { useMarketCandles } from "@/lib/perps/hooks";
+import { SPOKE_CHAINS } from "@/components/stablecoin-balances/deployments";
+import type { StableTokenType } from "@bufi/location/stable-tokens";
 
 export interface LoanToken {
   sym: string;
@@ -237,6 +239,34 @@ const ACTION_TO_KIND: Record<string, LendingActionKind> = {
 
 const HUB_CHAIN_IDS = { arc: 5042002 as const, fuji: 43113 as const };
 export const HUB_NAME_BY_CHAIN_ID: Record<number, "arc" | "fuji"> = { 5042002: "arc", 43113: "fuji" };
+
+/**
+ * Look up the ERC-20 deployment for a (hub, symbol) pair via the same
+ * SPOKE_CHAINS manifest the wallet popover reads. Used as a fallback in
+ * ActionCard / MarketRowBalance when the selected market's
+ * `market.onchain` field hasn't been hydrated by the /fx-telarana/markets
+ * feed yet — without this, the BALANCE row reads 0 even when the user
+ * holds 10M AUDF on Arc and the wallet chip surfaces that balance
+ * correctly. The single source of truth keeps the balance row and the
+ * wallet popover in sync, which is what the user means by "connected
+ * and working as a single system."
+ */
+export function loanTokenDeployment(
+  hub: string,
+  symbol: string,
+): { chainId: number; address: Address; decimals: number } | null {
+  const chainId = HUB_CHAIN_IDS[hub as keyof typeof HUB_CHAIN_IDS];
+  if (chainId == null) return null;
+  const cfg = SPOKE_CHAINS.find((c) => c.chainId === chainId);
+  if (!cfg) return null;
+  const dep = cfg.tokens.find((t) => t.asset === (symbol as StableTokenType));
+  if (!dep?.address) return null;
+  return {
+    chainId,
+    address: dep.address as Address,
+    decimals: dep.decimals ?? 6,
+  };
+}
 
 const fmtCompact = (n: number) =>
   n >= 1e6 ? "$" + (n / 1e6).toFixed(2) + "M" : n >= 1e3 ? "$" + (n / 1e3).toFixed(0) + "k" : "$" + n.toFixed(0);
@@ -711,12 +741,6 @@ function MarketsTable({
                     <span className="mkt-loan">{m.loan}</span>
                     <span className="mkt-slash">/</span>
                     <span className="mkt-coll">{m.coll}</span>
-                    {m.status !== "live" && <StatusTag status={m.status} />}
-                  </div>
-                  <div className="lo-trow-hub">
-                    <HubPip hub={hub} size={18} />
-                    <span style={{ fontWeight: 700 }}>{hub.short}</span>
-                    <span className="lo-trow-divider" aria-hidden="true">·</span>
                     <a
                       className="mono lo-trow-addr"
                       href={blockExplorerUrl(hub.chainId, hub.address)}
@@ -729,6 +753,11 @@ function MarketsTable({
                     >
                       {shortHex(hub.address)}
                     </a>
+                    {m.status !== "live" && <StatusTag status={m.status} />}
+                  </div>
+                  <div className="lo-trow-hub">
+                    <HubPip hub={hub} size={18} />
+                    <span style={{ fontWeight: 700 }}>{hub.short}</span>
                     <span className="lo-trow-lltv">
                       · {fmtOrDash(m.lltv, (x) => `${Math.round(x * 100)}%`)} LLTV
                     </span>
@@ -784,11 +813,25 @@ function MarketRowBalance({
   walletAddress: Address | undefined;
 }) {
   const onchain = market.onchain;
-  const enabled = Boolean(walletAddress && onchain?.loanToken && onchain?.hubChainId);
+  // Same fallback ladder as ActionCard: prefer live registry, but fall
+  // back to the SPOKE_CHAINS deployment manifest so the table row's
+  // balance matches what the wallet popover surfaces for the same
+  // (hub, symbol) pair. Without the fallback, every "demo"-labelled
+  // market hid the user's actual wallet balance.
+  const fallback = onchain ? null : loanTokenDeployment(market.hub, market.loan);
+  const tokenAddress = (onchain?.loanToken ?? fallback?.address) as
+    | `0x${string}`
+    | undefined;
+  const tokenChainId = (onchain?.hubChainId ?? fallback?.chainId) as
+    | 43113
+    | 5042002
+    | undefined;
+  const tokenDecimals = onchain?.loanDecimals ?? fallback?.decimals ?? 6;
+  const enabled = Boolean(walletAddress && tokenAddress && tokenChainId);
   const bal = useBalance({
     address: walletAddress,
-    token: onchain?.loanToken as `0x${string}` | undefined,
-    chainId: onchain?.hubChainId,
+    token: tokenAddress,
+    chainId: tokenChainId,
     query: { enabled },
   });
   if (!walletAddress) {
@@ -798,13 +841,13 @@ function MarketRowBalance({
       </span>
     );
   }
-  if (!onchain) {
+  if (!tokenAddress) {
     return <span className="lo-trow-bal lo-trow-bal-muted mono">demo</span>;
   }
   if (bal.isLoading || !bal.data) {
     return <span className="lo-trow-bal lo-trow-bal-muted mono">…</span>;
   }
-  const decimals = bal.data.decimals ?? onchain.loanDecimals;
+  const decimals = bal.data.decimals ?? tokenDecimals;
   const human = Number(formatUnits(bal.data.value, decimals));
   if (!Number.isFinite(human) || human === 0) {
     return <span className="lo-trow-bal lo-trow-bal-muted mono">0 {market.loan}</span>;
@@ -890,20 +933,34 @@ export function ActionCard({
   // `balanceOverride` with the user's supplied / debt position (read
   // from telarana, not the wallet). Without that override AND without a
   // connected wallet we show 0 — never the legacy 12,840.21 placeholder.
+  //
+  // Resolution: prefer market.onchain when the live registry has
+  // hydrated this row; fall back to the SPOKE_CHAINS deployment
+  // manifest (the wallet popover's source) so a "demo"-labelled row
+  // still gives a real balance to the user. Without the fallback, the
+  // BALANCE row showed 0 AUDF on Arc even when the user clearly held
+  // 10M — wallet popover and ActionCard must agree on the same number.
   const { address: walletAddress } = useAccount();
   const onchain = market.onchain;
+  const fallback = onchain ? null : loanTokenDeployment(market.hub, market.loan);
+  const tokenAddress = (onchain?.loanToken ?? fallback?.address) as
+    | `0x${string}`
+    | undefined;
+  const tokenChainId = (onchain?.hubChainId ?? fallback?.chainId) as
+    | 43113
+    | 5042002
+    | undefined;
+  const tokenDecimals = onchain?.loanDecimals ?? fallback?.decimals ?? 6;
   const walletBalance = useBalance({
     address: walletAddress,
-    token: onchain?.loanToken as `0x${string}` | undefined,
-    chainId: onchain?.hubChainId,
+    token: tokenAddress,
+    chainId: tokenChainId,
     query: {
-      enabled: Boolean(
-        walletAddress && onchain?.loanToken && onchain?.hubChainId,
-      ),
+      enabled: Boolean(walletAddress && tokenAddress && tokenChainId),
     },
   });
   const walletBalanceFloat = walletBalance.data
-    ? Number(formatUnits(walletBalance.data.value, walletBalance.data.decimals ?? 6))
+    ? Number(formatUnits(walletBalance.data.value, walletBalance.data.decimals ?? tokenDecimals))
     : 0;
   const balance = balanceOverride ?? walletBalanceFloat;
   const amt = parseFloat(amount) || 0;
