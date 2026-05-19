@@ -9,14 +9,7 @@ import {
 import { Icon, fmtPct, type Market } from "./data";
 import { TokenIconPair } from "./token-icon";
 import { useMultiHubMarketList } from "@/lib/perps/hooks";
-
-// 43113 → Fuji, 5042002 → Arc. Anything else falls back to the raw id so
-// a new hub doesn't render a blank chip.
-function hubLabel(chainId: number): string {
-  if (chainId === 5042002) return "Arc";
-  if (chainId === 43113) return "Fuji";
-  return `chain ${chainId}`;
-}
+import { hubLabel } from "@bufi/location/hubs";
 
 type Filter = "all" | "forex" | "perp";
 

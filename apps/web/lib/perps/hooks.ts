@@ -32,6 +32,7 @@ import {
   type PerpsOrderTypedDataInput,
 } from "@bufi/perps";
 import type { ChainId } from "@bufi/shared-types";
+import { HUBS } from "@bufi/location/hubs";
 
 import {
   fetchPerpsCandles,
@@ -304,8 +305,6 @@ export function useMarketList(chainIdOverride?: number): {
  * is true if EVERY hub query errored — partial errors degrade
  * gracefully so the picker still shows the live half.
  */
-const PERPS_HUB_CHAIN_IDS = [5042002, 43113] as const;
-
 export function useMultiHubMarketList(): {
   markets: MarketListEntry[] | null;
   isLoading: boolean;
@@ -313,8 +312,10 @@ export function useMultiHubMarketList(): {
 } {
   // Each hub uses the same single-chain hook; the override forces the
   // queryKey + fetch URL onto that hub regardless of wagmi's chain.
-  const arc = useMarketList(PERPS_HUB_CHAIN_IDS[0]);
-  const fuji = useMarketList(PERPS_HUB_CHAIN_IDS[1]);
+  // HUB_CHAIN_IDS comes from @bufi/location/hubs so adding a third hub
+  // doesn't require touching this file.
+  const arc = useMarketList(HUBS.arc.chainId);
+  const fuji = useMarketList(HUBS.fuji.chainId);
 
   const markets = useMemo<MarketListEntry[] | null>(() => {
     if (arc.markets == null && fuji.markets == null) return null;

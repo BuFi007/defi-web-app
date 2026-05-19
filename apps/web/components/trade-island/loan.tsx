@@ -26,12 +26,21 @@ import { formatHealthFactor, healthBucket, healthFactorFromE18, toAtomic } from 
 
 import { Hint } from "./hint";
 import { TokenIcon } from "./token-icon";
+import { AnimatedNumber } from "@/components/animated-number";
 import { useMarketCandles } from "@/lib/perps/hooks";
 import { SPOKE_CHAINS } from "@/components/stablecoin-balances/deployments";
 import {
   STABLE_TOKEN_LIST,
   type StableTokenType,
 } from "@bufi/location/stable-tokens";
+import {
+  HUBS,
+  hubByChainId,
+  hubKeyByChainId,
+  chainIdByHubKey,
+  type HubChain,
+  type HubKey,
+} from "@bufi/location/hubs";
 
 export interface LoanToken {
   sym: string;
@@ -42,25 +51,18 @@ export interface LoanToken {
   mock: boolean;
 }
 
-export interface LoanHub {
-  id: string;
-  /** Long-form name shown in tooltips ("Arc Hub", "Fuji Hub"). */
-  name: string;
-  /** Short display label for filter pills and breadcrumbs ("Arc",
-   *  "Fuji"). NOT the address — that lives on `address`. */
-  short: string;
-  /** Brand colour for the per-hub badge / accent. */
-  color: string;
-  /** Legacy text glyph fallback rendered only when no `iconUrl` resolves. */
-  glyph: string;
-  /** Real chain logo (svg / png). Pulled from constants/Chains. */
-  iconUrl: string;
+// LoanHub = platform HubChain (from @bufi/location/hubs) + the lending
+// app's per-hub FxMarketRegistry contract address. The base fields
+// (name, short, color, glyph, iconUrl, chainId) are inherited so adding
+// a third hub only requires touching @bufi/location/hubs.
+export interface LoanHub extends HubChain {
+  /** Legacy alias for HubChain.key, kept so existing call sites that
+   *  read `hub.id` continue to work without a sweeping rename. */
+  id: HubKey;
   /** On-chain FxMarketRegistry address for the hub. Surfaced (shortened)
    *  next to per-market rows so the user sees the contract they're
    *  interacting with. */
   address: `0x${string}`;
-  /** EVM chainId — used to build block-explorer hyperlinks. */
-  chainId: 43113 | 5042002;
 }
 
 export type LoanMarketStatus = "live" | "paused" | "stale";
@@ -168,28 +170,20 @@ export const blockExplorerUrl = (
   }
 };
 
-export const LOAN_HUBS: Record<string, LoanHub> = {
+// Lending-specific overlay on top of the platform-level HUBS table
+// (@bufi/location/hubs). We append the FxMarketRegistry contract address
+// per hub — that's app metadata, not platform metadata, so it stays
+// here. Every other field flows from the central HUBS source.
+export const LOAN_HUBS: Record<HubKey, LoanHub> = {
   arc: {
-    id: "arc",
-    name: "Arc Hub",
-    short: "Arc",
-    color: "#1a1340",
-    // Arc's official mark — lives under public/networks/. The HubPip
-    // wrapper places it on a tinted background so it reads cleanly.
-    iconUrl: "/networks/arc.svg",
-    glyph: "◆",
+    ...HUBS.arc,
+    id: HUBS.arc.key,
     address: HUB_REGISTRY_ADDRESS.arc,
-    chainId: 5042002,
   },
   fuji: {
-    id: "fuji",
-    name: "Fuji Hub",
-    short: "Fuji",
-    color: "#e84142",
-    iconUrl: "/networks/avax.svg",
-    glyph: "▲",
+    ...HUBS.fuji,
+    id: HUBS.fuji.key,
     address: HUB_REGISTRY_ADDRESS.fuji,
-    chainId: 43113,
   },
 };
 
@@ -240,8 +234,13 @@ const ACTION_TO_KIND: Record<string, LendingActionKind> = {
   repay: "repay",
 };
 
-const HUB_CHAIN_IDS = { arc: 5042002 as const, fuji: 43113 as const };
-export const HUB_NAME_BY_CHAIN_ID: Record<number, "arc" | "fuji"> = { 5042002: "arc", 43113: "fuji" };
+// Re-exported here for back-compat — every NEW call site should import
+// directly from @bufi/location/hubs (chainIdByHubKey + hubKeyByChainId).
+// Both forms point at the same single source of truth.
+export const HUB_NAME_BY_CHAIN_ID: Record<number, HubKey> = {
+  [HUBS.arc.chainId]: HUBS.arc.key,
+  [HUBS.fuji.chainId]: HUBS.fuji.key,
+};
 
 /**
  * Look up the ERC-20 deployment for a (hub, symbol) pair via the same
@@ -258,8 +257,11 @@ export function loanTokenDeployment(
   hub: string,
   symbol: string,
 ): { chainId: number; address: Address; decimals: number } | null {
-  const chainId = HUB_CHAIN_IDS[hub as keyof typeof HUB_CHAIN_IDS];
-  if (chainId == null) return null;
+  // hub key -> chainId via the central HUBS table. Returns null for any
+  // hub key that isn't registered (e.g. legacy demo rows), letting the
+  // caller render a "demo" balance instead of crashing.
+  if (hub !== "arc" && hub !== "fuji") return null;
+  const chainId = chainIdByHubKey(hub);
   const cfg = SPOKE_CHAINS.find((c) => c.chainId === chainId);
   if (!cfg) return null;
   const dep = cfg.tokens.find((t) => t.asset === (symbol as StableTokenType));
@@ -348,7 +350,10 @@ function bpsFromWad(value: bigint | string): number {
 function toLoanMarket(market: TelaranaMarketSerialized): LoanMarket {
   const loanSym = symbolForToken(market.loanToken);
   const collSym = symbolForToken(market.collateralToken);
-  const hub = HUB_NAME_BY_CHAIN_ID[market.hubChainId];
+  // chainId -> hub key. Defaults to "arc" only if the registry hands us
+  // a market on an unknown chain — same behavior as before, made
+  // explicit via the central helper.
+  const hub = hubKeyByChainId(market.hubChainId) ?? "arc";
   // Distinguish "market.state was provided as zero" (real on-chain
   // zero — show 0% / $0) from "the SDK couldn't fetch state at all"
   // (return nulls so the row renders "—"). The former is honest
@@ -706,7 +711,7 @@ function MarketsTable({
               className={"lo-hub-btn " + (hubFilter === h ? "active" : "")}
               onClick={() => setHubFilter(h)}
             >
-              {h === "all" ? "All" : LOAN_HUBS[h].short}
+              {h === "all" ? "All" : LOAN_HUBS[h as HubKey].short}
               <span className="lo-hub-btn-count">
                 {h === "all" ? markets.length : markets.filter((m) => m.hub === h).length}
               </span>
@@ -726,7 +731,7 @@ function MarketsTable({
         </div>
         {visible.map((m) => {
           const sel = m.id === market.id;
-          const hub = LOAN_HUBS[m.hub];
+          const hub = LOAN_HUBS[m.hub as HubKey];
           const disabled = m.status !== "live";
           return (
             <button
@@ -775,15 +780,51 @@ function MarketsTable({
                 </div>
               </div>
               <span className="mono profit lo-trow-num">
-                {fmtOrDash(m.supply, (x) => `${x.toFixed(2)}%`)}
+                {m.supply == null ? (
+                  "—"
+                ) : (
+                  <AnimatedNumber
+                    value={m.supply}
+                    currency="%"
+                    maximumFractionDigits={2}
+                    minimumFractionDigits={2}
+                  />
+                )}
               </span>
               <span className="mono loss lo-trow-num">
-                {fmtOrDash(m.borrow, (x) => `${x.toFixed(2)}%`)}
+                {m.borrow == null ? (
+                  "—"
+                ) : (
+                  <AnimatedNumber
+                    value={m.borrow}
+                    currency="%"
+                    maximumFractionDigits={2}
+                    minimumFractionDigits={2}
+                  />
+                )}
               </span>
               <span className="mono lo-trow-num">
-                {fmtOrDash(m.util, (x) => `${Math.round(x * 100)}%`)}
+                {m.util == null ? (
+                  "—"
+                ) : (
+                  <AnimatedNumber
+                    value={m.util * 100}
+                    currency="%"
+                    maximumFractionDigits={0}
+                  />
+                )}
               </span>
-              <span className="mono lo-trow-num">{fmtOrDash(m.tvl, fmtCompact)}</span>
+              <span className="mono lo-trow-num">
+                {m.tvl == null ? (
+                  "—"
+                ) : (
+                  <AnimatedNumber
+                    value={m.tvl}
+                    currency="USD"
+                    maximumFractionDigits={m.tvl >= 1000 ? 0 : 2}
+                  />
+                )}
+              </span>
               <span className="lo-trow-spark">
                 <MarketSpark market={m} />
               </span>
@@ -857,7 +898,14 @@ function MarketRowBalance({
   }
   return (
     <span className="lo-trow-bal mono" title={`${human} ${market.loan}`}>
-      {human.toLocaleString(undefined, { maximumFractionDigits: 2 })} {market.loan}
+      <AnimatedNumber
+        value={human}
+        currency={null}
+        maximumFractionDigits={human >= 1 ? 2 : 4}
+      />
+      <span style={{ marginLeft: 4, color: "var(--ink-3)", fontWeight: 600 }}>
+        {market.loan}
+      </span>
     </span>
   );
 }
@@ -1028,7 +1076,17 @@ export function ActionCard({
           className="lo-rate mono"
           style={{ color: A.side === "supply" ? "var(--profit-ink)" : "var(--loss-ink)" }}
         >
-          {fmtOrDash(rate, (x) => `${x.toFixed(2)}%`)} {rateLabel}
+          {rate == null ? (
+            "—"
+          ) : (
+            <AnimatedNumber
+              value={rate}
+              currency="%"
+              maximumFractionDigits={2}
+              minimumFractionDigits={2}
+            />
+          )}{" "}
+          {rateLabel}
         </span>
       </div>
 
@@ -1385,6 +1443,3 @@ function healthBucketClass(hf: number | null): string {
   return "ink";
 }
 
-// Reserve HUB_CHAIN_IDS for the future cross-chain UI; currently the live
-// market metadata supplies the chain id directly.
-void HUB_CHAIN_IDS;
