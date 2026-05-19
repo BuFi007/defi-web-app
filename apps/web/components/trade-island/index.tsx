@@ -137,38 +137,99 @@ function resolveDisplayName(
   return "Anonymous";
 }
 
+type LeaderPeriod = "24h" | "7d" | "30d" | "all";
+
+const PERIOD_LABELS: Record<LeaderPeriod, string> = {
+  "24h": "24h",
+  "7d": "7d",
+  "30d": "30d",
+  all: "All-time",
+};
+
+// Convert a period to a unix-second cutoff. `null` means "no lower bound"
+// (i.e. all-time). Anything older than the cutoff is excluded from the
+// window-scoped aggregates.
+function periodSinceUnixSec(period: LeaderPeriod): number | null {
+  const now = Math.floor(Date.now() / 1000);
+  switch (period) {
+    case "24h":
+      return now - 24 * 60 * 60;
+    case "7d":
+      return now - 7 * 24 * 60 * 60;
+    case "30d":
+      return now - 30 * 24 * 60 * 60;
+    case "all":
+      return null;
+  }
+}
+
 function LeadersTab() {
   // The hardcoded 6-trader leaderboard (kawaii_whale, zen_trader_42, etc.)
   // was removed 2026-05-18. The cross-trader Ponder leaderboard endpoint
   // still hasn't shipped, but we can render the connected trader's own
-  // standings from live /perps/positions data — using the Dynamic
-  // username they picked at signup as the display label, exactly like
-  // the eventual multi-row leaderboard will.
+  // standings from live /perps/positions + /perps/trades data — using
+  // the Dynamic username they picked at signup as the display label,
+  // exactly like the eventual multi-row leaderboard will.
   const { address } = useAccount();
   const { user } = useDynamicContext();
   const { data: livePositions, isLoading } = usePositions();
+  const { data: liveTrades } = useTrades();
+  const [period, setPeriod] = useState<LeaderPeriod>("30d");
 
-  const rows = livePositions ?? [];
-  const totalPnl = rows.reduce(
+  const positions = livePositions ?? [];
+  const trades = liveTrades ?? [];
+
+  // Snapshot side of the row — open positions don't carry an `openedAt`
+  // timestamp in PerpsPositionDto today, so the unrealized PnL we display
+  // is the current mark-vs-entry snapshot regardless of the selected
+  // period. The period dropdown gates the realized-PnL + volume slice
+  // below; once the indexer emits cumulative-PnL-by-window the same UI
+  // will pivot to true window-scoped ROI.
+  const unrealizedPnl = positions.reduce(
     (s, p) => s + (p.unrealizedPnlUsdc ? Number(p.unrealizedPnlUsdc) : 0),
     0,
   );
-  const totalMargin = rows.reduce((s, p) => s + (Number(p.requiredMargin) || 0), 0);
-  const roiPct = totalMargin > 0 ? (totalPnl / totalMargin) * 100 : null;
+  const totalMargin = positions.reduce(
+    (s, p) => s + (Number(p.requiredMargin) || 0),
+    0,
+  );
+
+  // Window-scoped trade volume — sums `sizeUsdc` for every fill that
+  // landed inside the cutoff. Drives both the "Trades" cell and the
+  // window-scoped ROI base (volume traded acts as a proxy for the
+  // capital churned in that window, so ROI = unrealized / volume tells
+  // the user "what your live PnL is worth relative to recent activity").
+  const sinceSec = periodSinceUnixSec(period);
+  const tradesInWindow = sinceSec == null
+    ? trades
+    : trades.filter((t) => t.blockTimestamp >= sinceSec);
+  const windowVolume = tradesInWindow.reduce(
+    (s, t) => s + (Number(t.sizeUsdc) || 0),
+    0,
+  );
+
+  // ROI on the selected timeframe. We use the larger of (window volume)
+  // and (current margin) as the denominator so the ratio is meaningful
+  // both for a trader who has churned a lot of recent volume and for a
+  // new trader whose only basis is their open-position margin.
+  // Pure rendering math — no fabricated PnL.
+  const roiBase = Math.max(windowVolume, totalMargin);
+  const roiPct = roiBase > 0 ? (unrealizedPnl / roiBase) * 100 : null;
   const displayName = resolveDisplayName(user, address);
-  const hasStandings = Boolean(address) && rows.length > 0;
+  const hasStandings = Boolean(address) && (positions.length > 0 || tradesInWindow.length > 0);
 
   return (
     <div className="leaders-tab">
       <div className="leaders-period">
-        {["24h", "7d", "30d", "All-time"].map((p, i) => (
+        {(["24h", "7d", "30d", "all"] as const).map((p) => (
           <button
             key={p}
-            className={"period-btn " + (i === 2 ? "active" : "")}
-            title={`Rankings over the last ${p}`}
-            disabled
+            type="button"
+            className={"period-btn " + (period === p ? "active" : "")}
+            title={`ROI window — ${PERIOD_LABELS[p]}`}
+            onClick={() => setPeriod(p)}
           >
-            {p}
+            {PERIOD_LABELS[p]}
           </button>
         ))}
       </div>
@@ -181,14 +242,14 @@ function LeadersTab() {
         />
       )}
 
-      {address && isLoading && rows.length === 0 && (
+      {address && isLoading && positions.length === 0 && (
         <EmptyState lottie="process" title="Loading your standings…" />
       )}
 
-      {address && !isLoading && rows.length === 0 && (
+      {address && !isLoading && !hasStandings && (
         <EmptyState
           lottie="chiquito"
-          title={`No open positions for ${displayName}`}
+          title={`No activity for ${displayName} in the ${PERIOD_LABELS[period]} window`}
           description="Place a perp trade to start accruing rank-worthy PnL."
         />
       )}
@@ -200,9 +261,10 @@ function LeadersTab() {
               <th>Rank</th>
               <th>Trader</th>
               <th>Open</th>
-              <th>Margin</th>
+              <th>Trades ({PERIOD_LABELS[period]})</th>
+              <th>Volume ({PERIOD_LABELS[period]})</th>
               <th>PnL</th>
-              <th>ROI</th>
+              <th>ROI ({PERIOD_LABELS[period]})</th>
             </tr>
           </thead>
           <tbody>
@@ -216,18 +278,32 @@ function LeadersTab() {
                   {address ? truncateAddress(address, 6) : "—"}
                 </div>
               </td>
-              <td className="mono">{rows.length}</td>
-              <td className="mono">{fmtUSD(totalMargin)}</td>
+              <td className="mono">{positions.length}</td>
+              <td className="mono">{tradesInWindow.length}</td>
+              <td className="mono">{fmtUSD(windowVolume)}</td>
               <td
                 className="mono"
                 style={{
-                  color: totalPnl >= 0 ? "var(--profit-ink)" : "var(--loss-ink)",
+                  color: unrealizedPnl >= 0 ? "var(--profit-ink)" : "var(--loss-ink)",
                   fontWeight: 800,
                 }}
               >
-                {(totalPnl >= 0 ? "+" : "") + fmtUSD(totalPnl)}
+                {(unrealizedPnl >= 0 ? "+" : "") + fmtUSD(unrealizedPnl)}
               </td>
-              <td className="mono">{roiPct === null ? "—" : fmtPct(roiPct)}</td>
+              <td
+                className="mono"
+                style={{
+                  color:
+                    roiPct == null
+                      ? "var(--ink-3)"
+                      : roiPct >= 0
+                        ? "var(--profit-ink)"
+                        : "var(--loss-ink)",
+                  fontWeight: 800,
+                }}
+              >
+                {roiPct == null ? "—" : fmtPct(roiPct)}
+              </td>
             </tr>
           </tbody>
         </table>
