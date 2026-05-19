@@ -9,6 +9,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ChainSelect } from "@/components/chain-select";
 import { BalanceDisplay } from "@/components/balance-display";
 import { TokenChip } from "@/components/token-chip";
@@ -79,43 +84,51 @@ interface ChainBalanceRow {
   isLoading: boolean;
 }
 
-// Read every stablecoin balance on the active chain in fixed order so the
-// hook count stays stable across renders. Returns one row per
-// STABLE_TOKEN_LIST entry; the caller sorts + renders. Lifting the
-// fetches up here lets the popover order rows by USD value AND sum a
-// USDC-equivalent total without each row knowing about its siblings.
-const useChainStableBalances = (
-  cfg: SpokeChain,
+// Read every stablecoin balance on EVERY configured spoke chain in fixed
+// order so the hook count stays stable across renders. Returns a
+// chainId → rows map; the caller picks the active chain's rows for the
+// popover list and sums every chain's rows for the trigger pill (which
+// surfaces the USDC-equivalent TOTAL across all chains AND all stables,
+// not just USDC face value on one chain).
+const useAllChainsStableBalances = (
   walletAddress: Address | undefined,
-): ChainBalanceRow[] => {
-  return STABLE_TOKEN_LIST.map((t): ChainBalanceRow => {
-    const deployment = cfg.tokens.find((d) => d.asset === t.asset);
-    const decimals = deployment?.decimals ?? 6;
-    const address = (deployment?.address ?? null) as Address | null;
-    const enabled = Boolean(cfg.isWagmiSupported && address && walletAddress);
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const bal = useBalance({
-      address: walletAddress,
-      token: (address ?? undefined) as Address | undefined,
-      chainId: cfg.chainId as NonNullable<WagmiChainId>,
-      query: { enabled },
+): Record<number, ChainBalanceRow[]> => {
+  // Flat double-loop: SPOKE_CHAINS × STABLE_TOKEN_LIST. Both lists are
+  // module-level constants, so the iteration order is identical render
+  // to render — the hook-count invariant is satisfied even though we
+  // call `useBalance` from inside a nested map.
+  const entries = SPOKE_CHAINS.map((cfg) => {
+    const rows = STABLE_TOKEN_LIST.map((t): ChainBalanceRow => {
+      const deployment = cfg.tokens.find((d) => d.asset === t.asset);
+      const decimals = deployment?.decimals ?? 6;
+      const address = (deployment?.address ?? null) as Address | null;
+      const enabled = Boolean(cfg.isWagmiSupported && address && walletAddress);
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      const bal = useBalance({
+        address: walletAddress,
+        token: (address ?? undefined) as Address | undefined,
+        chainId: cfg.chainId as NonNullable<WagmiChainId>,
+        query: { enabled },
+      });
+      const formatted = bal.data ? formatUnits(bal.data.value, decimals) : "0";
+      const balance = bal.data ? Number(formatted) : 0;
+      const price = TOKEN_USD_PRICE[t.asset] ?? 0;
+      const usdValue =
+        Number.isFinite(balance) && address ? balance * price : 0;
+      return {
+        asset: t.asset,
+        address,
+        decimals,
+        formatted,
+        balance,
+        usdValue,
+        deployed: Boolean(address),
+        isLoading: Boolean(bal.isLoading),
+      };
     });
-    const formatted = bal.data ? formatUnits(bal.data.value, decimals) : "0";
-    const balance = bal.data ? Number(formatted) : 0;
-    const price = TOKEN_USD_PRICE[t.asset] ?? 0;
-    const usdValue =
-      Number.isFinite(balance) && address ? balance * price : 0;
-    return {
-      asset: t.asset,
-      address,
-      decimals,
-      formatted,
-      balance,
-      usdValue,
-      deployed: Boolean(address),
-      isLoading: Boolean(bal.isLoading),
-    };
+    return [cfg.chainId, rows] as const;
   });
+  return Object.fromEntries(entries);
 };
 
 // One row = inline render. Stateless — all data comes from the parent's
@@ -143,49 +156,32 @@ const TokenBalanceRow: React.FC<{
   );
 };
 
-// USDC face-value sum across every wagmi-supported chain. Each call is
-// fixed-order so hook count is stable; chains without a USDC deployment
-// just no-op via `enabled: false`.
-const useUsdcAcrossChains = (walletAddress: Address | undefined): number => {
-  const chains = SPOKE_CHAINS;
-  const balances = chains.map((cfg) => {
-    const deployment = cfg.tokens.find((t) => t.asset === "USDC");
-    const decimals = deployment?.decimals ?? 6;
-    const enabled = Boolean(
-      cfg.isWagmiSupported && deployment?.address && walletAddress,
-    );
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const bal = useBalance({
-      address: walletAddress,
-      token: deployment?.address as Address | undefined,
-      chainId: cfg.chainId as NonNullable<WagmiChainId>,
-      query: { enabled },
-    });
-    return bal.data ? Number(formatUnits(bal.data.value, decimals)) : 0;
-  });
-  return balances.reduce((s, n) => s + n, 0);
-};
-
 export const StablecoinBalances: React.FC = () => {
   const { address, isConnected } = useAccount();
   const [activeChainId, setActiveChainId] = useState<number>(
     SPOKE_CHAINS[0].chainId,
   );
+  const [open, setOpen] = useState(false);
 
   const activeChain =
     SPOKE_CHAINS.find((c) => c.chainId === activeChainId) ?? SPOKE_CHAINS[0];
 
-  // Trigger total: USDC face-value sum across all configured chains. EURC
-  // and other non-USD stables are intentionally not folded in until a
-  // Pyth-backed FX rate lands — face-value of EURC ≠ USD without one.
-  const totalUsdc = useUsdcAcrossChains(address);
-  const triggerLabel = isConnected ? fmtUSD(totalUsdc) : "—";
+  // Single fetch pass covers every chain × every stable. The popover
+  // renders only the active chain's rows; the trigger pill sums every
+  // chain's USD-equivalent total (which folds non-USD stables in via
+  // TOKEN_USD_PRICE, so the pill reflects "how much can I actually
+  // settle into USDC right now" instead of "USDC face value only").
+  const allChainsRows = useAllChainsStableBalances(address);
+  const totalUsdEquivalent = React.useMemo(
+    () =>
+      Object.values(allChainsRows)
+        .flat()
+        .reduce((s, r) => s + r.usdValue, 0),
+    [allChainsRows],
+  );
+  const triggerLabel = isConnected ? fmtUSD(totalUsdEquivalent) : "—";
 
-  // Per-active-chain balances. Sorted: available (deployed + balance > 0)
-  // first, ranked by USD value descending; then deployed-but-zero rows;
-  // then pending rows (no deployment on this chain). Sums to a single
-  // USDC-equivalent preview shown beneath the list.
-  const chainRows = useChainStableBalances(activeChain, address);
+  const chainRows = allChainsRows[activeChain.chainId] ?? [];
   const sortedRows = React.useMemo(() => {
     const tier = (r: ChainBalanceRow): number => {
       if (r.deployed && r.balance > 0) return 0;
@@ -207,34 +203,39 @@ export const StablecoinBalances: React.FC = () => {
   );
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="acct-mini"
-          title="Stablecoin balances"
-          aria-label="Open stablecoin balances"
-        >
-          <span className="acct-l">Wallet</span>
-          <span className="mono acct-v">{triggerLabel}</span>
-          <svg
-            width="10"
-            height="10"
-            viewBox="0 0 10 10"
-            aria-hidden="true"
-            className="ml-0.5 opacity-70"
-          >
-            <path
-              d="M2 4 L5 7 L8 4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-      </PopoverTrigger>
+    <Popover open={open} onOpenChange={setOpen}>
+      {/* Force the hover tooltip closed while the popover is open so the
+          chip ("Stablecoin FX Wallet") doesn't float over the panel. */}
+      <Tooltip open={open ? false : undefined}>
+        <PopoverTrigger asChild>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="acct-mini"
+              aria-label="Open Stablecoin FX Wallet"
+            >
+              <span className="mono acct-v">{triggerLabel}</span>
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 10 10"
+                aria-hidden="true"
+                className="ml-0.5 opacity-70"
+              >
+                <path
+                  d="M2 4 L5 7 L8 4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </TooltipTrigger>
+        </PopoverTrigger>
+        <TooltipContent sideOffset={8}>Stablecoin FX Wallet</TooltipContent>
+      </Tooltip>
       <PopoverContent
         align="end"
         sideOffset={8}
