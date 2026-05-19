@@ -3,6 +3,7 @@ import {
   avalanche,
   avalancheFuji,
   arcTestnet,
+  mainnet,
   sepolia,
   arbitrumSepolia,
 } from "wagmi/chains";
@@ -10,14 +11,18 @@ import { useMemo } from "react";
 import { providers } from "ethers";
 import type { Account, Chain, Client, Transport } from "viem";
 
-// Avalanche mainnet (43114) is included for AUTH SHAPE PARITY with the
-// Dynamic provider config (apps/web/context/DynamicProviders.tsx). When a
-// chain lives in Dynamic's evmNetworks but is missing here,
-// WalletConnectProvider init crashes (`r.bindings is not a function`) and
-// Dynamic warns about the asymmetry. Trading is still scoped to Fuji +
-// Arc by every hook and contract address; mainnet is a read-only target
-// that only exists to satisfy the auth handshake when the user has their
-// wallet on mainnet at login time.
+// Avalanche mainnet (43114) AND Ethereum mainnet (1) are included for
+// AUTH SHAPE PARITY with the Dynamic provider config
+// (apps/web/context/DynamicProviders.tsx). When a chain lives in
+// Dynamic's evmNetworks but is missing here, WalletConnectProvider init
+// crashes (`r.bindings is not a function`) and Dynamic warns about the
+// asymmetry. Trading is still scoped to Fuji + Arc by every hook and
+// contract address; the two mainnet entries are read-only targets that
+// only exist to satisfy the auth handshake when the user has their
+// wallet on those chains at login time. Without Ethereum mainnet here,
+// MetaMask's default chain trips Dynamic's networkValidationMode and
+// fires a chain-switch popup; dismissing it surfaces as RPC 4100
+// "method not authorized" + revoked accounts.
 //
 // Sepolia + Arbitrum Sepolia are spoke chains: users can deposit a stable
 // issued on either of them and have the loan execute at the Fuji/Arc hub
@@ -29,6 +34,7 @@ export const config = createConfig({
     avalancheFuji,
     arcTestnet,
     avalanche,
+    mainnet,
     sepolia,
     arbitrumSepolia,
   ],
@@ -36,6 +42,7 @@ export const config = createConfig({
     [avalancheFuji.id]: http(),
     [arcTestnet.id]: http("https://rpc.testnet.arc.network"),
     [avalanche.id]: http(),
+    [mainnet.id]: http(),
     [sepolia.id]: http(),
     [arbitrumSepolia.id]: http(),
   },

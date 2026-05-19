@@ -11,6 +11,7 @@ import type { ChainList } from "@/lib/types";
  * Keep in sync when chains are added/removed from the wagmi config.
  */
 export type WagmiChainId =
+  | 1
   | 43113
   | 5042002
   | 43114
@@ -19,6 +20,7 @@ export type WagmiChainId =
   | undefined;
 
 const WAGMI_SUPPORTED_CHAIN_IDS: ReadonlyArray<NonNullable<WagmiChainId>> = [
+  1, // Ethereum mainnet (read-only, auth shape parity — MM default chain)
   43113, // Avalanche Fuji (hub)
   5042002, // Arc Testnet (hub)
   43114, // Avalanche mainnet (read-only, auth shape parity)

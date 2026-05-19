@@ -13,6 +13,7 @@ import {
   ArcTestnet,
   Avalanche,
   AvalancheFuji,
+  Ethereum,
   Sepolia,
 } from "@/constants/Chains";
 import {
@@ -34,16 +35,22 @@ const queryClient = new QueryClient();
 // switching to mainnet AVAX during login fires the misleading "Please unlock
 // your wallet extension and try again." overlay because Dynamic panics on
 // an unknown chain id.
-// Hubs + spoke chains. Order matters — first entries are the WalletConnect
-// preferred chains, so we keep the hubs (where trading executes) ahead of
-// the spokes (where users hold collateral). Avalanche mainnet stays last
-// since it's auth-handshake-only, not a trading target.
+// Hubs + spoke chains + auth-only mainnets. Order matters — first
+// entries are the WalletConnect preferred chains, so we keep the hubs
+// (where trading executes) ahead of the spokes (where users hold
+// collateral). Avalanche mainnet and Ethereum mainnet sit at the end
+// because they're auth-handshake-only — included so MetaMask wallets
+// that default to chain 1 or chain 43114 pass Dynamic's
+// networkValidationMode: "always" gate without an automatic
+// wallet_switchEthereumChain prompt that the user dismisses (then
+// surfaces as RPC 4100 "method not authorized" + revoked accounts).
 const evmNetworks = [
   AvalancheFuji,
   ArcTestnet,
   Sepolia,
   ArbitrumSepolia,
   Avalanche,
+  Ethereum,
 ];
 // Preferred chains for the WalletConnect handshake — keep ordered with our
 // primary testnets first so the wallet defaults to a chain we actually

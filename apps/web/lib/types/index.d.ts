@@ -287,6 +287,7 @@ export interface Translations {
 }
 
 export type ChainList =
+  | 1
   | 43113
   | 919
   | 5042002

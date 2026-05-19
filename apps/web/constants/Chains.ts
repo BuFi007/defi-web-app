@@ -275,6 +275,32 @@ export const ArcTestnet = {
   iconUrls: ["/networks/arc.svg"],
 };
 
+// Ethereum mainnet — AUTH-HANDSHAKE ONLY. Same pattern as Avalanche
+// mainnet: not a trading target, just allow-listed so that Dynamic's
+// networkValidationMode: "always" doesn't reject a wallet that's
+// sitting on chain 1 at login. MetaMask's default chain is Ethereum
+// mainnet, so without this entry Dynamic forces a chain switch
+// (wallet_switchEthereumChain / wallet_addEthereumChain) which can
+// surface as RPC 4100 "method not authorized" when the user dismisses
+// the popup. Trading hooks still gate on Fuji/Arc only.
+export const Ethereum = {
+  chainId: 1,
+  isMainnet: true,
+  name: "Ethereum",
+  blockExplorerUrls: ["https://etherscan.io/"],
+  nativeCurrency: {
+    name: "Ethereum",
+    symbol: "ETH",
+    decimals: 18,
+    iconUrls: ["/networks/eth.svg"],
+  },
+  rpcUrls: ["https://eth.llamarpc.com"],
+  vanityName: "Ethereum",
+  chainName: "Ethereum",
+  networkId: 1,
+  iconUrls: ["/networks/eth.svg"],
+};
+
 // Ethereum Sepolia — spoke chain. Users deposit USDC/MXNB here, the
 // FxSpoke contract bridges via CCTP V2 to the hub of their choice.
 export const Sepolia = {
