@@ -147,6 +147,14 @@ export interface PerpsTradeDto {
   fillPriceE18: string;
   txHash: Hex;
   blockTimestamp: number;
+  /**
+   * Realized PnL in USDC decimal-string units (e.g. "12.345678", signed).
+   * Present on settlements that map to a `PositionDecreased` event; absent
+   * on opening fills. Aggregated server-side from the indexer's
+   * `perps_position_event.pnl` field — see `apps/api/src/routes/perps.ts`
+   * for the join.
+   */
+  realizedPnlUsdc?: string;
 }
 
 export interface PerpsFundingDto {

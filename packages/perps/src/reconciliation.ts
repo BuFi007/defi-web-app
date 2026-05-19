@@ -14,6 +14,34 @@ export interface PerpsIndexedSettlement {
   logIndex?: number;
 }
 
+/**
+ * Indexed row from `perps_position_event` — emitted by the clearinghouse
+ * on every `PositionIncreased` / `PositionDecreased`. The `pnl` field is
+ * populated for `kind === "decreased"` and carries realized PnL in USDC
+ * atomic units (signed int256). The web client joins these onto the
+ * matching `perps_settlement` rows to attribute realized PnL per fill.
+ */
+export interface PerpsIndexedPositionEvent {
+  id?: string;
+  chainId: number;
+  marketId: string;
+  trader: string;
+  kind: string;
+  sizeDeltaE18: string | bigint;
+  resultingSizeE18: string | bigint;
+  priceE18: string | bigint;
+  marginAmount: string | bigint;
+  fee?: string | bigint | null;
+  /** Realized PnL in USDC atomic units (6 dp). Null on `increased` events. */
+  pnl?: string | bigint | null;
+  /** Loss not covered by margin, in USDC atomic units. Null when none. */
+  badDebt?: string | bigint | null;
+  blockNumber?: string | bigint;
+  blockTimestamp?: string | bigint;
+  txHash?: string;
+  logIndex?: number;
+}
+
 export interface PerpsIntentReconciliation {
   intentId: string;
   status:

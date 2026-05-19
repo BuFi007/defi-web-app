@@ -170,6 +170,15 @@ function LeadersTab() {
   // standings from live /perps/positions + /perps/trades data — using
   // the Dynamic username they picked at signup as the display label,
   // exactly like the eventual multi-row leaderboard will.
+  //
+  // Realized PnL by window is now live: the indexer writes `pnl` on
+  // every `PositionDecreased` (apps/ponder/src/handlers/perps.ts:101),
+  // and /perps/trades joins those events onto settlement rows (see
+  // apps/api/src/routes/perps.ts), so `t.realizedPnlUsdc` is set on
+  // every closing fill. Summing it inside the selected window gives
+  // honest window-scoped realized PnL. Unrealized PnL is still the
+  // current snapshot from /perps/positions since open positions don't
+  // carry a timestamp.
   const { address } = useAccount();
   const { user } = useDynamicContext();
   const { data: livePositions, isLoading } = usePositions();
@@ -179,12 +188,6 @@ function LeadersTab() {
   const positions = livePositions ?? [];
   const trades = liveTrades ?? [];
 
-  // Snapshot side of the row — open positions don't carry an `openedAt`
-  // timestamp in PerpsPositionDto today, so the unrealized PnL we display
-  // is the current mark-vs-entry snapshot regardless of the selected
-  // period. The period dropdown gates the realized-PnL + volume slice
-  // below; once the indexer emits cumulative-PnL-by-window the same UI
-  // will pivot to true window-scoped ROI.
   const unrealizedPnl = positions.reduce(
     (s, p) => s + (p.unrealizedPnlUsdc ? Number(p.unrealizedPnlUsdc) : 0),
     0,
@@ -194,11 +197,7 @@ function LeadersTab() {
     0,
   );
 
-  // Window-scoped trade volume — sums `sizeUsdc` for every fill that
-  // landed inside the cutoff. Drives both the "Trades" cell and the
-  // window-scoped ROI base (volume traded acts as a proxy for the
-  // capital churned in that window, so ROI = unrealized / volume tells
-  // the user "what your live PnL is worth relative to recent activity").
+  // Window-scoped trades + realized PnL + volume.
   const sinceSec = periodSinceUnixSec(period);
   const tradesInWindow = sinceSec == null
     ? trades
@@ -207,14 +206,21 @@ function LeadersTab() {
     (s, t) => s + (Number(t.sizeUsdc) || 0),
     0,
   );
+  const realizedPnl = tradesInWindow.reduce(
+    (s, t) => s + (t.realizedPnlUsdc ? Number(t.realizedPnlUsdc) : 0),
+    0,
+  );
 
-  // ROI on the selected timeframe. We use the larger of (window volume)
-  // and (current margin) as the denominator so the ratio is meaningful
-  // both for a trader who has churned a lot of recent volume and for a
-  // new trader whose only basis is their open-position margin.
-  // Pure rendering math — no fabricated PnL.
+  // Total PnL on the selected window = realized within window + current
+  // unrealized snapshot. For "All-time" both terms compose; for shorter
+  // windows realized is the slice and unrealized is what's still open.
+  const windowPnl = realizedPnl + unrealizedPnl;
+
+  // ROI denominator picks the larger of (window volume) and (current
+  // margin) so the ratio reads meaningfully for both an active churner
+  // and a fresh trader whose only basis is their open-position margin.
   const roiBase = Math.max(windowVolume, totalMargin);
-  const roiPct = roiBase > 0 ? (unrealizedPnl / roiBase) * 100 : null;
+  const roiPct = roiBase > 0 ? (windowPnl / roiBase) * 100 : null;
   const displayName = resolveDisplayName(user, address);
   const hasStandings = Boolean(address) && (positions.length > 0 || tradesInWindow.length > 0);
 
@@ -263,7 +269,8 @@ function LeadersTab() {
               <th>Open</th>
               <th>Trades ({PERIOD_LABELS[period]})</th>
               <th>Volume ({PERIOD_LABELS[period]})</th>
-              <th>PnL</th>
+              <th>Realized ({PERIOD_LABELS[period]})</th>
+              <th>Unrealized</th>
               <th>ROI ({PERIOD_LABELS[period]})</th>
             </tr>
           </thead>
@@ -284,6 +291,15 @@ function LeadersTab() {
               <td
                 className="mono"
                 style={{
+                  color: realizedPnl >= 0 ? "var(--profit-ink)" : "var(--loss-ink)",
+                  fontWeight: 800,
+                }}
+              >
+                {(realizedPnl >= 0 ? "+" : "") + fmtUSD(realizedPnl)}
+              </td>
+              <td
+                className="mono"
+                style={{
                   color: unrealizedPnl >= 0 ? "var(--profit-ink)" : "var(--loss-ink)",
                   fontWeight: 800,
                 }}
@@ -301,6 +317,7 @@ function LeadersTab() {
                         : "var(--loss-ink)",
                   fontWeight: 800,
                 }}
+                title={`Window PnL = realized (${fmtUSD(realizedPnl)}) + unrealized (${fmtUSD(unrealizedPnl)}); ROI base = max(window volume, current margin)`}
               >
                 {roiPct == null ? "—" : fmtPct(roiPct)}
               </td>
