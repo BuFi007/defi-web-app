@@ -1,42 +1,31 @@
 import type { Hex } from "viem";
 
+// Session-signing primitives now live in @bufi/wallet -- a single
+// canonical source for the typed-data builder, plain-text fallback,
+// localStorage cache, and HTTP-header serialiser. The three signing
+// surfaces in this app (useEnsureSession, useSessionSigner in perps/
+// hooks, ensureSession in telarana/hooks) ALL route through them, so a
+// session signed via the perps replacement agent is reused by the next
+// useEnsureSession() call and vice versa. Re-exported here so every
+// existing import from `@/lib/perps/replacement-agent` keeps working
+// without a sweeping rename.
+export {
+  buildWalletSessionMessage,
+  buildWalletSessionTypedData,
+  walletSessionHeaders,
+  serializeWalletSessionTypedData,
+  readCachedWalletSession,
+  writeCachedWalletSession,
+  clearCachedWalletSession,
+  type WalletSessionHeaders,
+  type WalletSessionProof,
+  type WalletSessionTypedData,
+} from "@bufi/wallet/session";
+
 const DEFAULT_API_URL = "http://localhost:3002";
-const SESSION_TTL_SECONDS = 60 * 60 * 12;
-const SESSION_REFRESH_SKEW_SECONDS = 60;
 const HANDLED_LIMIT = 200;
 
-export interface WalletSessionTypedData {
-  domain: {
-    name: "BUFX Perps";
-    version: "1";
-    chainId: number;
-  };
-  types: {
-    WalletSession: Array<{ name: string; type: string }>;
-  };
-  primaryType: "WalletSession";
-  message: {
-    purpose: string;
-    wallet: `0x${string}`;
-    chainId: bigint;
-    origin: string;
-    iat: bigint;
-    exp: bigint;
-  };
-}
-
-export interface WalletSessionProof {
-  address: string;
-  chainId: number;
-  message: string;
-  signature: Hex;
-  iat: number;
-  exp: number;
-  /** Present when the user signed an EIP-712 typed-data session. */
-  typedData?: WalletSessionTypedData;
-}
-
-export type WalletSessionHeaders = Record<string, string>;
+import type { WalletSessionHeaders } from "@bufi/wallet/session";
 
 export interface PerpsReplacementNeededEvent {
   eventId: string;
@@ -86,213 +75,9 @@ export function bufxApiUrl(path: string, query?: Record<string, string | number 
   return url.toString();
 }
 
-const CHAIN_NAMES: Record<number, string> = {
-  43113: "Avalanche Fuji",
-  919: "Mode Sepolia",
-  5042002: "Arc Testnet",
-};
-
-const SESSION_TTL_HOURS = SESSION_TTL_SECONDS / 3600;
-
-export function buildWalletSessionMessage(args: {
-  address: string;
-  chainId: number;
-  now?: number;
-  origin?: string;
-}): { message: string; iat: number; exp: number } {
-  const iat = args.now ?? Math.floor(Date.now() / 1000);
-  const exp = iat + SESSION_TTL_SECONDS;
-  const chainName = CHAIN_NAMES[args.chainId] ?? `Chain ${args.chainId}`;
-  const origin =
-    args.origin ?? (typeof window !== "undefined" ? window.location.origin : "https://bufi.finance");
-  const issuedHuman = formatUtc(iat);
-  const expiresHuman = formatUtc(exp);
-
-  // Backend regex (apps/api/src/wallet-session.ts) only requires `iat:<n>` and
-  // `exp:<n>` markers to appear anywhere in the message. We keep them inline so
-  // the rest of the body can be human-readable for wallet popups.
-  const message = [
-    "BUFX Perps · Keeper Session",
-    "",
-    `Sign in to authorize BUFX to replace your perp orders on your behalf for the next ${SESSION_TTL_HOURS} hours.`,
-    "This signature does NOT move funds and grants no spending authority.",
-    "",
-    `Wallet:   ${args.address}`,
-    `Network:  ${chainName} (${args.chainId})`,
-    `Origin:   ${origin}`,
-    `Issued:   ${issuedHuman} (iat:${iat})`,
-    `Expires:  ${expiresHuman} (exp:${exp})`,
-  ].join("\n");
-
-  return { iat, exp, message };
-}
-
-function formatUtc(unixSeconds: number): string {
-  const d = new Date(unixSeconds * 1000);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return (
-    `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ` +
-    `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`
-  );
-}
-
-export function walletSessionHeaders(proof: WalletSessionProof): WalletSessionHeaders {
-  const headers: WalletSessionHeaders = {
-    "X-Wallet-Address": proof.address,
-    "X-Wallet-ChainId": String(proof.chainId),
-    "X-Wallet-Message": proof.message,
-    "X-Wallet-Signature": proof.signature,
-  };
-  if (proof.typedData) {
-    headers["X-Wallet-TypedData"] = serializeWalletSessionTypedData(proof.typedData);
-  }
-  return headers;
-}
-
-export function buildWalletSessionTypedData(args: {
-  address: `0x${string}`;
-  chainId: number;
-  now?: number;
-  origin?: string;
-}): { typedData: WalletSessionTypedData; iat: number; exp: number; message: string } {
-  const iat = args.now ?? Math.floor(Date.now() / 1000);
-  const exp = iat + SESSION_TTL_SECONDS;
-  const origin =
-    args.origin ?? (typeof window !== "undefined" ? window.location.origin : "https://bufi.finance");
-  const purpose =
-    `Authorize BUFX to replace your perp orders on your behalf for ${SESSION_TTL_HOURS} hours. ` +
-    `No funds move and no spending authority is granted.`;
-
-  const typedData: WalletSessionTypedData = {
-    domain: { name: "BUFX Perps", version: "1", chainId: args.chainId },
-    types: {
-      WalletSession: [
-        { name: "purpose", type: "string" },
-        { name: "wallet", type: "address" },
-        { name: "chainId", type: "uint256" },
-        { name: "origin", type: "string" },
-        { name: "iat", type: "uint256" },
-        { name: "exp", type: "uint256" },
-      ],
-    },
-    primaryType: "WalletSession",
-    message: {
-      purpose,
-      wallet: args.address,
-      chainId: BigInt(args.chainId),
-      origin,
-      iat: BigInt(iat),
-      exp: BigInt(exp),
-    },
-  };
-
-  // Plain-text fallback retained so the legacy backend personal_sign path
-  // and pre-existing cached sessions keep working through the rollout.
-  const message = `BUFX Perps session;wallet:${args.address};chainId:${args.chainId};iat:${iat};exp:${exp}`;
-
-  return { typedData, iat, exp, message };
-}
-
-export function serializeWalletSessionTypedData(typedData: WalletSessionTypedData): string {
-  return JSON.stringify(toJsonSafeTypedData(typedData));
-}
-
-interface JsonSafeTypedData {
-  domain: WalletSessionTypedData["domain"];
-  types: WalletSessionTypedData["types"];
-  primaryType: WalletSessionTypedData["primaryType"];
-  message: {
-    purpose: string;
-    wallet: `0x${string}`;
-    chainId: string;
-    origin: string;
-    iat: string;
-    exp: string;
-  };
-}
-
-function toJsonSafeTypedData(typedData: WalletSessionTypedData): JsonSafeTypedData {
-  return {
-    domain: typedData.domain,
-    types: typedData.types,
-    primaryType: typedData.primaryType,
-    message: {
-      purpose: typedData.message.purpose,
-      wallet: typedData.message.wallet,
-      chainId: typedData.message.chainId.toString(),
-      origin: typedData.message.origin,
-      iat: typedData.message.iat.toString(),
-      exp: typedData.message.exp.toString(),
-    },
-  };
-}
-
-function fromJsonSafeTypedData(raw: JsonSafeTypedData): WalletSessionTypedData {
-  return {
-    domain: raw.domain,
-    types: raw.types,
-    primaryType: raw.primaryType,
-    message: {
-      purpose: raw.message.purpose,
-      wallet: raw.message.wallet,
-      chainId: BigInt(raw.message.chainId),
-      origin: raw.message.origin,
-      iat: BigInt(raw.message.iat),
-      exp: BigInt(raw.message.exp),
-    },
-  };
-}
-
-interface CachedWalletSession {
-  address: string;
-  chainId: number;
-  message: string;
-  signature: Hex;
-  iat: number;
-  exp: number;
-  typedData?: JsonSafeTypedData;
-}
-
-export function readCachedWalletSession(address: string, chainId: number): WalletSessionProof | null {
-  if (typeof window === "undefined") return null;
-  const raw = window.localStorage.getItem(walletSessionKey(address, chainId));
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as CachedWalletSession;
-    const now = Math.floor(Date.now() / 1000);
-    if (parsed.exp <= now + SESSION_REFRESH_SKEW_SECONDS) return null;
-    if (parsed.address.toLowerCase() !== address.toLowerCase()) return null;
-    if (parsed.chainId !== chainId) return null;
-    return {
-      address: parsed.address,
-      chainId: parsed.chainId,
-      message: parsed.message,
-      signature: parsed.signature,
-      iat: parsed.iat,
-      exp: parsed.exp,
-      typedData: parsed.typedData ? fromJsonSafeTypedData(parsed.typedData) : undefined,
-    };
-  } catch {
-    return null;
-  }
-}
-
-export function writeCachedWalletSession(proof: WalletSessionProof): void {
-  if (typeof window === "undefined") return;
-  const serializable: CachedWalletSession = {
-    address: proof.address,
-    chainId: proof.chainId,
-    message: proof.message,
-    signature: proof.signature,
-    iat: proof.iat,
-    exp: proof.exp,
-    typedData: proof.typedData ? toJsonSafeTypedData(proof.typedData) : undefined,
-  };
-  window.localStorage.setItem(
-    walletSessionKey(proof.address, proof.chainId),
-    JSON.stringify(serializable),
-  );
-}
+// (Session builders + cache moved to @bufi/wallet/session — re-exported
+// from the top of this file. The body lived here from the
+// before-@bufi/wallet era; deleted to keep one source of truth.)
 
 export function freshReplacementNonce(): string {
   const random = new Uint32Array(1);
@@ -440,10 +225,6 @@ function safeErrorMessage(text: string): string {
   } catch {
     return text.slice(0, 200);
   }
-}
-
-function walletSessionKey(address: string, chainId: number): string {
-  return `bufx.wallet-session:${chainId}:${address.toLowerCase()}`;
 }
 
 function replacementCursorKey(address: string): string {

@@ -1,0 +1,21 @@
+{
+  "name": "@bufi/wallet",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./session": "./src/session/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "viem": "*"
+  },
+  "devDependencies": {
+    "typescript": "5",
+    "viem": "*"
+  }
+}
