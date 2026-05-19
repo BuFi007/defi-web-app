@@ -22,6 +22,7 @@ import {
 import { DevWalletProvider } from "@/lib/dev-wallet";
 import { SessionBridge } from "@/lib/session";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { WalletConflictDetector } from "@/components/wallet-conflict-detector";
 
 const queryClient = new QueryClient();
 // IMPORTANT: Avalanche C-Chain mainnet (43114) is allow-listed here ONLY so
@@ -115,6 +116,14 @@ export default function Providers({ children }: { children: ReactNode }) {
                   store. Mounted here so wagmi + Dynamic hooks resolve. No
                   signing happens here — that's lib/session/use-ensure-session. */}
               <SessionBridge />
+              {/* Detects the "window.ethereum has only a getter" MM
+                  injection failure caused by another wallet extension
+                  (Phantom, Brave Wallet, Rabby, etc.) and surfaces the
+                  workaround as a toast. The hijack can't be fixed from
+                  page-land — extensions fight each other before our JS
+                  runs — but the user shouldn't be left thinking the app
+                  is broken. */}
+              <WalletConflictDetector />
               {/* TooltipProvider is required by every Radix Tooltip in the
                   tree. delayDuration: 200ms matches desk-v1's feel. */}
               <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
