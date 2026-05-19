@@ -45,7 +45,16 @@ const KEYS_TO_PURGE = [
   "dynamic_exchange_picker_search",
 ] as const;
 
-if (typeof window !== "undefined") {
+/**
+ * Drop every Dynamic UI-state localStorage key. Exported so the Dynamic
+ * event handlers in DynamicProviders.tsx can re-run it mid-session when
+ * Dynamic emits onWalletConnectionFailed / onAuthFailure / onLogout —
+ * that way the user can never get stuck in the "wallets are mismatched"
+ * overlay loop. The Dynamic JWT cookie is NOT touched (still
+ * HttpOnly + scoped to dynamicauth.com).
+ */
+export function purgeDynamicSession(): void {
+  if (typeof window === "undefined") return;
   try {
     for (const key of KEYS_TO_PURGE) {
       window.localStorage.removeItem(key);
@@ -57,4 +66,7 @@ if (typeof window !== "undefined") {
   }
 }
 
-export {};
+// Module-level execution: run once the moment this module is imported.
+// ClientProviders imports this BEFORE the dynamic() of DynamicProviders,
+// so Dynamic boots into clean storage on every page load.
+purgeDynamicSession();

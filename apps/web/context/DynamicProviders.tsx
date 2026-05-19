@@ -24,6 +24,7 @@ import { DevWalletProvider } from "@/lib/dev-wallet";
 import { SessionBridge } from "@/lib/session";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { WalletConflictDetector } from "@/components/wallet-conflict-detector";
+import { purgeDynamicSession } from "./DynamicSessionPurge";
 
 const queryClient = new QueryClient();
 // IMPORTANT: Avalanche C-Chain mainnet (43114) is allow-listed here ONLY so
@@ -105,6 +106,27 @@ export default function Providers({ children }: { children: ReactNode }) {
               stack: err?.stack?.split("\n").slice(0, 4).join("\n"),
               data: err?.data,
             });
+            // Self-heal: purge the cached session pointer so the user
+            // can click Connect again from a clean slate. Without this
+            // a failed connect leaves Dynamic with a stale
+            // `primaryWallet` expectation that triggers the mismatch
+            // overlay on the NEXT attempt.
+            purgeDynamicSession();
+          },
+          onAuthFailure: (data, reason) => {
+            console.warn("Dynamic auth failure", {
+              method: data?.type,
+              reason: typeof reason === "string" ? reason : reason?.error,
+            });
+            // Same self-heal — auth failures often leave a half-written
+            // session in localStorage that confuses the next attempt.
+            purgeDynamicSession();
+          },
+          onLogout: () => {
+            // Clean exit. Dynamic's own logout already clears its
+            // session, but our extra keys (delegation_state, store, etc.)
+            // can linger. Belt-and-suspenders purge.
+            purgeDynamicSession();
           },
         },
         overrides: {
