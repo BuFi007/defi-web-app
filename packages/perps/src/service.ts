@@ -522,7 +522,7 @@ function mapIndexedPositionToPerpQuote(
   };
 }
 
-function formatAtomicToUsdc(atomic: bigint): string {
+export function formatAtomicToUsdc(atomic: bigint): string {
   const negative = atomic < 0n;
   const abs = negative ? -atomic : atomic;
   const whole = abs / 1_000_000n;

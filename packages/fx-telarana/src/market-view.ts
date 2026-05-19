@@ -13,6 +13,7 @@ import { MorphoBlueAbi } from "./morpho-blue-abi";
 import type { LendingMarket, MarketParams, MorphoMarketState } from "./types";
 
 const DEFAULT_MARKET_CACHE_MS = 30_000;
+const DEFAULT_HUB_READ_TIMEOUT_MS = 6_000;
 
 type MarketListCache = {
   expiresAt: number;
@@ -25,6 +26,42 @@ let marketListInFlight: Promise<LendingMarket[]> | null = null;
 function marketCacheTtlMs(): number {
   const configured = Number(process.env.FX_TELARANA_MARKET_CACHE_MS ?? DEFAULT_MARKET_CACHE_MS);
   return Number.isFinite(configured) && configured > 0 ? configured : 0;
+}
+
+function hubReadTimeoutMs(): number {
+  const configured = Number(
+    process.env.FX_TELARANA_HUB_READ_TIMEOUT_MS ?? DEFAULT_HUB_READ_TIMEOUT_MS,
+  );
+  return Number.isFinite(configured) && configured > 0
+    ? configured
+    : DEFAULT_HUB_READ_TIMEOUT_MS;
+}
+
+/**
+ * Race a promise against a timeout. When a hub RPC hangs (the public
+ * Avalanche Fuji RPC has done this in the past with no CORS, no body,
+ * no error), the `Promise.all` in `listMarkets` would stall for the
+ * full viem retry budget and the entire /fx-telarana/markets request
+ * would never complete. Bound each hub's read so one slow chain falls
+ * through to the static manifest instead of taking down the feed.
+ */
+async function withTimeout<T>(p: Promise<T>, label: string): Promise<T> {
+  const ms = hubReadTimeoutMs();
+  return await new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => {
+      reject(new Error(`hub-read-timeout ${label} after ${ms}ms`));
+    }, ms);
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
 }
 
 function normalizeMarketParams(value: unknown): MarketParams {
@@ -113,34 +150,43 @@ export async function listMarkets(
       LENDING_HUBS.map(async (hub) => {
         const client = getHubClient(options.clients, hub.chainId);
         try {
-          const pools = await client.readContract({
-            address: hub.marketRegistry,
-            abi: FxMarketRegistryAbi,
-            functionName: "listPools",
-          });
+          const pools = await withTimeout(
+            client.readContract({
+              address: hub.marketRegistry,
+              abi: FxMarketRegistryAbi,
+              functionName: "listPools",
+            }),
+            `listPools ${hub.name}`,
+          );
 
           return Promise.all(
             (pools as unknown[]).map(async (pool) => {
               const params = normalizeMarketParams(pool);
-              const [id, isLive] = await Promise.all([
-                client.readContract({
-                  address: hub.marketRegistry,
-                  abi: FxMarketRegistryAbi,
-                  functionName: "marketIdOf",
-                  args: [params.loanToken, params.collateralToken],
-                }) as Promise<Hex>,
-                client.readContract({
-                  address: hub.marketRegistry,
-                  abi: FxMarketRegistryAbi,
-                  functionName: "isPoolLive",
-                  args: [params.loanToken, params.collateralToken],
-                }) as Promise<boolean>,
-              ]);
-              const state = await readMarketState({
-                client,
-                morpho: hub.morphoBlue,
-                marketId: id,
-              }).catch(() => undefined);
+              const [id, isLive] = await withTimeout(
+                Promise.all([
+                  client.readContract({
+                    address: hub.marketRegistry,
+                    abi: FxMarketRegistryAbi,
+                    functionName: "marketIdOf",
+                    args: [params.loanToken, params.collateralToken],
+                  }) as Promise<Hex>,
+                  client.readContract({
+                    address: hub.marketRegistry,
+                    abi: FxMarketRegistryAbi,
+                    functionName: "isPoolLive",
+                    args: [params.loanToken, params.collateralToken],
+                  }) as Promise<boolean>,
+                ]),
+                `marketIdOf/isPoolLive ${hub.name}`,
+              );
+              const state = await withTimeout(
+                readMarketState({
+                  client,
+                  morpho: hub.morphoBlue,
+                  marketId: id,
+                }),
+                `market-state ${hub.name}`,
+              ).catch(() => undefined);
 
               const market: LendingMarket = {
                 ...params,

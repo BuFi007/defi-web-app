@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
 import { AnimatePresence, motion } from "framer-motion";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+
+import { truncateAddress } from "@/utils";
 
 import {
   ALL_MARKETS,
@@ -19,7 +22,6 @@ import { Hint } from "./hint";
 import { OrderbookCard, OrderPanelCard, ChartCard } from "./panels";
 import {
   LoanTab,
-  LOAN_MARKETS,
   LOAN_TOKENS,
   LOAN_HUBS,
   HUB_NAME_BY_CHAIN_ID,
@@ -113,32 +115,215 @@ function liveToPositionRow(p: PerpsPositionDto): PositionRow {
   };
 }
 
+// Display name resolution for leaderboard rows. Dynamic exposes
+// `username` (the slug the user picks at signup), with `alias`,
+// `firstName`, and `email` as progressively-less-friendly fallbacks.
+// When none of those exist (extension-wallet-only connection, no
+// social-auth profile), fall back to a truncated address so the row
+// still renders identifiably instead of "Anonymous".
+function resolveDisplayName(
+  user: ReturnType<typeof useDynamicContext>["user"],
+  address: string | null | undefined,
+): string {
+  const username = user?.username?.trim();
+  if (username) return username;
+  const alias = user?.alias?.trim();
+  if (alias) return alias;
+  const firstName = user?.firstName?.trim();
+  if (firstName) return firstName;
+  const email = user?.email?.trim();
+  if (email) return email.split("@")[0] ?? email;
+  if (address) return truncateAddress(address, 6);
+  return "Anonymous";
+}
+
+type LeaderPeriod = "24h" | "7d" | "30d" | "all";
+
+const PERIOD_LABELS: Record<LeaderPeriod, string> = {
+  "24h": "24h",
+  "7d": "7d",
+  "30d": "30d",
+  all: "All-time",
+};
+
+// Convert a period to a unix-second cutoff. `null` means "no lower bound"
+// (i.e. all-time). Anything older than the cutoff is excluded from the
+// window-scoped aggregates.
+function periodSinceUnixSec(period: LeaderPeriod): number | null {
+  const now = Math.floor(Date.now() / 1000);
+  switch (period) {
+    case "24h":
+      return now - 24 * 60 * 60;
+    case "7d":
+      return now - 7 * 24 * 60 * 60;
+    case "30d":
+      return now - 30 * 24 * 60 * 60;
+    case "all":
+      return null;
+  }
+}
+
 function LeadersTab() {
   // The hardcoded 6-trader leaderboard (kawaii_whale, zen_trader_42, etc.)
-  // was removed 2026-05-18. The global perp-trading leaderboard endpoint
-  // doesn't exist yet — fx-bento has /rooms/:id/leaderboard for per-room
-  // arcade scores, but no cross-room aggregate. Until the API ships
-  // /perps/leaderboard (or the Ponder indexer surfaces a cumulative-PnL
-  // view), render an honest empty state instead of fabricated traders.
+  // was removed 2026-05-18. The cross-trader Ponder leaderboard endpoint
+  // still hasn't shipped, but we can render the connected trader's own
+  // standings from live /perps/positions + /perps/trades data — using
+  // the Dynamic username they picked at signup as the display label,
+  // exactly like the eventual multi-row leaderboard will.
+  //
+  // Realized PnL by window is now live: the indexer writes `pnl` on
+  // every `PositionDecreased` (apps/ponder/src/handlers/perps.ts:101),
+  // and /perps/trades joins those events onto settlement rows (see
+  // apps/api/src/routes/perps.ts), so `t.realizedPnlUsdc` is set on
+  // every closing fill. Summing it inside the selected window gives
+  // honest window-scoped realized PnL. Unrealized PnL is still the
+  // current snapshot from /perps/positions since open positions don't
+  // carry a timestamp.
+  const { address } = useAccount();
+  const { user } = useDynamicContext();
+  const { data: livePositions, isLoading } = usePositions();
+  const { data: liveTrades } = useTrades();
+  const [period, setPeriod] = useState<LeaderPeriod>("30d");
+
+  const positions = livePositions ?? [];
+  const trades = liveTrades ?? [];
+
+  const unrealizedPnl = positions.reduce(
+    (s, p) => s + (p.unrealizedPnlUsdc ? Number(p.unrealizedPnlUsdc) : 0),
+    0,
+  );
+  const totalMargin = positions.reduce(
+    (s, p) => s + (Number(p.requiredMargin) || 0),
+    0,
+  );
+
+  // Window-scoped trades + realized PnL + volume.
+  const sinceSec = periodSinceUnixSec(period);
+  const tradesInWindow = sinceSec == null
+    ? trades
+    : trades.filter((t) => t.blockTimestamp >= sinceSec);
+  const windowVolume = tradesInWindow.reduce(
+    (s, t) => s + (Number(t.sizeUsdc) || 0),
+    0,
+  );
+  const realizedPnl = tradesInWindow.reduce(
+    (s, t) => s + (t.realizedPnlUsdc ? Number(t.realizedPnlUsdc) : 0),
+    0,
+  );
+
+  // Total PnL on the selected window = realized within window + current
+  // unrealized snapshot. For "All-time" both terms compose; for shorter
+  // windows realized is the slice and unrealized is what's still open.
+  const windowPnl = realizedPnl + unrealizedPnl;
+
+  // ROI denominator picks the larger of (window volume) and (current
+  // margin) so the ratio reads meaningfully for both an active churner
+  // and a fresh trader whose only basis is their open-position margin.
+  const roiBase = Math.max(windowVolume, totalMargin);
+  const roiPct = roiBase > 0 ? (windowPnl / roiBase) * 100 : null;
+  const displayName = resolveDisplayName(user, address);
+  const hasStandings = Boolean(address) && (positions.length > 0 || tradesInWindow.length > 0);
+
   return (
     <div className="leaders-tab">
       <div className="leaders-period">
-        {["24h", "7d", "30d", "All-time"].map((p, i) => (
+        {(["24h", "7d", "30d", "all"] as const).map((p) => (
           <button
             key={p}
-            className={"period-btn " + (i === 2 ? "active" : "")}
-            title={`Rankings over the last ${p}`}
-            disabled
+            type="button"
+            className={"period-btn " + (period === p ? "active" : "")}
+            title={`ROI window — ${PERIOD_LABELS[p]}`}
+            onClick={() => setPeriod(p)}
           >
-            {p}
+            {PERIOD_LABELS[p]}
           </button>
         ))}
       </div>
-      <EmptyState
-        lottie="star-lottie"
-        title="Leaderboard launching with the matcher GA"
-        description="Rankings will surface from the Ponder cumulative-PnL view once the indexer reaches steady state on Fuji + Arc."
-      />
+      {!address && (
+        <EmptyState
+          lottie="green-man"
+          title="Connect a wallet to see your standings"
+          description="The cross-trader leaderboard ships with the Ponder cumulative-PnL view. Until then, sign in to see your own live rank."
+        />
+      )}
+
+      {address && isLoading && positions.length === 0 && (
+        <EmptyState lottie="process" title="Loading your standings…" />
+      )}
+
+      {address && !isLoading && !hasStandings && (
+        <EmptyState
+          lottie="chiquito"
+          title={`No activity for ${displayName} in the ${PERIOD_LABELS[period]} window`}
+          description="Place a perp trade to start accruing rank-worthy PnL."
+        />
+      )}
+
+      {hasStandings && (
+        <table className="table leaders-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Trader</th>
+              <th>Open</th>
+              <th>Trades ({PERIOD_LABELS[period]})</th>
+              <th>Volume ({PERIOD_LABELS[period]})</th>
+              <th>Realized ({PERIOD_LABELS[period]})</th>
+              <th>Unrealized</th>
+              <th>ROI ({PERIOD_LABELS[period]})</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <span className="rank-badge rank-1">1</span>
+              </td>
+              <td>
+                <div style={{ fontWeight: 800 }}>{displayName}</div>
+                <div style={{ fontSize: 10.5, color: "var(--ink-3)", fontWeight: 700 }}>
+                  {address ? truncateAddress(address, 6) : "—"}
+                </div>
+              </td>
+              <td className="mono">{positions.length}</td>
+              <td className="mono">{tradesInWindow.length}</td>
+              <td className="mono">{fmtUSD(windowVolume)}</td>
+              <td
+                className="mono"
+                style={{
+                  color: realizedPnl >= 0 ? "var(--profit-ink)" : "var(--loss-ink)",
+                  fontWeight: 800,
+                }}
+              >
+                {(realizedPnl >= 0 ? "+" : "") + fmtUSD(realizedPnl)}
+              </td>
+              <td
+                className="mono"
+                style={{
+                  color: unrealizedPnl >= 0 ? "var(--profit-ink)" : "var(--loss-ink)",
+                  fontWeight: 800,
+                }}
+              >
+                {(unrealizedPnl >= 0 ? "+" : "") + fmtUSD(unrealizedPnl)}
+              </td>
+              <td
+                className="mono"
+                style={{
+                  color:
+                    roiPct == null
+                      ? "var(--ink-3)"
+                      : roiPct >= 0
+                        ? "var(--profit-ink)"
+                        : "var(--loss-ink)",
+                  fontWeight: 800,
+                }}
+                title={`Window PnL = realized (${fmtUSD(realizedPnl)}) + unrealized (${fmtUSD(unrealizedPnl)}); ROI base = max(window volume, current margin)`}
+              >
+                {roiPct == null ? "—" : fmtPct(roiPct)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

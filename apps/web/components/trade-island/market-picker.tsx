@@ -8,7 +8,15 @@ import {
 } from "@/components/ui/popover";
 import { Icon, fmtPct, type Market } from "./data";
 import { TokenIconPair } from "./token-icon";
-import { useMarketList } from "@/lib/perps/hooks";
+import { useMultiHubMarketList } from "@/lib/perps/hooks";
+
+// 43113 → Fuji, 5042002 → Arc. Anything else falls back to the raw id so
+// a new hub doesn't render a blank chip.
+function hubLabel(chainId: number): string {
+  if (chainId === 5042002) return "Arc";
+  if (chainId === 43113) return "Fuji";
+  return `chain ${chainId}`;
+}
 
 type Filter = "all" | "forex" | "perp";
 
@@ -39,9 +47,11 @@ export function MarketPicker({
   const [query, setQuery] = useState("");
   const dec = market.price < 10 ? 4 : market.price < 1000 ? 2 : 1;
 
-  const { markets, isLoading, isError } = useMarketList();
+  const { markets, isLoading, isError } = useMultiHubMarketList();
 
   const allLive = markets ?? [];
+  // Filter pills count by the (normalized) uiSymbol's type so the
+  // numbers reflect the catalogue the user actually sees.
   const fxLive = allLive.filter((m) => m.type === "forex");
   const perpLive = allLive.filter((m) => m.type === "perp");
   const source =
@@ -50,13 +60,17 @@ export function MarketPicker({
   const list = q
     ? source.filter(
         (m) =>
-          m.sym.toLowerCase().includes(q) ||
+          m.uiSymbol.toLowerCase().includes(q) ||
+          m.apiSymbol.toLowerCase().includes(q) ||
           m.base.toLowerCase().includes(q),
       )
     : source;
 
-  const choose = (sym: string) => {
-    setMarketSym(sym);
+  const choose = (uiSymbol: string) => {
+    // Always hand the parent the canonical UI symbol so ALL_MARKETS.find
+    // resolves + the Pyth Benchmarks lookup keys correctly. The raw
+    // apiSymbol stays on the MarketListEntry for order routing.
+    setMarketSym(uiSymbol);
     setOpen(false);
     setQuery("");
   };
@@ -136,21 +150,23 @@ export function MarketPicker({
             </li>
           )}
           {list.map((m) => {
-            const active = m.sym === market.sym;
+            const active = m.uiSymbol === market.sym;
             return (
-              <li key={m.sym}>
+              // Use marketId for the React key — uiSymbol can collide
+              // when the same FX pair is registered on multiple hubs.
+              <li key={m.marketId}>
                 <button
                   type="button"
                   role="option"
                   aria-selected={active}
                   className={"mp-row " + (active ? "active" : "")}
-                  onClick={() => choose(m.sym)}
+                  onClick={() => choose(m.uiSymbol)}
                   disabled={!m.enabled}
                   title={m.enabled ? undefined : "Market is paused on-chain"}
                 >
                   <TokenIconPair base={m.base} quote={m.quote} size={22} />
                   <div className="mp-row-meta">
-                    <span className="mp-row-sym">{m.sym}</span>
+                    <span className="mp-row-sym">{m.uiSymbol}</span>
                     <span className="mp-row-type">
                       {m.type === "perp"
                         ? `Perp · ${m.leverage}x`
@@ -159,6 +175,9 @@ export function MarketPicker({
                         : `${m.leverage}x`}
                     </span>
                   </div>
+                  <span className="pill" style={{ fontSize: 9.5 }}>
+                    {hubLabel(m.chainId)}
+                  </span>
                   {!m.enabled && (
                     <span className="pill" style={{ fontSize: 9.5 }}>
                       paused

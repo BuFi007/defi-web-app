@@ -140,8 +140,16 @@ export function useMarkets(chainIdOverride?: number): UseQueryResult<PerpsMarket
 export interface MarketListEntry {
   /** API marketId (bytes32). Use this when calling /perps/quote, etc. */
   marketId: string;
-  /** UI symbol — derived from PerpsMarketDto.symbol, e.g. "EUR/USD". */
+  /**
+   * UI symbol the rest of the app keys off (charts, live-price hooks,
+   * ALL_MARKETS lookup). For Arc hub on-chain symbols like "EURC/USDC"
+   * this is the normalized form, e.g. "EUR/USD".
+   */
   sym: string;
+  /** Raw API symbol from the registry DTO, kept verbatim for order routing. */
+  apiSymbol: string;
+  /** Same value as `sym` — explicit alias used by the MarketPicker. */
+  uiSymbol: string;
   base: string;
   quote: string;
   /** Display emoji / flag for the base leg. "—" when no decoration exists. */
@@ -157,6 +165,22 @@ export interface MarketListEntry {
   enabled: boolean;
 }
 
+/**
+ * Some hubs register markets under their on-chain stable-pair symbols
+ * (e.g. Arc lists "EURC/USDC") while the UI + chart pipeline keys off
+ * the underlying FX pair ("EUR/USD"). Map the known stable-pair forms
+ * to their canonical UI symbol so the chart / live-price hooks can find
+ * them via `pythBenchmarksSymbol()` and `ALL_MARKETS`.
+ */
+function apiSymbolToUiSymbol(s: string): string {
+  const map: Record<string, string> = {
+    "EURC/USDC": "EUR/USD",
+    "tJPYC/USDC": "USD/JPY",
+    "tMXNB/USDC": "USD/MXN",
+    "tCHFC/USDC": "USD/CHF",
+  };
+  return map[s] ?? s;
+}
 interface MarketDecoration {
   flagA: string;
   flagB: string;
@@ -237,10 +261,15 @@ export function useMarketList(chainIdOverride?: number): {
   const markets = useMemo<MarketListEntry[] | null>(() => {
     if (!query.data) return null;
     return query.data.map((dto) => {
-      const dec = decorate(dto.symbol);
+      const uiSymbol = apiSymbolToUiSymbol(dto.symbol);
+      // Decorate from the UI symbol so charts/flags align with the
+      // canonical FX pair, not the on-chain stable-pair form.
+      const dec = decorate(uiSymbol);
       return {
         marketId: dto.marketId,
-        sym: dto.symbol,
+        sym: uiSymbol,
+        apiSymbol: dto.symbol,
+        uiSymbol,
         base: dec.base,
         quote: dec.quote,
         flagA: dec.flagA,
@@ -257,6 +286,48 @@ export function useMarketList(chainIdOverride?: number): {
     markets,
     isLoading: query.isLoading,
     isError: query.isError,
+  };
+}
+
+/**
+ * Hubs-aware market list. Fans out one `/perps/markets` query per known
+ * hub chainId (Arc testnet + Fuji today) and concatenates the results,
+ * keeping the same shape as `useMarketList()`.
+ *
+ * Why this exists: perp markets are split across hubs — Arc registers
+ * FX (EURC/USDC, tJPYC/USDC, …) while Fuji is the EVM hub for crypto
+ * perps. A single-chain picker only sees half of the catalogue
+ * depending on which network wagmi is currently on, which silently
+ * hides selectable markets and confuses the chart's "no data" state.
+ *
+ * `markets` is null while any underlying query is loading. `isError`
+ * is true if EVERY hub query errored — partial errors degrade
+ * gracefully so the picker still shows the live half.
+ */
+const PERPS_HUB_CHAIN_IDS = [5042002, 43113] as const;
+
+export function useMultiHubMarketList(): {
+  markets: MarketListEntry[] | null;
+  isLoading: boolean;
+  isError: boolean;
+} {
+  // Each hub uses the same single-chain hook; the override forces the
+  // queryKey + fetch URL onto that hub regardless of wagmi's chain.
+  const arc = useMarketList(PERPS_HUB_CHAIN_IDS[0]);
+  const fuji = useMarketList(PERPS_HUB_CHAIN_IDS[1]);
+
+  const markets = useMemo<MarketListEntry[] | null>(() => {
+    if (arc.markets == null && fuji.markets == null) return null;
+    const merged: MarketListEntry[] = [];
+    if (arc.markets) merged.push(...arc.markets);
+    if (fuji.markets) merged.push(...fuji.markets);
+    return merged;
+  }, [arc.markets, fuji.markets]);
+
+  return {
+    markets,
+    isLoading: arc.isLoading || fuji.isLoading,
+    isError: arc.isError && fuji.isError,
   };
 }
 

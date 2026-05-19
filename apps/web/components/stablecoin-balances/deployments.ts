@@ -62,6 +62,11 @@ const withLabel = (
 //                + developers.circle.com/stablecoins/eurc-contract-addresses
 //   MXNB:        Bitso issuer-controlled testnet contracts (per
 //                fx-telarana#feat/mxnb-fuji-markets PR description)
+//   AUDF:        Forte canonical (same address 0xd2a5…7456b on Arc
+//                Testnet, Eth Sepolia AND all mainnets per Forte). The
+//                Arc-side faucet 0x14e1…2213e at AUDFFaucet exposes
+//                public `mint(address,uint256)` — testnet-only, no
+//                bytecode on mainnets.
 //
 // Note on Fuji EURC: the on-chain Morpho M1/M2 markets use the
 // MockEURC contract (0x50c4ba…194992) shipped under contracts/. The
@@ -109,6 +114,13 @@ export const SPOKE_CHAINS: SpokeChain[] = [
         asset: "EURC",
         address: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
       },
+      {
+        // Forte AUDF — same address on Arc Testnet AND Eth Sepolia. The
+        // Arc M3_AUDF_USDC / M4_USDC_AUDF Morpho markets borrow against
+        // this token. Faucet is 0x14e1…2213e, public mint.
+        asset: "AUDF",
+        address: "0xd2a530170D71a9Cfe1651Fb468E2B98F7Ed7456b",
+      },
     ],
   },
   {
@@ -131,6 +143,13 @@ export const SPOKE_CHAINS: SpokeChain[] = [
       {
         asset: "MXNB",
         address: "0x34D4CeBB03Af55b99B68342Ac4bD78e598D9A9fC",
+      },
+      {
+        // Forte AUDF — same canonical address as Arc Testnet. Eth
+        // Sepolia carries it for cross-chain testing; the M3/M4 Morpho
+        // markets only live on Arc for now.
+        asset: "AUDF",
+        address: "0xd2a530170D71a9Cfe1651Fb468E2B98F7Ed7456b",
       },
     ],
   },

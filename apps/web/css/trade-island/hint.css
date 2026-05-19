@@ -1,7 +1,17 @@
 /* Zen tooltip — calm, soft, one sentence per pill.
    Used across every tab via <Hint w={...}>...</Hint>. */
 
-.zen-hint {
+/* The new Hint component (apps/web/components/trade-island/hint.tsx)
+   renders a <span class="zen-hint-trigger"> around the SVG, fed into
+   a radix TooltipTrigger via asChild. The trigger MUST be
+   `inline-flex` (or `inline-block`) AND `flex-shrink: 0` so it stays
+   aligned with the adjacent text inside flex/grid parents — without
+   these, the 13×13 SVG wraps onto its own line in every header that
+   uses a flex row (chart head, action card head, market table head,
+   etc). `vertical-align: -2px` keeps the icon optically centered
+   against the x-height of the neighboring label. */
+.zen-hint,
+.zen-hint-trigger {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -15,8 +25,14 @@
   transition: color .15s;
   flex-shrink: 0;
 }
-.zen-hint:hover, .zen-hint:focus-visible { color: var(--primary); }
-.zen-hint-icon { display: block; }
+.zen-hint:hover, .zen-hint:focus-visible,
+.zen-hint-trigger:hover, .zen-hint-trigger:focus-visible {
+  color: var(--primary);
+}
+.zen-hint-icon {
+  display: block;
+  flex-shrink: 0;
+}
 
 .zen-hint-tip {
   position: absolute;

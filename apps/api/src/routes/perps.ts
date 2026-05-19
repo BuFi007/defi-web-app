@@ -2,6 +2,7 @@ import { Hono } from "hono";
 
 import {
   PERPS_REPLACEMENT_NEEDED_EVENT,
+  formatAtomicToUsdc,
   perpsIntentRequest,
   perpsQuoteRequest,
   perpsReplacementPrepareRequest,
@@ -382,21 +383,70 @@ perpsRoutes.get("/trades/:address", async (c) => {
     return c.json({ error: "limit must be a positive integer" }, 400);
   }
   try {
-    const rows = await perpsSettlementReader.listSettlements({
-      chainId,
-      trader: address,
-      limit,
-    });
+    // Fetch settlements + position events in parallel. Position events
+    // carry realized PnL on every `PositionDecreased`; we join them to
+    // the settlement rows below so each trade carries its share of the
+    // closing PnL. The MVP placeholder side derivation (taker = long)
+    // is also replaced here for any settlement that maps to a known
+    // `decreased` event, where the pre-close direction is recoverable
+    // from `resultingSizeE18` + `sizeDeltaE18`.
+    const [rows, positionEvents] = await Promise.all([
+      perpsSettlementReader.listSettlements({ chainId, trader: address, limit }),
+      perpsSettlementReader.listPositionEvents({ chainId, trader: address, limit }),
+    ]);
     const traderLower = address.toLowerCase();
+
+    // Group decreased events by (txHash, marketId) — the smallest key
+    // that uniquely identifies a position-close intent — and sum their
+    // pnl. A single tx can close across multiple fills; aggregating
+    // first lets us split PnL across the matching settlement rows
+    // proportionally below.
+    const pnlByGroup = new Map<string, bigint>();
+    // Track the prevailing side (long vs short closed) per group so
+    // settlement rows inherit the real direction instead of the
+    // taker/maker placeholder.
+    const sideByGroup = new Map<string, "long" | "short">();
+    for (const ev of positionEvents) {
+      if (ev.kind !== "decreased") continue;
+      if (!ev.txHash) continue;
+      const key = `${ev.txHash.toLowerCase()}|${ev.marketId.toLowerCase()}`;
+      if (ev.pnl != null) {
+        const pnlAtomic = BigInt(String(ev.pnl));
+        pnlByGroup.set(key, (pnlByGroup.get(key) ?? 0n) + pnlAtomic);
+      }
+      if (!sideByGroup.has(key)) {
+        // Pre-close size = resultingSizeE18 - sizeDeltaE18 (delta is
+        // signed and represents the change). Long pre-close → positive,
+        // short pre-close → negative.
+        const resulting = BigInt(String(ev.resultingSizeE18));
+        const delta = BigInt(String(ev.sizeDeltaE18));
+        const preClose = resulting - delta;
+        sideByGroup.set(key, preClose >= 0n ? "long" : "short");
+      }
+    }
+
+    // Count settlements per group so we can split the per-group pnl
+    // evenly across each fill — every fill in the same tx + market
+    // closes part of the same position, so equal split is the honest
+    // attribution without a per-fill PnL field on-chain.
+    const settlementsPerGroup = new Map<string, number>();
+    for (const row of rows) {
+      const key = `${(row.txHash ?? "").toLowerCase()}|${row.marketId.toLowerCase()}`;
+      settlementsPerGroup.set(key, (settlementsPerGroup.get(key) ?? 0) + 1);
+    }
+
     const trades = rows.map((row) => {
       const fillSizeE18 = String(row.fillSizeE18);
       const fillPriceE18 = String(row.fillPriceE18);
+      const groupKey = `${(row.txHash ?? "").toLowerCase()}|${row.marketId.toLowerCase()}`;
+      const groupPnl = pnlByGroup.get(groupKey);
+      const groupCount = settlementsPerGroup.get(groupKey) ?? 1;
       const isTaker = row.taker.toLowerCase() === traderLower;
-      // Settlement event itself does not carry per-side intent; treat taker
-      // flow as long and maker as short as an MVP placeholder. UI uses this
-      // only for row coloring; correctness ships with Sprint E (per-side
-      // join against perps_position_event).
-      const side: "long" | "short" = isTaker ? "long" : "short";
+      // Prefer the position-event side; fall back to the taker/maker
+      // placeholder for settlements with no matching decreased event
+      // (i.e. opening fills — `PositionIncreased`, no realized PnL).
+      const side: "long" | "short" =
+        sideByGroup.get(groupKey) ?? (isTaker ? "long" : "short");
       const sizeAtomic =
         (BigInt(fillSizeE18) * BigInt(fillPriceE18)) /
         1_000_000_000_000_000_000_000_000_000_000n;
@@ -404,6 +454,16 @@ perpsRoutes.get("/trades/:address", async (c) => {
       const sizeUsdc = `${(absAtomic / 1_000_000n).toString()}.${(absAtomic % 1_000_000n)
         .toString()
         .padStart(6, "0")}`;
+      let realizedPnlUsdc: string | undefined;
+      if (groupPnl !== undefined) {
+        // Even split across all settlements in the group. Integer
+        // division loses sub-µUSDC across the split, which is fine
+        // for UI display (the unsplit total is exact at the group
+        // level — sum of trades inside the same window recovers it
+        // modulo 6-dp truncation).
+        const share = groupPnl / BigInt(groupCount);
+        realizedPnlUsdc = formatAtomicToUsdc(share);
+      }
       return {
         marketId: row.marketId,
         side,
@@ -413,6 +473,7 @@ perpsRoutes.get("/trades/:address", async (c) => {
         fillPriceE18,
         txHash: row.txHash ?? "0x",
         blockTimestamp: row.blockTimestamp !== undefined ? Number(BigInt(row.blockTimestamp)) : 0,
+        realizedPnlUsdc,
       };
     });
     return c.json(jsonSafe({ address, trades }));

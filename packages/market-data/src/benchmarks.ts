@@ -104,12 +104,24 @@ export async function fetchBenchmarksHistory(
   if (!ticker) return [];
   const baseUrl = opts.baseUrl ?? BENCHMARKS_DEFAULT_BASE_URL;
   const resolution = tfToBenchmarksResolution(opts.tf);
-  const limit = opts.limit ?? 200;
+  const requestedLimit = opts.limit ?? 200;
   const tfSec = tfToSeconds(opts.tf);
+  // Pyth Benchmarks rejects FX queries that span > 1 year with
+  // `{"s":"error","errmsg":"Requested range exceeds 1 year"}`. Asking
+  // for 200 weekly bars naturally wants 5+ years — the response is
+  // empty and the chart stays in its loading overlay forever. Cap at
+  // 360 days to stay safely under the 365-day server-side limit AND
+  // shrink the effective limit so weekly/daily tfs don't over-request.
+  const MAX_LOOKBACK_SEC = 360 * 86400; // ~12 months — fits Pyth FX limit
+  const naturalLookback = Math.ceil(tfSec * requestedLimit * 1.4);
+  const lookback = Math.min(naturalLookback, MAX_LOOKBACK_SEC);
+  // If the cap chopped us, recompute the effective limit so the
+  // tail-cap at the end still produces a sane window (no excess slice).
+  const limit = naturalLookback > MAX_LOOKBACK_SEC
+    ? Math.max(1, Math.floor(MAX_LOOKBACK_SEC / Math.ceil(tfSec * 1.4)))
+    : requestedLimit;
   const now = Math.floor(Date.now() / 1000);
-  // Ask for slightly more than `limit` so the API gives us a full window
-  // even when some bars are missing (weekends on FX).
-  const from = now - Math.ceil(tfSec * limit * 1.4);
+  const from = now - lookback;
   const url = `${baseUrl.replace(/\/$/, "")}/v1/shims/tradingview/history?symbol=${encodeURIComponent(
     ticker,
   )}&resolution=${resolution}&from=${from}&to=${now}`;
