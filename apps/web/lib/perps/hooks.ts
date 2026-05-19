@@ -389,19 +389,27 @@ export function usePositions(addressOverride?: `0x${string}`): UseQueryResult<Pe
   const { address } = useAccount();
   const wagmiChainId = useChainId();
   const devWallet = useMemo(() => getPerpsReplacementDevWallet(), []);
-  const signSession = useSessionSigner();
   const target =
     addressOverride ??
     (devWallet?.address as `0x${string}` | undefined) ??
     (address as `0x${string}` | undefined);
   const chainId = effectiveChainId(devWallet, wagmiChainId);
 
+  // CACHE-ONLY session read — NEVER prompt the wallet from here. The
+  // previous implementation called `signSession()` from the queryFn,
+  // which auto-popped a MetaMask EIP-712 signature on every connect
+  // AND on every `refetchInterval` tick. Users hit a forever-loop of
+  // sign prompts: reject once → wagmi emits `eth_accounts: []` → MM
+  // disconnects → next render re-enables → prompt fires again. Fix:
+  // read the cached proof if a previous explicit user action (place
+  // order, perps-replacement agent CTA) already signed; otherwise
+  // return [] and wait for that explicit sign.
   return useQuery({
     queryKey: ["perps", "positions", chainId, target?.toLowerCase()],
     enabled: Boolean(target),
     queryFn: async ({ signal }) => {
       if (!target) return [];
-      const proof = await signSession(target, chainId);
+      const proof = readCachedWalletSession(target, chainId);
       if (!proof) return [];
       return fetchPerpsPositions({ address: target, proof, signal });
     },
