@@ -253,10 +253,14 @@
 .lo-hub-btn.active .lo-hub-btn-count { background: var(--primary-soft); color: var(--primary-ink); }
 
 .lo-table { display: flex; flex-direction: column; }
+/* Header mirrors the row's 2-column outer grid (content | spark) so
+   the header text columns line up with the row's data columns. The
+   spark column is reserved with an empty cell so the row's tall
+   sparkline has corresponding horizontal space in the header. */
 .lo-table-thead {
   display: grid;
-  grid-template-columns: minmax(0, 2.2fr) .6fr .6fr .5fr .75fr 1fr;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 14px;
   padding: 8px 10px;
   font-family: 'Nunito', sans-serif;
   font-size: 10px; font-weight: 800;
@@ -264,9 +268,27 @@
   letter-spacing: .08em; text-transform: uppercase;
   border-bottom: 1px solid var(--border);
 }
+.lo-table-thead-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.6fr) .7fr .7fr .55fr .85fr;
+  gap: 14px;
+  align-items: center;
+}
+/* Reserves the sparkline column width so the header text columns stay
+   aligned with row data columns. The "30d" label is right-aligned to
+   visually pair with the sparkline sitting underneath. */
+.lo-table-thead-spark {
+  width: 140px;
+  text-align: right;
+}
+/* The row itself is a 2-col grid: textual content on the left, the
+   tall 30d sparkline pinned to the far right spanning BOTH the main
+   grid row and the sub-line. Detail strip lives underneath spanning
+   BOTH columns via explicit `grid-column: 1 / -1`. */
 .lo-trow {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 14px;
   padding: 9px 10px;
   background: transparent;
   border: 0;
@@ -276,22 +298,30 @@
   transition: background .12s, transform .12s;
   position: relative;
 }
+.lo-trow-content {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
 .lo-trow-row {
   display: grid;
-  grid-template-columns: minmax(0, 2.2fr) .6fr .6fr .5fr .75fr 1fr;
-  gap: 12px;
+  grid-template-columns: minmax(0, 2.6fr) .7fr .7fr .55fr .85fr;
+  gap: 14px;
   align-items: center;
 }
-/* Hover-expanded detail. Pinned to the BOTTOM-RIGHT corner of the row
-   (the dynamic island) — uses `align-self: flex-end` so the detail
-   reads as a compact chip in the corner rather than stretching across
-   the full row width. `max-height` + `opacity` + `padding-top` animate
-   together for a smooth reveal that doesn't push neighbouring rows. */
+/* Hover-expanded detail — takes the FULL row width (the whole bottom
+   strip of the dynamic island) so the three metrics breathe. `max-height`
+   + `opacity` + `padding-top` animate together for a smooth reveal that
+   doesn't push neighbouring rows. */
 .lo-trow-detail {
-  align-self: flex-end;
+  grid-column: 1 / -1;
+  grid-row: 2;
   display: grid;
-  grid-template-columns: repeat(3, auto);
-  gap: 0 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 24px;
+  width: 100%;
   max-height: 0;
   margin-top: 0;
   padding: 0 4px;
@@ -311,9 +341,9 @@
 .lo-trow:hover .lo-trow-detail,
 .lo-trow.sel .lo-trow-detail,
 .lo-trow:focus-visible .lo-trow-detail {
-  max-height: 60px;
+  max-height: 70px;
   margin-top: 8px;
-  padding: 8px 12px;
+  padding: 10px 14px;
   opacity: 1;
   border-color: var(--border);
 }
@@ -326,10 +356,8 @@
 .lo-trow-detail-item {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
   gap: 2px;
   min-width: 0;
-  text-align: right;
 }
 .lo-trow-detail-l {
   font-size: 9.5px;
@@ -408,22 +436,44 @@
 }
 .lo-trow.sel .lo-trow-addr { color: var(--ink-3); }
 .lo-trow.sel .lo-trow-addr:hover { color: var(--primary-ink); }
-/* Independent meta line that lives BELOW the 6-col grid (.lo-trow-row),
-   spanning the full row width. Left = hub · LLTV, right = wallet
-   balance. Grid layout with hard boundaries so NumberFlow's inline-flex
-   wrapper can't overflow into the hub label. The left column shrinks +
-   ellipses; the right column sizes to its content. */
+/* Independent meta line that lives BELOW the 5-col grid (.lo-trow-row),
+   inside .lo-trow-content. 2 cells: hub · LLTV · addr (left, ellipses)
+   and wallet balance (right). The sparkline lives OUTSIDE this row in
+   its own tall grid cell — see .lo-trow-spark-corner. */
 .lo-trow-sub {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   margin-top: 6px;
   padding: 6px 4px 0;
   border-top: 1px dashed var(--border);
   font-size: 12px; font-weight: 700;
   color: var(--ink-2);
   min-width: 0;
+}
+.lo-trow-spark-corner {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  width: 140px;
+  padding: 4px 6px;
+  background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-3) 100%);
+  border-radius: 10px;
+}
+.lo-trow-spark-corner .lo-spark {
+  width: 100%;
+  height: 100%;
+  min-height: 36px;
+  display: block;
+}
+.lo-trow.sel .lo-trow-spark-corner {
+  background: linear-gradient(180deg, rgba(255,255,255,.5) 0%, rgba(255,255,255,.25) 100%);
+}
+[data-theme="dark"] .lo-trow.sel .lo-trow-spark-corner {
+  background: linear-gradient(180deg, rgba(0,0,0,.2) 0%, rgba(0,0,0,.1) 100%);
 }
 .lo-trow-sub-l {
   display: inline-flex; align-items: center; gap: 6px;
@@ -440,6 +490,16 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+/* Fix right-alignment for AnimatedNumber inside the .lo-trow-num cells.
+   `text-align: right` on a span with `inline-flex` children doesn't
+   push the inline-flex to the right edge — the cell needs flex
+   justify-end so the wrapper hugs the column's right side and aligns
+   with the right-aligned header above. */
+.lo-trow-num {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
 }
 .lo-trow-num {
   font-size: 13px; font-weight: 800;
@@ -1215,16 +1275,20 @@
   .lo-strip { grid-template-columns: 1fr; gap: 12px; }
 
   /* Markets table: collapse to 3 columns — pair, supply%, borrow%.
-     Hide UTIL, TVL, and sparkline cells (the trigger keeps detail) */
+     Hide UTIL + TVL on narrow viewports. Sparkline column shrinks but
+     still spans both row heights at the far right. */
   .lo-table-wrap { padding: 10px 10px 6px; }
-  .lo-table-thead,
-  .lo-trow {
+  .lo-table-thead { padding: 8px 6px; column-gap: 8px; }
+  .lo-table-thead-row,
+  .lo-trow-row {
     grid-template-columns: minmax(0, 1.7fr) .9fr .9fr;
     gap: 8px;
-    padding: 9px 6px;
   }
-  .lo-table-thead > :nth-child(n+4),
-  .lo-trow > :nth-child(n+4) { display: none; }
+  .lo-trow { padding: 9px 6px; column-gap: 8px; }
+  .lo-table-thead-row > :nth-child(n+4),
+  .lo-trow-row > :nth-child(n+4) { display: none; }
+  .lo-table-thead-spark { width: 96px; }
+  .lo-trow-spark-corner { width: 96px; }
   .lo-trow-syms { font-size: 13px; }
   .lo-trow-num { font-size: 12px; }
   .lo-table-head { flex-direction: column; align-items: stretch; gap: 8px; }

@@ -2,51 +2,7 @@
 
 import React from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BentoGrid, BentoGridItem } from "@/components/bento-grid/index";
 import Image from "next/image";
-
-const MoneyMarketSkeleton: React.FC = () => {
-  return (
-    <div className="space-y-4">
-      <Skeleton className="h-8 w-3/4" />
-      <Skeleton className="h-6 w-full" />
-      <Skeleton className="h-6 w-5/6" />
-      <Skeleton className="h-6 w-2/3" />
-    </div>
-  );
-};
-
-const BentoTileSkeleton = () => (
-  <div className="flex flex-1 w-full h-full min-h-[6rem] rounded-xl bg-gray-200 dark:bg-gray-800 animate-pulse"></div>
-);
-
-const MoneyMarketBentoSkeleton: React.FC = () => {
-  const items = [
-    { title: "", description: "", className: "md:col-span-2" },
-    { title: "", description: "", className: "md:col-span-1" },
-    { title: "", description: "", className: "md:col-span-1" },
-    { title: "", description: "", className: "md:col-span-2" },
-  ];
-
-  return (
-    <BentoGrid className="max-w-4xl mx-auto md:auto-rows-[20rem]">
-      {items.map((item, i) => (
-        <BentoGridItem
-          key={i}
-          title={
-            <div className="h-6 bg-gray-300 rounded w-3/4 mb-2 animate-pulse"></div>
-          }
-          description={
-            <div className="h-4 bg-gray-300 rounded w-full mb-4 animate-pulse"></div>
-          }
-          header={<BentoTileSkeleton />}
-          className={item.className}
-          isSkeleton={true}
-        />
-      ))}
-    </BentoGrid>
-  );
-};
 
 const ContainerSkeleton = () => {
   return (
@@ -129,23 +85,75 @@ const HeaderSkeleton: React.FC = () => {
   );
 };
 
+/**
+ * Suspense fallback for the home route. Mirrors the trade-island shape
+ * users actually see when the page finishes booting (`.island` in
+ * css/trade-island/index.css) — same 28px radius, brand-purple ring,
+ * 3-column body silhouette — so the swap from skeleton → real UI is
+ * a fade-in, not a layout jump.
+ *
+ * The old skeleton rendered a Money-Market bento grid with a yellow
+ * `mainAccent` (#ffc800) ring, which had no relation to the actual
+ * trade island and read as a different product loading.
+ */
 const HomePageSkeleton: React.FC = () => {
-  // The outer layout (apps/web/app/[locale]/layout.tsx) is a flex column
-  // with `items-center justify-center`. `w-full` would defeat the
-  // horizontal centering — keep the skeleton intrinsically sized via
-  // `max-w-5xl` only, no `w-full` wrapper.
   return (
-    <div className="w-full max-w-5xl px-4 py-6 mx-auto">
-      <div className="relative w-full rounded-2xl border-2 border-purpleDanis/40 dark:border-violetDanis/40 bg-background px-6 py-5 shadow-lg">
-        <MoneyMarketBentoSkeleton />
+    <div className="w-full max-w-[1440px] px-4 py-3 mx-auto flex-1 flex flex-col">
+      <div
+        className="
+          relative flex-1 w-full overflow-hidden
+          rounded-[28px] border-[1.5px]
+          border-purpleDanis/20 dark:border-violetDanis/20
+          bg-background
+          shadow-[0_8px_24px_rgba(60,45,130,0.08),0_24px_64px_rgba(60,45,130,0.12)]
+          min-h-[560px]
+        "
+      >
+        {/* Header strip — tabs row + summary chips on the right */}
+        <div className="flex items-center gap-4 px-4 py-3 border-b border-purpleDanis/10 dark:border-violetDanis/10">
+          <div className="flex items-center gap-2 bg-purpleDanis/5 dark:bg-violetDanis/5 rounded-[14px] p-1">
+            <Skeleton className="h-8 w-[110px] rounded-[10px]" />
+            <Skeleton className="h-8 w-[80px] rounded-[10px]" />
+            <Skeleton className="h-8 w-[90px] rounded-[10px]" />
+            <Skeleton className="h-8 w-[100px] rounded-[10px]" />
+            <Skeleton className="h-8 w-[80px] rounded-[10px]" />
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <Skeleton className="h-9 w-[180px] rounded-xl" />
+            <Skeleton className="h-9 w-[200px] rounded-xl" />
+          </div>
+        </div>
+
+        {/* Body — 3-column trade canvas silhouette (orderbook + chart + order) */}
+        <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_320px] gap-3 p-4 h-[calc(100%-66px)] min-h-0">
+          <div className="hidden lg:flex flex-col gap-2 rounded-2xl bg-purpleDanis/5 dark:bg-violetDanis/5 p-3 min-h-0">
+            <Skeleton className="h-4 w-3/4" />
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-3 w-full" />
+            ))}
+          </div>
+          <div className="rounded-2xl bg-purpleDanis/5 dark:bg-violetDanis/5 p-3 flex flex-col gap-3 min-h-[320px]">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-6 w-[80px] rounded-full" />
+              <Skeleton className="h-6 w-[120px] rounded-full" />
+              <Skeleton className="ml-auto h-6 w-[64px] rounded-full" />
+            </div>
+            <Skeleton className="flex-1 w-full rounded-xl min-h-[240px]" />
+          </div>
+          <div className="hidden lg:flex flex-col gap-3 rounded-2xl bg-purpleDanis/5 dark:bg-violetDanis/5 p-3">
+            <Skeleton className="h-5 w-1/2" />
+            <Skeleton className="h-10 w-full rounded-lg" />
+            <Skeleton className="h-10 w-full rounded-lg" />
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-12 w-full rounded-xl mt-auto" />
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
 export {
-  MoneyMarketSkeleton,
-  MoneyMarketBentoSkeleton,
   ContainerSkeleton,
   HeaderSkeleton,
   ActionBannerSkeleton,

@@ -716,12 +716,16 @@ function MarketsTable({
 
       <div className="lo-table">
         <div className="lo-table-thead">
-          <span>Market</span>
-          <span style={{ textAlign: "right" }}>Supply</span>
-          <span style={{ textAlign: "right" }}>Borrow</span>
-          <span style={{ textAlign: "right" }}>Util</span>
-          <span style={{ textAlign: "right" }}>TVL</span>
-          <span style={{ textAlign: "right" }}>30d</span>
+          <div className="lo-table-thead-row">
+            <span>Market</span>
+            <span style={{ textAlign: "right" }}>Supply</span>
+            <span style={{ textAlign: "right" }}>Borrow</span>
+            <span style={{ textAlign: "right" }}>Util</span>
+            <span style={{ textAlign: "right" }}>TVL</span>
+          </div>
+          <span className="lo-table-thead-spark" aria-hidden="true">
+            30d
+          </span>
         </div>
         {visible.map((m) => {
           const sel = m.id === market.id;
@@ -744,6 +748,7 @@ function MarketsTable({
               className={"lo-trow " + (sel ? "sel " : "") + (disabled ? "dim " : "")}
               onClick={() => onSelect(m.id)}
             >
+              <div className="lo-trow-content">
               <div className="lo-trow-row">
               <div className="lo-trow-pair">
                 <span className="lo-trow-flags">
@@ -755,18 +760,6 @@ function MarketsTable({
                     <span className="mkt-loan">{m.loan}</span>
                     <span className="mkt-slash">/</span>
                     <span className="mkt-coll">{m.coll}</span>
-                    <a
-                      className="mono lo-trow-addr"
-                      href={blockExplorerUrl(hub.chainId, hub.address)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={`FxMarketRegistry — open on ${
-                        hub.chainId === 5042002 ? "Arcscan" : "Snowtrace"
-                      }`}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {shortHex(hub.address)}
-                    </a>
                     {m.status !== "live" && <StatusTag status={m.status} />}
                   </div>
                 </div>
@@ -817,15 +810,14 @@ function MarketsTable({
                   />
                 )}
               </span>
-              <span className="lo-trow-spark">
-                <MarketSpark market={m} />
-              </span>
               </div>
               {/* Sub line — hub · LLTV on the left, wallet balance on
-                  the right. Lives outside `.lo-trow-row`'s 6-col grid
-                  so it can use the FULL row width, instead of being
-                  squeezed into the narrow Market column and getting
-                  truncated. */}
+                  the right, plus the 30-day sparkline docked at the
+                  bottom-right corner of the row. Lives outside
+                  `.lo-trow-row`'s 5-col grid so it can use the FULL row
+                  width and place the spark where the user expects it
+                  (corner of the dynamic island), not as just another
+                  table column. */}
               <div className="lo-trow-sub">
                 <span className="lo-trow-sub-l">
                   <HubPip hub={hub} size={14} />
@@ -834,12 +826,32 @@ function MarketsTable({
                   <span className="lo-trow-lltv">
                     {fmtOrDash(m.lltv, (x) => `${Math.round(x * 100)}%`)} LLTV
                   </span>
+                  <span className="lo-trow-sep" aria-hidden="true">·</span>
+                  <a
+                    className="mono lo-trow-addr"
+                    href={blockExplorerUrl(hub.chainId, hub.address)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`FxMarketRegistry — open on ${
+                      hub.chainId === 5042002 ? "Arcscan" : "Snowtrace"
+                    }`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {shortHex(hub.address)}
+                  </a>
                 </span>
                 <MarketRowBalance
                   market={m}
                   walletAddress={walletAddress as Address | undefined}
                 />
               </div>
+              </div>
+              {/* Sparkline lives in its own grid cell at the far right,
+                  spanning the FULL height of the main row + sub-line —
+                  the dynamic island's tall right edge. */}
+              <span className="lo-trow-spark-corner">
+                <MarketSpark market={m} />
+              </span>
               {/* Hover-expanded detail. Always rendered; CSS collapses
                   it to height: 0 when the row is idle and reveals it on
                   hover or when the row is the selected market. */}
