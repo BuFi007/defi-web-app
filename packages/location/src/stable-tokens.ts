@@ -1,18 +1,19 @@
-import audfIcon from "../assets/audf_token_icon.svg";
-import brlaIcon from "../assets/brla_token_icon.png";
-import eurcIcon from "../assets/eurc_token_icon.svg";
-import jpycIcon from "../assets/jpyc_token_icon.png";
-import krw1Icon from "../assets/krw1_token_icon.png";
-import mxnbIcon from "../assets/mxnb_token_icon.svg";
-import phpcIcon from "../assets/phpc_token_icon.png";
-import qcadIcon from "../assets/qcad_token_icon.png";
-import usdcIcon from "../assets/usdc_token_icon.svg";
-import zaruIcon from "../assets/zaru_token_icon.png";
-
 /**
- * Either a URL string (SVG static imports) or a `StaticImageData`-shaped
- * object (PNG static imports). Both forms are accepted by `next/image`.
+ * Icons are served as static URL strings from `apps/web/public/assets/
+ * stable-tokens/`. Plain strings instead of bundler-resolved imports
+ * because the location package is consumed by both Next.js (where SVG
+ * imports work via the build loader) and by tsc --noEmit packages that
+ * can't resolve them. Strings work in both worlds.
+ *
+ * Source of truth for the asset files lives in `packages/location/
+ * assets/`; the apps/web build copies (or symlinks) them into public/.
  */
+
+const ASSET_BASE = "/assets/stable-tokens";
+
+/** Either a URL string (current shape) or a `StaticImageData`-shaped
+ *  object — both accepted by `next/image` so consumers don't need to
+ *  branch. */
 export type StableImageSource =
   | string
   | {
@@ -31,7 +32,7 @@ export type StableToken = {
   name: string;
   /** Token symbol / on-chain ticker. */
   asset: StableTokenType;
-  /** Bundler-resolved icon source. Hand straight to `<Image src=...>`. */
+  /** Public-path URL to the token icon. */
   icon: StableImageSource;
 };
 
@@ -53,70 +54,70 @@ const StableTokenMap: Record<StableTokenType, StableToken> = {
     unicode: "U+1F1FA U+1F1F8",
     name: "USD Coin",
     asset: "USDC",
-    icon: usdcIcon,
+    icon: `${ASSET_BASE}/usdc_token_icon.svg`,
   },
   EURC: {
     code: "EUR",
     unicode: "U+1F1EA U+1F1FA",
     name: "Euro Coin",
     asset: "EURC",
-    icon: eurcIcon,
+    icon: `${ASSET_BASE}/eurc_token_icon.svg`,
   },
   AUDF: {
     code: "AUD",
     unicode: "U+1F1E6 U+1F1FA",
     name: "Australian Dollar (AUDF)",
     asset: "AUDF",
-    icon: audfIcon,
+    icon: `${ASSET_BASE}/audf_token_icon.svg`,
   },
   BRLA: {
     code: "BRL",
     unicode: "U+1F1E7 U+1F1F7",
     name: "Brazilian Real (BRLA)",
     asset: "BRLA",
-    icon: brlaIcon,
+    icon: `${ASSET_BASE}/brla_token_icon.png`,
   },
   JPYC: {
     code: "JPY",
     unicode: "U+1F1EF U+1F1F5",
     name: "Japanese Yen Coin",
     asset: "JPYC",
-    icon: jpycIcon,
+    icon: `${ASSET_BASE}/jpyc_token_icon.png`,
   },
   KRW1: {
     code: "KRW",
     unicode: "U+1F1F0 U+1F1F7",
     name: "Korean Won (KRW1)",
     asset: "KRW1",
-    icon: krw1Icon,
+    icon: `${ASSET_BASE}/krw1_token_icon.png`,
   },
   MXNB: {
     code: "MXN",
     unicode: "U+1F1F2 U+1F1FD",
     name: "Mexican Peso (MXNB)",
     asset: "MXNB",
-    icon: mxnbIcon,
+    icon: `${ASSET_BASE}/mxnb_token_icon.svg`,
   },
   PHPC: {
     code: "PHP",
     unicode: "U+1F1F5 U+1F1ED",
     name: "Philippine Peso Coin",
     asset: "PHPC",
-    icon: phpcIcon,
+    icon: `${ASSET_BASE}/phpc_token_icon.png`,
   },
   QCAD: {
     code: "CAD",
     unicode: "U+1F1E8 U+1F1E6",
     name: "Canadian Dollar (QCAD)",
     asset: "QCAD",
-    icon: qcadIcon,
+    icon: `${ASSET_BASE}/qcad_token_icon.png`,
   },
   ZARU: {
     code: "ZAR",
     unicode: "U+1F1FF U+1F1E6",
     name: "South African Rand (ZARU)",
     asset: "ZARU",
-    icon: zaruIcon,
+    icon: `${ASSET_BASE}/zaru_token_icon.png`,
   },
 };
 

@@ -45,7 +45,7 @@ test("loan tab — markets list + action card render", async ({ page }) => {
   const rowCount = await marketRows.count();
   expect(rowCount).toBeGreaterThan(0);
   await expect(page.locator(".lo-trow .mkt-loan").first()).toContainText(
-    /USDC|EURC|mJPYC|mAUDF|mZCHF/,
+    /USDC|EURC|MXNB|AUDF|mJPYC|mZCHF/,
   );
 
   // Click into the first market — selecting a row pins the action card.

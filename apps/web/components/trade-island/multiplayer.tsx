@@ -20,6 +20,7 @@ import {
 } from "@/lib/bento/client";
 import { useDevWallet } from "@/lib/dev-wallet";
 import { useBufiAddress, useBufiIsDevMock } from "@/lib/session";
+import { truncateAddress } from "@/utils";
 import {
   useBentoClaim,
   useBentoLeaderboard,
@@ -117,10 +118,6 @@ const PLAYER_PALETTE: Omit<Player, "score" | "chipsUsedThisRound" | "lastDelta" 
 const DEFAULT_CHIP_BUDGET = 10;
 const DEFAULT_DURATION_SEC = 45;
 const BENTO_CHAIN_ID = 43113;
-
-function truncateAddress(addr: string): string {
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-}
 
 function truncateHex(hex: string, head = 10, tail = 8): string {
   if (hex.length <= head + tail + 1) return hex;
@@ -283,16 +280,10 @@ export function LobbyScreen({
             </Hint>
           </h2>
         </div>
-        <div className="lobby-wallet">
-          <span className="apy-l">
-            Wallet <Hint w={220}>Your balance available for entry fees and stakes.</Hint>
-          </span>
-          <span className="mono lobby-wallet-amt">{fmtUSD(wallet)} USDC</span>
-        </div>
-        <button className="exit-pro" onClick={onClose} title="Back to the regular trading view">
-          <span className="mode-glyph">⊞</span>
-          <span>Pro</span>
-        </button>
+        {/* lobby-wallet + exit-pro removed 2026-05-18. The wallet pill
+            lives in the global header now (StablecoinBalances) and the
+            "back to Pro" pivot is the header's Arcade toggle, which
+            already shows on every tab. */}
       </header>
       <div className="lobby-grid">
         {loading && rooms.length === 0 && (
@@ -676,9 +667,28 @@ export function RoundEndOverlay({
 
 // ---------- top-level component ----------
 
-export function ArcadeRoom({ market, onClose }: { market: Market; onClose: () => void }) {
-  type Phase = "lobby" | "countdown" | "playing" | "roundEnd" | "final";
-  const [phase, setPhase] = useState<Phase>("lobby");
+export type ArcadePhase =
+  | "lobby"
+  | "countdown"
+  | "playing"
+  | "roundEnd"
+  | "final";
+
+export function ArcadeRoom({
+  market,
+  onClose,
+  onPhaseChange,
+}: {
+  market: Market;
+  onClose: () => void;
+  /** Optional listener — TradeIsland reads this to morph the outer
+   *  dynamic-island width per arcade phase. */
+  onPhaseChange?: (phase: ArcadePhase) => void;
+}) {
+  const [phase, setPhase] = useState<ArcadePhase>("lobby");
+  useEffect(() => {
+    onPhaseChange?.(phase);
+  }, [phase, onPhaseChange]);
   const [joinedRoomId, setJoinedRoomId] = useState<string | null>(null);
   const [round, setRound] = useState(1);
   const [countNum, setCountNum] = useState(3);
@@ -770,7 +780,16 @@ export function ArcadeRoom({ market, onClose }: { market: Market; onClose: () =>
   const join = useCallback(
     async (r: Room) => {
       if (!address) {
-        toast({ title: "Connect a wallet", description: "Join the arcade after connecting." });
+        // Single actionable toast. The earlier two-branch version
+        // ("Wallet warming up" vs "Connect a wallet") tried to be
+        // helpful but misfired in the common case where Dynamic
+        // had a stale cached `useIsLoggedIn` from a previous tab
+        // — the user saw "warming up" forever and had no clear
+        // action. Pointing them at the Dynamic widget always works.
+        toast({
+          title: "Connect a wallet",
+          description: "Sign in via the wallet button (top right) to join the arcade.",
+        });
         return;
       }
       if (wallet < r.fee) {

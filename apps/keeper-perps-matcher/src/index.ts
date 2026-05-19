@@ -143,6 +143,11 @@ function intentToSignedOrder(intent: PerpIntent) {
     marketId: intent.marketId as Hex,
     sizeDeltaE18: BigInt(intent.sizeDelta),
     priceE18: BigInt(intent.priceE18),
+    // PerpIntent doesn't carry maxFee yet — the ABI requires it on
+    // SignedOrder, so we ship zero (uncapped). Real maxFee lands when
+    // the order schema picks up the field; until then traders accept
+    // whatever fee the matcher computes server-side.
+    maxFee: 0n,
     orderType: intent.orderType === "market" ? 0 : 1,
     flags: intent.flags,
     nonce: intent.nonce,

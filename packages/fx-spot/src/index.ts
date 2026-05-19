@@ -17,8 +17,10 @@ import {
 } from "viem";
 import { z } from "zod";
 
-const addressSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/);
-const bytes32Schema = z.string().regex(/^0x[a-fA-F0-9]{64}$/);
+import { ADDRESS_REGEX, BYTES32_REGEX } from "@bufi/shared-types/schemas";
+
+const addressSchema = z.string().regex(ADDRESS_REGEX);
+const bytes32Schema = z.string().regex(BYTES32_REGEX);
 
 export const spotIntentRequestSchema = z.object({
   sourceChainId: z.literal(43113).default(43113),

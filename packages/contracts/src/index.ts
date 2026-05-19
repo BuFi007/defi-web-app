@@ -79,8 +79,13 @@ export const RPC_ENV_BY_CHAIN = {
 // Hardcoded fallbacks — kept so `getRpcUrl()` works in pure-dev contexts even
 // when no env is set. Production deploys should override via the matching env
 // var (`AVALANCHE_FUJI_RPC_URL`, `ARC_TESTNET_RPC_URL`) declared in @bufi/env.
+// PublicNode for Fuji — the canonical `api.avax-test.network` endpoint
+// omits Access-Control-Allow-Origin, which makes any browser-side viem
+// call (balance reads, market state) error out under CORS. PublicNode
+// mirrors the same chain state and serves `Access-Control-Allow-Origin: *`.
+// Override via `AVALANCHE_FUJI_RPC_URL` for staging/prod RPC pinning.
 const HARDCODED_DEFAULT_RPC_URLS = {
-  43113: "https://api.avax-test.network/ext/bc/C/rpc",
+  43113: "https://avalanche-fuji-c-chain-rpc.publicnode.com",
   5042002: "https://rpc.testnet.arc.network",
 } as const satisfies Record<(typeof SUPPORTED_CHAIN_IDS)[number], string>;
 

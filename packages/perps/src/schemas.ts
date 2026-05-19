@@ -1,14 +1,21 @@
 import { z } from "zod";
 
+import {
+  ADDRESS_REGEX,
+  HEX_REGEX,
+  BYTES32_REGEX,
+} from "@bufi/shared-types/schemas";
+
+export const addressSchema = z.string().regex(ADDRESS_REGEX);
+export const hexSchema = z.string().regex(HEX_REGEX);
+export const bytes32Schema = z.string().regex(BYTES32_REGEX);
+
 export const chainIdSchema = z.union([
   z.literal(43113),
   z.literal(919),
   z.literal(5042002),
 ]);
 
-export const addressSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/);
-export const hexSchema = z.string().regex(/^0x[a-fA-F0-9]+$/);
-export const bytes32Schema = z.string().regex(/^0x[a-fA-F0-9]{64}$/);
 export const usdcAmountSchema = z.string().regex(/^\d+(\.\d{1,6})?$/);
 export const uintStringSchema = z.string().regex(/^\d+$/);
 export const intStringSchema = z.string().regex(/^-?\d+$/);

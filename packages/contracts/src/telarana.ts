@@ -48,13 +48,19 @@ export type TelaranaRequiredContract =
 /** Contracts that are only present after the relevant deploy lands.
  *  Callers must null-check before use. */
 export type TelaranaOptionalContract =
-  // M3 + M4 oracle adapters: deployed by `DeployFujiMxnbMarkets.s.sol`
-  // alongside the new MXNB-collateralized Morpho markets. Absent until
-  // the script broadcasts → market is skipped in the static fallback
-  // (the live registry read still picks it up via `listPools()`).
+  // M3 + M4 oracle adapters: deployed by the per-chain non-EURC market
+  // scripts (`DeployFujiMxnbMarkets.s.sol` on Fuji, `DeployArcAudfMarkets.s.sol`
+  // on Arc). Absent until the script broadcasts → market is skipped in the
+  // static fallback (the live registry read still picks it up via
+  // `listPools()`).
   | "MorphoOracleAdapterM3"
   | "MorphoOracleAdapterM4"
-  | "FxReceiptMXNB";
+  // Per-chain fresh FxOracle wired for the non-EURC asset; the original
+  // FxOracle is owned by FxTimelock and not retrofittable.
+  | "FxOracleMxnb"
+  | "FxOracleAudf"
+  | "FxReceiptMXNB"
+  | "FxReceiptAUDF";
 
 export type TelaranaContractName =
   | TelaranaRequiredContract
@@ -65,16 +71,18 @@ export type TelaranaHubName = "fuji" | "arc";
 
 /** Stablecoin symbols that may appear as Telarana loan or collateral
  *  legs. Extend when a new market is added to the registry. */
-export type TelaranaMarketSymbol = "USDC" | "EURC" | "MXNB";
+export type TelaranaMarketSymbol = "USDC" | "EURC" | "MXNB" | "AUDF";
 
-/** Canonical market keys, mirroring `deployments/*.marketIds`. M3/M4 are
- *  optional until the Fuji MXNB deploy lands; the type stays a closed
+/** Canonical market keys, mirroring `deployments/*.marketIds`. The M3/M4
+ *  slots are per-chain: MXNB on Fuji, AUDF on Arc. The type stays a closed
  *  union so callers can exhaust it. */
 export type TelaranaMarketKey =
   | "M1_EURC_USDC"
   | "M2_USDC_EURC"
   | "M3_MXNB_USDC"
-  | "M4_USDC_MXNB";
+  | "M4_USDC_MXNB"
+  | "M3_AUDF_USDC"
+  | "M4_USDC_AUDF";
 
 export interface TelaranaMarket {
   /** Morpho-Blue market id (bytes32) computed from MarketParams. */
@@ -135,15 +143,19 @@ function buildDeployment(
   // Fuji has no native Circle EURC deployment — fall back to the MockEURC
   // shipped under contracts so the manifest loader doesn't crash at boot.
   const loanEURC = asAddress(external.EURC ?? contracts.MockEURC);
-  // MXNB: Bitso ships a real testnet issuer contract; on Fuji that's the
-  // canonical `external.MXNB`. Optional — chains without an MXNB deploy
-  // just skip the M3/M4 markets below.
+  // M3/M4 are per-chain non-EURC markets:
+  //   * Fuji  → MXNB (Bitso testnet issuer)
+  //   * Arc   → AUDF (Forte testnet issuer)
+  // Both keep the same numeric slot in deployments; the symbol differs.
   const loanMXNB = tryAddress(external.MXNB);
+  const loanAUDF = tryAddress(external.AUDF);
 
   const adapterM3 = tryAddress(contracts.MorphoOracleAdapterM3);
   const adapterM4 = tryAddress(contracts.MorphoOracleAdapterM4);
-  const m3Id = tryHex(marketIds.M3_MXNB_USDC);
-  const m4Id = tryHex(marketIds.M4_USDC_MXNB);
+  const m3MxnbId = tryHex(marketIds.M3_MXNB_USDC);
+  const m4MxnbId = tryHex(marketIds.M4_USDC_MXNB);
+  const m3AudfId = tryHex(marketIds.M3_AUDF_USDC);
+  const m4AudfId = tryHex(marketIds.M4_USDC_AUDF);
 
   const markets: TelaranaMarket[] = [
     // Morpho M1 is EURC borrowed against USDC collateral; M2 is the inverse.
@@ -168,13 +180,14 @@ function buildDeployment(
     },
   ];
 
-  // M3 + M4 only register once `DeployFujiMxnbMarkets.s.sol` has run and
-  // the manifest carries both the marketId AND the adapter address. The
-  // four pieces (loan token, collateral token, adapter, marketId) are
-  // mutually dependent — partial config would mis-route reads.
-  if (loanMXNB && adapterM3 && m3Id) {
+  // M3 + M4 only register once the per-chain non-EURC deploy script has
+  // run AND the manifest carries the marketId, the adapter address, and
+  // the loan token in `external`. All three pieces are mutually dependent
+  // — partial config would mis-route reads, so we skip the market entirely
+  // when any are missing.
+  if (loanMXNB && adapterM3 && m3MxnbId) {
     markets.push({
-      id: m3Id,
+      id: m3MxnbId,
       key: "M3_MXNB_USDC",
       loanSymbol: "MXNB",
       collateralSymbol: "USDC",
@@ -183,14 +196,36 @@ function buildDeployment(
       morphoOracleAdapter: adapterM3,
     });
   }
-  if (loanMXNB && adapterM4 && m4Id) {
+  if (loanMXNB && adapterM4 && m4MxnbId) {
     markets.push({
-      id: m4Id,
+      id: m4MxnbId,
       key: "M4_USDC_MXNB",
       loanSymbol: "USDC",
       collateralSymbol: "MXNB",
       loanToken: loanUSDC,
       collateralToken: loanMXNB,
+      morphoOracleAdapter: adapterM4,
+    });
+  }
+  if (loanAUDF && adapterM3 && m3AudfId) {
+    markets.push({
+      id: m3AudfId,
+      key: "M3_AUDF_USDC",
+      loanSymbol: "AUDF",
+      collateralSymbol: "USDC",
+      loanToken: loanAUDF,
+      collateralToken: loanUSDC,
+      morphoOracleAdapter: adapterM3,
+    });
+  }
+  if (loanAUDF && adapterM4 && m4AudfId) {
+    markets.push({
+      id: m4AudfId,
+      key: "M4_USDC_AUDF",
+      loanSymbol: "USDC",
+      collateralSymbol: "AUDF",
+      loanToken: loanUSDC,
+      collateralToken: loanAUDF,
       morphoOracleAdapter: adapterM4,
     });
   }
@@ -206,8 +241,10 @@ function buildDeployment(
     marketIds: {
       M1_EURC_USDC: asHex(marketIds.M1_EURC_USDC ?? ""),
       M2_USDC_EURC: asHex(marketIds.M2_USDC_EURC ?? ""),
-      ...(m3Id ? { M3_MXNB_USDC: m3Id } : {}),
-      ...(m4Id ? { M4_USDC_MXNB: m4Id } : {}),
+      ...(m3MxnbId ? { M3_MXNB_USDC: m3MxnbId } : {}),
+      ...(m4MxnbId ? { M4_USDC_MXNB: m4MxnbId } : {}),
+      ...(m3AudfId ? { M3_AUDF_USDC: m3AudfId } : {}),
+      ...(m4AudfId ? { M4_USDC_AUDF: m4AudfId } : {}),
     },
     markets,
   };

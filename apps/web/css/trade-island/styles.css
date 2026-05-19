@@ -600,11 +600,68 @@ input:focus { outline: none; }
   letter-spacing: .04em;
 }
 
+/* Empty / loading overlay over the canvas. Sits on top of the
+ * lightweight-chart so we can keep the chart mounted (no flicker on
+ * timeframe change) while masking the empty series with a centered
+ * message. Backdrop-filter blurs the dotted grid behind so the text
+ * reads cleanly without a hard background. */
+.chart-empty {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+.chart-empty-inner {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  text-align: center;
+  max-width: 320px;
+}
+.chart-empty-glyph {
+  font-size: 28px; line-height: 1;
+  color: var(--ink-4);
+  opacity: 0.5;
+  font-weight: 700;
+}
+.chart-empty-title {
+  font-size: 13px; font-weight: 800;
+  color: var(--ink-2);
+  letter-spacing: .01em;
+}
+.chart-empty-sub {
+  font-size: 11px; font-weight: 500;
+  color: var(--ink-4);
+  line-height: 1.45;
+}
+
 /* Orderbook */
 .ob-head { padding: 12px 14px; border-bottom: 1px solid var(--border); }
 .ob-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 6px 14px 4px; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-4); }
 .ob-cols span:nth-child(2), .ob-cols span:nth-child(3) { text-align: right; }
-.ob-rows { flex: 1; overflow: auto; }
+/* 1fr / auto / 1fr layout: the spread row is ALWAYS vertically centered,
+ * even when one or both halves are empty. min-height: 0 lets the inner
+ * halves scroll when they overflow without pushing the spread off-center. */
+.ob-rows {
+  flex: 1; min-height: 0;
+  display: grid; grid-template-rows: 1fr auto 1fr;
+}
+.ob-half { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+/* Asks stack from the spread upward — closest-to-spread (lowest ask)
+ * touches the divider. column-reverse + justify-content: flex-start
+ * achieves that without reversing the array in JS. */
+.ob-half-asks { flex-direction: column-reverse; justify-content: flex-start; }
+.ob-half-bids { justify-content: flex-start; }
+/* Empty-state cell: fills the half and centers the label both axes,
+ * keeping the spread row pinned to the geometric center of the card. */
+.ob-empty {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  padding: 12px;
+}
+.ob-empty-label {
+  font-size: 11px; color: var(--ink-4); opacity: 0.6;
+  text-transform: lowercase; letter-spacing: 0.02em;
+}
 .ob-row {
   display: grid; grid-template-columns: 1fr 1fr 1fr;
   padding: 3px 14px; font-size: 12px;

@@ -57,6 +57,20 @@ const withLabel = (
   name: c.vanityName ?? c.name,
 });
 
+// Canonical testnet stablecoin addresses per chain. Sources:
+//   USDC + EURC: developers.circle.com/stablecoins/usdc-contract-addresses
+//                + developers.circle.com/stablecoins/eurc-contract-addresses
+//   MXNB:        Bitso issuer-controlled testnet contracts (per
+//                fx-telarana#feat/mxnb-fuji-markets PR description)
+//
+// Note on Fuji EURC: the on-chain Morpho M1/M2 markets use the
+// MockEURC contract (0x50c4ba…194992) shipped under contracts/. The
+// wallet popover here uses Circle's canonical real testnet EURC
+// (0x5E44db…815c6B) because that's what users actually hold. The two
+// addresses are NOT interchangeable — a user faucet-minting Circle
+// EURC won't see it spendable in the M1/M2 markets, and vice versa.
+// When the protocol migrates the markets to Circle EURC this entry
+// stays the same; only the contracts/ manifest needs to flip.
 export const SPOKE_CHAINS: SpokeChain[] = [
   {
     chainId: 43113,
@@ -71,7 +85,8 @@ export const SPOKE_CHAINS: SpokeChain[] = [
       },
       {
         asset: "EURC",
-        address: "0x50c4ba39caa7f56152d0df4914e1f6b907194992",
+        // Circle canonical testnet EURC (NOT the in-protocol MockEURC).
+        address: "0x5E44db7996c682E92a960b65AC713a54AD815c6B",
       },
       {
         asset: "MXNB",
@@ -105,7 +120,13 @@ export const SPOKE_CHAINS: SpokeChain[] = [
     tokens: [
       {
         asset: "USDC",
-        address: "0x5fd84259d66Cd46123540766Be93DFE6D43130D7",
+        // Circle ETH Sepolia USDC. The previous entry was OP Sepolia's
+        // USDC (0x5fd842…), mislabeled.
+        address: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+      },
+      {
+        asset: "EURC",
+        address: "0x08210F9170F89Ab7658F0B5E3fF39b0E03C594D4",
       },
       {
         asset: "MXNB",
@@ -123,6 +144,13 @@ export const SPOKE_CHAINS: SpokeChain[] = [
     },
     isWagmiSupported: true,
     tokens: [
+      {
+        asset: "USDC",
+        // Circle Arbitrum Sepolia USDC. Circle does NOT deploy EURC on
+        // Arb Sepolia per developers.circle.com — only USDC + the
+        // Bitso-issued MXNB.
+        address: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
+      },
       {
         asset: "MXNB",
         address: "0xb56E3E3769EfB85214Cb4fA42eBA198E9FDA92bf",

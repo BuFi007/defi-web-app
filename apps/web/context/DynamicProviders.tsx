@@ -21,6 +21,7 @@ import {
 } from "./DynamicErrorBoundary";
 import { DevWalletProvider } from "@/lib/dev-wallet";
 import { SessionBridge } from "@/lib/session";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const queryClient = new QueryClient();
 // IMPORTANT: Avalanche C-Chain mainnet (43114) is allow-listed here ONLY so
@@ -114,7 +115,9 @@ export default function Providers({ children }: { children: ReactNode }) {
                   store. Mounted here so wagmi + Dynamic hooks resolve. No
                   signing happens here — that's lib/session/use-ensure-session. */}
               <SessionBridge />
-              {children}
+              {/* TooltipProvider is required by every Radix Tooltip in the
+                  tree. delayDuration: 200ms matches desk-v1's feel. */}
+              <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
             </DevWalletProvider>
           </DynamicWagmiConnector>
         </QueryClientProvider>

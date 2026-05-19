@@ -547,7 +547,103 @@
 }
 
 /* Chip tabs */
-.lo-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.lo-tabs { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
+
+/* ─── Confirm Action CTA + popover-side submit button ─────────────────
+   The Confirm CTA replaces the old implicit-submit-via-tab affordance.
+   Reads as "primary action" using the brand purple gradient; the popover
+   submit button mirrors it at smaller weight. Both share the same
+   disabled state so the user can't fire an intent without a typed
+   amount AND a picked row. */
+.lo-confirm-row {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+.lo-confirm-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 13.5px;
+  letter-spacing: -0.005em;
+  color: white;
+  background: linear-gradient(135deg, #6954cf, #5645b0);
+  border: 1.5px solid #4a3aa3;
+  box-shadow: 2px 2px 0 0 rgba(74, 58, 163, 0.45);
+  transition: transform .15s cubic-bezier(.4,0,.2,1), box-shadow .15s, opacity .15s;
+  cursor: pointer;
+}
+.lo-confirm-cta:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 0 rgba(74, 58, 163, 0.55);
+}
+.lo-confirm-cta:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 0 rgba(74, 58, 163, 0.45);
+}
+.lo-confirm-cta:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+[data-theme="dark"] .lo-confirm-cta {
+  background: linear-gradient(135deg, #8a76e9, #6954cf);
+  border-color: #b09cff;
+  box-shadow: 2px 2px 0 0 rgba(176, 156, 255, 0.45);
+}
+.lo-confirm-submit {
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 12.5px;
+  color: white;
+  background: linear-gradient(135deg, #6954cf, #5645b0);
+  border: 1.5px solid #4a3aa3;
+  transition: transform .15s, opacity .15s;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.lo-confirm-submit:hover:not(:disabled) { transform: translateY(-1px); }
+.lo-confirm-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+[data-theme="dark"] .lo-confirm-submit {
+  background: linear-gradient(135deg, #8a76e9, #6954cf);
+  border-color: #b09cff;
+}
+
+/* Vertical rule between the supply pair (lend / withdraw) and the debt
+   pair (borrow / repay). Keeps the buttons visually grouped without
+   another border ring competing with the active-tab brutalism shadow. */
+.lo-tab-divider {
+  align-self: stretch;
+  width: 1.5px;
+  margin: 4px 2px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(105, 84, 207, 0.32) 18%,
+    rgba(105, 84, 207, 0.32) 82%,
+    transparent 100%
+  );
+  border-radius: 1px;
+  flex: 0 0 auto;
+}
+[data-theme="dark"] .lo-tab-divider {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(168, 148, 255, 0.32) 18%,
+    rgba(168, 148, 255, 0.32) 82%,
+    transparent 100%
+  );
+}
 .lo-tab {
   position: relative;
   padding: 8px 18px;
@@ -570,15 +666,27 @@
 [data-theme="dark"] .lo-tab.tone-2 { background: linear-gradient(95deg, #2a1f6a, #1a1340 30%, #1a1340 70%, #4a1f3e); }
 [data-theme="dark"] .lo-tab.tone-3 { background: linear-gradient(95deg, #1f3d72, #1a1340 30%, #1a1340 70%, #2a1f6a); }
 [data-theme="dark"] .lo-tab.tone-4 { background: linear-gradient(95deg, #1d3f2c, #1a1340 30%, #1a1340 70%, #4a2f1f); }
-.lo-tab:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 0 rgba(31, 23, 64, .12); }
+.lo-tab:hover {
+  transform: translate(-1px, -1px);
+  /* Hover shadow uses purpleDanis at low alpha — same brand language as
+     the active state, just softer. */
+  box-shadow: 3px 3px 0 0 rgba(105, 84, 207, 0.18);
+  border-color: rgba(105, 84, 207, 0.5);
+}
 .lo-tab.active {
-  border-color: var(--ink);
+  /* Brutalism block-shadow in the brand purple instead of the legacy
+     black ink. Matches purpleDanis (#6954CF) so the active tab reads as
+     "selected" without reading as "warning" the way black-on-pastel did. */
+  border-color: #6954CF;
   border-width: 2px;
-  box-shadow: 3px 3px 0 0 var(--ink);
+  box-shadow: 3px 3px 0 0 #6954CF;
   transform: translate(-1px, -1px);
   z-index: 2;
 }
-[data-theme="dark"] .lo-tab.active { border-color: var(--primary); box-shadow: 3px 3px 0 0 var(--primary); }
+[data-theme="dark"] .lo-tab.active {
+  border-color: var(--primary);
+  box-shadow: 3px 3px 0 0 var(--primary);
+}
 
 /* Amount input */
 .lo-amount-input {

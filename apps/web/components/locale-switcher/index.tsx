@@ -27,11 +27,24 @@ export default function LocaleSwitcher() {
   const value: SupportedLocale = isSupported(current) ? current : "en";
 
   const handleLocaleChange = (next: string) => {
-    if (!isSupported(next)) return;
+    if (!isSupported(next) || next === value) return;
     startTransition(() => {
-      // next-international handles cookie + revalidation. The middleware
-      // keeps the URL clean — no /<locale> prefix appears.
+      // Belt-and-suspenders cookie write. next-international's
+      // changeLocale() also writes the cookie but went silent against
+      // a previous httpOnly middleware setting (browsers refuse to
+      // overwrite an httpOnly cookie from JS). Writing here makes the
+      // switch resilient to that legacy state.
+      const oneYear = 60 * 60 * 24 * 365;
+      document.cookie = `NEXT_LOCALE=${next}; path=/; max-age=${oneYear}; sameSite=lax`;
       changeLocale(next);
+
+      // Hard reload. Under Next 16 + Cache Components a plain
+      // router.refresh() doesn't re-render translated strings —
+      // they're baked into the prerendered HTML. A full document load
+      // is the only reliable way to flip the entire page to the new
+      // locale, including server components that read messages at
+      // render time.
+      if (typeof window !== "undefined") window.location.reload();
     });
   };
 

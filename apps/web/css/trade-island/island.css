@@ -9,14 +9,19 @@ body.island-mode {
 }
 body.island-mode #root { width: 100%; max-width: 1600px; margin: 0 auto; display: flex; }
 
-/* Island container */
+/* Dynamic island container.
+ *
+ * Width morphs per-tab via framer-motion (see trade-island/index.tsx) so
+ * `width: 100%` is left to the motion-controlled inline style and only
+ * `max-width` is animated. flex-1 sticks so the island absorbs vertical
+ * space from the wrapper.
+ */
 .island {
   flex: 1;
   align-self: stretch;
-  width: 100%;
   display: flex; flex-direction: column;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1.5px solid rgba(105, 84, 207, 0.18);
   border-radius: 28px;
   box-shadow:
     0 1px 2px rgba(40, 25, 90, 0.04),
@@ -35,6 +40,17 @@ body.island-mode #root { width: 100%; max-width: 1600px; margin: 0 auto; display
   min-height: min(560px, calc(100vh - 230px));
   max-height: calc(100vh - 230px);
   transition: min-height .4s cubic-bezier(.4, 0, .2, 1), max-height .4s cubic-bezier(.4, 0, .2, 1);
+
+  /* Discord banner is 50px tall and rendered above the header chrome.
+     When it's up, the flex-1 scroll area shrinks but the island's
+     230px chrome reservation doesn't — so the island bottom kissed
+     the music bar for the first 20 s of every fresh session.
+     Tighten by the banner height while it's open. ActionBanner sets
+     `data-banner="open"` on body when it mounts. */
+}
+body[data-banner="open"] .island {
+  min-height: min(560px, calc(100vh - 280px));
+  max-height: calc(100vh - 280px);
   position: relative;
 }
 .island.collapsed { min-height: 64px; }
@@ -503,7 +519,14 @@ body.island-mode #root { width: 100%; max-width: 1600px; margin: 0 auto; display
   }
   .mt-ob-cols span:nth-child(2),
   .mt-ob-cols span:nth-child(3) { text-align: right; }
-  .mt-ob-rows { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+  /* Same vertical-center pattern as desktop OrderbookCard: 1fr / auto /
+   * 1fr keeps the spread row in the geometric center regardless of
+   * side-fill. min-height: 0 lets each half scroll independently. */
+  .mt-ob-rows {
+    flex: 1; min-height: 0;
+    display: grid; grid-template-rows: 1fr auto 1fr;
+    -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  }
   .mt-ob-rows .ob-row { padding: 4px 12px; font-size: 12.5px; }
 
   /* Recent trades list */
@@ -964,4 +987,168 @@ body.island-mode #root { width: 100%; max-width: 1600px; margin: 0 auto; display
 .mp-row-sym { font-weight: 800; font-size: 13px; color: var(--ink); }
 .mp-row-type { font-size: 10.5px; font-weight: 700; color: var(--ink-3); }
 .mp-row-price { font-weight: 800; font-size: 13px; color: var(--ink); }
+
+/* ------------------------------------------------------------------
+   Dynamic Island TradeDrawer (mobile) — multi-step Buy / Long flow.
+   Reuses the bottom-sheet backdrop pattern but adds step transitions,
+   a progress dot row, and a primary CTA pinned to the safe-area bottom.
+   ------------------------------------------------------------------ */
+.td-backdrop {
+  position: fixed; inset: 0; z-index: 70;
+  background: rgba(31, 23, 64, .55);
+  display: flex; align-items: flex-end; justify-content: stretch;
+  animation: td-fade .18s ease-out;
+}
+@keyframes td-fade { from { opacity: 0; } to { opacity: 1; } }
+.td-sheet {
+  width: 100%;
+  max-height: 90vh;
+  background: var(--surface);
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  box-shadow: 0 -8px 32px rgba(40, 25, 90, .25);
+  display: flex; flex-direction: column;
+  animation: td-slide .26s cubic-bezier(.2, .8, .2, 1);
+  overflow: hidden;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+@keyframes td-slide { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.td-head {
+  position: relative;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 14px 8px;
+}
+.td-handle {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  width: 40px; height: 4px; border-radius: 999px;
+  background: var(--border-2);
+  pointer-events: none;
+}
+.td-back, .td-close {
+  width: 32px; height: 32px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface-3);
+  color: var(--ink-2);
+}
+.td-back:disabled { opacity: .35; pointer-events: none; }
+.td-back svg { transform: rotate(180deg); }
+.td-close svg { transform: rotate(45deg); }
+.td-progress {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 6px 0 8px;
+}
+.td-dot {
+  width: 6px; height: 6px; border-radius: 999px;
+  background: var(--border-2);
+  transition: all .2s;
+}
+.td-dot.active { width: 18px; background: var(--primary); }
+.td-dot.done { background: var(--primary-soft); }
+.td-title-row {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 4px 18px 14px;
+}
+.td-title { font-weight: 800; font-size: 16px; color: var(--ink); }
+.td-market { display: flex; gap: 8px; align-items: baseline; color: var(--ink-3); font-size: 12px; font-weight: 700; }
+.td-market .td-sym { color: var(--ink-2); }
+.td-market .td-price { color: var(--ink); font-weight: 800; }
+.td-body {
+  flex: 1; min-height: 0;
+  overflow-y: auto;
+  padding: 0 18px 14px;
+}
+.td-step { display: flex; flex-direction: column; gap: 14px; }
+.td-step-help {
+  font-size: 12.5px; color: var(--ink-3); font-weight: 600;
+  line-height: 1.45;
+  margin: 0;
+}
+.td-mode-value {
+  font-size: 36px; font-weight: 900;
+  color: var(--primary-ink);
+  text-align: center;
+  letter-spacing: -0.02em;
+}
+.td-presets, .td-type-tabs {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.td-presets button, .td-type-tabs button {
+  flex: 1; min-width: 56px;
+  padding: 8px 0;
+  background: var(--surface-3);
+  border-radius: 10px;
+  font-weight: 800; font-size: 12px;
+  color: var(--ink-2);
+  transition: all .12s;
+}
+.td-presets button.active, .td-type-tabs button.active {
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+}
+.td-side-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.td-side {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 22px 0;
+  border-radius: 16px;
+  font-weight: 900; font-size: 16px;
+  background: var(--surface-3);
+  color: var(--ink-2);
+  border: 2px solid transparent;
+  transition: all .15s;
+}
+.td-side.primary.active { background: var(--profit-soft); color: var(--profit-ink); border-color: var(--profit); }
+.td-side.loss.active { background: var(--loss-soft); color: var(--loss-ink); border-color: var(--loss); }
+.td-field { display: flex; flex-direction: column; gap: 6px; }
+.td-field-label { font-size: 11px; font-weight: 800; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+.td-input {
+  display: flex; align-items: center;
+  background: var(--surface-3);
+  border-radius: 12px;
+  padding: 0 14px;
+  height: 52px;
+}
+.td-input input {
+  flex: 1; min-width: 0;
+  background: transparent; border: 0; outline: none;
+  font-family: inherit;
+  font-size: 22px; font-weight: 800;
+  color: var(--ink);
+  padding: 0;
+}
+.td-input .unit { font-weight: 800; color: var(--ink-3); font-size: 12.5px; }
+.td-summary { display: flex; flex-direction: column; gap: 6px; }
+.td-summary-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--surface-3);
+  border-radius: 10px;
+  font-size: 13px;
+}
+.td-summary-row .l { color: var(--ink-3); font-weight: 700; }
+.td-summary-row .v { color: var(--ink); font-weight: 800; }
+.td-summary-row .v.profit { color: var(--profit-ink); }
+.td-summary-row .v.loss { color: var(--loss-ink); }
+.td-foot {
+  padding: 12px 18px calc(12px + env(safe-area-inset-bottom, 0));
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.td-cta {
+  width: 100%;
+  height: 52px;
+  border-radius: 14px;
+  font-weight: 900; font-size: 15px;
+  letter-spacing: .01em;
+  color: white;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  box-shadow: 0 2px 12px rgba(107, 91, 255, .28);
+  transition: transform .12s, opacity .12s;
+}
+.td-cta.loss {
+  background: linear-gradient(135deg, var(--loss-ink), var(--loss));
+  box-shadow: 0 2px 12px rgba(184, 69, 142, .28);
+}
+.td-cta:active { transform: translateY(1px); }
+.td-cta:disabled { opacity: .45; pointer-events: none; box-shadow: none; }
+body:has(.td-backdrop) .mt-cta-bar { display: none; }
 

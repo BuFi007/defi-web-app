@@ -45,8 +45,10 @@ import {
   parseRoomId,
 } from "@bufi/liveblocks/server";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+// Next.js 16 cacheComponents rejects route segment configs. nodejs is
+// the default runtime; dynamic="force-dynamic" was a belt-and-suspenders
+// declaration that's no longer needed under cacheComponents (the route
+// is auto-treated as dynamic because it reads the request body).
 
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24; // 24h, matches apps/api
 const SUPPORTED_CHAIN_IDS = new Set([43113, 919, 5042002]);

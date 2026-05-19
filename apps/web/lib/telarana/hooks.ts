@@ -13,6 +13,7 @@ import type { Address, Hex } from "viem";
 import { useAccount, useSignTypedData } from "wagmi";
 
 import { toast } from "@/components/ui/use-toast";
+import { errMsg } from "@/utils";
 
 import {
   fetchIntentNonce,
@@ -94,7 +95,7 @@ export function useMarkets(): MarketsState {
       setMarkets(data.markets);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errMsg(err));
     } finally {
       setLoading(false);
     }
@@ -139,7 +140,7 @@ export function usePositions(address: Address | undefined): PositionsState {
       setError(null);
     } catch (err) {
       if (isOracleStaleError(err)) emitOracleStaleToast();
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errMsg(err));
     } finally {
       setLoading(false);
     }
@@ -201,7 +202,7 @@ export function useQuoteBorrow(body: BorrowQuoteBody | null): QuoteBorrowState {
       .catch((err) => {
         if (cancelled) return;
         if (isOracleStaleError(err)) emitOracleStaleToast();
-        setError(err instanceof Error ? err.message : String(err));
+        setError(errMsg(err));
         setQuote(null);
       })
       .finally(() => {
@@ -396,8 +397,7 @@ export function useLendingAction(): UseLendingActionResult {
         return { intent, verified, signature };
       } catch (err) {
         if (isOracleStaleError(err)) emitOracleStaleToast();
-        const message = err instanceof Error ? err.message : String(err);
-        setError(message);
+        setError(errMsg(err));
         throw err;
       } finally {
         setLoading(false);

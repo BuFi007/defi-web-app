@@ -34,16 +34,20 @@ import {
 import type { ChainId } from "@bufi/shared-types";
 
 import {
+  fetchPerpsCandles,
   fetchPerpsFunding,
   fetchPerpsLiquidationCandidates,
   fetchPerpsMarkets,
+  fetchPerpsOrderbook,
   fetchPerpsPositions,
   fetchPerpsQuote,
   fetchPerpsTrades,
   submitPerpsIntent,
+  type PerpsCandlesResponseDto,
   type PerpsFundingDto,
   type PerpsIntentResponseDto,
   type PerpsMarketDto,
+  type PerpsOrderbookDto,
   type PerpsPositionDto,
   type PerpsQuoteDto,
   type PerpsQuoteRequestBody,
@@ -115,6 +119,198 @@ export function useMarkets(chainIdOverride?: number): UseQueryResult<PerpsMarket
     queryKey: ["perps", "markets", chainId],
     queryFn: ({ signal }) => fetchPerpsMarkets({ chainId, signal }),
     staleTime: 60_000,
+  });
+}
+
+/**
+ * Decorated market list — the UI-shaped view of what's actually
+ * registered on-chain. Combines `useMarkets()` (the canonical list from
+ * `/perps/markets`, which reads `listPools()` from the FxMarketRegistry)
+ * with a per-symbol decoration map for flags / max leverage / type.
+ *
+ * Symbols returned by the API but missing from MARKET_DECORATIONS get a
+ * fallback decoration (em-dash flags, leverage 10) so the row still
+ * renders without crashing — but the resulting UI is honest about
+ * incomplete metadata rather than fabricated.
+ *
+ * Returns `null` while loading or on error so the caller can render an
+ * explicit empty / "couldn't reach the markets API" state instead of
+ * silently falling back to fake data.
+ */
+export interface MarketListEntry {
+  /** API marketId (bytes32). Use this when calling /perps/quote, etc. */
+  marketId: string;
+  /** UI symbol — derived from PerpsMarketDto.symbol, e.g. "EUR/USD". */
+  sym: string;
+  base: string;
+  quote: string;
+  /** Display emoji / flag for the base leg. "—" when no decoration exists. */
+  flagA: string;
+  /** Display emoji / flag for the quote leg. "—" when no decoration exists. */
+  flagB: string;
+  /** Max leverage from the decoration map. Defaults to 10 for unknown symbols. */
+  leverage: number;
+  /** "forex" if sym matches XXX/YYY, "perp" if sym ends in -PERP. */
+  type: "forex" | "perp" | "other";
+  chainId: number;
+  /** Whether the registry / matcher considers this market live. */
+  enabled: boolean;
+}
+
+interface MarketDecoration {
+  flagA: string;
+  flagB: string;
+  base: string;
+  quote: string;
+  leverage: number;
+  type: "forex" | "perp" | "other";
+}
+
+// UI-only decoration. Field values are NOT chain-derived — they exist to
+// render the symbol pill (flag emoji + leverage cap label). Adding a new
+// symbol here unlocks pretty rendering; absence is graceful.
+const MARKET_DECORATIONS: Readonly<Record<string, MarketDecoration>> = {
+  "EUR/USD": { flagA: "🇪🇺", flagB: "🇺🇸", base: "EUR", quote: "USD", leverage: 100, type: "forex" },
+  "EURC/USDC": { flagA: "🇪🇺", flagB: "🇺🇸", base: "EURC", quote: "USDC", leverage: 100, type: "forex" },
+  "USDC/EURC": { flagA: "🇺🇸", flagB: "🇪🇺", base: "USDC", quote: "EURC", leverage: 100, type: "forex" },
+  "MXNB/USDC": { flagA: "🇲🇽", flagB: "🇺🇸", base: "MXNB", quote: "USDC", leverage: 50, type: "forex" },
+  "USDC/MXNB": { flagA: "🇺🇸", flagB: "🇲🇽", base: "USDC", quote: "MXNB", leverage: 50, type: "forex" },
+  "USD/MXN": { flagA: "🇺🇸", flagB: "🇲🇽", base: "USD", quote: "MXN", leverage: 50, type: "forex" },
+  "GBP/USD": { flagA: "🇬🇧", flagB: "🇺🇸", base: "GBP", quote: "USD", leverage: 100, type: "forex" },
+  "USD/JPY": { flagA: "🇺🇸", flagB: "🇯🇵", base: "USD", quote: "JPY", leverage: 100, type: "forex" },
+  "AUD/USD": { flagA: "🇦🇺", flagB: "🇺🇸", base: "AUD", quote: "USD", leverage: 50, type: "forex" },
+  "USD/CHF": { flagA: "🇺🇸", flagB: "🇨🇭", base: "USD", quote: "CHF", leverage: 100, type: "forex" },
+  "NZD/USD": { flagA: "🇳🇿", flagB: "🇺🇸", base: "NZD", quote: "USD", leverage: 50, type: "forex" },
+  "USD/CAD": { flagA: "🇺🇸", flagB: "🇨🇦", base: "USD", quote: "CAD", leverage: 100, type: "forex" },
+  "BTC-PERP": { flagA: "₿", flagB: "$", base: "BTC", quote: "USD", leverage: 100, type: "perp" },
+  "ETH-PERP": { flagA: "Ξ", flagB: "$", base: "ETH", quote: "USD", leverage: 50, type: "perp" },
+  "SOL-PERP": { flagA: "◎", flagB: "$", base: "SOL", quote: "USD", leverage: 50, type: "perp" },
+};
+
+function decorate(sym: string): MarketDecoration {
+  const existing = MARKET_DECORATIONS[sym];
+  if (existing) return existing;
+  // Derive base/quote from the symbol pattern. Missing decoration → bland
+  // fallback so we never throw mid-render.
+  const fxMatch = sym.match(/^([A-Z]{3,4})\/([A-Z]{3,4})$/);
+  if (fxMatch) {
+    return {
+      flagA: "—",
+      flagB: "—",
+      base: fxMatch[1]!,
+      quote: fxMatch[2]!,
+      leverage: 10,
+      type: "forex",
+    };
+  }
+  const perpMatch = sym.match(/^([A-Z]{2,5})-PERP$/);
+  if (perpMatch) {
+    return {
+      flagA: "—",
+      flagB: "$",
+      base: perpMatch[1]!,
+      quote: "USD",
+      leverage: 10,
+      type: "perp",
+    };
+  }
+  return {
+    flagA: "—",
+    flagB: "—",
+    base: sym,
+    quote: "",
+    leverage: 10,
+    type: "other",
+  };
+}
+
+export function useMarketList(chainIdOverride?: number): {
+  markets: MarketListEntry[] | null;
+  isLoading: boolean;
+  isError: boolean;
+} {
+  const query = useMarkets(chainIdOverride);
+  const wagmiChainId = useChainId();
+  const devWallet = useMemo(() => getPerpsReplacementDevWallet(), []);
+  const chainId = chainIdOverride ?? effectiveChainId(devWallet, wagmiChainId);
+
+  const markets = useMemo<MarketListEntry[] | null>(() => {
+    if (!query.data) return null;
+    return query.data.map((dto) => {
+      const dec = decorate(dto.symbol);
+      return {
+        marketId: dto.marketId,
+        sym: dto.symbol,
+        base: dec.base,
+        quote: dec.quote,
+        flagA: dec.flagA,
+        flagB: dec.flagB,
+        leverage: dec.leverage,
+        type: dec.type,
+        chainId: dto.chainId ?? chainId,
+        enabled: dto.enabled,
+      };
+    });
+  }, [query.data, chainId]);
+
+  return {
+    markets,
+    isLoading: query.isLoading,
+    isError: query.isError,
+  };
+}
+
+/**
+ * 24h stats (last / change% / high / low / volume) live at
+ * `@/lib/perps/use-market-stats` — it predates this file and is already
+ * consumed by panels.tsx. Import that hook directly.
+ */
+
+/**
+ * Historical OHLCV from Pyth Benchmarks. The 15m / 200-candle default
+ * matches the chart card's window. Pass `tf` like "1m" / "5m" / "1h" /
+ * "1d" to switch frame.
+ */
+export function useMarketCandles(args: {
+  sym: string | undefined;
+  tf?: string;
+  limit?: number;
+}): UseQueryResult<PerpsCandlesResponseDto> {
+  return useQuery({
+    queryKey: ["perps", "candles", args.sym, args.tf, args.limit],
+    enabled: Boolean(args.sym),
+    queryFn: ({ signal }) =>
+      fetchPerpsCandles({
+        sym: args.sym!,
+        tf: args.tf,
+        limit: args.limit,
+        signal,
+      }),
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+}
+
+/**
+ * Pending-intents view (bids + asks bucketed by 1e14 price step). 5s
+ * refetch matches the matcher's poll cadence — a fresh order placed on
+ * the trade panel shows up in the book within one tick.
+ */
+export function useOrderbook(args: {
+  marketId: string | undefined;
+  depth?: number;
+}): UseQueryResult<PerpsOrderbookDto> {
+  return useQuery({
+    queryKey: ["perps", "orderbook", args.marketId, args.depth],
+    enabled: Boolean(args.marketId),
+    queryFn: ({ signal }) =>
+      fetchPerpsOrderbook({
+        marketId: args.marketId!,
+        depth: args.depth,
+        signal,
+      }),
+    staleTime: 4_000,
+    refetchInterval: 5_000,
   });
 }
 
