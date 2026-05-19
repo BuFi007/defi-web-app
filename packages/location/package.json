@@ -10,7 +10,8 @@
     "./supported-locales": "./src/supported-locales.ts",
     "./locale-flags": "./src/locale-flags.ts",
     "./stable-tokens": "./src/stable-tokens.ts",
-    "./hubs": "./src/hubs.ts"
+    "./hubs": "./src/hubs.ts",
+    "./deployments": "./src/deployments.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

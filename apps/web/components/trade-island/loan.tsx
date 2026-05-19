@@ -28,11 +28,11 @@ import { Hint } from "./hint";
 import { TokenIcon } from "./token-icon";
 import { AnimatedNumber } from "@/components/animated-number";
 import { useMarketCandles } from "@/lib/perps/hooks";
-import { SPOKE_CHAINS } from "@/components/stablecoin-balances/deployments";
 import {
   STABLE_TOKEN_LIST,
   type StableTokenType,
 } from "@bufi/location/stable-tokens";
+import { getDeployment } from "@bufi/location/deployments";
 import {
   HUBS,
   hubByChainId,
@@ -243,34 +243,23 @@ export const HUB_NAME_BY_CHAIN_ID: Record<number, HubKey> = {
 };
 
 /**
- * Look up the ERC-20 deployment for a (hub, symbol) pair via the same
- * SPOKE_CHAINS manifest the wallet popover reads. Used as a fallback in
- * ActionCard / MarketRowBalance when the selected market's
- * `market.onchain` field hasn't been hydrated by the /fx-telarana/markets
- * feed yet — without this, the BALANCE row reads 0 even when the user
- * holds 10M AUDF on Arc and the wallet chip surfaces that balance
- * correctly. The single source of truth keeps the balance row and the
- * wallet popover in sync, which is what the user means by "connected
- * and working as a single system."
+ * Look up the ERC-20 deployment for a (hub, symbol) pair via
+ * @bufi/location/deployments — the SAME central table the wallet popover
+ * reads. Used as a fallback in ActionCard / MarketRowBalance when the
+ * selected market's `market.onchain` field hasn't been hydrated by the
+ * /fx-telarana/markets feed yet. Without it, the BALANCE row read 0
+ * even when the user clearly held 10M AUDF on Arc. The single source
+ * of truth keeps the balance row and the wallet popover in sync.
  */
 export function loanTokenDeployment(
   hub: string,
   symbol: string,
 ): { chainId: number; address: Address; decimals: number } | null {
-  // hub key -> chainId via the central HUBS table. Returns null for any
-  // hub key that isn't registered (e.g. legacy demo rows), letting the
-  // caller render a "demo" balance instead of crashing.
   if (hub !== "arc" && hub !== "fuji") return null;
   const chainId = chainIdByHubKey(hub);
-  const cfg = SPOKE_CHAINS.find((c) => c.chainId === chainId);
-  if (!cfg) return null;
-  const dep = cfg.tokens.find((t) => t.asset === (symbol as StableTokenType));
-  if (!dep?.address) return null;
-  return {
-    chainId,
-    address: dep.address as Address,
-    decimals: dep.decimals ?? 6,
-  };
+  const dep = getDeployment(chainId, symbol as StableTokenType);
+  if (!dep) return null;
+  return { chainId, address: dep.address as Address, decimals: dep.decimals };
 }
 
 const fmtCompact = (n: number) =>
