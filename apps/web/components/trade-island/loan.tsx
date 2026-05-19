@@ -1469,8 +1469,8 @@ export function LoanTab() {
       };
       const result = await submitAction(payload);
       toast({
-        title: "Intent signed",
-        description: `${kind} intent ${result.intent.id.slice(0, 8)}… queued for settlement.`,
+        title: result.approveTx ? "Approve + submit landed" : "Submitted on-chain",
+        description: `${kind} tx ${result.tx.slice(0, 10)}… confirmed. Position will refresh on next poll.`,
       });
       setAmount("");
       // Sync the left-column selection so the user sees what they just

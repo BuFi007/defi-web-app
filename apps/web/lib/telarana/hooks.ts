@@ -10,10 +10,44 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Address, Hex } from "viem";
-import { useAccount, useSignTypedData } from "wagmi";
+import {
+  useAccount,
+  usePublicClient,
+  useSignTypedData,
+  useWalletClient,
+} from "wagmi";
+
+import { FxMarketRegistryAbi } from "@bufi/contracts";
 
 import { toast } from "@/components/ui/use-toast";
 import { errMsg } from "@/utils";
+
+// Minimal ERC-20 ABI for allowance + approve. We rebuild rather than
+// pull from a shared package because the registry direct-call path only
+// needs these two functions and adding a workspace dep on @bufi/contracts
+// would be overkill.
+const ERC20_ABI = [
+  {
+    type: "function",
+    stateMutability: "view",
+    name: "allowance",
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
+    ],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    stateMutability: "nonpayable",
+    name: "approve",
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "value", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+] as const;
 
 import {
   fetchIntentNonce,
@@ -29,6 +63,7 @@ import {
   type TelaranaPositionSerialized,
 } from "./client";
 import {
+  getTelaranaAddress,
   listTelaranaMarkets,
   TELARANA_DEPLOYMENTS,
   type TelaranaHubChainId,
@@ -308,9 +343,11 @@ export interface LendingActionInput {
 }
 
 export interface LendingActionResult {
-  intent: TelaranaIntentDoc;
-  verified: TelaranaIntentDoc;
-  signature: Hex;
+  /** Tx hash of the FxMarketRegistry call. If an ERC-20 approve was
+   *  required (supply/repay/collateral/supply with insufficient
+   *  allowance), `approveTx` holds that hash too. */
+  tx: Hex;
+  approveTx?: Hex;
 }
 
 interface SessionEnsureContext {
@@ -407,56 +444,137 @@ export interface UseLendingActionResult {
   error: string | null;
 }
 
+/** Action kinds whose execution moves tokens FROM the user's wallet
+ *  into Morpho via the registry. These require an ERC-20 approve on
+ *  the moved token (loanToken for supply/repay, collateralToken for
+ *  collateral/supply) before the registry call. */
+const ACTIONS_REQUIRING_APPROVE = new Set<LendingActionKind>([
+  "supply",
+  "repay",
+  "collateral/supply",
+]);
+
+/** Resolve (registry call, token-being-moved) per action kind. */
+function planAction(input: LendingActionInput): {
+  fn: "supply" | "borrow" | "repay" | "withdraw" | "supplyCollateral" | "withdrawCollateral";
+  movedToken: Address | null;
+  // FxMarketRegistry args, in ABI order.
+  args:
+    | readonly [Address, Address, bigint, Address] // supply / repay / supplyCollateral
+    | readonly [Address, Address, bigint, Address, Address]; // borrow / withdraw / withdrawCollateral
+} {
+  const { kind, loanToken, collateralToken, amount, onBehalf, receiver } = input;
+  const recipient = receiver ?? onBehalf;
+  switch (kind) {
+    case "supply":
+      return {
+        fn: "supply",
+        movedToken: loanToken,
+        args: [loanToken, collateralToken, amount, onBehalf] as const,
+      };
+    case "repay":
+      return {
+        fn: "repay",
+        movedToken: loanToken,
+        args: [loanToken, collateralToken, amount, onBehalf] as const,
+      };
+    case "borrow":
+      return {
+        fn: "borrow",
+        movedToken: null,
+        args: [loanToken, collateralToken, amount, onBehalf, recipient] as const,
+      };
+    case "withdraw":
+      return {
+        fn: "withdraw",
+        movedToken: null,
+        args: [loanToken, collateralToken, amount, onBehalf, recipient] as const,
+      };
+    case "collateral/supply":
+      return {
+        fn: "supplyCollateral",
+        movedToken: collateralToken,
+        args: [loanToken, collateralToken, amount, onBehalf] as const,
+      };
+    case "collateral/withdraw":
+      return {
+        fn: "withdrawCollateral",
+        movedToken: null,
+        args: [loanToken, collateralToken, amount, onBehalf, recipient] as const,
+      };
+  }
+}
+
 export function useLendingAction(): UseLendingActionResult {
   const { address } = useAccount();
-  const { signTypedDataAsync } = useSignTypedData();
+  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const proofRef = useRef<TelaranaWalletSessionProof | null>(null);
 
   const submit = useCallback(
     async (input: LendingActionInput): Promise<LendingActionResult> => {
       if (!address) {
-        throw new Error("Connect a wallet before signing intents.");
+        throw new Error("Connect a wallet before submitting a lending action.");
       }
       if (address.toLowerCase() !== input.onBehalf.toLowerCase()) {
         throw new Error("onBehalf must match the connected wallet.");
+      }
+      if (!walletClient) {
+        throw new Error("Wallet client not ready. Try again once your wallet finishes connecting.");
+      }
+      if (!publicClient) {
+        throw new Error("Public client not ready for this chain.");
       }
 
       setLoading(true);
       setError(null);
       try {
-        const proof = await ensureSession({ proofRef, signTypedDataAsync }, address, input.hubChainId);
-        const headers = sessionHeaders(proof);
+        // 1. Pick the right FxMarketRegistry entry point + figure out
+        //    whether we need an ERC-20 approve first.
+        const plan = planAction(input);
+        const registry = getTelaranaAddress(
+          input.hubChainId as TelaranaHubChainId,
+          "FxMarketRegistry",
+        );
 
-        const intentKind = ACTION_TO_INTENT_KIND[input.kind];
-        const nonceResp = await fetchIntentNonce({
-          hubChainId: input.hubChainId,
-          action: intentKind,
-          account: address,
-        });
-        const nonce = BigInt(nonceResp.nextNonce);
-        const deadline = Math.floor(Date.now() / 1000) + INTENT_DEADLINE_SKEW_SECONDS;
-        const body = buildIntentBody(input, nonce, deadline);
+        // 2. Approve if the action moves tokens from the user AND the
+         //   current allowance is below the amount we're about to spend.
+        //    Use exact-amount approve (NOT MaxUint256) so a leftover
+        //    approval can't be drained by a future contract bug.
+        let approveTx: Hex | undefined;
+        if (ACTIONS_REQUIRING_APPROVE.has(input.kind) && plan.movedToken) {
+          const current = (await publicClient.readContract({
+            address: plan.movedToken,
+            abi: ERC20_ABI,
+            functionName: "allowance",
+            args: [address, registry],
+          })) as bigint;
+          if (current < input.amount) {
+            approveTx = (await walletClient.writeContract({
+              address: plan.movedToken,
+              abi: ERC20_ABI,
+              functionName: "approve",
+              args: [registry, input.amount],
+            })) as Hex;
+            // Wait for confirmation so the registry call sees the new
+            // allowance. Without this the next tx races and reverts
+            // with ERC20InsufficientAllowance on Arc's faster blocks.
+            await publicClient.waitForTransactionReceipt({ hash: approveTx });
+          }
+        }
 
-        const intent = await createIntent({ path: input.kind, body, session: headers });
-
-        const intentTypedData = typedDataForSigning(intent);
-        const signature = (await signTypedDataAsync({
-          domain: intentTypedData.domain,
-          types: intentTypedData.types,
-          primaryType: intentTypedData.primaryType,
-          message: intentTypedData.message as Record<string, unknown>,
+        // 3. Hit the registry. viem narrows args by function name, so
+        //    cast on the call site to silence the union type without
+        //    losing the runtime safety we built into planAction().
+        const tx = (await walletClient.writeContract({
+          address: registry,
+          abi: FxMarketRegistryAbi,
+          functionName: plan.fn,
+          args: plan.args as never,
         })) as Hex;
 
-        const verified = await submitIntentSignature({
-          path: input.kind,
-          id: intent.id,
-          signer: address,
-          signature,
-        });
-
-        return { intent, verified, signature };
+        return { tx, approveTx };
       } catch (err) {
         if (isOracleStaleError(err)) emitOracleStaleToast();
         setError(errMsg(err));
@@ -465,7 +583,7 @@ export function useLendingAction(): UseLendingActionResult {
         setLoading(false);
       }
     },
-    [address, signTypedDataAsync],
+    [address, walletClient, publicClient],
   );
 
   return { submit, loading, error };
