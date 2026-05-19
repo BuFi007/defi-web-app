@@ -69,7 +69,14 @@ export const AvalancheFuji = {
     decimals: 18,
     iconUrls: ["/networks/avax.svg"],
   },
-  rpcUrls: ["https://api.avax-test.network/ext/bc/C/rpc"],
+  // PublicNode mirror — serves CORS headers; the canonical
+  // `api.avax-test.network` does not, which floods the console with
+  // ~50 errors per page load. NEXT_PUBLIC_AVALANCHE_FUJI_RPC_URL
+  // overrides for staging.
+  rpcUrls: [
+    process.env.NEXT_PUBLIC_AVALANCHE_FUJI_RPC_URL ??
+      "https://avalanche-fuji-c-chain-rpc.publicnode.com",
+  ],
   vanityName: "Avalanche Fuji",
   chainName: "AvalancheFuji",
   networkId: 43113,

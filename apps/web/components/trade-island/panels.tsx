@@ -205,9 +205,18 @@ export function OrderPanelCard({
 }) {
   const [orderType, setOrderType] = useState("limit");
   const [marginMode, setMarginMode] = useState("cross");
-  const [internalLev, setInternalLev] = useState(market.leverage > 50 ? 25 : 10);
+  // Default = 1x spot. See TradeTab; this internal fallback only kicks
+  // in for standalone uses (mobile sheet) where state isn't lifted.
+  const [internalLev, setInternalLev] = useState(1);
   const lev = externalLeverage ?? internalLev;
   const setLev = setExternalLeverage ?? setInternalLev;
+  // Mode pivot. 1x = spot (Buy / Sell labels, no margin tabs, no liq
+  // lines, no funding). >1x = perps (Long / Short labels + the
+  // leverage-aware machinery). Single derived flag keeps the rendering
+  // branches honest — no place can drift out of sync.
+  const isSpot = lev === 1;
+  const sideALabel = isSpot ? "Buy" : "Long";
+  const sideBLabel = isSpot ? "Sell" : "Short";
   const [size, setSize] = useState("");
   const [price, setPrice] = useState("");
   const [showAdv, setShowAdv] = useState(false);
@@ -280,8 +289,10 @@ export function OrderPanelCard({
         reduceOnly,
         postOnly: apiKind === "limit" ? postOnly : false,
       });
+      const buyish = side === "long";
+      const verb = isSpot ? (buyish ? "Buy" : "Sell") : (buyish ? "Long" : "Short");
       toast({
-        title: `${side === "long" ? "Long" : "Short"} submitted`,
+        title: `${verb} submitted`,
         description: `${liveMarket.symbol} · ${apiKind.toUpperCase()} · intent ${shortDigest(result.digest)}`,
       });
     } catch (error) {
@@ -296,24 +307,28 @@ export function OrderPanelCard({
           <span className="card-icon">
             <Icon name="bolt" size={15} />
           </span>
-          <span>Place Order</span>
+          <span>{isSpot ? "Spot Order" : "Perp Order"}</span>
         </div>
-        <div className="margin-tabs">
-          <button
-            className={marginMode === "cross" ? "active" : ""}
-            onClick={() => setMarginMode("cross")}
-            title="Cross margin: all your free collateral backs every position. Lower liquidation risk but losses can cascade."
-          >
-            Cross
-          </button>
-          <button
-            className={marginMode === "iso" ? "active" : ""}
-            onClick={() => setMarginMode("iso")}
-            title="Isolated margin: only the margin you set backs this position. Limits your downside to that amount."
-          >
-            Isolated
-          </button>
-        </div>
+        {/* Margin-mode tabs are perps-only — spot trades don't post
+            collateral so Cross/Isolated has no meaning. */}
+        {!isSpot && (
+          <div className="margin-tabs">
+            <button
+              className={marginMode === "cross" ? "active" : ""}
+              onClick={() => setMarginMode("cross")}
+              title="Cross margin: all your free collateral backs every position. Lower liquidation risk but losses can cascade."
+            >
+              Cross
+            </button>
+            <button
+              className={marginMode === "iso" ? "active" : ""}
+              onClick={() => setMarginMode("iso")}
+              title="Isolated margin: only the margin you set backs this position. Limits your downside to that amount."
+            >
+              Isolated
+            </button>
+          </div>
+        )}
       </div>
       <div className="order-body">
         <div className="order-type-tabs">
@@ -340,13 +355,18 @@ export function OrderPanelCard({
         <div className="leverage-block">
           <div className="lev-row">
             <span className="field-label" style={{ display: "block" }}>
-              Leverage <Hint w={260}>Multiplies your buying power. Higher leverage = smaller move can liquidate you.</Hint>
+              {isSpot ? "Mode" : "Leverage"}{" "}
+              <Hint w={280}>
+                {isSpot
+                  ? "1× = Spot mode (Buy / Sell directly). Drag past 1× to enable perpetuals with leverage."
+                  : "Multiplies your buying power. Higher leverage = smaller move can liquidate you."}
+              </Hint>
             </span>
             <div className="lev-control">
               <button onClick={() => setLev(Math.max(1, lev - 1))}>
                 <Icon name="minus" size={12} />
               </button>
-              <span className="lev-value">{lev}x</span>
+              <span className="lev-value">{isSpot ? "Spot" : `${lev}x`}</span>
               <button onClick={() => setLev(Math.min(market.leverage, lev + 1))}>
                 <Icon name="plus" size={12} />
               </button>
@@ -358,7 +378,7 @@ export function OrderPanelCard({
             max={market.leverage}
             step={1}
             onValueChange={([v]) => setLev(v)}
-            aria-label="Leverage"
+            aria-label={isSpot ? "Mode" : "Leverage"}
             className="my-2"
           />
           <div className="lev-presets">
@@ -366,7 +386,7 @@ export function OrderPanelCard({
               .filter((p) => p <= market.leverage)
               .map((p) => (
                 <button key={p} className={lev === p ? "active" : ""} onClick={() => setLev(p)}>
-                  {p}x
+                  {p === 1 ? "Spot" : `${p}x`}
                 </button>
               ))}
           </div>
@@ -470,24 +490,30 @@ export function OrderPanelCard({
             </span>
             <span className="v mono">{fmtUSD(notional)}</span>
           </div>
-          <div className="summary-row">
-            <span className="l">
-              Required Margin <Hint w={240}>Collateral locked up to open and maintain this position.</Hint>
-            </span>
-            <span className="v mono">{fmtUSD(reqMargin)}</span>
-          </div>
-          <div className="summary-row">
-            <span className="l">
-              Liq. Long <Hint w={260}>If you go long, the price at which you&apos;d be liquidated.</Hint>
-            </span>
-            <span className="v loss mono">{liqLong.toFixed(decimals)}</span>
-          </div>
-          <div className="summary-row">
-            <span className="l">
-              Liq. Short <Hint w={260}>If you go short, the price at which you&apos;d be liquidated.</Hint>
-            </span>
-            <span className="v loss mono">{liqShort.toFixed(decimals)}</span>
-          </div>
+          {/* Margin + liquidation lines are perps-only — spot trades
+              settle atomically and aren't liquidatable. */}
+          {!isSpot && (
+            <>
+              <div className="summary-row">
+                <span className="l">
+                  Required Margin <Hint w={240}>Collateral locked up to open and maintain this position.</Hint>
+                </span>
+                <span className="v mono">{fmtUSD(reqMargin)}</span>
+              </div>
+              <div className="summary-row">
+                <span className="l">
+                  Liq. Long <Hint w={260}>If you go long, the price at which you&apos;d be liquidated.</Hint>
+                </span>
+                <span className="v loss mono">{liqLong.toFixed(decimals)}</span>
+              </div>
+              <div className="summary-row">
+                <span className="l">
+                  Liq. Short <Hint w={260}>If you go short, the price at which you&apos;d be liquidated.</Hint>
+                </span>
+                <span className="v loss mono">{liqShort.toFixed(decimals)}</span>
+              </div>
+            </>
+          )}
           <div className="summary-row">
             <span className="l">
               Est. Fee <Hint w={220}>Trading fee paid on this order (taker rate, 5 bps).</Hint>
@@ -513,7 +539,7 @@ export function OrderPanelCard({
           aria-busy={placeOrder.isPending}
           data-primed={initialSide === "long" ? "true" : undefined}
         >
-          <Icon name="sparkle" size={14} /> {placeOrder.isPending ? "Signing..." : "Long"}
+          <Icon name="sparkle" size={14} /> {placeOrder.isPending ? "Signing..." : sideALabel}
         </button>
         <button
           className={"short" + (initialSide === "short" ? " primed" : "")}
@@ -522,7 +548,7 @@ export function OrderPanelCard({
           aria-busy={placeOrder.isPending}
           data-primed={initialSide === "short" ? "true" : undefined}
         >
-          <Icon name="sparkle" size={14} /> {placeOrder.isPending ? "Signing..." : "Short"}
+          <Icon name="sparkle" size={14} /> {placeOrder.isPending ? "Signing..." : sideBLabel}
         </button>
       </div>
       <div className="avail-line">
@@ -569,7 +595,11 @@ export function ChartCard({
   // Display the trader's actual chosen leverage when the panel lifted
   // state into us; otherwise fall back to the market's hard ceiling so
   // standalone uses (mobile, embed) still render something sensible.
-  const displayLeverage = selectedLeverage ?? market.leverage;
+  // Default to 1x (Spot) when the trader hasn't lifted a leverage —
+  // matches OrderPanelCard's new spot-first default. The pill renders
+  // "Spot" at 1x, "Nx" otherwise.
+  const displayLeverage = selectedLeverage ?? 1;
+  const leveragePillLabel = displayLeverage === 1 ? "Spot" : `${displayLeverage}x`;
   const headerInner = (
     <>
       <div className="chart-head">
@@ -578,7 +608,7 @@ export function ChartCard({
           <div className="chart-price-block">
             <div className="chart-sym-row">
               <span className="chart-sym">{market.sym}</span>
-              <span className="pill primary">{displayLeverage}x</span>
+              <span className="pill primary">{leveragePillLabel}</span>
             </div>
             <div className="chart-price-row">
               <span className="chart-price mono">

@@ -27,7 +27,7 @@ import {
 } from "./data";
 import { TokenIconPair } from "./token-icon";
 import { CandleChart } from "./chart";
-import { OrderPanelCard } from "./panels";
+import { TradeDrawer } from "./trade-drawer";
 import { useMarkets } from "@/lib/perps/hooks";
 import { usePendingIntents } from "@/lib/perps/use-pending-intents";
 import type { PerpsMarketDto } from "@/lib/perps/client";
@@ -256,45 +256,8 @@ function MarketPickerSheet({
   );
 }
 
-function OrderSheet({
-  market,
-  initialSide,
-  onClose,
-}: {
-  market: Market;
-  initialSide: "long" | "short" | null;
-  onClose: () => void;
-}) {
-  return (
-    <div className="mt-sheet-backdrop" onClick={onClose} role="presentation">
-      <div
-        className="mt-sheet mt-sheet-order"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-label="Place order"
-        data-initial-side={initialSide ?? undefined}
-      >
-        <div className="mt-sheet-head">
-          <span className="mt-sheet-handle" />
-          <div className="mt-sheet-title">
-            Place order
-            {initialSide && (
-              <span className={"side-tag " + initialSide} style={{ marginLeft: 8 }}>
-                {initialSide.toUpperCase()}
-              </span>
-            )}
-          </div>
-          <button className="mt-sheet-close" onClick={onClose} aria-label="Close">
-            <Icon name="plus" size={16} />
-          </button>
-        </div>
-        <div className="mt-sheet-body">
-          <OrderPanelCard market={market} initialSide={initialSide ?? undefined} />
-        </div>
-      </div>
-    </div>
-  );
-}
+// Legacy OrderSheet replaced by TradeDrawer — the multi-step Dynamic
+// Island flow. See trade-drawer.tsx.
 
 export function MobileTrade({
   market,
@@ -395,20 +358,23 @@ export function MobileTrade({
         {inner === "trades" && <RecentTrades market={market} />}
       </div>
 
-      {/* Sticky Long / Short — reach test: ≤1 thumb-tap from chart */}
+      {/* Sticky CTA — reach test: ≤1 thumb-tap from chart. Labels stay
+         Buy/Sell because the mobile drawer defaults to Spot mode; the
+         trader switches to perps inside the drawer via the leverage
+         slider, where the Long/Short language takes over. */}
       <div className="mt-cta-bar">
         <div className="mt-cta-avail">
-          <span className="mt-pl">Available</span>
-          <span className="mono">{fmtUSD(125420.5)} USDC</span>
+          <span className="mt-pl">Trade</span>
+          <span className="mono">{market.sym}</span>
         </div>
         <div className="mt-cta-row">
           <button className="mt-cta long" onClick={() => setOrderSide("long")}>
             <Icon name="sparkle" size={14} />
-            Long
+            Buy
           </button>
           <button className="mt-cta short" onClick={() => setOrderSide("short")}>
             <Icon name="sparkle" size={14} />
-            Short
+            Sell
           </button>
         </div>
       </div>
@@ -421,7 +387,7 @@ export function MobileTrade({
         />
       )}
       {orderSide !== null && (
-        <OrderSheet
+        <TradeDrawer
           market={market}
           initialSide={orderSide}
           onClose={() => setOrderSide(null)}

@@ -739,14 +739,16 @@ function TradeTab({
   // Switch to the dedicated mobile layout under the `lg` breakpoint. Matches
   // the island.css cutover at 1023.98px so the two systems agree.
   const isMobile = useMediaQuery("(max-width: 1023.98px)");
-  // Single source of truth for the trader-selected leverage. Lifted here
-  // so ChartCard's pill stays in sync with OrderPanelCard's slider —
-  // both consume `lev`, only OrderPanelCard mutates it via `setLev`.
-  // Reset to the market's default when the symbol changes.
-  const [lev, setLev] = useState(market.leverage > 50 ? 25 : 10);
+  // Single source of truth for the trader-selected leverage. Lifted
+  // here so ChartCard's pill stays in sync with OrderPanelCard's
+  // slider — both consume `lev`, only OrderPanelCard mutates it via
+  // `setLev`. Default = 1x = SPOT mode (Buy/Sell labels); the trader
+  // explicitly opts into perps by sliding past 1. Reset to spot on
+  // market change so symbol switches don't carry stale leverage.
+  const [lev, setLev] = useState(1);
   useEffect(() => {
-    setLev(market.leverage > 50 ? 25 : 10);
-  }, [market.sym, market.leverage]);
+    setLev(1);
+  }, [market.sym]);
   if (isMobile) {
     return (
       <div className="trade-tab trade-tab-mobile">

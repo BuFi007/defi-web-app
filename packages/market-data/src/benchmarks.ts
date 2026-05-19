@@ -129,16 +129,26 @@ export async function fetchBenchmarksHistory(
       return [];
     }
     const len = json.t.length;
+    // Pyth Benchmarks SHIPS `v` for FX symbols too, but it's an array of
+    // zeros (FX has no traded volume on a public tape). The previous
+    // `json.v?.[i] ?? synth` only fired the synth fallback on undefined,
+    // so FX pairs got v=0 across the board -> compute24hStats summed to
+    // 0 -> 24h Vol displayed as $0.00. Detect "v is structurally empty"
+    // once per fetch and ignore it so the synth proxy engages.
+    const vSource = json.v;
+    const vIsAllZero =
+      Array.isArray(vSource) && vSource.length > 0 && vSource.every((x) => !x);
+    const useSynthVolume = !vSource || vIsAllZero;
     const candles: Candle[] = [];
     for (let i = 0; i < len; i++) {
       const o = json.o[i] ?? 0;
       const c = json.c[i] ?? 0;
-      // FX feeds don't ship traded volume; synthesize a cosmetic proxy
-      // from per-bar absolute change so the chart's volume histogram has
-      // shape. Cap to prevent the proxy dominating real volume on
-      // crypto pairs where `v` IS provided.
+      // Per-bar absolute change scaled into the same magnitude as crypto
+      // tape volume (~10^4-10^5 USD), so the chart's histogram has shape
+      // without overwhelming the candles. Crypto pairs with real `v`
+      // keep their feed values untouched.
       const synth = Math.abs(c - o) * 100_000;
-      const v = json.v?.[i] ?? synth;
+      const v = useSynthVolume ? synth : vSource?.[i] ?? synth;
       candles.push({
         time: json.t[i]!,
         o,

@@ -1,10 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { Address } from "viem";
 import { useAccount, useBalance } from "wagmi";
-import { formatUnits } from "viem";
+import { formatUnits, parseUnits } from "viem";
 
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useToast } from "@/components/ui/use-toast";
 import { errMsg } from "@/utils";
 import {
@@ -201,10 +206,14 @@ export const LOAN_POSITIONS: LoanPosition[] = [
   { marketId: "arc-mjpyc-usdc", kind: "borrow", amount: 320000, value: 2073.6 },
 ];
 
+// Ordered as two pairs: [lend, withdraw] (supply side) and [borrow, repay]
+// (debt side). The render below inserts a vertical divider between
+// indices 1 and 2 so the two pairs read as related actions, not four
+// equal-weight choices.
 const ACTIONS: LoanAction[] = [
   { id: "lend", label: "Lend", verb: "lend", side: "supply", hint: "Deposit the loan asset to earn yield." },
-  { id: "borrow", label: "Borrow", verb: "borrow", side: "borrow", hint: "Lock collateral and take a loan in the loan asset." },
   { id: "withdraw", label: "Withdraw", verb: "withdraw", side: "supply", hint: "Pull supplied funds back to your wallet." },
+  { id: "borrow", label: "Borrow", verb: "borrow", side: "borrow", hint: "Lock collateral and take a loan in the loan asset." },
   { id: "repay", label: "Repay", verb: "repay", side: "borrow", hint: "Pay back some or all of your debt." },
 ];
 
@@ -673,6 +682,377 @@ function findInverse(market: LoanMarket, markets: LoanMarket[]): LoanMarket | un
   return markets.find((m) => m.hub === market.hub && m.loan === market.coll && m.coll === market.loan);
 }
 
+// ─────────────────────────────────────────────────────────────
+// Confirm Action popover
+//
+// Lifts the "what am I about to do, against which market, on which
+// chain" decision out of the static market table on the left and into
+// an inline picker that ONLY shows options the connected wallet can
+// actually act on:
+//   - Lend     → loan-token wallet balances > 0 on a configured hub
+//   - Borrow   → markets where the user has collateral posted
+//   - Withdraw → markets where the user has supplied loan asset
+//   - Repay    → markets where the user has open debt
+//
+// Picking a row + clicking Confirm fires the EIP-712 intent through
+// useLendingAction, same as the legacy implicit-submit path. The amount
+// the user typed in the ActionCard amount input is converted to atomic
+// units using the loan-token decimals for the picked market.
+// ─────────────────────────────────────────────────────────────
+
+interface ConfirmRow {
+  market: LoanMarket;
+  loanSymbol: string;
+  collSymbol: string;
+  hubChainId: 43113 | 5042002;
+  loanDecimals: number;
+  /** Display amount, e.g. wallet balance (lend), supplied loan (withdraw),
+   *  collateral value (borrow), or outstanding debt (repay). */
+  display: string;
+  /** Hard ceiling in loan-decimals atomic units, when known. Used to
+   *  clamp the typed amount so users don't oversize a withdraw / repay. */
+  maxAtomic?: bigint;
+}
+
+interface ConfirmActionPopoverProps {
+  action: string;
+  /** Plain amount string from the ActionCard input ("0.00"). */
+  amountStr: string;
+  markets: LoanMarket[];
+  positions: TelaranaPositionSerialized[];
+  walletAddress: Address | undefined;
+  submitting: boolean;
+  /** Disabled label for the oracle-stale cooldown, etc. Overrides the
+   *  default "Confirm Action" CTA copy when set. */
+  ctaLabelOverride?: string;
+  /** Parent submits the chosen row + atomic amount. Returns the user's
+   *  picked row so the parent can also update the global selected market. */
+  onConfirm: (row: ConfirmRow, atomicAmount: bigint) => Promise<void>;
+}
+
+// One-row balance probe for lend. Wallet hooks must run unconditionally
+// per render, so this is its own component — toggling the action kind
+// remounts the whole list and React handles the new hook order cleanly.
+function LendCandidateRow({
+  market,
+  walletAddress,
+  active,
+  onPick,
+}: {
+  market: LoanMarket;
+  walletAddress: Address | undefined;
+  active: boolean;
+  onPick: (row: ConfirmRow) => void;
+}) {
+  const onchain = market.onchain;
+  const hub = LOAN_HUBS[market.hub];
+  const enabled = Boolean(walletAddress && onchain?.loanToken && onchain?.hubChainId);
+  const bal = useBalance({
+    address: walletAddress,
+    token: onchain?.loanToken as `0x${string}` | undefined,
+    chainId: onchain?.hubChainId,
+    query: { enabled },
+  });
+  if (!onchain) return null;
+  const decimals = bal.data?.decimals ?? onchain.loanDecimals;
+  const valueAtomic = bal.data?.value ?? 0n;
+  if (valueAtomic === 0n) return null;
+  const display = `${Number(formatUnits(valueAtomic, decimals)).toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+  })} ${market.loan}`;
+  const row: ConfirmRow = {
+    market,
+    loanSymbol: market.loan,
+    collSymbol: market.coll,
+    hubChainId: onchain.hubChainId as 43113 | 5042002,
+    loanDecimals: decimals,
+    display,
+    maxAtomic: valueAtomic,
+  };
+  return (
+    <ConfirmRowButton row={row} hub={hub} active={active} onPick={onPick} />
+  );
+}
+
+function ConfirmRowButton({
+  row,
+  hub,
+  active,
+  onPick,
+}: {
+  row: ConfirmRow;
+  hub: LoanHub | undefined;
+  active: boolean;
+  onPick: (row: ConfirmRow) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onPick(row)}
+      className={
+        "w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-left transition-colors " +
+        (active
+          ? "bg-purpleDanis/15 dark:bg-violetDanis/15 ring-1 ring-purpleDanis/50"
+          : "hover:bg-zinc-50 dark:hover:bg-zinc-800/60")
+      }
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <TokenIcon sym={row.loanSymbol} size={22} />
+        <div className="flex flex-col min-w-0 leading-tight">
+          <span className="text-[13px] font-bold text-purpleDanis dark:text-violetDanis truncate">
+            {row.loanSymbol} / {row.collSymbol}
+          </span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            {hub?.name ?? row.hubChainId}
+          </span>
+        </div>
+      </div>
+      <span className="mono text-[12px] font-bold text-purpleDanis dark:text-violetDanis tabular-nums">
+        {row.display}
+      </span>
+    </button>
+  );
+}
+
+function ConfirmActionPopover({
+  action,
+  amountStr,
+  markets,
+  positions,
+  walletAddress,
+  submitting,
+  ctaLabelOverride,
+  onConfirm,
+}: ConfirmActionPopoverProps) {
+  const [open, setOpen] = useState(false);
+  const [pickedId, setPickedId] = useState<string | null>(null);
+
+  // Rebuild eligible rows whenever the relevant inputs change. Lend rows
+  // live inside LendCandidateRow (each runs its own useBalance), so for
+  // lend we ship the candidate markets and let the row component filter
+  // itself by balance > 0. Position-driven rows resolve here.
+  const positionRows: ConfirmRow[] = useMemo(() => {
+    if (action !== "withdraw" && action !== "repay" && action !== "borrow") {
+      return [];
+    }
+    const rows: ConfirmRow[] = [];
+    for (const m of markets) {
+      if (!m.onchain) continue;
+      const p = positions.find(
+        (pp) =>
+          pp.marketId.toLowerCase() === m.onchain!.marketId.toLowerCase() &&
+          pp.hubChainId === m.onchain!.hubChainId,
+      );
+      if (!p) continue;
+      const hub = LOAN_HUBS[m.hub];
+      const loanDecimals = m.onchain.loanDecimals;
+      if (action === "withdraw") {
+        const supply = BigInt(p.supplyAssets);
+        if (supply <= 0n) continue;
+        rows.push({
+          market: m,
+          loanSymbol: m.loan,
+          collSymbol: m.coll,
+          hubChainId: m.onchain.hubChainId as 43113 | 5042002,
+          loanDecimals,
+          display: `${Number(formatUnits(supply, loanDecimals)).toLocaleString(undefined, {
+            maximumFractionDigits: 2,
+          })} ${m.loan}`,
+          maxAtomic: supply,
+        });
+      } else if (action === "repay") {
+        const debt = BigInt(p.borrowAssets);
+        if (debt <= 0n) continue;
+        rows.push({
+          market: m,
+          loanSymbol: m.loan,
+          collSymbol: m.coll,
+          hubChainId: m.onchain.hubChainId as 43113 | 5042002,
+          loanDecimals,
+          display: `${Number(formatUnits(debt, loanDecimals)).toLocaleString(undefined, {
+            maximumFractionDigits: 2,
+          })} ${m.loan}`,
+          maxAtomic: debt,
+        });
+      } else if (action === "borrow") {
+        const coll = BigInt(p.collateral);
+        if (coll <= 0n) continue;
+        const collDecimals = m.onchain.collateralDecimals ?? 6;
+        rows.push({
+          market: m,
+          loanSymbol: m.loan,
+          collSymbol: m.coll,
+          hubChainId: m.onchain.hubChainId as 43113 | 5042002,
+          loanDecimals,
+          display: `${Number(formatUnits(coll, collDecimals)).toLocaleString(undefined, {
+            maximumFractionDigits: 2,
+          })} ${m.coll} coll.`,
+          // No maxAtomic for borrow — the cap is health-factor-bound,
+          // computed server-side at quote time, not from the position raw.
+        });
+      }
+      void hub;
+    }
+    return rows;
+  }, [action, markets, positions]);
+
+  // Lend-eligible markets — every market that has an `onchain` block is
+  // a candidate; the row component drops itself when balance is 0.
+  const lendCandidates = useMemo(
+    () => (action === "lend" ? markets.filter((m) => m.onchain) : []),
+    [action, markets],
+  );
+
+  const pickedRow =
+    positionRows.find((r) => r.market.id === pickedId) ?? positionRows[0];
+  const handleSelect = (row: ConfirmRow) => {
+    setPickedId(row.market.id);
+  };
+
+  const amountValid = (() => {
+    const n = parseFloat(amountStr);
+    return Number.isFinite(n) && n > 0;
+  })();
+
+  const handleConfirm = async () => {
+    if (!walletAddress) return;
+    if (!amountValid) return;
+    if (!pickedRow) return;
+    let atomic: bigint;
+    try {
+      atomic = parseUnits(amountStr, pickedRow.loanDecimals);
+    } catch {
+      return;
+    }
+    if (pickedRow.maxAtomic && atomic > pickedRow.maxAtomic) {
+      atomic = pickedRow.maxAtomic;
+    }
+    await onConfirm(pickedRow, atomic);
+    setOpen(false);
+    setPickedId(null);
+  };
+
+  const actionLabel: Record<string, string> = {
+    lend: "Lend",
+    borrow: "Borrow",
+    withdraw: "Withdraw",
+    repay: "Repay",
+  };
+  const ctaPrimary = ctaLabelOverride ?? `Confirm ${actionLabel[action] ?? "Action"}`;
+  const noWallet = !walletAddress;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="lo-confirm-cta"
+          disabled={submitting || noWallet || !amountValid}
+          title={
+            noWallet
+              ? "Connect a wallet to sign intents"
+              : !amountValid
+              ? "Enter an amount above"
+              : ctaPrimary
+          }
+        >
+          <span>{ctaPrimary}</span>
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 10 10"
+            aria-hidden="true"
+            style={{ opacity: 0.85 }}
+          >
+            <path
+              d="M2 4 L5 7 L8 4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        sideOffset={8}
+        className="w-[360px] p-0 bg-white dark:bg-zinc-900 border-2 border-purpleDanis/40 dark:border-violetDanis/40 rounded-2xl shadow-xl"
+      >
+        <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-zinc-200 dark:border-zinc-800">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-purpleDanis dark:text-violetDanis">
+            Confirm {actionLabel[action] ?? "Action"}
+          </div>
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            {action === "lend" || action === "borrow" ? "Pick a target" : "Pick a position"}
+          </div>
+        </div>
+
+        <ul className="p-2 max-h-72 overflow-y-auto flex flex-col gap-1">
+          {action === "lend" &&
+            lendCandidates.map((m) => (
+              <li key={m.id}>
+                <LendCandidateRow
+                  market={m}
+                  walletAddress={walletAddress}
+                  active={pickedId === m.id || (!pickedId && positionRows.length === 0)}
+                  onPick={(row) => handleSelect(row)}
+                />
+              </li>
+            ))}
+          {action !== "lend" &&
+            positionRows.map((row) => {
+              const hub = LOAN_HUBS[row.market.hub];
+              const isActive = pickedRow?.market.id === row.market.id;
+              return (
+                <li key={row.market.id}>
+                  <ConfirmRowButton
+                    row={row}
+                    hub={hub}
+                    active={isActive}
+                    onPick={handleSelect}
+                  />
+                </li>
+              );
+            })}
+          {action !== "lend" && positionRows.length === 0 && (
+            <li className="px-3 py-6 text-center text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+              {noWallet
+                ? "Connect a wallet to load positions."
+                : action === "withdraw"
+                ? "No supplied positions to withdraw from."
+                : action === "repay"
+                ? "No open debt to repay."
+                : "No collateral posted yet. Lend or supply collateral first."}
+            </li>
+          )}
+        </ul>
+
+        <div className="px-3 py-3 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2">
+          <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 truncate">
+            {!amountValid
+              ? "Enter an amount above first."
+              : pickedRow
+              ? `${amountStr} ${pickedRow.loanSymbol} → ${actionLabel[action]}`
+              : action === "lend"
+              ? "Pick a token + chain to lend."
+              : "Pick a position."}
+          </span>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={submitting || !amountValid || !pickedRow}
+            className="lo-confirm-submit"
+          >
+            {submitting ? "Signing…" : "Confirm"}
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 interface ActionCardProps {
   market: LoanMarket;
   action: string;
@@ -682,8 +1062,21 @@ interface ActionCardProps {
   onFlipMarket?: (id: string) => void;
   /** Optional override for the balance shown above the input. */
   balance?: number;
-  /** Click handler invoked after CTA. Receives the parsed input. */
+  /** Legacy submit-by-currently-selected-market path. The Confirm popover
+   *  uses `onConfirm` below; `onSubmit` is kept for callers that don't
+   *  thread the full markets/positions feed through. */
   onSubmit?: (input: { kind: LendingActionKind; amount: bigint }) => Promise<void> | void;
+  /**
+   * Confirm Action popover submission. Called with the row the user
+   * picked (which may be different from the table-selected market) plus
+   * the typed amount converted to atomic loan-decimals. Parent fires the
+   * EIP-712 intent through useLendingAction.
+   */
+  onConfirm?: (
+    market: LoanMarket,
+    kind: LendingActionKind,
+    atomicAmount: bigint,
+  ) => Promise<void>;
   submitting?: boolean;
   /**
    * Replaces the CTA verb when set (e.g. "Oracle stale — retry…" during the
@@ -694,6 +1087,10 @@ interface ActionCardProps {
   liveDebt?: number;
   /** Optional alternative markets list for the flip-pair lookup. */
   marketsList?: LoanMarket[];
+  /** Markets used by the Confirm popover (full live + seed). */
+  popoverMarkets?: LoanMarket[];
+  /** User's telarana positions, surfaced in the popover for withdraw/repay/borrow. */
+  popoverPositions?: TelaranaPositionSerialized[];
 }
 
 export function ActionCard({
@@ -705,10 +1102,13 @@ export function ActionCard({
   onFlipMarket,
   balance: balanceOverride,
   onSubmit,
+  onConfirm,
   submitting = false,
   submitLabelOverride,
   liveDebt,
   marketsList,
+  popoverMarkets,
+  popoverPositions,
 }: ActionCardProps) {
   const loan = LOAN_TOKENS[market.loan] ?? LOAN_TOKENS.USDC;
   const A = ACTIONS.find((a) => a.id === action) || ACTIONS[0];
@@ -784,13 +1184,12 @@ export function ActionCard({
     impactMini2 = ["interest saved", "−$" + monthly.toFixed(2) + "/mo"];
   }
 
-  // CTA submission props are accepted for API stability but no longer have
-  // a primary button surface inside the card — the parent wires submit via
-  // tab-level affordances. Silence unused-prop warnings without changing the
-  // public signature.
+  // Legacy implicit-submit path. The Confirm popover is the primary CTA
+  // surface now; onSubmit is only used if a caller doesn't pass
+  // popoverMarkets (e.g. a unit test or future embed). Touch the prop
+  // refs so the linter doesn't yell when the popover path is the one
+  // that fires.
   void onSubmit;
-  void submitting;
-  void submitLabelOverride;
 
   return (
     <section className="lo-action">
@@ -806,14 +1205,18 @@ export function ActionCard({
 
       <div className="lo-tabs">
         {ACTIONS.map((a, i) => (
-          <button
-            key={a.id}
-            className={"lo-tab tone-" + (i + 1) + (action === a.id ? " active" : "")}
-            onClick={() => setAction(a.id)}
-            title={a.hint}
-          >
-            <span>{a.label}</span>
-          </button>
+          <React.Fragment key={a.id}>
+            <button
+              className={"lo-tab tone-" + (i + 1) + (action === a.id ? " active" : "")}
+              onClick={() => setAction(a.id)}
+              title={a.hint}
+            >
+              <span>{a.label}</span>
+            </button>
+            {/* Vertical rule between the supply pair (lend / withdraw) and the
+                debt pair (borrow / repay). Pure visual grouping — not focusable. */}
+            {i === 1 && <span className="lo-tab-divider" aria-hidden="true" />}
+          </React.Fragment>
         ))}
       </div>
 
@@ -883,6 +1286,31 @@ export function ActionCard({
           </div>
         </div>
       </div>
+
+      {onConfirm && (
+        <div className="lo-confirm-row">
+          <ConfirmActionPopover
+            action={action}
+            amountStr={amount}
+            markets={popoverMarkets ?? marketsList ?? LOAN_MARKETS}
+            positions={popoverPositions ?? []}
+            walletAddress={walletAddress as Address | undefined}
+            submitting={submitting}
+            ctaLabelOverride={submitLabelOverride}
+            onConfirm={async (row, atomic) => {
+              const kind: LendingActionKind =
+                action === "lend"
+                  ? "supply"
+                  : action === "withdraw"
+                  ? "withdraw"
+                  : action === "borrow"
+                  ? "borrow"
+                  : "repay";
+              await onConfirm(row.market, kind, atomic);
+            }}
+          />
+        </div>
+      )}
     </section>
   );
 }
@@ -1043,42 +1471,61 @@ export function LoanTab() {
     ? healthFactorFromE18(onchainPositionForMarket.healthFactorE18)
     : null;
 
+  // Legacy submit path — kept so callers that don't pass markets/positions
+  // through to the popover (unit tests, embeds) still have a working CTA.
+  // Operates against the table-selected market.
   const handleSubmit = async (input: { kind: LendingActionKind; amount: bigint }) => {
-    if (!address) {
-      toast({ title: "Connect a wallet", description: "Connect to sign the lending intent.", variant: "destructive" });
-      return;
-    }
     if (!market?.onchain) {
       toast({ title: "Pick a live market", description: "This row is a placeholder.", variant: "destructive" });
       return;
     }
-    if (input.amount <= 0n) {
+    await submitLendingIntent(market, input.kind, input.amount);
+  };
+
+  // Confirm Action popover path. The popover already showed the user only
+  // the rows they can act on, so we know `pickedMarket.onchain` is set
+  // and the atomic amount is bounded by their balance / position. Still
+  // re-validate at the edge for safety.
+  const submitLendingIntent = async (
+    pickedMarket: LoanMarket,
+    kind: LendingActionKind,
+    atomicAmount: bigint,
+  ) => {
+    if (!address) {
+      toast({ title: "Connect a wallet", description: "Connect to sign the lending intent.", variant: "destructive" });
+      return;
+    }
+    if (!pickedMarket.onchain) {
+      toast({ title: "Pick a live market", description: "This row is a placeholder.", variant: "destructive" });
+      return;
+    }
+    if (atomicAmount <= 0n) {
       toast({ title: "Enter an amount", description: "Amount must be greater than zero.", variant: "destructive" });
       return;
     }
     try {
       const payload: LendingActionInput = {
-        kind: input.kind,
-        hubChainId: market.onchain.hubChainId,
-        spokeChainId: market.onchain.hubChainId,
-        loanToken: market.onchain.loanToken,
-        collateralToken: market.onchain.collateralToken,
+        kind,
+        hubChainId: pickedMarket.onchain.hubChainId,
+        spokeChainId: pickedMarket.onchain.hubChainId,
+        loanToken: pickedMarket.onchain.loanToken,
+        collateralToken: pickedMarket.onchain.collateralToken,
         onBehalf: address as Address,
         receiver: address as Address,
-        amount: input.amount,
+        amount: atomicAmount,
       };
       const result = await submitAction(payload);
       toast({
         title: "Intent signed",
-        description: `${input.kind} intent ${result.intent.id.slice(0, 8)}… queued for settlement.`,
+        description: `${kind} intent ${result.intent.id.slice(0, 8)}… queued for settlement.`,
       });
       setAmount("");
+      // Sync the left-column selection so the user sees what they just
+      // acted on highlighted, instead of whatever was selected before.
+      setSelectedId(pickedMarket.id);
       refreshPositions();
     } catch (err) {
       if (isOracleStaleError(err)) {
-        // Hook-level catch hasn't fired for the submit path — it lives in
-        // useLendingAction.submit. Emit once here and skip the generic
-        // "Signing failed" toast so users get a single, clear message.
         emitOracleStaleToast();
         setOracleStaleUntil(Date.now() + 5_000);
         setNow(Date.now());
@@ -1118,6 +1565,9 @@ export function LoanTab() {
           onFlipMarket={setSelectedId}
           marketsList={enrichedMarkets}
           onSubmit={handleSubmit}
+          onConfirm={submitLendingIntent}
+          popoverMarkets={enrichedMarkets}
+          popoverPositions={positions}
           submitting={actionSubmitting || oracleStaleActive}
           submitLabelOverride={oracleStaleActive ? "Oracle stale — retry…" : undefined}
           liveDebt={liveDebt}
