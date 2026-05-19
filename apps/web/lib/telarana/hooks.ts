@@ -29,6 +29,11 @@ import {
   type TelaranaPositionSerialized,
 } from "./client";
 import {
+  listTelaranaMarkets,
+  TELARANA_DEPLOYMENTS,
+  type TelaranaHubChainId,
+} from "@bufi/contracts/telarana";
+import {
   buildTelaranaSessionTypedData,
   readCachedSession,
   sessionHeaders,
@@ -84,17 +89,74 @@ export interface MarketsState {
   refresh: () => void;
 }
 
+/**
+ * Static fallback: build TelaranaMarketSerialized[] from the deployment
+ * manifests in @bufi/contracts. We have the marketId hash, loan/collateral
+ * addresses, oracle adapter address, and the IrmMock from the manifest;
+ * the only runtime-only field is `state` (totalSupplyAssets / borrow /
+ * util), which stays undefined so the UI renders honest em-dashes for
+ * APY/util/tvl. The on-chain identity (marketId + loanToken + decimals)
+ * IS populated, which is what `market.onchain` needs — the Confirm Lend
+ * button + the BALANCE row + the useLendingAction submit path ALL work
+ * even when `/fx-telarana/markets` is unreachable.
+ *
+ * LLTV defaults to 86% (0.86e18). All M1-M4 markets ship with this
+ * value per the deploy scripts; revisit if a non-86% market lands.
+ */
+const STATIC_LLTV = "860000000000000000"; // 0.86e18
+
+function staticMarketsSerialized(): TelaranaMarketSerialized[] {
+  return listTelaranaMarkets().map((m) => {
+    const deployment = TELARANA_DEPLOYMENTS[m.chainId as TelaranaHubChainId];
+    return {
+      id: m.id,
+      hubChainId: m.chainId as 43113 | 5042002,
+      hubName: m.hubName,
+      isLive: true,
+      loanToken: m.loanToken,
+      collateralToken: m.collateralToken,
+      oracle: m.morphoOracleAdapter,
+      irm: deployment.contracts.IrmMock,
+      lltv: STATIC_LLTV,
+      // state stays undefined -> toLoanMarket() renders supply/borrow/util/tvl
+      // as null -> "—" in the UI. Honest about not knowing the live state.
+    } satisfies TelaranaMarketSerialized;
+  });
+}
+
 export function useMarkets(): MarketsState {
-  const [markets, setMarkets] = useState<TelaranaMarketSerialized[]>([]);
+  // Seed with the static set so the ActionCard's Confirm button is enabled
+  // from first paint — no waiting on the API, no "feed: Failed to fetch"
+  // window where deposits silently break.
+  const [markets, setMarkets] = useState<TelaranaMarketSerialized[]>(() =>
+    staticMarketsSerialized(),
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
       const data = await fetchMarkets();
-      setMarkets(data.markets);
+      // Merge: prefer the live row when it carries `state` (runtime data);
+      // keep the static row otherwise so we don't regress to no-onchain.
+      const liveById = new Map(data.markets.map((m) => [m.id.toLowerCase(), m]));
+      const merged = staticMarketsSerialized().map(
+        (s) => liveById.get(s.id.toLowerCase()) ?? s,
+      );
+      // Include any live-only markets the static manifest doesn't know about
+      // (e.g. a market deployed AFTER the last @bufi/contracts sync).
+      const staticIds = new Set(
+        staticMarketsSerialized().map((s) => s.id.toLowerCase()),
+      );
+      for (const m of data.markets) {
+        if (!staticIds.has(m.id.toLowerCase())) merged.push(m);
+      }
+      setMarkets(merged);
       setError(null);
     } catch (err) {
+      // Keep the static set in place — caller still sees real markets,
+      // just without live util/tvl numbers. The error string surfaces
+      // in the LoanTab's "markets feed:" banner.
       setError(errMsg(err));
     } finally {
       setLoading(false);
