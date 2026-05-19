@@ -13,7 +13,12 @@ import { MorphoBlueAbi } from "./morpho-blue-abi";
 import type { LendingMarket, MarketParams, MorphoMarketState } from "./types";
 
 const DEFAULT_MARKET_CACHE_MS = 30_000;
-const DEFAULT_HUB_READ_TIMEOUT_MS = 6_000;
+// 3s per inner RPC keeps the chained worst-case (listPools + id/live +
+// market(state) = 3 awaits) under 10s -- comfortably below the API
+// server's idleTimeout. The public Avalanche Fuji RPC has been the
+// usual offender; when it's slow, each pool degrades to the static
+// manifest fallback fast instead of leaving the socket hanging.
+const DEFAULT_HUB_READ_TIMEOUT_MS = 3_000;
 
 type MarketListCache = {
   expiresAt: number;

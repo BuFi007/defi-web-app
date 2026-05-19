@@ -142,6 +142,16 @@ app.notFound(notFoundHandler as unknown as NotFoundHandler);
 // the Hono app unchanged.
 export default {
   port,
+  // Bun's HTTP server defaults to a 10s idleTimeout. /fx-telarana/markets
+  // can run up to ~18s end-to-end (listPools + per-pool marketIdOf/
+  // isPoolLive + per-pool market(state), each bounded by withTimeout in
+  // packages/fx-telarana/src/market-view.ts), so a slow Avalanche public
+  // RPC was getting the socket cut from under the handler -- curl saw
+  // HTTP 000 with 0 bytes at ~11s and the LoanTab rendered
+  // "markets feed: Failed to fetch", which gated every Confirm CTA on
+  // an unhydrated market.onchain. Bump to 60s so the worst-case hub
+  // fallback path completes cleanly. Override via API_IDLE_TIMEOUT_S.
+  idleTimeout: Number(process.env.API_IDLE_TIMEOUT_S ?? 60),
   fetch(
     req: Request,
     server: { upgrade: (req: Request, opts?: { data?: unknown }) => boolean },
