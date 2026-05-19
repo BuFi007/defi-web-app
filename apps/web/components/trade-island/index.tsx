@@ -239,7 +239,6 @@ function LeadersTab() {
           </button>
         ))}
       </div>
-
       {!address && (
         <EmptyState
           lottie="green-man"

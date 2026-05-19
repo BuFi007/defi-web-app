@@ -598,7 +598,9 @@
 /* Per-row wallet balance in the MarketsTable. Renders inline under the
    hub row so the user can see "I have 10M AUDF on Arc" without
    leaving the page (no popover). Muted color when no wallet / no
-   balance, full ink when actionable. */
+   balance, full ink when actionable. The popover-only
+   .lo-confirm-submit class from main is intentionally dropped — the
+   Confirm popover was removed in 7a9d364 in favor of an inline CTA. */
 .lo-trow-balrow {
   display: flex;
   align-items: center;

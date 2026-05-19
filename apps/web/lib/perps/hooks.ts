@@ -181,7 +181,6 @@ function apiSymbolToUiSymbol(s: string): string {
   };
   return map[s] ?? s;
 }
-
 interface MarketDecoration {
   flagA: string;
   flagB: string;

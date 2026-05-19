@@ -330,6 +330,14 @@ export function CandleChart({
     if (live.tick && chartStatus === "empty") setChartStatus("ready");
   }, [live.tick, chartStatus]);
 
+  // Flip out of 'empty' the moment a live tick arrives — the live-fold
+  // effect below will append a candle to the series, so the overlay
+  // should disappear immediately. Avoids the "empty state on a chart
+  // that's actually streaming" flash.
+  useEffect(() => {
+    if (live.tick && chartStatus === "empty") setChartStatus("ready");
+  }, [live.tick, chartStatus]);
+
   // PriceLines — recreated whenever the prop bag changes. Cheap; only 1–3 lines.
   useEffect(() => {
     const candleSeries = candleSeriesRef.current;

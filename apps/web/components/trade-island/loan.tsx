@@ -5,6 +5,11 @@ import type { Address } from "viem";
 import { useAccount, useBalance } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
 
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useToast } from "@/components/ui/use-toast";
 import { errMsg } from "@/utils";
 import {
@@ -198,7 +203,7 @@ export const hubRegistryAddress = (hubId: string): `0x${string}` | null =>
 // they're gone now because (a) they had no on-chain backing, (b) their
 // "supply / borrow" numbers were invented, and (c) we can't ever
 // promise the user an APY we can't prove on-chain.
-export const LOAN_MARKETS: LoanMarket[] = [
+const LOAN_MARKETS: LoanMarket[] = [
   // Arc Testnet — M1 + M2 (EURC/USDC), M3 + M4 (AUDF/USDC).
   // Deployed in fx-telarana#feat/mxnb-fuji-markets.
   { id: "arc-usdc-eurc", hub: "arc", loan: "USDC", coll: "EURC", supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
@@ -846,6 +851,10 @@ interface ActionCardProps {
   liveDebt?: number;
   /** Optional alternative markets list for the flip-pair lookup. */
   marketsList?: LoanMarket[];
+  /** Markets used by the Confirm popover (full live + seed). */
+  popoverMarkets?: LoanMarket[];
+  /** User's telarana positions, surfaced in the popover for withdraw/repay/borrow. */
+  popoverPositions?: TelaranaPositionSerialized[];
 }
 
 export function ActionCard({
@@ -862,6 +871,8 @@ export function ActionCard({
   submitLabelOverride,
   liveDebt,
   marketsList,
+  popoverMarkets,
+  popoverPositions,
 }: ActionCardProps) {
   const loan = LOAN_TOKENS[market.loan] ?? LOAN_TOKENS.USDC;
   const A = ACTIONS.find((a) => a.id === action) || ACTIONS[0];
