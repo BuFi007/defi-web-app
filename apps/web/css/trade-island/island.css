@@ -66,6 +66,16 @@ body[data-banner="open"] .island {
 }
 .island.collapsed .island-header { border-bottom: 0; }
 
+/* Far-left slot for the MarketPicker on the Trade tab. Keeps the pair
+   pill anchored before the tab list so the active market reads first
+   on entry; the rest of the chrome (tabs, wallet, arcade) flows to its
+   right. */
+.island-leading {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .island-tabs {
   display: flex; align-items: center; gap: 4px;
   background: var(--surface-3);

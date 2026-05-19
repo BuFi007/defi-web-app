@@ -1136,6 +1136,15 @@ function TradeIslandHeader({
 
   return (
     <header className="island-header">
+      {/* MarketPicker docks at the far LEFT of the header on the Trade
+          tab — separates "what market am I looking at" from the rest
+          of the island chrome and keeps the pair price always visible
+          in the upper-left where the user's eye lands first. */}
+      {tab === "trade" && (
+        <div className="island-leading">
+          <MarketPicker market={market} setMarketSym={setMarketSym} />
+        </div>
+      )}
       <div className="island-tabs">
         {tabs.map((t) => (
           <button
@@ -1154,9 +1163,6 @@ function TradeIslandHeader({
         ))}
       </div>
       <div className="island-summary">
-        {tab === "trade" && (
-          <MarketPicker market={market} setMarketSym={setMarketSym} />
-        )}
         <StablecoinBalances />
         {liveTotalPnl !== 0 && (
           <span className={"pill " + (liveTotalPnl >= 0 ? "profit" : "loss")}>
