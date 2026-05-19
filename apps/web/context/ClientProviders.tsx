@@ -3,6 +3,13 @@
 import dynamic from "next/dynamic";
 import type { ReactNode } from "react";
 
+// IMPORTANT: import for its module-level side effect (purges Dynamic's
+// localStorage session cache BEFORE the SDK gets a chance to rehydrate).
+// Must come above the `dynamic()` line so it runs first. See the module
+// header for why a fresh-connect-per-load beats the cached restore that
+// triggers the "wallets are mismatched" overlay.
+import "./DynamicSessionPurge";
+
 // Client-only wrapper around DynamicProviders.
 //
 // Why: DynamicProviders pulls @dynamic-labs/* → @walletconnect/* → pino.
