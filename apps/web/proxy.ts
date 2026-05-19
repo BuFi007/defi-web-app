@@ -18,20 +18,22 @@ const I18N_CONFIG = {
 } as const;
 
 const I18nMiddleware = createI18nMiddleware(I18N_CONFIG);
-const LOCALE_COOKIE = "NEXT_LOCALE";
-// `NEXT_LOCALE` MUST be reachable from JS — next-international's
-// `useChangeLocale()` writes the cookie via `document.cookie` from
-// the client. An httpOnly attribute here silently swallowed those
-// client-side writes because the browser keeps the original
-// httpOnly cookie alongside the JS one, then the server reads the
-// stale httpOnly value first — so clicking the locale switcher
-// appeared to do nothing. The cookie content is UI state, not a
-// secret; httpOnly buys nothing.
+// Must match next-international's internal constant — see
+// node_modules/next-international/dist/app/middleware/index.js:
+//   `var LOCALE_COOKIE = "Next-Locale";`
+// Writing to any other name (we previously used `NEXT_LOCALE`) is a
+// silent no-op: the middleware's `localeFromRequest()` reads
+// `Next-Locale` only, then falls back to `Accept-Language`. So our
+// stripLocalePrefix redirect set the wrong cookie name, and the
+// JS-side `document.cookie = NEXT_LOCALE=...` write in the locale
+// switcher was useless. Result: clicking the locale switcher
+// appeared to do nothing.
 //
 // `sameSite: "lax"` (instead of strict) so the cookie still flows
 // on top-level navigations from external links into the site —
 // strict was breaking the language preference when users opened
 // the app from a Discord / Slack share.
+const LOCALE_COOKIE = "Next-Locale";
 const LOCALE_COOKIE_OPTIONS = {
   path: "/" as const,
   maxAge: 60 * 60 * 24 * 365,
@@ -148,11 +150,9 @@ const stripLocalePrefix = (req: NextRequest): NextResponse | null => {
 };
 
 const ensureSecureLocaleCookies = (response: NextResponse): NextResponse => {
-  for (const name of ["Next-Locale", LOCALE_COOKIE]) {
-    const cookie = response.cookies.get(name);
-    if (cookie) {
-      response.cookies.set(name, cookie.value, LOCALE_COOKIE_OPTIONS);
-    }
+  const cookie = response.cookies.get(LOCALE_COOKIE);
+  if (cookie) {
+    response.cookies.set(LOCALE_COOKIE, cookie.value, LOCALE_COOKIE_OPTIONS);
   }
   return response;
 };

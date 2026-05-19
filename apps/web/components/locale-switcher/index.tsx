@@ -28,23 +28,22 @@ export default function LocaleSwitcher() {
 
   const handleLocaleChange = (next: string) => {
     if (!isSupported(next) || next === value) return;
+    // Just call changeLocale. It dynamically imports the locale
+    // bundle, then does router.push(`/${next}${pathWithoutLocale}`) +
+    // refresh(). Our `proxy.ts` then redirects `/${next}/...` to the
+    // clean path and writes the `Next-Locale` cookie (the actual
+    // name next-international's middleware reads — see
+    // node_modules/next-international/dist/app/middleware/index.js
+    // `LOCALE_COOKIE = "Next-Locale"`). Server components re-render
+    // on the route swap.
+    //
+    // The previous implementation wrote `NEXT_LOCALE` (uppercase,
+    // underscore) which the middleware NEVER reads, then forced
+    // `window.location.reload()` which raced changeLocale's async
+    // import + push and reloaded the OLD URL with the OLD cookie.
+    // Net effect: clicks did nothing.
     startTransition(() => {
-      // Belt-and-suspenders cookie write. next-international's
-      // changeLocale() also writes the cookie but went silent against
-      // a previous httpOnly middleware setting (browsers refuse to
-      // overwrite an httpOnly cookie from JS). Writing here makes the
-      // switch resilient to that legacy state.
-      const oneYear = 60 * 60 * 24 * 365;
-      document.cookie = `NEXT_LOCALE=${next}; path=/; max-age=${oneYear}; sameSite=lax`;
       changeLocale(next);
-
-      // Hard reload. Under Next 16 + Cache Components a plain
-      // router.refresh() doesn't re-render translated strings —
-      // they're baked into the prerendered HTML. A full document load
-      // is the only reliable way to flip the entire page to the new
-      // locale, including server components that read messages at
-      // render time.
-      if (typeof window !== "undefined") window.location.reload();
     });
   };
 
