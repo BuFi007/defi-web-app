@@ -28,7 +28,10 @@ import { Hint } from "./hint";
 import { TokenIcon } from "./token-icon";
 import { useMarketCandles } from "@/lib/perps/hooks";
 import { SPOKE_CHAINS } from "@/components/stablecoin-balances/deployments";
-import type { StableTokenType } from "@bufi/location/stable-tokens";
+import {
+  STABLE_TOKEN_LIST,
+  type StableTokenType,
+} from "@bufi/location/stable-tokens";
 
 export interface LoanToken {
   sym: string;
@@ -108,25 +111,25 @@ export interface LoanAction {
   hint: string;
 }
 
-export const LOAN_TOKENS: Record<string, LoanToken> = {
-  USDC: { sym: "USDC", name: "USD Coin", flag: "🇺🇸", price: 1.0, decimals: 2, mock: false },
-  EURC: { sym: "EURC", name: "Euro Coin", flag: "🇪🇺", price: 1.084, decimals: 2, mock: false },
-  // MXNB graduated from mock → real after fx-telarana#feat/mxnb-fuji-markets:
-  //   Bitso ships the live issuer-controlled testnet contract; the M3/M4
-  //   Morpho markets on the Fuji hub route through the canonical address
-  //   0xAB99…85eBb. Keep the price field for client-side $-value previews
-  //   until the live oracle is wired (Pyth USD/MXN ≈ 17, inverted → 0.0585).
-  MXNB: { sym: "MXNB", name: "Mexican Peso", flag: "🇲🇽", price: 0.0585, decimals: 2, mock: false },
-  // AUDF graduated from mock → real after fx-telarana#feat/mxnb-fuji-markets
-  // (the AUDF mints + Arc M3/M4 deploy): Forte ships the live issuer-controlled
-  // testnet contract on Eth Sepolia + Arc Testnet at the same canonical address
-  // 0xd2a5…7456b. Markets live on Arc; price field is for $-value previews
-  // until the live AUD/USD oracle is wired (Pyth ≈ 0.66).
-  AUDF: { sym: "AUDF", name: "Australian Dollar", flag: "🇦🇺", price: 0.6648, decimals: 2, mock: false },
-  mJPYC: { sym: "mJPYC", name: "Japanese Yen", flag: "🇯🇵", price: 0.00648, decimals: 0, mock: true },
-  mKRW1: { sym: "mKRW1", name: "Korean Won", flag: "🇰🇷", price: 0.000726, decimals: 0, mock: true },
-  mZCHF: { sym: "mZCHF", name: "Swiss Franc", flag: "🇨🇭", price: 1.135, decimals: 2, mock: true },
-};
+// Projection of StableToken → LoanToken so loan-tab call sites that
+// still expect the old `{ sym, name, flag, price, decimals, mock }`
+// shape keep working. The metadata source of truth lives in
+// packages/location/src/stable-tokens.ts — DO NOT add a price/flag
+// override here. New stablecoins surface automatically once the
+// StableTokenType union includes them.
+export const LOAN_TOKENS: Record<string, LoanToken> = Object.fromEntries(
+  STABLE_TOKEN_LIST.map((t) => [
+    t.asset,
+    {
+      sym: t.asset,
+      name: t.name,
+      flag: t.flag,
+      price: t.usdPrice,
+      decimals: t.displayDecimals,
+      mock: t.mock,
+    } satisfies LoanToken,
+  ]),
+);
 
 // FxMarketRegistry addresses per hub — surfaced in the UI in place of
 // the human-readable hub.short label so users see the actual on-chain
@@ -755,15 +758,15 @@ function MarketsTable({
                     </a>
                     {m.status !== "live" && <StatusTag status={m.status} />}
                   </div>
-                  <div className="lo-trow-hub">
-                    <HubPip hub={hub} size={18} />
-                    <span style={{ fontWeight: 700 }}>{hub.short}</span>
-                    <span className="lo-trow-lltv">
-                      · {fmtOrDash(m.lltv, (x) => `${Math.round(x * 100)}%`)} LLTV
+                  <div className="lo-trow-sub">
+                    <span className="lo-trow-sub-l">
+                      <HubPip hub={hub} size={14} />
+                      <span className="lo-trow-hub-l">{hub.short}</span>
+                      <span className="lo-trow-sep" aria-hidden="true">·</span>
+                      <span className="lo-trow-lltv">
+                        {fmtOrDash(m.lltv, (x) => `${Math.round(x * 100)}%`)} LLTV
+                      </span>
                     </span>
-                  </div>
-                  <div className="lo-trow-balrow">
-                    <span className="lo-trow-bal-l">Balance</span>
                     <MarketRowBalance
                       market={m}
                       walletAddress={walletAddress as Address | undefined}

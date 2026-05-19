@@ -1,15 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useAccount, useBalance } from "wagmi";
 import { formatUnits, type Address } from "viem";
 import { AnimatePresence, motion } from "framer-motion";
 import type { WagmiChainId } from "@/utils/chain";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { ChainSelect } from "@/components/chain-select";
 import { BalanceDisplay } from "@/components/balance-display";
 import { TokenChip } from "@/components/token-chip";
@@ -29,23 +25,9 @@ const TOKEN_META = Object.fromEntries(
 const iconSrc = (icon: (typeof STABLE_TOKEN_LIST)[number]["icon"]): string =>
   typeof icon === "string" ? icon : icon.src;
 
-// Rough USD price table for ordering + the USDC-equivalent preview line.
-// These are NOT used for trading anywhere — only to rank rows by face
-// value and to surface a single approximate "≈ $X USDC total" so the
-// user can glance and see what they're holding without doing the math.
-// Replace with a Pyth-backed lookup when the FX price service lands.
-const TOKEN_USD_PRICE: Record<StableTokenType, number> = {
-  USDC: 1.0,
-  EURC: 1.084,
-  AUDF: 0.6648,
-  BRLA: 0.1724, // BRL/USD ≈ 5.8
-  JPYC: 0.00648, // JPY/USD ≈ 154
-  KRW1: 0.000726, // KRW/USD ≈ 1378
-  MXNB: 0.0585, // MXN/USD ≈ 17.1
-  PHPC: 0.01754, // PHP/USD ≈ 57
-  QCAD: 0.7299, // CAD/USD ≈ 1.37
-  ZARU: 0.0526, // ZAR/USD ≈ 19
-};
+// USD price now lives on `StableToken.usdPrice` in @bufi/location —
+// single source of truth for the wallet trigger total AND the loan
+// ActionCard projection. Replaced the local TOKEN_USD_PRICE table.
 
 const toToken = (
   cfg: SpokeChain,
@@ -74,7 +56,7 @@ interface ChainBalanceRow {
   formatted: string;
   /** Float for sort + USD conversion math. NaN if not known. */
   balance: number;
-  /** Face-value in USD via TOKEN_USD_PRICE. 0 when no deployment. */
+  /** Face-value in USD via StableToken.usdPrice. 0 when no deployment. */
   usdValue: number;
   deployed: boolean;
   isLoading: boolean;
@@ -108,7 +90,7 @@ const useAllChainsStableBalances = (
       });
       const formatted = bal.data ? formatUnits(bal.data.value, decimals) : "0";
       const balance = bal.data ? Number(formatted) : 0;
-      const price = TOKEN_USD_PRICE[t.asset] ?? 0;
+      const price = t.usdPrice ?? 0;
       const usdValue =
         Number.isFinite(balance) && address ? balance * price : 0;
       return {
@@ -165,7 +147,7 @@ export const StablecoinBalances: React.FC = () => {
   // Single fetch pass covers every chain × every stable. The popover
   // renders only the active chain's rows; the trigger pill sums every
   // chain's USD-equivalent total (which folds non-USD stables in via
-  // TOKEN_USD_PRICE, so the pill reflects "how much can I actually
+  // StableToken.usdPrice, so the pill reflects "how much can I actually
   // settle into USDC right now" instead of "USDC face value only").
   const allChainsRows = useAllChainsStableBalances(address);
   const totalUsdEquivalent = React.useMemo(
@@ -198,128 +180,246 @@ export const StablecoinBalances: React.FC = () => {
     [sortedRows],
   );
 
-  // Dynamic-Island-style trigger: idle is just the number; hover (or
-  // keyboard focus, or the popover being open) morphs the pill open to
-  // surface the full "Stablecoin FX Wallet" label inline. framer-motion's
-  // `layout` prop on the parent animates the width change smoothly, and
-  // AnimatePresence handles the label's appear/disappear without
-  // teleporting a separate tooltip element.
+  // Dynamic-Island morph: pill and panel share `layoutId="acct-fx-island"`,
+  // so framer-motion smoothly animates the box geometry between them.
+  // The pill stays in the header (its anchor); the panel is portaled to
+  // document.body and positioned with `position: fixed` over the pill's
+  // bounding rect, because the parent `.island` has `overflow: hidden`
+  // and would otherwise clip the morph.
   const [hover, setHover] = useState(false);
-  const expanded = hover || open;
+  const expanded = hover && !open;
+
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // createPortal needs document — only flip mounted after hydration so
+  // we never call it during SSR.
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!open || !anchorRef.current) return;
+    const el = anchorRef.current;
+    const update = () => {
+      const r = el.getBoundingClientRect();
+      setCoords({ top: r.top, right: Math.max(8, window.innerWidth - r.right) });
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [open]);
+
+  // Esc closes; runs only while open so the listener cost is zero idle.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  // Emil-style: damped spring, no overshoot, soft landing. Slightly slower
+  // than the default so the morph reads as deliberate, not flicked open.
+  const SPRING = { type: "spring", stiffness: 260, damping: 36, mass: 0.7 } as const;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <motion.button
-          type="button"
-          layout
-          transition={{ type: "spring", duration: 0.32, bounce: 0.18 }}
-          className="acct-mini"
-          aria-label="Open Stablecoin FX Wallet"
-          onMouseEnter={() => setHover(true)}
-          onMouseLeave={() => setHover(false)}
-          onFocus={() => setHover(true)}
-          onBlur={() => setHover(false)}
-        >
-          <AnimatePresence initial={false}>
-            {expanded && (
-              <motion.span
-                key="label"
-                layout
-                initial={{ opacity: 0, width: 0, marginRight: 0 }}
-                animate={{ opacity: 1, width: "auto", marginRight: 8 }}
-                exit={{ opacity: 0, width: 0, marginRight: 0 }}
-                transition={{ duration: 0.18 }}
-                className="acct-l"
-                style={{ overflow: "hidden", whiteSpace: "nowrap" }}
-              >
-                Stablecoin FX Wallet
-              </motion.span>
-            )}
-          </AnimatePresence>
-          <motion.span layout className="mono acct-v">
-            {triggerLabel}
-          </motion.span>
-          <motion.svg
-            layout
-            width="10"
-            height="10"
-            viewBox="0 0 10 10"
-            aria-hidden="true"
-            className="ml-0.5 opacity-70"
-          >
-            <path
-              d="M2 4 L5 7 L8 4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </motion.svg>
-        </motion.button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        sideOffset={8}
-        className="w-[380px] p-0 bg-white dark:bg-zinc-900 border-2 border-purpleDanis/40 dark:border-violetDanis/40 rounded-2xl shadow-xl"
-      >
-        <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-zinc-200 dark:border-zinc-800">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
-            Stablecoin balances
-          </div>
-          <div
-            className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-              activeChain.role === "hub"
-                ? "bg-purpleDanis/15 text-purpleDanis"
-                : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
-            }`}
-          >
-            {activeChain.role}
-          </div>
-        </div>
+    <>
+      <div ref={anchorRef} className="acct-island-anchor">
+        {/* Phantom: same content as the pill but invisible. Reserves the
+            slot in the header so the layout doesn't shift when the real
+            pill morphs into the portaled panel. */}
+        <span className="acct-mini acct-mini--phantom" aria-hidden="true">
+          <span className="acct-l">Stablecoin FX Wallet</span>
+          <span className="mono acct-v">{triggerLabel}</span>
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+            <path d="M2 4 L5 7 L8 4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
+        </span>
 
-        <div className="px-3 py-3 border-b border-zinc-200 dark:border-zinc-800">
-          <ChainSelect
-            value={String(activeChainId)}
-            onChange={(v) => setActiveChainId(Number(v))}
-            chains={SPOKE_CHAINS.map((c) => c.chain)}
-            label="Network"
-            variant="ghost"
-          />
-        </div>
-
-        <ul className="p-2 max-h-80 overflow-y-auto">
-          {sortedRows.map((row) => (
-            <TokenBalanceRow
-              key={`${activeChain.chainId}-${row.asset}`}
-              cfg={activeChain}
-              row={row}
-            />
-          ))}
-        </ul>
-
-        {isConnected && (
-          <div className="px-4 py-2 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-              Total on this chain
-            </span>
-            <span
-              className="mono text-[12px] font-bold text-purpleDanis dark:text-violetDanis tabular-nums"
-              title="Approximate sum of all token balances on this chain, converted to USDC face value via reference FX rates. Not a tradeable quote."
+        <AnimatePresence initial={false}>
+          {!open && (
+            <motion.button
+              key="pill"
+              type="button"
+              layoutId="acct-fx-island"
+              className="acct-mini acct-island-pill"
+              aria-label="Open Stablecoin FX Wallet"
+              aria-expanded={false}
+              onClick={() => setOpen(true)}
+              onMouseEnter={() => setHover(true)}
+              onMouseLeave={() => setHover(false)}
+              onFocus={() => setHover(true)}
+              onBlur={() => setHover(false)}
+              transition={SPRING}
+              style={{ borderRadius: 12 }}
             >
-              ≈ {fmtUSD(chainUsdTotal)} USDC
-            </span>
-          </div>
-        )}
+              <AnimatePresence initial={false}>
+                {expanded && (
+                  <motion.span
+                    key="label"
+                    initial={{ opacity: 0, width: 0, marginRight: 0 }}
+                    animate={{ opacity: 1, width: "auto", marginRight: 8 }}
+                    exit={{ opacity: 0, width: 0, marginRight: 0 }}
+                    transition={{ duration: 0.18 }}
+                    className="acct-l"
+                    style={{ overflow: "hidden", whiteSpace: "nowrap" }}
+                  >
+                    Stablecoin FX Wallet
+                  </motion.span>
+                )}
+              </AnimatePresence>
+              <span className="mono acct-v">{triggerLabel}</span>
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 10 10"
+                aria-hidden="true"
+                className="ml-0.5 opacity-70"
+              >
+                <path
+                  d="M2 4 L5 7 L8 4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </motion.button>
+          )}
+        </AnimatePresence>
+      </div>
 
-        {!isConnected && (
-          <div className="px-4 py-3 text-center text-xs text-zinc-500 border-t border-zinc-200 dark:border-zinc-800">
-            Connect a wallet to see live balances.
-          </div>
+      {mounted &&
+        createPortal(
+          <AnimatePresence initial={false}>
+            {open && (
+              <React.Fragment key="open">
+                <motion.button
+                  key="scrim"
+                  type="button"
+                  className="acct-island-scrim"
+                  aria-label="Close wallet"
+                  onClick={() => setOpen(false)}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                />
+                <motion.div
+                  key="panel"
+                  layoutId="acct-fx-island"
+                  className="acct-island-panel"
+                  role="dialog"
+                  aria-label="Stablecoin FX Wallet"
+                  aria-modal="false"
+                  transition={SPRING}
+                  style={{
+                    position: "fixed",
+                    top: coords?.top ?? 0,
+                    right: coords?.right ?? 16,
+                    borderRadius: 18,
+                  }}
+                >
+                  <motion.div
+                    className="acct-island-panel-inner"
+                    initial={{ opacity: 0, y: -3 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -3 }}
+                    transition={{
+                      duration: 0.26,
+                      delay: 0.10,
+                      ease: [0.22, 1, 0.36, 1],
+                    }}
+                  >
+                    <div className="acct-island-head">
+                      <div className="acct-island-head-l">
+                        <span className="acct-l">Stablecoin FX Wallet</span>
+                        <span className="mono acct-v">{triggerLabel}</span>
+                      </div>
+                      <div className="acct-island-head-r">
+                        <span
+                          className={
+                            "acct-island-role " +
+                            (activeChain.role === "hub" ? "is-hub" : "is-spoke")
+                          }
+                        >
+                          {activeChain.role}
+                        </span>
+                        <button
+                          type="button"
+                          className="acct-island-close"
+                          aria-label="Close wallet"
+                          onClick={() => setOpen(false)}
+                        >
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 14 14"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M3 3 L11 11 M11 3 L3 11"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="acct-island-network">
+                      <ChainSelect
+                        value={String(activeChainId)}
+                        onChange={(v) => setActiveChainId(Number(v))}
+                        chains={SPOKE_CHAINS.map((c) => c.chain)}
+                        label="Network"
+                        variant="ghost"
+                      />
+                    </div>
+
+                    <ul className="acct-island-list">
+                      {sortedRows.map((row) => (
+                        <TokenBalanceRow
+                          key={`${activeChain.chainId}-${row.asset}`}
+                          cfg={activeChain}
+                          row={row}
+                        />
+                      ))}
+                    </ul>
+
+                    {isConnected ? (
+                      <div className="acct-island-foot">
+                        <span className="acct-island-foot-l">Total on this chain</span>
+                        <span
+                          className="mono acct-island-foot-v"
+                          title="Approximate sum of all token balances on this chain, converted to USDC face value via reference FX rates. Not a tradeable quote."
+                        >
+                          ≈ {fmtUSD(chainUsdTotal)} USDC
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="acct-island-empty">
+                        Connect a wallet to see live balances.
+                      </div>
+                    )}
+                  </motion.div>
+                </motion.div>
+              </React.Fragment>
+            )}
+          </AnimatePresence>,
+          document.body,
         )}
-      </PopoverContent>
-    </Popover>
+    </>
   );
 };
 
