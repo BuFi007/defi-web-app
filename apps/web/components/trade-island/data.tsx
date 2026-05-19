@@ -103,6 +103,17 @@ export const ICONS: Record<string, string> = {
   doc: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z M14 3v6h6" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" fill="none"/>',
   info: '<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M12 8v.01M12 11v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
   expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+  // Chart toolbar drawing tools — keep stroke=1.8 for visual parity with
+  // the existing nav icons. Each glyph is centered in the 24×24 viewBox.
+  cursor: '<path d="M5 3l5 14 2.5-5 5-2.5L5 3z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" fill="none"/>',
+  trendline: '<path d="M4 19L20 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="4" cy="19" r="2" fill="currentColor"/><circle cx="20" cy="5" r="2" fill="currentColor"/>',
+  hline: '<path d="M3 12h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="12" r="1.6" fill="currentColor"/>',
+  vline: '<path d="M12 3v18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="8" r="1.6" fill="currentColor"/>',
+  rect: '<rect x="4" y="6" width="16" height="12" rx="1.2" stroke="currentColor" stroke-width="1.8" fill="none"/>',
+  fib: '<path d="M3 5h18M3 10h18M3 13h18M3 17h18M3 19h18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  text: '<path d="M6 5h12M12 5v14M9 19h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  eraser: '<path d="M15 4l5 5L9 20H4v-5L15 4zM10 9l5 5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" fill="none"/>',
+  indicator: '<path d="M4 19V5M4 19h16M7 15l3-5 3 3 5-8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
 };
 
 export function Icon({ name, size = 18 }: { name: string; size?: number }) {

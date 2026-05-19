@@ -10,6 +10,7 @@ import { Icon, fmtUSD, fmtPct, type Market } from "./data";
 import { TokenIconPair } from "./token-icon";
 import { Hint } from "./hint";
 import { CandleChart } from "./chart";
+import { ChartToolbar } from "./chart-toolbar";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/components/ui/use-toast";
 import { errMsg } from "@/utils";
@@ -585,7 +586,13 @@ export function ChartCard({
 }) {
   const [tf, setTf] = useState("15m");
   const [expanded, setExpanded] = useState(false);
-  const tfs = ["1m", "5m", "15m", "1H", "4H", "1D", "1W"];
+  // 1W intentionally dropped: Pyth Benchmarks for FX symbols enforces a
+  // 1-year max-range query, which means even after the 360d lookback cap
+  // a weekly resolution can only return ~52 bars before it bumps the
+  // retention wall — and the FX feed retention isn't reliably > 1 year
+  // anyway. Until the data source supports multi-year weekly history,
+  // surfacing the button only sets users up for a "Loading…" overlay.
+  const tfs = ["1m", "5m", "15m", "1H", "4H", "1D"];
   const decimals = market.price < 10 ? 4 : market.price < 1000 ? 2 : 1;
   const { data: stats } = useMarketStats(market.sym);
   const high = stats?.high ?? null;
@@ -673,14 +680,20 @@ export function ChartCard({
     <>
       <div className="card chart-card">
         {headerInner}
-        <CandleChart market={market} timeframe={tf} source="ponder" liveSource="ws" />
+        <div className="chart-body">
+          <ChartToolbar />
+          <CandleChart market={market} timeframe={tf} source="ponder" liveSource="ws" />
+        </div>
       </div>
       <Dialog open={expanded} onOpenChange={setExpanded}>
         <DialogContent size="full" className="p-0 h-[90vh] flex flex-col">
           <DialogTitle className="sr-only">{market.sym} chart</DialogTitle>
           <div className="card chart-card" style={{ height: "100%", border: 0, boxShadow: "none" }}>
             {headerInner}
-            <CandleChart market={market} timeframe={tf} source="ponder" liveSource="ws" />
+            <div className="chart-body">
+              <ChartToolbar />
+              <CandleChart market={market} timeframe={tf} source="ponder" liveSource="ws" />
+            </div>
           </div>
         </DialogContent>
       </Dialog>
