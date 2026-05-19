@@ -45,6 +45,12 @@ const LIQUIDATOR_DRY_RUN =
 
 const MAX_BACKOFF_MS = 5 * 60_000;
 let rpcBackoffMs = 0;
+// Emit "not_configured" once at first hit so operators see the
+// missing-FxLiquidator banner, then short-circuit subsequent ticks
+// silently. The wrapDedupe upstream already collapses within an hour,
+// but the boot-log behavior is more honest: this keeper is idle by
+// design until the contract is deployed; don't even warn-log past that.
+let configuredWarned = false;
 
 await runKeeper({
   name: "@bufi/keeper-telarana-liquidator",
@@ -54,10 +60,14 @@ await runKeeper({
     const chainContracts = loadContracts()[TELARANA_CHAIN_ID as 43113 | 5042002];
     const liquidator = chainContracts?.telarana.fxLiquidator;
     if (!liquidator) {
-      ctx.log.warn("telarana_liquidator.not_configured", {
-        chainId: TELARANA_CHAIN_ID,
-        missing: "telarana.fxLiquidator",
-      });
+      if (!configuredWarned) {
+        ctx.log.warn("telarana_liquidator.not_configured", {
+          chainId: TELARANA_CHAIN_ID,
+          missing: "telarana.fxLiquidator",
+          note: "keeper will stay idle until fxLiquidator is deployed; no further warns will fire",
+        });
+        configuredWarned = true;
+      }
       return;
     }
 
@@ -82,15 +92,9 @@ await runKeeper({
     }
 
     if (candidates.length === 0) {
-      ctx.log.info("telarana_liquidator.tick", {
-        event: "tick",
-        chainId: TELARANA_CHAIN_ID,
-        candidatesFound: 0,
-        liquidated: 0,
-        failed: 0,
-        dryRun: LIQUIDATOR_DRY_RUN,
-      });
-      // Honour the configured tick interval rather than the runtime poll.
+      // No candidates -- no log. The wrapDedupe upstream already
+      // collapses identical lines, but a "0 found" tick every 30s
+      // adds nothing once we know the candidate pipeline is alive.
       await sleep(Math.max(0, LIQUIDATOR_INTERVAL_MS - 1));
       return;
     }

@@ -78,17 +78,29 @@ await runKeeper({
       }
     }
 
-    ctx.log.info("perps_matcher.scan", {
-      pending: pending.length,
-      expired: expired.length,
-      ready: ready.length,
-      matches: matches.length,
-      partials: matches.filter((match) => isPartial(match)).length,
-      replacementNeeded,
-      settled,
-      failed,
-      settlementMode: SETTLEMENT_MODE,
-    });
+    // Only log when there's signal — pending/expired/matched/settled/
+    // failed activity. Skip the dead-quiet ticks (`pending: 0, ready:
+    // 0, matches: 0, ...`) that otherwise dominate dev:complete.
+    if (
+      pending.length > 0 ||
+      expired.length > 0 ||
+      matches.length > 0 ||
+      replacementNeeded.length > 0 ||
+      settled.length > 0 ||
+      failed.length > 0
+    ) {
+      ctx.log.info("perps_matcher.scan", {
+        pending: pending.length,
+        expired: expired.length,
+        ready: ready.length,
+        matches: matches.length,
+        partials: matches.filter((match) => isPartial(match)).length,
+        replacementNeeded,
+        settled,
+        failed,
+        settlementMode: SETTLEMENT_MODE,
+      });
+    }
   },
 });
 

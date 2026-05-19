@@ -56,7 +56,13 @@ const schema = z.object({
     .optional(),
   GATEWAY_API_BASE: z.string().url().optional(),
   GATEWAY_SIGNER_OUT: z.string().optional(),
-  KEEPER_POLL_MS: z.coerce.number().int().positive().default(5000),
+  // 30s default poll. Most keepers either self-throttle to a longer
+  // cadence (LIQUIDATOR_INTERVAL_MS=30s, FUNDING_INTERVAL_MS=1h, etc.)
+  // or are stub-only (pyth / gateway-signer / arcade-settler / spot —
+  // they log a "wire X here" note at boot, no per-tick work). 5s was
+  // aggressive enough to dominate dev:complete's terminal pane with
+  // re-rendered scan lines. Override per-deploy via env.
+  KEEPER_POLL_MS: z.coerce.number().int().positive().default(30_000),
   PORT: z.coerce.number().int().positive().optional(),
 
   // observability — Sentry DSNs. When unset, the Sentry init helpers

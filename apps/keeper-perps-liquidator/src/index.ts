@@ -67,10 +67,16 @@ await runKeeper({
       liquidations.push({ ...account, flagTx: hash, liquidateTx: liquidateHash });
     }
 
-    ctx.log.info("perps_liquidator.scan", {
-      scanned: accounts.length,
-      liquidations,
-    });
+    // Skip the per-tick scan log when nothing happened — the empty
+    // {scanned: 0, liquidations: []} line floods dev:complete every
+    // pollMs. Log only when there's real activity OR a non-zero scan
+    // (i.e. we actually had candidates to check).
+    if (accounts.length > 0 || liquidations.length > 0) {
+      ctx.log.info("perps_liquidator.scan", {
+        scanned: accounts.length,
+        liquidations,
+      });
+    }
   },
 });
 
