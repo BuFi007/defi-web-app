@@ -19,7 +19,6 @@ import { Hint } from "./hint";
 import { OrderbookCard, OrderPanelCard, ChartCard } from "./panels";
 import {
   LoanTab,
-  LOAN_MARKETS,
   LOAN_TOKENS,
   LOAN_HUBS,
   HUB_NAME_BY_CHAIN_ID,

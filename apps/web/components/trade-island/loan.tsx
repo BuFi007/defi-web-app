@@ -65,11 +65,24 @@ export interface LoanMarket {
   hub: string;
   loan: string;
   coll: string;
-  supply: number;
-  borrow: number;
-  util: number;
-  lltv: number;
-  tvl: number;
+  /**
+   * Dynamic on-chain numbers. NULL when the /fx-telarana/markets feed
+   * hasn't responded yet (api startup, hub RPC timeout, etc.). Never
+   * seed these to fake numbers — renderers must show "—" instead so
+   * the UI cannot mislead about supply/borrow APYs, utilization, or
+   * TVL during a transient outage. Derived live in toLoanMarket() from
+   * MorphoBlue.market(id) → totalSupplyAssets / totalBorrowAssets.
+   *
+   * LLTV is a deploy-time constant (set in MarketParams when the market
+   * is created and immutable after), so it's safe to surface from the
+   * SDK manifest even if the runtime state read fails. We still type
+   * it nullable for the case where the manifest entry is missing.
+   */
+  supply: number | null;
+  borrow: number | null;
+  util: number | null;
+  lltv: number | null;
+  tvl: number | null;
   status: LoanMarketStatus;
   trend: "up" | "down";
   /** Optional onchain metadata — present for live markets. */
@@ -84,13 +97,6 @@ export interface LoanMarket {
 }
 
 export type LoanPositionKind = "supply" | "borrow";
-
-export interface LoanPosition {
-  marketId: string;
-  kind: LoanPositionKind;
-  amount: number;
-  value: number;
-}
 
 export interface LoanAction {
   id: string;
@@ -185,35 +191,30 @@ export const LOAN_HUBS: Record<string, LoanHub> = {
 export const hubRegistryAddress = (hubId: string): `0x${string}` | null =>
   HUB_REGISTRY_ADDRESS[hubId] ?? null;
 
-// Static mock fallback. Other surfaces (trade-island/index.tsx LoanFloor)
-// still import LOAN_MARKETS/LOAN_POSITIONS directly, so we preserve these
-// shapes. LoanTab itself swaps to live data below.
+// Metadata-only stub for every real market this app talks to. NO numbers.
+// Every numeric field (supply, borrow, util, lltv, tvl) is null on
+// purpose — the only acceptable source for those is the live
+// /fx-telarana/markets feed populated by `toLoanMarket()` from on-chain
+// MorphoBlue.market(id). When the api is down, renderers render "—".
+//
+// The list mirrors the deployment manifests under
+// packages/contracts/deployments/telarana-*.json. Synthetic FX rows
+// (mJPYC / mKRW1 / mZCHF / mAUDF) used to live here as table padding;
+// they're gone now because (a) they had no on-chain backing, (b) their
+// "supply / borrow" numbers were invented, and (c) we can't ever
+// promise the user an APY we can't prove on-chain.
 export const LOAN_MARKETS: LoanMarket[] = [
-  { id: "arc-usdc-eurc", hub: "arc", loan: "USDC", coll: "EURC", supply: 4.42, borrow: 7.04, util: 0.66, lltv: 0.86, tvl: 1820000, status: "live", trend: "up" },
-  { id: "arc-eurc-usdc", hub: "arc", loan: "EURC", coll: "USDC", supply: 4.10, borrow: 6.42, util: 0.58, lltv: 0.86, tvl: 1240000, status: "live", trend: "up" },
-  { id: "arc-mjpyc-usdc", hub: "arc", loan: "mJPYC", coll: "USDC", supply: 0.92, borrow: 2.40, util: 0.71, lltv: 0.82, tvl: 540000, status: "live", trend: "down" },
-  // Real AUDF markets on the Arc hub — added by fx-telarana#feat/mxnb-fuji-markets
-  // via DeployArcAudfMarkets.s.sol. M3 (audf-usdc): post USDC, borrow AUDF.
-  // M4 (usdc-audf): post AUDF, borrow USDC. Static fallback only — live
-  // state arrives via the markets API and overrides these via toLoanMarket().
-  { id: "arc-audf-usdc", hub: "arc", loan: "AUDF", coll: "USDC", supply: 9.20, borrow: 12.40, util: 0.40, lltv: 0.86, tvl: 0, status: "live", trend: "up" },
-  { id: "arc-usdc-audf", hub: "arc", loan: "USDC", coll: "AUDF", supply: 4.30, borrow: 6.50, util: 0.40, lltv: 0.86, tvl: 0, status: "live", trend: "up" },
-  { id: "arc-mkrw1-usdc", hub: "arc", loan: "mKRW1", coll: "USDC", supply: 3.40, borrow: 5.80, util: 0.46, lltv: 0.75, tvl: 86000, status: "live", trend: "up" },
-  { id: "arc-mzchf-usdc", hub: "arc", loan: "mZCHF", coll: "USDC", supply: 2.10, borrow: 4.20, util: 0.62, lltv: 0.82, tvl: 220000, status: "paused", trend: "down" },
-  { id: "fuji-usdc-eurc", hub: "fuji", loan: "USDC", coll: "EURC", supply: 4.20, borrow: 6.84, util: 0.62, lltv: 0.86, tvl: 412600, status: "live", trend: "up" },
-  // Real MXNB markets on the Fuji hub — added by
-  // fx-telarana#feat/mxnb-fuji-markets via DeployFujiMxnbMarkets.s.sol.
-  // M3 (mxnb-usdc): post USDC, borrow MXNB. M4 (usdc-mxnb): post MXNB,
-  // borrow USDC. Static fallback only — live state arrives via the
-  // markets API and overrides these via toLoanMarket().
-  { id: "fuji-mxnb-usdc", hub: "fuji", loan: "MXNB", coll: "USDC", supply: 9.20, borrow: 12.40, util: 0.40, lltv: 0.86, tvl: 0, status: "live", trend: "up" },
-  { id: "fuji-usdc-mxnb", hub: "fuji", loan: "USDC", coll: "MXNB", supply: 4.30, borrow: 6.50, util: 0.40, lltv: 0.86, tvl: 0, status: "live", trend: "up" },
-];
-
-export const LOAN_POSITIONS: LoanPosition[] = [
-  { marketId: "arc-usdc-eurc", kind: "supply", amount: 4820.4, value: 4820.4 },
-  { marketId: "fuji-usdc-eurc", kind: "supply", amount: 1500.0, value: 1500.0 },
-  { marketId: "arc-mjpyc-usdc", kind: "borrow", amount: 320000, value: 2073.6 },
+  // Arc Testnet — M1 + M2 (EURC/USDC), M3 + M4 (AUDF/USDC).
+  // Deployed in fx-telarana#feat/mxnb-fuji-markets.
+  { id: "arc-usdc-eurc", hub: "arc", loan: "USDC", coll: "EURC", supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
+  { id: "arc-eurc-usdc", hub: "arc", loan: "EURC", coll: "USDC", supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
+  { id: "arc-audf-usdc", hub: "arc", loan: "AUDF", coll: "USDC", supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
+  { id: "arc-usdc-audf", hub: "arc", loan: "USDC", coll: "AUDF", supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
+  // Avalanche Fuji — M1 + M2 (EURC/USDC), M3 + M4 (MXNB/USDC).
+  // Deployed in fx-telarana#feat/mxnb-fuji-markets.
+  { id: "fuji-usdc-eurc", hub: "fuji", loan: "USDC", coll: "EURC", supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
+  { id: "fuji-mxnb-usdc", hub: "fuji", loan: "MXNB", coll: "USDC", supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
+  { id: "fuji-usdc-mxnb", hub: "fuji", loan: "USDC", coll: "MXNB", supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
 ];
 
 // Ordered as two pairs: [lend, withdraw] (supply side) and [borrow, repay]
@@ -240,8 +241,12 @@ export const HUB_NAME_BY_CHAIN_ID: Record<number, "arc" | "fuji"> = { 5042002: "
 const fmtCompact = (n: number) =>
   n >= 1e6 ? "$" + (n / 1e6).toFixed(2) + "M" : n >= 1e3 ? "$" + (n / 1e3).toFixed(0) + "k" : "$" + n.toFixed(0);
 
-const fmtAmt = (n: number) =>
-  n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1e3 ? (n / 1e3).toFixed(0) + "k" : n.toFixed(0);
+// Render a nullable numeric field. Null means "live api hasn't reported
+// yet" — never invent a number, just show the em-dash. Every loan-tab
+// surface that touches supply / borrow / util / lltv / tvl goes through
+// this so a fake APY can't slip back in via copy-paste.
+const fmtOrDash = (n: number | null | undefined, fmt: (x: number) => string): string =>
+  n == null || !Number.isFinite(n) ? "—" : fmt(n);
 
 export function symbolForToken(address: Address): string {
   // All addresses lower-cased. Sources: Circle canonical testnet docs
@@ -311,16 +316,33 @@ function toLoanMarket(market: TelaranaMarketSerialized): LoanMarket {
   const loanSym = symbolForToken(market.loanToken);
   const collSym = symbolForToken(market.collateralToken);
   const hub = HUB_NAME_BY_CHAIN_ID[market.hubChainId];
-  const supplyAssets = market.state ? BigInt(market.state.totalSupplyAssets) : 0n;
-  const borrowAssets = market.state ? BigInt(market.state.totalBorrowAssets) : 0n;
-  const util = supplyAssets > 0n ? Number((borrowAssets * 10_000n) / supplyAssets) / 10_000 : 0;
-  const tvlAtomic = supplyAssets - borrowAssets;
-  const tvl = Number(tvlAtomic / 10n ** 4n) / 100; // 6-dp → USD
-  const lltv = Number(BigInt(market.lltv) / 10n ** 14n) / 10_000;
+  // Distinguish "market.state was provided as zero" (real on-chain
+  // zero — show 0% / $0) from "the SDK couldn't fetch state at all"
+  // (return nulls so the row renders "—"). The former is honest
+  // empty-market data, the latter is a feed gap and rendering 0%
+  // would mislead the user the same way the old 4.42 seed did.
+  const hasState = Boolean(market.state);
+  const supplyAssets = hasState ? BigInt(market.state!.totalSupplyAssets) : 0n;
+  const borrowAssets = hasState ? BigInt(market.state!.totalBorrowAssets) : 0n;
+  const util = hasState
+    ? supplyAssets > 0n
+      ? Number((borrowAssets * 10_000n) / supplyAssets) / 10_000
+      : 0
+    : null;
+  // 6-dp atomic → USD float. We assume both stables sit at 6 decimals
+  // on every deployed market (USDC, EURC, MXNB, AUDF are all 6-dp on
+  // testnets per their issuer docs); revisit when a 18-dp loan asset
+  // lands.
+  const tvl = hasState ? Number((supplyAssets - borrowAssets) / 10n ** 4n) / 100 : null;
+  // LLTV is an immutable MarketParams field — the SDK fills it even when
+  // the runtime state read fails, so it's safe to surface unconditionally.
+  const lltv = market.lltv ? Number(BigInt(market.lltv) / 10n ** 14n) / 10_000 : null;
   // IrmMock: borrowAPR ≡ utilization (fraction). Convert to percentage
-  // for the UI. Supply ≈ borrow × util (Morpho fee defaults to 0).
-  const borrow = util * 100;
-  const supply = util * util * 100;
+  // for the UI. Supply ≈ borrow × util (Morpho fee defaults to 0). When
+  // the protocol swaps in the adaptive IRM, replace these two lines
+  // with a real `borrowRateView(...)` call surfaced via the SDK.
+  const borrow = util != null ? util * 100 : null;
+  const supply = util != null ? util * util * 100 : null;
   return {
     id: `${hub}-${loanSym.toLowerCase()}-${collSym.toLowerCase()}`,
     hub,
@@ -669,14 +691,22 @@ function MarketsTable({
                     >
                       {shortHex(hub.address)}
                     </a>
-                    <span className="lo-trow-lltv">· {Math.round(m.lltv * 100)}% LLTV</span>
+                    <span className="lo-trow-lltv">
+                      · {fmtOrDash(m.lltv, (x) => `${Math.round(x * 100)}%`)} LLTV
+                    </span>
                   </div>
                 </div>
               </div>
-              <span className="mono profit lo-trow-num">{m.supply.toFixed(2)}%</span>
-              <span className="mono loss lo-trow-num">{m.borrow.toFixed(2)}%</span>
-              <span className="mono lo-trow-num">{Math.round(m.util * 100)}%</span>
-              <span className="mono lo-trow-num">{fmtCompact(m.tvl)}</span>
+              <span className="mono profit lo-trow-num">
+                {fmtOrDash(m.supply, (x) => `${x.toFixed(2)}%`)}
+              </span>
+              <span className="mono loss lo-trow-num">
+                {fmtOrDash(m.borrow, (x) => `${x.toFixed(2)}%`)}
+              </span>
+              <span className="mono lo-trow-num">
+                {fmtOrDash(m.util, (x) => `${Math.round(x * 100)}%`)}
+              </span>
+              <span className="mono lo-trow-num">{fmtOrDash(m.tvl, fmtCompact)}</span>
               <span className="lo-trow-spark">
                 <MarketSpark market={m} />
               </span>
@@ -1122,8 +1152,13 @@ export function ActionCard({
 }: ActionCardProps) {
   const loan = LOAN_TOKENS[market.loan] ?? LOAN_TOKENS.USDC;
   const A = ACTIONS.find((a) => a.id === action) || ACTIONS[0];
-  const rate = A.side === "supply" ? market.supply : market.borrow;
+  // rate is nullable until the /fx-telarana/markets feed lands. The
+  // earnings projection treats null as 0 for math purposes (no fake
+  // yearly/monthly/daily) but the header pill renders "—" instead of a
+  // fabricated APR/APY.
+  const rate: number | null = A.side === "supply" ? market.supply : market.borrow;
   const rateLabel = A.side === "supply" ? "APY" : "APR";
+  const rateForMath = rate ?? 0;
 
   // Wallet balance for the loan token on the hub chain. The card lists
   // this as "BALANCE" above the amount input — for lend/borrow it's the
@@ -1151,7 +1186,7 @@ export function ActionCard({
   const usd = amt * loan.price;
   const inverse = findInverse(market, marketsList ?? LOAN_MARKETS);
 
-  const yearly = (usd * rate) / 100;
+  const yearly = (usd * rateForMath) / 100;
   const monthly = yearly / 12;
   const daily = yearly / 365;
 
@@ -1209,7 +1244,7 @@ export function ActionCard({
           className="lo-rate mono"
           style={{ color: A.side === "supply" ? "var(--profit-ink)" : "var(--loss-ink)" }}
         >
-          {rate.toFixed(2)}% {rateLabel}
+          {fmtOrDash(rate, (x) => `${x.toFixed(2)}%`)} {rateLabel}
         </span>
       </div>
 
@@ -1325,80 +1360,12 @@ export function ActionCard({
   );
 }
 
-export function Positions({ onJump }: { onJump: (id: string) => void }) {
-  return (
-    <section className="lo-positions">
-      <div className="lo-positions-head">
-        <div className="lo-positions-title">
-          Your positions
-          <Hint w={240}>Open positions across both hubs. Click to jump to that market.</Hint>
-        </div>
-        <span className="lo-positions-addr mono">0x15b0…b5df32</span>
-      </div>
-      <div className="lo-positions-table">
-        <div className="lo-positions-thead">
-          <span>Asset</span>
-          <span>Market</span>
-          <span style={{ textAlign: "right" }}>Amount</span>
-          <span style={{ textAlign: "right" }}>Value</span>
-          <span style={{ textAlign: "right" }}>Rate</span>
-        </div>
-        {LOAN_POSITIONS.map((p, i) => {
-          const m = LOAN_MARKETS.find((mm) => mm.id === p.marketId);
-          if (!m) return null;
-          const tok = LOAN_TOKENS[m.loan];
-          const rate = p.kind === "supply" ? m.supply : m.borrow;
-          const hub = LOAN_HUBS[m.hub];
-          return (
-            <button key={i} className="lo-positions-row" onClick={() => onJump(m.id)}>
-              <div className="lo-pos-asset">
-                <FxChip sym={tok.sym} size={24} />
-                <div>
-                  <div className="lo-pos-sym">
-                    {tok.sym}
-                    <span className={"lo-pos-tag " + p.kind}>{p.kind === "supply" ? "Supplied" : "Borrowed"}</span>
-                  </div>
-                  <div className="lo-pos-name">{tok.name}</div>
-                </div>
-              </div>
-              <div className="lo-pos-market">
-                <span>
-                  <span className="mkt-loan">{m.loan}</span>
-                  <span className="mkt-slash">/</span>
-                  <span className="mkt-coll">{m.coll}</span>
-                </span>
-                <span className="lo-pos-hub">
-                  via <HubPip hub={hub} size={18} /> {hub.short} ·{" "}
-                  <a
-                    className="mono lo-trow-addr"
-                    href={blockExplorerUrl(hub.chainId, hub.address)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={`FxMarketRegistry — open on ${
-                      hub.chainId === 5042002 ? "Arcscan" : "Snowtrace"
-                    }`}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {shortHex(hub.address)}
-                  </a>
-                </span>
-              </div>
-              <div className="lo-pos-num mono">{fmtAmt(p.amount)}</div>
-              <div className="lo-pos-num mono">{fmtCompact(p.value)}</div>
-              <div
-                className="lo-pos-num mono"
-                style={{ color: p.kind === "supply" ? "var(--profit-ink)" : "var(--loss-ink)" }}
-              >
-                {p.kind === "supply" ? "+" : "−"}
-                {rate.toFixed(2)}%
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
+// The old `Positions` component rendered the LOAN_POSITIONS demo array
+// (hardcoded 4,820.4 supply, 320,000 borrow, etc.) as if those were the
+// user's real positions. Removed 2026-05-18 along with LOAN_POSITIONS
+// — the real positions surface is PositionsOnlyTab in trade-island/
+// index.tsx, which reads useTelaranaPositions() and joins against
+// useTelaranaMarkets() for live state. No caller imports `Positions`.
 
 // ────────────────────────────── live LoanTab ───────────────────────────────
 
