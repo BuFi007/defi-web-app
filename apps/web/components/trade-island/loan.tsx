@@ -441,49 +441,77 @@ export function StatusTag({ status }: { status: LoanMarketStatus }) {
 
 /**
  * Map a loan-market loan/collateral pair to the Pyth Benchmarks FX
- * symbol that feeds it. Returns null for markets where the two legs are
- * both USD-pegged (no meaningful price line) or where no upstream feed
- * exists (synthetic m-prefixed placeholders that haven't been wired to
- * an issuer contract yet).
+ * symbol that feeds it AND whether the resulting candle stream needs
+ * to be inverted (1/price) to express the market's true direction.
+ *
+ * Pyth only publishes canonical pairs (e.g. EUR/USD, USD/MXN), so the
+ * reverse direction (USDC/EURC, MXNB/USDC) is the multiplicative
+ * inverse of the upstream feed. Returning `invert: true` tells the
+ * caller to apply `1/c` to every close so the spark for USDC/EURC
+ * actually mirrors EURC/USDC instead of duplicating it.
+ *
+ * Returns null for markets where the two legs are both USD-pegged
+ * (no meaningful price line) or where no upstream feed exists
+ * (synthetic m-prefixed placeholders not yet wired to an issuer).
  */
-function loanMarketPythSymbol(market: LoanMarket): string | null {
-  const a = market.loan.toUpperCase();
-  const b = market.coll.toUpperCase();
-  // Both legs are USD-anchored → no price movement to chart.
-  const isUsdPeg = (sym: string) =>
-    sym === "USDC" || sym === "USDT" || sym === "DAI" || sym === "USD";
-  if (isUsdPeg(a) && isUsdPeg(b)) return null;
-  const nonUsd = isUsdPeg(a) ? b : a;
-  switch (nonUsd) {
+const USD_PEGS = new Set(["USDC", "USDT", "DAI", "USD"]);
+
+function normalizeFxCode(sym: string): string {
+  const s = sym.toUpperCase();
+  if (USD_PEGS.has(s)) return "USD";
+  switch (s) {
     case "EURC":
-    case "EUR":
-      return "EUR/USD";
+      return "EUR";
     case "MXNB":
     case "MMXNB":
-    case "MXN":
-      return "USD/MXN";
+      return "MXN";
     case "MJPYC":
     case "JPYC":
-    case "JPY":
-      return "USD/JPY";
+      return "JPY";
     case "MAUDF":
     case "AUDF":
-    case "AUD":
-      return "AUD/USD";
+      return "AUD";
     case "MKRW1":
     case "KRW1":
-    case "KRW":
-      return "USD/KRW";
+      return "KRW";
     case "MZCHF":
     case "ZCHF":
-    case "CHF":
-      return "USD/CHF";
+      return "CHF";
     case "BRLA":
-    case "BRL":
-      return "USD/BRL";
+      return "BRL";
     default:
-      return null;
+      return s;
   }
+}
+
+function loanMarketPythSymbol(
+  market: LoanMarket,
+): { feed: string; invert: boolean } | null {
+  const loan = normalizeFxCode(market.loan);
+  const coll = normalizeFxCode(market.coll);
+  // Both legs USD-anchored → flat line, skip charting.
+  if (loan === "USD" && coll === "USD") return null;
+  // The non-USD currency determines which Pyth pair to read; the
+  // direction (invert?) is decided by which side of the market is the
+  // loan token. A chart for `loan/coll` shows "1 loan-token in coll-
+  // token", so:
+  //   • feed base === loan → use as-is
+  //   • feed base === coll (i.e. feed quote === loan) → invert
+  const nonUsd = loan === "USD" ? coll : loan;
+  const CANONICAL: Record<string, string> = {
+    EUR: "EUR/USD",
+    MXN: "USD/MXN",
+    JPY: "USD/JPY",
+    AUD: "AUD/USD",
+    KRW: "USD/KRW",
+    CHF: "USD/CHF",
+    BRL: "USD/BRL",
+  };
+  const feed = CANONICAL[nonUsd];
+  if (!feed) return null;
+  const [feedBase] = feed.split("/");
+  const invert = feedBase !== loan;
+  return { feed, invert };
 }
 
 /**
@@ -499,14 +527,14 @@ function loanMarketPythSymbol(market: LoanMarket): string | null {
  * 24-point timeline and keeps the table snappy.
  */
 export function MarketSpark({ market }: { market: LoanMarket }) {
-  const feed = loanMarketPythSymbol(market);
+  const feedSpec = loanMarketPythSymbol(market);
   const { data: resp, isLoading } = useMarketCandles({
-    sym: feed ?? undefined,
+    sym: feedSpec?.feed,
     tf: "1H",
     limit: 24,
   });
 
-  if (!feed) {
+  if (!feedSpec) {
     return (
       <span
         className="lo-spark"
@@ -542,7 +570,13 @@ export function MarketSpark({ market }: { market: LoanMarket }) {
     );
   }
 
-  const closes = candles.map((c) => c.c);
+  // Pyth ships a single canonical pair per FX feed (e.g. EUR/USD). For
+  // markets where the loan token sits on the quote side of the canonical
+  // pair (USDC/EURC, MXNB/USDC, etc.), the displayed price moves OPPOSITE
+  // to the raw feed, so we invert each close before charting.
+  const closes = candles.map((c) =>
+    feedSpec.invert && c.c !== 0 ? 1 / c.c : c.c,
+  );
   const min = Math.min(...closes);
   const max = Math.max(...closes);
   const range = max - min || 1;
@@ -575,7 +609,7 @@ export function MarketSpark({ market }: { market: LoanMarket }) {
       preserveAspectRatio="none"
       style={{ display: "block", width: "100%", height: H }}
       role="img"
-      aria-label={`${feed} 24h sparkline (${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%)`}
+      aria-label={`${market.loan}/${market.coll} 24h sparkline (${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%)`}
     >
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
@@ -602,7 +636,7 @@ export function MarketSpark({ market }: { market: LoanMarket }) {
         strokeWidth="1.4"
         vectorEffect="non-scaling-stroke"
       />
-      <title>{`${feed} · 24h ${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%`}</title>
+      <title>{`${market.loan}/${market.coll} · 24h ${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%`}</title>
     </svg>
   );
 }

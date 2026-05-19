@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
 import { AnimatePresence, motion } from "framer-motion";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+
+import { truncateAddress } from "@/utils";
 
 import {
   ALL_MARKETS,
@@ -112,13 +115,49 @@ function liveToPositionRow(p: PerpsPositionDto): PositionRow {
   };
 }
 
+// Display name resolution for leaderboard rows. Dynamic exposes
+// `username` (the slug the user picks at signup), with `alias`,
+// `firstName`, and `email` as progressively-less-friendly fallbacks.
+// When none of those exist (extension-wallet-only connection, no
+// social-auth profile), fall back to a truncated address so the row
+// still renders identifiably instead of "Anonymous".
+function resolveDisplayName(
+  user: ReturnType<typeof useDynamicContext>["user"],
+  address: string | null | undefined,
+): string {
+  const username = user?.username?.trim();
+  if (username) return username;
+  const alias = user?.alias?.trim();
+  if (alias) return alias;
+  const firstName = user?.firstName?.trim();
+  if (firstName) return firstName;
+  const email = user?.email?.trim();
+  if (email) return email.split("@")[0] ?? email;
+  if (address) return truncateAddress(address, 6);
+  return "Anonymous";
+}
+
 function LeadersTab() {
   // The hardcoded 6-trader leaderboard (kawaii_whale, zen_trader_42, etc.)
-  // was removed 2026-05-18. The global perp-trading leaderboard endpoint
-  // doesn't exist yet — fx-bento has /rooms/:id/leaderboard for per-room
-  // arcade scores, but no cross-room aggregate. Until the API ships
-  // /perps/leaderboard (or the Ponder indexer surfaces a cumulative-PnL
-  // view), render an honest empty state instead of fabricated traders.
+  // was removed 2026-05-18. The cross-trader Ponder leaderboard endpoint
+  // still hasn't shipped, but we can render the connected trader's own
+  // standings from live /perps/positions data — using the Dynamic
+  // username they picked at signup as the display label, exactly like
+  // the eventual multi-row leaderboard will.
+  const { address } = useAccount();
+  const { user } = useDynamicContext();
+  const { data: livePositions, isLoading } = usePositions();
+
+  const rows = livePositions ?? [];
+  const totalPnl = rows.reduce(
+    (s, p) => s + (p.unrealizedPnlUsdc ? Number(p.unrealizedPnlUsdc) : 0),
+    0,
+  );
+  const totalMargin = rows.reduce((s, p) => s + (Number(p.requiredMargin) || 0), 0);
+  const roiPct = totalMargin > 0 ? (totalPnl / totalMargin) * 100 : null;
+  const displayName = resolveDisplayName(user, address);
+  const hasStandings = Boolean(address) && rows.length > 0;
+
   return (
     <div className="leaders-tab">
       <div className="leaders-period">
@@ -133,11 +172,66 @@ function LeadersTab() {
           </button>
         ))}
       </div>
-      <EmptyState
-        lottie="star-lottie"
-        title="Leaderboard launching with the matcher GA"
-        description="Rankings will surface from the Ponder cumulative-PnL view once the indexer reaches steady state on Fuji + Arc."
-      />
+
+      {!address && (
+        <EmptyState
+          lottie="green-man"
+          title="Connect a wallet to see your standings"
+          description="The cross-trader leaderboard ships with the Ponder cumulative-PnL view. Until then, sign in to see your own live rank."
+        />
+      )}
+
+      {address && isLoading && rows.length === 0 && (
+        <EmptyState lottie="process" title="Loading your standings…" />
+      )}
+
+      {address && !isLoading && rows.length === 0 && (
+        <EmptyState
+          lottie="chiquito"
+          title={`No open positions for ${displayName}`}
+          description="Place a perp trade to start accruing rank-worthy PnL."
+        />
+      )}
+
+      {hasStandings && (
+        <table className="table leaders-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Trader</th>
+              <th>Open</th>
+              <th>Margin</th>
+              <th>PnL</th>
+              <th>ROI</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <span className="rank-badge rank-1">1</span>
+              </td>
+              <td>
+                <div style={{ fontWeight: 800 }}>{displayName}</div>
+                <div style={{ fontSize: 10.5, color: "var(--ink-3)", fontWeight: 700 }}>
+                  {address ? truncateAddress(address, 6) : "—"}
+                </div>
+              </td>
+              <td className="mono">{rows.length}</td>
+              <td className="mono">{fmtUSD(totalMargin)}</td>
+              <td
+                className="mono"
+                style={{
+                  color: totalPnl >= 0 ? "var(--profit-ink)" : "var(--loss-ink)",
+                  fontWeight: 800,
+                }}
+              >
+                {(totalPnl >= 0 ? "+" : "") + fmtUSD(totalPnl)}
+              </td>
+              <td className="mono">{roiPct === null ? "—" : fmtPct(roiPct)}</td>
+            </tr>
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
