@@ -64,6 +64,7 @@
     "canvas-confetti": "1.9.3",
     "class-variance-authority": "0.7.0",
     "clsx": "2.1.1",
+    "comlink": "4.4.2",
     "d3-array": "3.2.4",
     "encoding": "0.1.13",
     "ethers": "5",
@@ -102,6 +103,11 @@
     "viem": "2.45.3",
     "wagmi": "2.14.11",
     "zustand": "5.0.13"
+  },
+  "optionalDependencies": {
+    "@noir-lang/noir_js": "0.34.0",
+    "@noir-lang/backend_barretenberg": "0.34.0",
+    "snarkjs": "0.7.5"
   },
   "devDependencies": {
     "@playwright/test": "1.49.1",
