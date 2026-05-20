@@ -18,6 +18,7 @@ export function ModeToggle() {
   const { resolvedTheme, switchTheme, ref: spacemanRef } = useSpacemanTheme();
   const { isGhostMode, setGhostMode, isHydrated } = useGhostMode();
   const [showNotice, setShowNotice] = useState(false);
+  const [adMode, setAdMode] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
@@ -27,10 +28,51 @@ export function ModeToggle() {
     [],
   );
 
+  // Light-mode private-trading advertisement loop. The toggle already
+  // has a dynamic-island morph (the `showNotice` "Ghost Mode — You can
+  // now trade privately" pill). We reuse it as a periodic ad while the
+  // user is in light mode + hydrated so they discover the feature
+  // without us shipping a separate widget. Skipped entirely once they
+  // flip to dark / ghost — at that point the affordance has done its
+  // job. The first impression fires 12s after the page settles, then
+  // every 38s for ~3.8s.
+  useEffect(() => {
+    if (!isHydrated || isGhostMode) {
+      setAdMode(false);
+      return;
+    }
+    let hideTimer: ReturnType<typeof setTimeout> | undefined;
+    const showAd = () => {
+      setAdMode(true);
+      hideTimer = setTimeout(() => setAdMode(false), 3800);
+    };
+    const first = setTimeout(showAd, 12_000);
+    const interval = setInterval(showAd, 38_000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(interval);
+      if (hideTimer) clearTimeout(hideTimer);
+      setAdMode(false);
+    };
+  }, [isHydrated, isGhostMode]);
+
   // Anti-flash: while hydrating, fall back to whatever the provider has applied.
   const inGhostMode = isHydrated ? isGhostMode : resolvedTheme === "dark";
 
   const handleClick = () => {
+    // If the auto-ad is showing, the user is acknowledging it — clicking
+    // both dismisses the ad AND flips into ghost mode (the ad's whole
+    // purpose). When idle, click toggles ghost mode normally.
+    if (adMode) {
+      setAdMode(false);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      setGhostMode(true);
+      void switchTheme("dark");
+      setShowNotice(true);
+      timerRef.current = setTimeout(() => setShowNotice(false), 3800);
+      return;
+    }
+
     const nextGhost = !isGhostMode;
     setGhostMode(nextGhost);
 
@@ -46,8 +88,12 @@ export function ModeToggle() {
     }
   };
 
-  const currentSize = showNotice ? SIZES.notice : SIZES.idle;
-  const backgroundColor = showNotice
+  // The expanded "notice" pill renders for both the post-click confirmation
+  // AND the periodic light-mode ad. They share the same DOM + animation
+  // so the UI language is one consistent dynamic island, not two widgets.
+  const expanded = showNotice || adMode;
+  const currentSize = expanded ? SIZES.notice : SIZES.idle;
+  const backgroundColor = expanded
     ? "rgba(10, 8, 18, 0.96)"
     : resolvedTheme === "dark"
       ? "rgba(27, 20, 45, 0.96)"
@@ -68,11 +114,13 @@ export function ModeToggle() {
       transition={{ type: "spring", bounce: 0.32, duration: 0.5 }}
       style={{ transformOrigin: "0% 50%" }}
       aria-label={
-        showNotice
-          ? "Dismiss Ghost Mode"
-          : inGhostMode
-            ? "Leave Ghost Mode"
-            : "Enter Ghost Mode"
+        adMode
+          ? "Enter Ghost Mode — trade privately"
+          : showNotice
+            ? "Dismiss Ghost Mode"
+            : inGhostMode
+              ? "Leave Ghost Mode"
+              : "Enter Ghost Mode"
       }
       aria-pressed={inGhostMode}
       className={cn(
@@ -83,7 +131,7 @@ export function ModeToggle() {
       )}
     >
       <AnimatePresence mode="wait" initial={false}>
-        {showNotice ? (
+        {expanded ? (
           <motion.div
             key="notice"
             initial={{ opacity: 0, scale: 0.94, filter: "blur(6px)" }}
@@ -109,10 +157,12 @@ export function ModeToggle() {
             </span>
             <div className="leading-tight min-w-0 flex-1 text-left">
               <div className="text-[12px] font-semibold text-white tracking-tight">
-                Ghost Mode
+                {adMode ? "Trade privately" : "Ghost Mode"}
               </div>
               <div className="text-[10px] text-white/55 truncate">
-                You can now trade privately
+                {adMode
+                  ? "Tap to enter Ghost Mode"
+                  : "You can now trade privately"}
               </div>
             </div>
           </motion.div>

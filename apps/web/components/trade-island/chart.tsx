@@ -42,6 +42,7 @@ import {
   type CandleSource,
 } from "@bufi/market-data";
 import { useLiveMarket } from "@/lib/perps/use-live-market";
+import { useSpacemanTheme } from "@/components/theme-provider";
 import type { Market } from "./data";
 
 export interface CandleChartProps {
@@ -80,7 +81,27 @@ type ThemeTokens = {
   primaryInk: string;
 };
 
-function readThemeTokens(): ThemeTokens {
+/** Stealth palette used when Private Trading mode is ON. Mirrors the
+ *  same token shape as the live CSS-variable read, but with values
+ *  hardcoded to a deep navy/black so the chart reads as private
+ *  regardless of the user's overall light/dark preference. */
+const PRIVATE_TOKENS: ThemeTokens = {
+  surface: "#0c0a1f",
+  surface2: "#15123a",
+  border: "#241d4f",
+  ink: "#f0ecff",
+  ink3: "#8479c4",
+  ink4: "#5a4f87",
+  profit: "#5b4ccd",
+  profitInk: "#a89dff",
+  loss: "#a64682",
+  lossInk: "#ff84d4",
+  primary: "#8474ff",
+  primaryInk: "#a89dff",
+};
+
+function readThemeTokens(privateMode = false): ThemeTokens {
+  if (privateMode) return PRIVATE_TOKENS;
   if (typeof window === "undefined") {
     return {
       surface: "#ffffff",
@@ -132,6 +153,14 @@ export function CandleChart({
   entryPrice,
   markPrice,
 }: CandleChartProps) {
+  // Chart palette follows the RESOLVED THEME, not the Ghost Mode flag
+  // directly. Dark theme === private trading visual (the stealth
+  // PRIVATE_TOKENS) — so the chart can never visually drift from the
+  // rest of the UI even if `isGhostMode` and the persisted theme
+  // happen to diverge on first paint. The ModeToggle ensures both
+  // flags flip together when the user clicks.
+  const { resolvedTheme } = useSpacemanTheme();
+  const privateMode = resolvedTheme === "dark";
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -141,6 +170,11 @@ export function CandleChart({
   // Tracks the last seed candle pushed into the series so live updates fold
   // the new mark into the *latest* bar instead of appending a fresh one.
   const lastCandleRef = useRef<Candle | null>(null);
+  // Cache of the historical candle array so the private-mode theme swap
+  // can re-color the volume bars in-place without a Pyth Benchmarks
+  // re-fetch. Filled from the load effect; cleared on market/timeframe
+  // change via the load effect's reset path.
+  const candlesRef = useRef<Candle[]>([]);
   const [hover, setHover] = useState<Candle | null>(null);
   // Tri-state for the "no historical OHLCV yet" overlay. 'loading' on
   // first mount + every market/tf change; 'ready' once candles arrive
@@ -158,7 +192,7 @@ export function CandleChart({
   // Chart lifecycle — create once, dispose on unmount.
   useEffect(() => {
     if (!containerRef.current) return;
-    const t = readThemeTokens();
+    const t = readThemeTokens(privateMode);
     const chart = createChart(containerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: t.surface },
@@ -250,6 +284,69 @@ export function CandleChart({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Theme swap effect — re-applies layout / grid / scale colors AND
+  // candle/volume series colors to the existing chart instance when
+  // `privateMode` flips. No chart teardown; lightweight-charts handles
+  // applyOptions reactively. Skipped on first paint because the create
+  // effect above already builds the chart with the correct palette
+  // (since `privateMode` is read synchronously there).
+  useEffect(() => {
+    const chart = chartRef.current;
+    const candleSeries = candleSeriesRef.current;
+    const volumeSeries = volumeSeriesRef.current;
+    const oracleSeries = oracleSeriesRef.current;
+    if (!chart || !candleSeries || !volumeSeries || !oracleSeries) return;
+    const t = readThemeTokens(privateMode);
+    chart.applyOptions({
+      layout: {
+        background: { type: ColorType.Solid, color: t.surface },
+        textColor: t.ink3,
+      },
+      grid: {
+        vertLines: { color: t.border, style: LineStyle.Dotted },
+        horzLines: { color: t.border, style: LineStyle.Dotted },
+      },
+      rightPriceScale: { borderColor: t.border, textColor: t.ink4 },
+      timeScale: { borderColor: t.border },
+      crosshair: {
+        vertLine: {
+          color: t.ink3,
+          width: 1,
+          style: LineStyle.Dashed,
+          labelBackgroundColor: t.primary,
+        },
+        horzLine: {
+          color: t.ink3,
+          width: 1,
+          style: LineStyle.Dashed,
+          labelBackgroundColor: t.primary,
+        },
+      },
+    });
+    candleSeries.applyOptions({
+      upColor: t.profit,
+      downColor: t.loss,
+      borderUpColor: t.profitInk,
+      borderDownColor: t.lossInk,
+      wickUpColor: t.profitInk,
+      wickDownColor: t.lossInk,
+    });
+    oracleSeries.applyOptions({ color: withAlpha(t.primary, "66") });
+    // Volume bar colors are per-data-point, so applyOptions isn't enough —
+    // we have to re-emit the volume array with new colors. Cached candles
+    // mean no network round-trip.
+    const cached = candlesRef.current;
+    if (cached.length > 0) {
+      volumeSeries.setData(
+        cached.map((c) => ({
+          time: c.time as UTCTimestamp,
+          value: c.v,
+          color: c.c >= c.o ? withAlpha(t.profit, "55") : withAlpha(t.loss, "55"),
+        })),
+      );
+    }
+  }, [privateMode]);
+
   // Historical OHLCV load — fires on symbol / timeframe / source change.
   // Pyth Hermes pushes a live mark price several times per second, which
   // mutates `market.price`; if it lived in this dep list the load would
@@ -280,7 +377,7 @@ export function CandleChart({
       const chart = chartRef.current;
       if (!candleSeries || !volumeSeries || !oracleSeries || !chart) return;
 
-      const t = readThemeTokens();
+      const t = readThemeTokens(privateMode);
       const candleData: CandlestickData<UTCTimestamp>[] = candles.map((c) => ({
         time: c.time as UTCTimestamp,
         open: c.o,
@@ -296,6 +393,7 @@ export function CandleChart({
       candleSeries.setData(candleData);
       volumeSeries.setData(volumeData);
       lastCandleRef.current = candles.length ? candles[candles.length - 1] : null;
+      candlesRef.current = candles;
       setChartStatus(candles.length > 0 ? "ready" : "empty");
 
       if (oracleLine && oracleLine.length === candles.length) {
@@ -342,7 +440,7 @@ export function CandleChart({
   useEffect(() => {
     const candleSeries = candleSeriesRef.current;
     if (!candleSeries) return;
-    const t = readThemeTokens();
+    const t = readThemeTokens(privateMode);
     for (const pl of priceLinesRef.current) candleSeries.removePriceLine(pl);
     priceLinesRef.current = [];
 
@@ -382,7 +480,9 @@ export function CandleChart({
         }),
       );
     }
-  }, [entryPrice, liquidationPrice, markPrice]);
+    // privateMode in deps so entry/liq/mark line colors swap with the
+    // palette when stealth mode flips.
+  }, [entryPrice, liquidationPrice, markPrice, privateMode]);
 
   // Live-tick fold-in. Only runs when `liveSource === 'ws'` AND the hook has
   // delivered a tick. We mutate the in-memory `lastCandleRef` so subsequent

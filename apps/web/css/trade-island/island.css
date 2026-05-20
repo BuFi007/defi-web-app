@@ -76,6 +76,7 @@ body[data-banner="open"] .island {
   flex-shrink: 0;
 }
 
+
 .island-tabs {
   display: flex; align-items: center; gap: 4px;
   background: var(--surface-3);
