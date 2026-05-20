@@ -1,9 +1,104 @@
 {
-  "status": "blocked",
-  "reason": "missing required env vars in .env.local: DEMO_MAKER_PRIVATE_KEY, DEMO_TAKER_PRIVATE_KEY",
-  "needed": [
-    "DEMO_MAKER_PRIVATE_KEY",
-    "DEMO_TAKER_PRIVATE_KEY"
+  "status": "ok",
+  "chain": "arc-testnet",
+  "chainId": 5042002,
+  "marketId": "0x565a6e2fab61800aa18813603b5b485af5bed7dea1aa0845bdaa61502063cab8",
+  "marketSymbol": "EURC/USDC",
+  "timestamp": "2026-05-20T03:46:57.278Z",
+  "trader": {
+    "maker": "0xa00b6D3a1C999DEc09EE1178d61EDC520c7d7AB9",
+    "taker": "0xca437B03CDb1f2BCddB49dc45e267fc7038291fD",
+    "settler": "0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69"
+  },
+  "fillSizeE18": "1000000000000000000",
+  "fillPriceE18": "1160888358764309612",
+  "deposits": [
+    {
+      "trader": "maker",
+      "address": "0xa00b6D3a1C999DEc09EE1178d61EDC520c7d7AB9",
+      "skipped": "existing margin 10000000"
+    },
+    {
+      "trader": "taker",
+      "address": "0xca437B03CDb1f2BCddB49dc45e267fc7038291fD",
+      "skipped": "existing margin 10000000"
+    }
   ],
-  "hint": "Generate two trader EOAs (e.g. `cast wallet new`), set DEMO_MAKER_PRIVATE_KEY and DEMO_TAKER_PRIVATE_KEY in .env.local, fund both addresses with ≥10 USDC on Arc Testnet via https://faucet.circle.com, then re-run this script."
+  "open": {
+    "tx": "0x6801b7425d259e6bfdf7febd3c05de7dc272c73a2ab2062fbe8b18c6764c4d95",
+    "explorer": "https://testnet.arcscan.app/tx/0x6801b7425d259e6bfdf7febd3c05de7dc272c73a2ab2062fbe8b18c6764c4d95",
+    "fillSizeE18": "1000000000000000000",
+    "fillPriceE18": "1160888358764309612",
+    "blockNumber": "43115780",
+    "gasUsed": "366757",
+    "events": {
+      "MatchSettled": {
+        "marketId": "0x565a6e2fab61800aa18813603b5b485af5bed7dea1aa0845bdaa61502063cab8",
+        "maker": "0xa00b6D3a1C999DEc09EE1178d61EDC520c7d7AB9",
+        "taker": "0xca437B03CDb1f2BCddB49dc45e267fc7038291fD",
+        "fillSizeE18": "1000000000000000000",
+        "fillPriceE18": "1160888358764309612"
+      },
+      "PositionIncreased": [
+        {
+          "marketId": "0x565a6e2fab61800aa18813603b5b485af5bed7dea1aa0845bdaa61502063cab8",
+          "trader": "0xa00b6D3a1C999DEc09EE1178d61EDC520c7d7AB9",
+          "sizeDeltaE18": "1000000000000000000",
+          "resultingSizeE18": "1000000000000000000",
+          "entryPriceE18": "1160888358764309612",
+          "marginReserved": "58044",
+          "fee": "580"
+        },
+        {
+          "marketId": "0x565a6e2fab61800aa18813603b5b485af5bed7dea1aa0845bdaa61502063cab8",
+          "trader": "0xca437B03CDb1f2BCddB49dc45e267fc7038291fD",
+          "sizeDeltaE18": "-1000000000000000000",
+          "resultingSizeE18": "-1000000000000000000",
+          "entryPriceE18": "1160888358764309612",
+          "marginReserved": "58044",
+          "fee": "580"
+        }
+      ]
+    }
+  },
+  "close": {
+    "tx": "0x2c079591257b974812759555393aecfe99baee681d7c220a06e453f4d88b0df1",
+    "explorer": "https://testnet.arcscan.app/tx/0x2c079591257b974812759555393aecfe99baee681d7c220a06e453f4d88b0df1",
+    "fillSizeE18": "1000000000000000000",
+    "fillPriceE18": "1160888358764309612",
+    "blockNumber": "43115846",
+    "gasUsed": "152244",
+    "pnlAtomic": "0",
+    "events": {
+      "MatchSettled": {
+        "marketId": "0x565a6e2fab61800aa18813603b5b485af5bed7dea1aa0845bdaa61502063cab8",
+        "maker": "0xa00b6D3a1C999DEc09EE1178d61EDC520c7d7AB9",
+        "taker": "0xca437B03CDb1f2BCddB49dc45e267fc7038291fD",
+        "fillSizeE18": "1000000000000000000",
+        "fillPriceE18": "1160888358764309612"
+      },
+      "PositionDecreased": [
+        {
+          "marketId": "0x565a6e2fab61800aa18813603b5b485af5bed7dea1aa0845bdaa61502063cab8",
+          "trader": "0xa00b6D3a1C999DEc09EE1178d61EDC520c7d7AB9",
+          "sizeDeltaE18": "-1000000000000000000",
+          "resultingSizeE18": "0",
+          "priceE18": "1160888358764309612",
+          "marginReleased": "58044",
+          "pnl": "0",
+          "badDebt": "0"
+        },
+        {
+          "marketId": "0x565a6e2fab61800aa18813603b5b485af5bed7dea1aa0845bdaa61502063cab8",
+          "trader": "0xca437B03CDb1f2BCddB49dc45e267fc7038291fD",
+          "sizeDeltaE18": "1000000000000000000",
+          "resultingSizeE18": "0",
+          "priceE18": "1160888358764309612",
+          "marginReleased": "58044",
+          "pnl": "0",
+          "badDebt": "0"
+        }
+      ]
+    }
+  }
 }

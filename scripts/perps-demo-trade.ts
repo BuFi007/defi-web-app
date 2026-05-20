@@ -76,15 +76,30 @@ const DEFAULT_DWELL_MS = 30_000;
 const DEFAULT_FILL_SIZE_E18 = 1_000_000_000_000_000_000n;
 
 // EIP-712 SignedOrder shape — MUST match the on-chain typehash byte-for-byte.
-// Note: @bufi/perps' SIGNED_ORDER_TYPES is missing `maxFee`; we inline the
-// correct set here rather than mutate that package surface mid-demo.
+//
+// CRITICAL: the deployed `FxOrderSettlement` on Arc Testnet
+// (0x49ad97Fa2b67252373f4683bD4a4B49AA3AF5565) was deployed BEFORE the
+// `maxFee` field was added to the contract source. The on-chain
+// SIGNED_ORDER_TYPEHASH is:
+//   0x013bef06acd9c1a46aeac93201b83f21f59135ab2cb6115aba5497a50529f462
+//   = keccak256("SignedOrder(address trader,bytes32 marketId,int256
+//                 sizeDeltaE18,uint256 priceE18,uint8 orderType,uint8 flags,
+//                 uint64 nonce,uint64 deadline)")   // 8 fields, no maxFee
+//
+// The contract source on origin/feat/privacy-hook-slice-3-crossccy (and
+// presumably main, which @bufi/contracts ABI is generated from) has the
+// V9 9-field shape with maxFee — that source has DRIFTED ahead of the
+// live deployment. Until the contract is redeployed, every signature
+// and settleMatch call MUST use the V8 8-field shape.
+//
+// See `docs/roadmap-production-perps.md` Pillar 1 — "deploy drift" should
+// be a tracked finding.
 const SIGNED_ORDER_TYPES = {
   SignedOrder: [
     { name: "trader", type: "address" },
     { name: "marketId", type: "bytes32" },
     { name: "sizeDeltaE18", type: "int256" },
     { name: "priceE18", type: "uint256" },
-    { name: "maxFee", type: "uint256" },
     { name: "orderType", type: "uint8" },
     { name: "flags", type: "uint8" },
     { name: "nonce", type: "uint64" },
@@ -92,12 +107,57 @@ const SIGNED_ORDER_TYPES = {
   ],
 } as const;
 
+// V8 settleMatch ABI inlined — matches the deployed contract shape.
+// Override of `FxOrderSettlementAbi.settleMatch` from @bufi/contracts which
+// carries the V9 (with-maxFee) variant.
+const FxOrderSettlementV8SettleMatchAbi = [
+  {
+    type: "function",
+    name: "settleMatch",
+    stateMutability: "nonpayable",
+    inputs: [
+      {
+        name: "maker",
+        type: "tuple",
+        components: [
+          { name: "trader", type: "address" },
+          { name: "marketId", type: "bytes32" },
+          { name: "sizeDeltaE18", type: "int256" },
+          { name: "priceE18", type: "uint256" },
+          { name: "orderType", type: "uint8" },
+          { name: "flags", type: "uint8" },
+          { name: "nonce", type: "uint64" },
+          { name: "deadline", type: "uint64" },
+        ],
+      },
+      { name: "makerSig", type: "bytes" },
+      {
+        name: "taker",
+        type: "tuple",
+        components: [
+          { name: "trader", type: "address" },
+          { name: "marketId", type: "bytes32" },
+          { name: "sizeDeltaE18", type: "int256" },
+          { name: "priceE18", type: "uint256" },
+          { name: "orderType", type: "uint8" },
+          { name: "flags", type: "uint8" },
+          { name: "nonce", type: "uint64" },
+          { name: "deadline", type: "uint64" },
+        ],
+      },
+      { name: "takerSig", type: "bytes" },
+      { name: "fillSizeE18", type: "uint256" },
+      { name: "fillPriceE18", type: "uint256" },
+    ],
+    outputs: [],
+  },
+] as const;
+
 interface SignedOrder {
   trader: Address;
   marketId: Hex;
   sizeDeltaE18: bigint;
   priceE18: bigint;
-  maxFee: bigint;
   orderType: number;
   flags: number;
   nonce: bigint;
@@ -412,7 +472,7 @@ async function main(): Promise<void> {
     chain: null,
     account: keeper,
     address: orderSettlement,
-    abi: FxOrderSettlementAbi,
+    abi: FxOrderSettlementV8SettleMatchAbi,
     functionName: "settleMatch",
     args: [openMaker.order, openMaker.signature, openTaker.order, openTaker.signature, fillSizeE18, midE18],
   });
@@ -471,7 +531,7 @@ async function main(): Promise<void> {
     chain: null,
     account: keeper,
     address: orderSettlement,
-    abi: FxOrderSettlementAbi,
+    abi: FxOrderSettlementV8SettleMatchAbi,
     functionName: "settleMatch",
     args: [
       closeMaker.order,
@@ -555,10 +615,6 @@ async function signOrder(args: {
     marketId: args.market.marketId,
     sizeDeltaE18: args.sizeDeltaE18,
     priceE18: args.priceE18,
-    // maxFee = priceE18 (acts as "uncapped" for the demo — the matcher's
-    // fee on a 1-unit notional at ~1 USD is well under 1 USDC). Setting
-    // a non-zero value avoids any future ABI-default change biting us.
-    maxFee: args.priceE18,
     orderType: 0, // market
     flags: args.flags,
     nonce: args.nonce,
