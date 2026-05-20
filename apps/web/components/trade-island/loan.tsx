@@ -1496,6 +1496,22 @@ export function LoanTab() {
         setNow(Date.now());
         return;
       }
+      // If useLendingAction attached a decoded simulateContract revert,
+      // surface the short + full message inline so the user sees the
+      // real reason ("SkewCapExceeded", "InsufficientCollateral", …)
+      // BEFORE any wallet popup would have appeared.
+      const simError = (err as { simError?: { short: string; full: string; reason?: string } })
+        .simError;
+      if (simError) {
+        toast({
+          title: simError.reason
+            ? `Would revert: ${simError.reason}`
+            : "Would revert before signing",
+          description: simError.full || simError.short,
+          variant: "destructive",
+        });
+        return;
+      }
       toast({ title: "Signing failed", description: errMsg(err), variant: "destructive" });
     }
   };
