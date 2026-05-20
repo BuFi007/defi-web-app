@@ -10,8 +10,10 @@ import {
   type RequestContext,
 } from "@bufinance/worker-base";
 
+import { analyticsRoutes } from "./routes/analytics";
 import { fxBentoRoutes } from "./routes/fx-bento";
 import { fxTelaranaRoutes } from "./routes/fx-telarana";
+import { tinybirdIngestRoutes } from "./routes/internal/tinybird-ingest";
 import { liveblocksRoutes } from "./routes/liveblocks";
 import { marketsRoutes } from "./routes/markets";
 import { mcpRoutes } from "./routes/mcp";
@@ -127,6 +129,8 @@ app.route("/fx-bento", fxBentoRoutes);
 app.route("/fx-telarana", fxTelaranaRoutes);
 app.route("/mcp", mcpRoutes);
 app.route("/x402", x402Routes);
+app.route("/analytics", analyticsRoutes);
+app.route("/internal/tinybird", tinybirdIngestRoutes);
 
 const port = Number(process.env.PORT ?? 3002);
 
