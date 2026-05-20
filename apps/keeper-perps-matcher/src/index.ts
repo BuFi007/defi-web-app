@@ -1,6 +1,11 @@
 import { FxOrderSettlementAbi, loadContracts } from "@bufi/contracts";
 import { createTradingMachineDbFromEnv } from "@bufi/db";
-import { createKeeperWalletClient, requireKeeperSigner, runKeeper } from "@bufi/keeper-runtime";
+import {
+  createKeeperWalletClient,
+  postPublish,
+  requireKeeperSigner,
+  runKeeper,
+} from "@bufi/keeper-runtime";
 import { withSpan } from "@bufi/observability";
 import {
   PERPS_REPLACEMENT_NEEDED_EVENT,
@@ -9,7 +14,14 @@ import {
   type PriceTimeMatch,
 } from "@bufi/perps";
 import type { PerpIntent } from "@bufi/shared-types";
-import { keccak256, toHex, type Hex, type PublicClient, type WalletClient } from "viem";
+import {
+  keccak256,
+  toHex,
+  type Hex,
+  type PublicClient,
+  type TransactionReceipt,
+  type WalletClient,
+} from "viem";
 
 const ARC_CHAIN_ID = 5042002;
 const db = createTradingMachineDbFromEnv();
@@ -51,9 +63,10 @@ await runKeeper({
     const failed: Array<{ maker: string; taker: string; error: string }> = [];
     const replacementNeeded: string[] = [];
 
-    for (const match of matches) {
+    for (let matchLogIndex = 0; matchLogIndex < matches.length; matchLogIndex += 1) {
+      const match = matches[matchLogIndex]!;
       try {
-        const hash = await withSpan(
+        const { hash, receipt } = await withSpan(
           "perps.matcher.settle-match",
           () =>
             settleMatch({
@@ -85,6 +98,41 @@ await runKeeper({
             ...event.payload,
           });
         }
+        // Fire-and-forget publish to Redis (trade tape) + Tinybird (analytics).
+        // Silent no-op when INTERNAL_INGEST_TOKEN is unset — never blocks the
+        // matcher loop; never throws back into the tick try/catch.
+        void postPublish({
+          realtime: {
+            channel: `trades:${match.maker.marketId}`,
+            payload: {
+              priceE18: match.fillPriceE18.toString(),
+              sizeE18: match.fillSizeE18.toString(),
+              side: BigInt(match.maker.sizeDelta) > 0n ? "maker_long" : "maker_short",
+              txHash: hash,
+              taker: match.taker.trader,
+              ts: Date.now(),
+            },
+          },
+          analytics: {
+            dataset: "perp_match_settled",
+            row: {
+              event_id: `${hash}:${matchLogIndex}`,
+              market_id: match.maker.marketId,
+              maker: match.maker.trader,
+              taker: match.taker.trader,
+              fill_size_e18: match.fillSizeE18.toString(),
+              fill_price_e18: match.fillPriceE18.toString(),
+              tx_hash: hash,
+              block_number: receipt ? Number(receipt.blockNumber) : null,
+              timestamp: new Date().toISOString(),
+            },
+          },
+        }).catch((err) => {
+          ctx.log.warn("perps_matcher.publish_failed", {
+            error: (err as Error).message,
+            tx: hash,
+          });
+        });
         settled.push({ maker: match.maker.intentId, taker: match.taker.intentId, tx: hash });
       } catch (e) {
         failed.push({
@@ -126,19 +174,22 @@ async function settleMatch(args: {
   wallet: WalletClient;
   orderSettlement: Hex;
   match: PriceTimeMatch;
-}): Promise<Hex> {
+}): Promise<{ hash: Hex; receipt: TransactionReceipt | null }> {
   if (SETTLEMENT_MODE === "mock") {
-    return keccak256(
-      toHex(
-        [
-          "mock-settleMatch",
-          args.match.maker.intentId,
-          args.match.taker.intentId,
-          args.match.fillSizeE18.toString(),
-          args.match.fillPriceE18.toString(),
-        ].join(":"),
+    return {
+      hash: keccak256(
+        toHex(
+          [
+            "mock-settleMatch",
+            args.match.maker.intentId,
+            args.match.taker.intentId,
+            args.match.fillSizeE18.toString(),
+            args.match.fillPriceE18.toString(),
+          ].join(":"),
+        ),
       ),
-    );
+      receipt: null,
+    };
   }
   if (SETTLEMENT_MODE !== "live") {
     throw new Error(`unknown PERPS_MATCHER_SETTLEMENT_MODE: ${SETTLEMENT_MODE}`);
@@ -163,7 +214,7 @@ async function settleMatch(args: {
   if (receipt.status !== "success") {
     throw new Error(`settleMatch reverted: ${hash}`);
   }
-  return hash;
+  return { hash, receipt };
 }
 
 function intentToSignedOrder(intent: PerpIntent) {
