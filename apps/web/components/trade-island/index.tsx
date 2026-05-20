@@ -34,6 +34,7 @@ import { ArcadeRoom } from "./multiplayer";
 import { MobileTrade } from "./mobile-trade";
 import { MarketPicker } from "./market-picker";
 import { StablecoinBalances } from "@/components/stablecoin-balances";
+import { OnrampCta } from "@/components/onramp/onramp-cta";
 import { usePositions, useTrades } from "@/lib/perps/hooks";
 import type { PerpsPositionDto, PerpsTradeDto } from "@/lib/perps/client";
 import { safeBigInt, e18ToNumber } from "@/lib/perps/units";
@@ -1163,6 +1164,7 @@ function TradeIslandHeader({
         ))}
       </div>
       <div className="island-summary">
+        <OnrampCta />
         <StablecoinBalances />
         {liveTotalPnl !== 0 && (
           <span className={"pill " + (liveTotalPnl >= 0 ? "profit" : "loss")}>
