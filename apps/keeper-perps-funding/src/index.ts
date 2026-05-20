@@ -1,5 +1,6 @@
 import { FxFundingEngineAbi, loadContracts } from "@bufi/contracts";
 import { createKeeperWalletClient, requireKeeperSigner, runKeeper } from "@bufi/keeper-runtime";
+import { withSpan } from "@bufi/observability";
 import { livePerpsMarketIds } from "@bufi/perps";
 
 const ARC_CHAIN_ID = 5042002;
@@ -40,14 +41,23 @@ await runKeeper({
         continue;
       }
       try {
-        const hash = await wallet.writeContract({
-          chain: null,
-          account: wallet.account!,
-          address: fundingEngine,
-          abi: FxFundingEngineAbi,
-          functionName: "pokeFundingRate",
-          args: [marketId as `0x${string}`],
-        });
+        const hash = await withSpan(
+          "perps.funding.poke",
+          () =>
+            wallet.writeContract({
+              chain: null,
+              account: wallet.account!,
+              address: fundingEngine,
+              abi: FxFundingEngineAbi,
+              functionName: "pokeFundingRate",
+              args: [marketId as `0x${string}`],
+            }),
+          {
+            "funding.market_id": marketId,
+            "funding.chain_id": ARC_CHAIN_ID,
+          },
+          "keeper.perps-funding",
+        );
         lastPokeAt.set(marketId, now);
         poked.push({ marketId, tx: hash });
       } catch (e) {

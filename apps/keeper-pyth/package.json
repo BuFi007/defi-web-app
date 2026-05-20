@@ -11,7 +11,8 @@
   "dependencies": {
     "@bufi/contracts": "workspace:*",
     "@bufi/keeper-runtime": "workspace:*",
-    "@bufi/market-data": "workspace:*"
+    "@bufi/market-data": "workspace:*",
+    "@bufi/observability": "workspace:*"
   },
   "devDependencies": { "@types/node": "20", "typescript": "5" }
 }

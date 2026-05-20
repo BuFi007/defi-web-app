@@ -13,6 +13,7 @@
   "dependencies": {
     "@bufi/contracts": "workspace:*",
     "@bufi/env": "workspace:*",
+    "@bufi/observability": "workspace:*",
     "@bufinance/logger": "0.1.1",
     "viem": "2.45.3"
   },

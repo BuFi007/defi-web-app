@@ -12,6 +12,7 @@
     "@bufi/contracts": "workspace:*",
     "@bufi/fx-telarana": "workspace:*",
     "@bufi/keeper-runtime": "workspace:*",
+    "@bufi/observability": "workspace:*",
     "viem": "2.45.3"
   },
   "devDependencies": { "@types/node": "20", "typescript": "5" }
