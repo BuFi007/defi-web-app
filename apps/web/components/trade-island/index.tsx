@@ -39,6 +39,8 @@ import type { PerpsPositionDto, PerpsTradeDto } from "@/lib/perps/client";
 import { safeBigInt, e18ToNumber } from "@/lib/perps/units";
 import { useLiveMarket } from "@/lib/perps/use-live-market";
 import { useMarketStats } from "@/lib/perps/use-market-stats";
+import { PositionLiquidationStatus } from "./position-liquidation-status";
+import { LiquidationFeed } from "./liquidation-feed";
 import {
   usePositions as useTelaranaPositions,
   useMarkets as useTelaranaMarkets,
@@ -507,6 +509,15 @@ function PerpsPositionCards({ rows }: { rows: PositionRow[] }) {
                 </dd>
               </div>
             </dl>
+            {p.marketId && (
+              <div style={{ padding: "0 0 8px" }}>
+                <PositionLiquidationStatus
+                  marketId={p.marketId as `0x${string}`}
+                  hf={null}
+                  mode="card"
+                />
+              </div>
+            )}
             <button className="pos-card-close">Close position</button>
           </article>
         );
@@ -719,7 +730,14 @@ function PerpsPositionsView() {
                     <td className="mono">{p.entry?.toFixed(dec) ?? "—"}</td>
                     <td className="mono">{p.mark?.toFixed(dec) ?? "—"}</td>
                     <td className="mono" style={{ color: "var(--loss-ink)" }}>
-                      {p.liq?.toFixed(dec) ?? "—"}
+                      <div>{p.liq?.toFixed(dec) ?? "—"}</div>
+                      {p.marketId && (
+                        <PositionLiquidationStatus
+                          marketId={p.marketId as `0x${string}`}
+                          hf={null}
+                          mode="row"
+                        />
+                      )}
                     </td>
                     <td className="mono">{fmtUSD(p.margin)}</td>
                     <td
@@ -755,6 +773,7 @@ function PerpsPositionsView() {
           <PerpsPositionCards rows={rows} />
         </>
       )}
+      <LiquidationFeed />
     </div>
   );
 }
