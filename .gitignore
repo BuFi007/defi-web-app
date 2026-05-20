@@ -47,3 +47,7 @@ yarn-error.log*
 next-env.d.ts
 .gstack/
 .claude/
+
+# External reference repos for matcher architecture (shallow clones, not deps)
+references/
+
