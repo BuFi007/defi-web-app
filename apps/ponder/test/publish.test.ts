@@ -4,10 +4,13 @@
  * Verifies the "silent no-op when no token" contract and the basic fetch
  * wiring. We mock `globalThis.fetch` and snapshot the bodies / headers
  * to assert the wire shape matches PR #56 and PR #58 exactly.
+ *
+ * Lives outside `src/` because Ponder's indexer bundles every `.ts`
+ * file under `src/` as a handler entry, which can't resolve `bun:test`.
  */
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { publishEvent } from "./publish";
+import { publishEvent } from "../src/lib/publish";
 
 const originalFetch = globalThis.fetch;
 const originalRealtimeToken = process.env.INTERNAL_REALTIME_TOKEN;

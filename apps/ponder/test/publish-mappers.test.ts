@@ -1,8 +1,12 @@
 /**
  * Unit tests for the Wave F2 publish mappers.
  *
- * Run with `bun test apps/ponder/src/handlers/_publish-mappers.test.ts`.
- * No Ponder runtime needed — these are pure functions over event args.
+ * Run with `bun test apps/ponder/test/publish-mappers.test.ts`. No
+ * Ponder runtime needed — these are pure functions over event args.
+ *
+ * Lives outside `src/` because Ponder's indexer bundles every `.ts`
+ * file under `src/` as a handler entry, which can't resolve `bun:test`.
+ * Keeping the tests in `test/` lets the dev boot succeed.
  */
 import { describe, expect, test } from "bun:test";
 
@@ -15,7 +19,7 @@ import {
   buildTradeMessage,
   deltaSign,
   lowerHex,
-} from "./_publish-mappers";
+} from "../src/handlers/_publish-mappers";
 
 const marketId = `0x${"11".repeat(32)}`;
 const txHash = `0x${"22".repeat(32)}`;
