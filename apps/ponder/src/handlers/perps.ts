@@ -1,9 +1,12 @@
 import { ponder } from "ponder:registry";
 import type { Context } from "ponder:registry";
 import {
+  perpsBadDebt,
+  perpsMarketConfig,
   perpsOrderCancellation,
   perpsPosition,
   perpsPositionEvent,
+  perpsProtocolConfig,
   perpsSettlement,
 } from "ponder:schema";
 import type { Address, Hex } from "viem";
@@ -116,6 +119,74 @@ ponder.on("FxPerpClearinghouseArc:PositionDecreased", async ({ event, context })
     blockTimestamp: event.block.timestamp,
     txHash: event.transaction.hash,
   });
+});
+
+ponder.on("FxPerpClearinghouseArc:MarketConfigured", async ({ event, context }) => {
+  const cfg = event.args.config;
+  const row = {
+    marketId: lowerHex(event.args.marketId),
+    chainId: context.chain.id,
+    baseToken: lowerHex(cfg.baseToken),
+    enabled: cfg.enabled,
+    initialMarginBps: Number(cfg.initialMarginBps),
+    maintenanceMarginBps: Number(cfg.maintenanceMarginBps),
+    tradingFeeBps: Number(cfg.tradingFeeBps),
+    maxLeverageBps: BigInt(cfg.maxLeverageBps),
+    maxOpenInterestUsd: cfg.maxOpenInterestUsd,
+    maxSkewUsd: cfg.maxSkewUsd,
+    updatedAt: event.block.timestamp,
+    updatedTxHash: lowerHex(event.transaction.hash),
+  };
+
+  await context.db
+    .insert(perpsMarketConfig)
+    .values(row)
+    .onConflictDoUpdate({
+      baseToken: row.baseToken,
+      enabled: row.enabled,
+      initialMarginBps: row.initialMarginBps,
+      maintenanceMarginBps: row.maintenanceMarginBps,
+      tradingFeeBps: row.tradingFeeBps,
+      maxLeverageBps: row.maxLeverageBps,
+      maxOpenInterestUsd: row.maxOpenInterestUsd,
+      maxSkewUsd: row.maxSkewUsd,
+      updatedAt: row.updatedAt,
+      updatedTxHash: row.updatedTxHash,
+    });
+});
+
+ponder.on("FxPerpClearinghouseArc:BadDebtSocialized", async ({ event, context }) => {
+  await context.db
+    .insert(perpsBadDebt)
+    .values({
+      id: logId(event),
+      chainId: context.chain.id,
+      marketId: lowerHex(event.args.marketId),
+      trader: lowerHex(event.args.trader),
+      amount: event.args.amount,
+      blockNumber: event.block.number,
+      blockTimestamp: event.block.timestamp,
+      txHash: lowerHex(event.transaction.hash),
+      logIndex: event.log.logIndex,
+    })
+    .onConflictDoNothing();
+});
+
+ponder.on("FxPerpClearinghouseArc:FundingEngineSet", async ({ event, context }) => {
+  const txHash = lowerHex(event.transaction.hash);
+  await context.db
+    .insert(perpsProtocolConfig)
+    .values({
+      chainId: context.chain.id,
+      fundingEngine: lowerHex(event.args.fundingEngine),
+      fundingEngineUpdatedAt: event.block.timestamp,
+      fundingEngineUpdatedTxHash: txHash,
+    })
+    .onConflictDoUpdate({
+      fundingEngine: lowerHex(event.args.fundingEngine),
+      fundingEngineUpdatedAt: event.block.timestamp,
+      fundingEngineUpdatedTxHash: txHash,
+    });
 });
 
 async function upsertLatestPosition(args: {

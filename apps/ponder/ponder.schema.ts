@@ -298,6 +298,90 @@ export const telaranaOracleConfig = onchainTable("telarana_oracle_config", (t) =
 }));
 
 /**
+ * FxMarketRegistry MarketRegistered + PoolLiveSet snapshot. Each row is
+ * a Morpho Blue isolated market exposed through the registry: loanToken
+ * borrowed against collateralToken, priced by `irm` with liquidation LTV
+ * `lltv` (WAD, 1e18). `isLive` mirrors the latest PoolLiveSet flag.
+ */
+export const lendingMarket = onchainTable("lending_market", (t) => ({
+  marketId: t.text().primaryKey(),
+  chainId: t.integer().notNull(),
+  loanToken: t.hex().notNull(),
+  collateralToken: t.hex().notNull(),
+  irm: t.hex().notNull(),
+  lltv: t.bigint().notNull(),
+  isLive: t.boolean().notNull(),
+  registeredAt: t.bigint().notNull(),
+  registeredTxHash: t.hex().notNull(),
+  liveUpdatedAt: t.bigint(),
+  liveUpdatedTxHash: t.hex(),
+}));
+
+/**
+ * FxMarketRegistry BorrowDelegateSet. The latest (account, delegate)
+ * pair carries the current `allowed` flag — the registry emits one event
+ * per toggle, so we upsert keyed on the pair.
+ */
+export const borrowDelegate = onchainTable("borrow_delegate", (t) => ({
+  id: t.text().primaryKey(), // `${chainId}:${account}:${delegate}`
+  chainId: t.integer().notNull(),
+  account: t.hex().notNull(),
+  delegate: t.hex().notNull(),
+  allowed: t.boolean().notNull(),
+  updatedAt: t.bigint().notNull(),
+  updatedTxHash: t.hex().notNull(),
+}));
+
+/**
+ * FxPerpClearinghouse MarketConfigured config-tuple snapshot. Mirrors the
+ * struct emitted on each setMarketConfig call so the API can render
+ * "initial margin = 5%" without an extra contract read.
+ */
+export const perpsMarketConfig = onchainTable("perps_market_config", (t) => ({
+  marketId: t.text().primaryKey(),
+  chainId: t.integer().notNull(),
+  baseToken: t.hex().notNull(),
+  enabled: t.boolean().notNull(),
+  initialMarginBps: t.integer().notNull(),
+  maintenanceMarginBps: t.integer().notNull(),
+  tradingFeeBps: t.integer().notNull(),
+  maxLeverageBps: t.bigint().notNull(),
+  maxOpenInterestUsd: t.bigint().notNull(),
+  maxSkewUsd: t.bigint().notNull(),
+  updatedAt: t.bigint().notNull(),
+  updatedTxHash: t.hex().notNull(),
+}));
+
+/**
+ * FxPerpClearinghouse BadDebtSocialized event log. Append-only — each row
+ * is a single socialization event so the API can sum bad-debt-per-market
+ * and surface "X USDC absorbed by insurance" without a chain replay.
+ */
+export const perpsBadDebt = onchainTable("perps_bad_debt", (t) => ({
+  id: t.text().primaryKey(), // `${txHash}:${logIndex}`
+  chainId: t.integer().notNull(),
+  marketId: t.hex().notNull(),
+  trader: t.hex().notNull(),
+  amount: t.bigint().notNull(),
+  blockNumber: t.bigint().notNull(),
+  blockTimestamp: t.bigint().notNull(),
+  txHash: t.hex().notNull(),
+  logIndex: t.integer().notNull(),
+}));
+
+/**
+ * Singleton — latest FxPerpClearinghouse protocol-level config. Right
+ * now only the funding-engine address is tracked (FundingEngineSet),
+ * keyed by chain so we can extend per-chain without a schema migration.
+ */
+export const perpsProtocolConfig = onchainTable("perps_protocol_config", (t) => ({
+  chainId: t.integer().primaryKey(),
+  fundingEngine: t.hex(),
+  fundingEngineUpdatedAt: t.bigint(),
+  fundingEngineUpdatedTxHash: t.hex(),
+}));
+
+/**
  * FxHubMessageReceiver deposit lifecycle (Fuji spoke). Lets the UI show
  * "pending CCTP attestation" / "stranded — sweep available" without
  * polling the contract.

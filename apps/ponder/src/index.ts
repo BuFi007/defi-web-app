@@ -8,6 +8,7 @@
 
 import "./handlers/bento";
 import "./handlers/bufx";
+import "./handlers/markets";
 import "./handlers/perps";
 import "./handlers/telarana";
 
