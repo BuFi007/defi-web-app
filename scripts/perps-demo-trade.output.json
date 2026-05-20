@@ -1,0 +1,9 @@
+{
+  "status": "blocked",
+  "reason": "missing required env vars in .env.local: DEMO_MAKER_PRIVATE_KEY, DEMO_TAKER_PRIVATE_KEY",
+  "needed": [
+    "DEMO_MAKER_PRIVATE_KEY",
+    "DEMO_TAKER_PRIVATE_KEY"
+  ],
+  "hint": "Generate two trader EOAs (e.g. `cast wallet new`), set DEMO_MAKER_PRIVATE_KEY and DEMO_TAKER_PRIVATE_KEY in .env.local, fund both addresses with ≥10 USDC on Arc Testnet via https://faucet.circle.com, then re-run this script."
+}
