@@ -98,11 +98,23 @@ interface PositionRow {
   leverage: number;
   liq: number | null;
   marketId?: string;
+  /** True iff this row was inserted optimistically and hasn't been
+   *  confirmed by the matcher yet. Drives the pulse animation in
+   *  PerpsPositionCards so the user has visual feedback that the order
+   *  is mid-flight. Tag carried via OptimisticPositionTag on the DTO. */
+  isPending?: boolean;
 }
 
 function liveToPositionRow(p: PerpsPositionDto): PositionRow {
   const markPriceE18 = safeBigInt(p.markPrice);
   const sizeUsdc = Number(p.sizeUsdc);
+  // Optimistic rows inserted by useOptimisticPlaceOrder carry an
+  // `isPending` flag on the same DTO shape. We don't import the
+  // OptimisticPerpsPositionDto type here to keep this file's dep surface
+  // minimal — the synthetic field is just an optional boolean.
+  const isPending = Boolean(
+    (p as PerpsPositionDto & { isPending?: boolean }).isPending,
+  );
   return {
     // /perps/markets returns symbols like "EURC/USDC" — usable as-is here.
     sym: p.marketId.slice(0, 10),
@@ -115,6 +127,7 @@ function liveToPositionRow(p: PerpsPositionDto): PositionRow {
     leverage: p.leverage,
     liq: p.liqPriceE18 ? e18ToNumber(safeBigInt(p.liqPriceE18)) : null,
     marketId: p.marketId,
+    isPending,
   };
 }
 
@@ -439,6 +452,16 @@ function HistoryTab() {
 function PerpsPositionCards({ rows }: { rows: PositionRow[] }) {
   return (
     <div className="pos-cards" aria-label="Open perp positions">
+      {/* Keyframes for the optimistic-pending pulse. Hoisted next to the
+          consumer so we don't grow the global stylesheet for a single
+          card state — same pattern the OrderEntryCTA uses for its
+          progress shimmer. */}
+      <style jsx>{`
+        @keyframes pos-pending-pulse {
+          0%, 100% { opacity: 0.92; box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.0); }
+          50% { opacity: 1; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18); }
+        }
+      `}</style>
       {rows.map((p, i) => {
         const m = ALL_MARKETS.find((mm) => mm.sym === p.sym);
         const dec =
@@ -446,7 +469,20 @@ function PerpsPositionCards({ rows }: { rows: PositionRow[] }) {
         const pnlPct =
           p.pnl !== null ? (p.pnl / Math.max(p.margin, 1)) * 100 : null;
         return (
-          <article key={`${p.sym}-${i}`} className="pos-card">
+          <article
+            key={`${p.sym}-${i}`}
+            className={"pos-card" + (p.isPending ? " is-pending" : "")}
+            data-pending={p.isPending ? "true" : undefined}
+            style={
+              p.isPending
+                ? {
+                    animation: "pos-pending-pulse 1.8s ease-in-out infinite",
+                    outline: "1px dashed var(--primary, #6366f1)",
+                    outlineOffset: 2,
+                  }
+                : undefined
+            }
+          >
             <header className="pos-card-head">
               <TokenIconPair
                 base={m?.base ?? p.sym}
