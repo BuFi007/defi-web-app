@@ -1,0 +1,28 @@
+# Rolling volume per market.
+#
+# Query params:
+#   market_id — required, bytes32 hex string
+#   window    — `24h` | `7d` (default `24h`)
+#
+# Returns one row: total taker-side notional + trade count + unique
+# traders over the window. The aggregation reads `perp_match_settled`
+# (one row per fill).
+
+TOKEN "analytics_read" READ
+
+NODE compute
+SQL >
+    %
+    SELECT
+        {{ String(market_id) }}                     AS market_id,
+        sum(notional_usdc)                          AS volume_usdc,
+        sum(fee_usdc)                               AS fees_usdc,
+        count()                                     AS trade_count,
+        countDistinct(taker)                        AS unique_takers,
+        countDistinct(maker)                        AS unique_makers
+    FROM perp_match_settled
+    WHERE market_id = {{ String(market_id, required=True) }}
+        AND timestamp >= now() - INTERVAL
+            {% if defined(window) and window == '7d' %} 7 DAY
+            {% else %} 24 HOUR
+            {% end %}

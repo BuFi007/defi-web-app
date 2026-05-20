@@ -1,0 +1,29 @@
+# One row per `AccountLiquidated` event emitted by the perps
+# clearinghouse / liquidator keeper (apps/keeper-perps-liquidator).
+#
+# Sort key: (marketId, timestamp). Used by risk dashboards + the
+# trader liquidation history view.
+
+SCHEMA >
+    `event_id`             String   `json:$.eventId`,
+    `chain_id`             Int32    `json:$.chainId`,
+    `block_number`         Int64    `json:$.blockNumber`,
+    `tx_hash`              String   `json:$.txHash`,
+    `log_index`            Int32    `json:$.logIndex`,
+    `market_id`            String   `json:$.marketId`,
+    `trader`               String   `json:$.trader`,
+    `liquidator`           String   `json:$.liquidator`,
+    `side`                 LowCardinality(String) `json:$.side`,
+    `size_liquidated`      Int64    `json:$.sizeLiquidated`,
+    `mark_price_e18`       Int64    `json:$.markPriceE18`,
+    `notional_usdc`        Int64    `json:$.notionalUsdc`,
+    `margin_seized`        Int64    `json:$.marginSeized`,
+    `liquidator_reward`    Int64    `json:$.liquidatorReward`,
+    `insurance_fund_delta` Int64    `json:$.insuranceFundDelta`,
+    `bad_debt`             Int64    `json:$.badDebt`,
+    `timestamp`            DateTime64(3) `json:$.timestamp`
+
+ENGINE "MergeTree"
+ENGINE_SORTING_KEY "market_id, timestamp"
+ENGINE_PARTITION_KEY "toYYYYMM(timestamp)"
+ENGINE_TTL "timestamp + INTERVAL 18 MONTH"

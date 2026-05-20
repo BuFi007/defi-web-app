@@ -1,0 +1,25 @@
+# Funding-rate history for a single market.
+#
+# Query params:
+#   market_id — required, bytes32 hex string
+#   limit     — 1..1000 (default 500)
+#
+# Returns the most recent `limit` FundingPoked entries newest-first.
+# Clients reverse-iterate for chart rendering.
+
+TOKEN "analytics_read" READ
+
+NODE history
+SQL >
+    %
+    SELECT
+        timestamp,
+        funding_rate_e18,
+        cumulative_funding,
+        mark_price_e18,
+        index_price_e18,
+        interval_seconds
+    FROM perp_funding_poked
+    WHERE market_id = {{ String(market_id, required=True) }}
+    ORDER BY timestamp DESC
+    LIMIT {{ Int32(limit, 500, min=1, max=1000) }}

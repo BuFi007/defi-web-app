@@ -1,0 +1,39 @@
+# OHLCV bars per market at a configurable bar size.
+#
+# Query params:
+#   market_id — required, bytes32 hex string
+#   bar       — `1m` | `5m` | `15m` | `1h` | `4h` | `1d` (default `1m`)
+#   limit     — 1..1000 (default 500)
+#
+# Sources: `perp_match_settled`. price_e18 / 1e18 is the fill price;
+# bar volume = sum(notional_usdc). The chart layer converts e18 to a
+# decimal string client-side — we keep raw integers on the wire.
+
+TOKEN "analytics_read" READ
+
+NODE bars
+SQL >
+    %
+    SELECT
+        toStartOfInterval(
+            timestamp,
+            INTERVAL
+                {% if defined(bar) and bar == '5m'  %} 5  MINUTE
+                {% elif defined(bar) and bar == '15m' %} 15 MINUTE
+                {% elif defined(bar) and bar == '1h'  %} 1  HOUR
+                {% elif defined(bar) and bar == '4h'  %} 4  HOUR
+                {% elif defined(bar) and bar == '1d'  %} 1  DAY
+                {% else %} 1 MINUTE
+                {% end %}
+        )                                            AS bar_start,
+        argMin(price_e18, timestamp)                 AS open_e18,
+        max(price_e18)                               AS high_e18,
+        min(price_e18)                               AS low_e18,
+        argMax(price_e18, timestamp)                 AS close_e18,
+        sum(notional_usdc)                           AS volume_usdc,
+        count()                                      AS trade_count
+    FROM perp_match_settled
+    WHERE market_id = {{ String(market_id, required=True) }}
+    GROUP BY bar_start
+    ORDER BY bar_start DESC
+    LIMIT {{ Int32(limit, 500, min=1, max=1000) }}
