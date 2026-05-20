@@ -16,6 +16,7 @@ import { liveblocksRoutes } from "./routes/liveblocks";
 import { marketsRoutes } from "./routes/markets";
 import { mcpRoutes } from "./routes/mcp";
 import { perpsRoutes } from "./routes/perps";
+import { realtimeRoutes } from "./routes/realtime";
 import { spotRoutes } from "./routes/spot";
 import {
   makeUpgradeData,
@@ -127,6 +128,10 @@ app.route("/fx-bento", fxBentoRoutes);
 app.route("/fx-telarana", fxTelaranaRoutes);
 app.route("/mcp", mcpRoutes);
 app.route("/x402", x402Routes);
+// Internal realtime publish route — guarded by X-Internal-Token. See
+// `apps/api/src/routes/realtime.ts` for the envelope shape and
+// `apps/api/src/lib/REALTIME.md` for the channel-naming convention.
+app.route("/internal/realtime", realtimeRoutes);
 
 const port = Number(process.env.PORT ?? 3002);
 

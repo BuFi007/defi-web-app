@@ -45,6 +45,12 @@ import {
   type UnsubscribePythStream,
 } from "@bufi/market-data";
 
+import {
+  REALTIME_CHANNEL_KINDS,
+  realtimeChannel,
+} from "../lib/realtime";
+import { subscribeChannel } from "../lib/redis";
+
 // Path prefix the Hono server uses to test for ws upgrade candidates. Mounted
 // under /ws/markets/:marketId — `app.route("/ws", ...)` is unnecessary because
 // the upgrade decision happens before Hono routing in server.ts.
@@ -103,6 +109,12 @@ interface WsCtx {
   pythUnsubscribe?: UnsubscribePythStream | null;
   /** Resolved Pyth feed id for this market, or null when none mapped. */
   pythFeedId?: Hex | null;
+  /**
+   * Teardown handles for the Redis (or in-process emitter) pub/sub
+   * subscriptions opened on `open`. Cleared on `close` so we don't leak
+   * forwarded events to a closed socket.
+   */
+  realtimeUnsubscribes?: Array<() => void>;
   // Soft log surface — bound via server.ts on upgrade so we don't pull the
   // logger module into the public path. We accept any Logger shape with an
   // `info` method (matches both @bufinance/logger and @bufi/logger).
@@ -268,6 +280,7 @@ export function makeUpgradeData(args: UpgradeArgs): WsCtx {
     candle: { o: base, h: base, l: base, c: base, v: 0 },
     pythUnsubscribe: null,
     pythFeedId: resolvePythFeed(args.marketId),
+    realtimeUnsubscribes: [],
     log: args.log,
   };
 }
@@ -374,6 +387,34 @@ export const marketsWebSocketHandler = {
         // ignore — close handler clears timers.
       }
     }, 250);
+
+    // ---- Wave E6 fan-out subscriptions --------------------------------
+    //
+    // On top of the Pyth-derived tick and mock obDelta the scaffold already
+    // produces, every connection subscribes to the realtime fan-out channels
+    // for its market: trades / book / funding. Redis (or the in-process
+    // EventEmitter fallback) demuxes messages here and forwards them to the
+    // socket. The publisher side is wired from the matcher / keeper /
+    // Ponder handlers — see `apps/api/src/lib/REALTIME.md`.
+    //
+    // We use the loose-typed `unknown` payload here because the publisher
+    // chose the envelope shape; the WS client narrows on `kind`. The
+    // alternative — validating inbound payloads — would tie the WS handler
+    // to a specific schema version and make rolling forward (e.g. an extra
+    // optional field on TradeMessage) require a server redeploy first.
+    const unsubscribes: Array<() => void> = [];
+    for (const kind of REALTIME_CHANNEL_KINDS) {
+      const channel = realtimeChannel(kind, ctx.marketId);
+      const unsubscribe = subscribeChannel(channel, (payload) => {
+        try {
+          ws.send(JSON.stringify(payload));
+        } catch {
+          // socket closed mid-send; close() handles teardown.
+        }
+      });
+      unsubscribes.push(unsubscribe);
+    }
+    ctx.realtimeUnsubscribes = unsubscribes;
   },
   message(_ws: MarketsWs, _msg: string | Buffer) {
     // No client→server messages in scaffold. Future: subscribe to specific
@@ -390,6 +431,20 @@ export const marketsWebSocketHandler = {
         // ignore
       }
       ctx.pythUnsubscribe = null;
+    }
+    // Drop all realtime fan-out subscriptions. The redis.ts module
+    // refcounts per-channel subscribers and issues a Redis UNSUBSCRIBE
+    // when the last one disconnects, so this is the only place we need
+    // to think about cleanup.
+    if (ctx.realtimeUnsubscribes && ctx.realtimeUnsubscribes.length > 0) {
+      for (const unsub of ctx.realtimeUnsubscribes) {
+        try {
+          unsub();
+        } catch {
+          // ignore — best-effort.
+        }
+      }
+      ctx.realtimeUnsubscribes = [];
     }
     ctx.log?.info("ws_close", { marketId: ctx.marketId, sequence: ctx.sequence });
   },
