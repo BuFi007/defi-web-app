@@ -12,7 +12,11 @@ import { describe, expect, test } from "bun:test";
 
 import {
   blockTimestampToMs,
+  buildAccountFlaggedRow,
+  buildAccountLiquidatedRow,
   buildEventId,
+  buildFundingMessage,
+  buildFundingPokedRow,
   buildMatchSettledRow,
   buildPositionDecreasedRow,
   buildPositionIncreasedRow,
@@ -238,6 +242,142 @@ describe("buildTradeMessage", () => {
       txHash: txHash.toLowerCase(),
       taker: taker.toLowerCase(),
       ts: 1_700_000_000_000,
+    });
+  });
+});
+
+// ────────────────────────── Wave I1 — FundingPoked ─────────────────────
+
+describe("buildFundingPokedRow", () => {
+  test("snake_case columns line up with the perp_funding_poked datasource", () => {
+    const row = buildFundingPokedRow(
+      {
+        marketId,
+        version: 42n,
+        rateE18PerSecond: 5_000_000_000n,
+        cumulativeFundingE18: 1_234_567_890_000_000_000n,
+      },
+      baseMeta,
+    );
+    expect(row).toEqual({
+      event_id: `${txHash}-${baseMeta.logIndex}`,
+      market_id: marketId.toLowerCase(),
+      version: "42",
+      rate_e18_per_second: "5000000000",
+      cumulative_funding_e18: "1234567890000000000",
+      chain_id: baseMeta.chainId,
+      tx_hash: txHash.toLowerCase(),
+      block_number: "12345",
+      timestamp: new Date(1_700_000_000_000).toISOString(),
+    });
+  });
+
+  test("negative rates / cumulative serialise with leading minus", () => {
+    const row = buildFundingPokedRow(
+      {
+        marketId,
+        version: 1n,
+        rateE18PerSecond: -7n,
+        cumulativeFundingE18: -42n,
+      },
+      baseMeta,
+    );
+    expect(row.rate_e18_per_second).toBe("-7");
+    expect(row.cumulative_funding_e18).toBe("-42");
+  });
+});
+
+describe("buildFundingMessage", () => {
+  test("matches the PR #56 FundingMessage wire shape", () => {
+    const msg = buildFundingMessage(
+      {
+        marketId,
+        version: 3n,
+        rateE18PerSecond: 2_500_000_000n,
+        cumulativeFundingE18: 9_999_999_999_999n,
+      },
+      baseMeta,
+    );
+    // markE18 is "0" deliberately — FundingPoked doesn't carry the mark
+    // price, and the channel contract requires the field. Downstream
+    // consumers join with the oracle stream when they need a real value.
+    expect(msg).toEqual({
+      rateE18: "2500000000",
+      markE18: "0",
+      ts: 1_700_000_000_000,
+    });
+  });
+});
+
+// ──────────────────────── Wave I1 — AccountLiquidated ──────────────────
+
+describe("buildAccountLiquidatedRow", () => {
+  test("populates the perp_liquidation columns", () => {
+    const liquidator = "0xCcCCcCCcCccccccCCCCcCCCCCCccCcCCCcCcCC03";
+    const row = buildAccountLiquidatedRow(
+      {
+        marketId,
+        trader: taker,
+        liquidator,
+        reward: 25_000_000n,
+        socializedLoss: 0n,
+      },
+      baseMeta,
+    );
+    expect(row).toEqual({
+      event_id: `${txHash}-${baseMeta.logIndex}`,
+      market_id: marketId.toLowerCase(),
+      trader: taker.toLowerCase(),
+      liquidator: liquidator.toLowerCase(),
+      reward_atomic: "25000000",
+      socialized_loss_atomic: "0",
+      chain_id: baseMeta.chainId,
+      tx_hash: txHash.toLowerCase(),
+      block_number: "12345",
+      timestamp: new Date(1_700_000_000_000).toISOString(),
+    });
+  });
+
+  test("negative socialized_loss preserved (insurance pool absorbed surplus)", () => {
+    const row = buildAccountLiquidatedRow(
+      {
+        marketId,
+        trader: taker,
+        liquidator: maker,
+        reward: 0n,
+        socializedLoss: -1_000_000n,
+      },
+      baseMeta,
+    );
+    expect(row.socialized_loss_atomic).toBe("-1000000");
+  });
+});
+
+// ───────────────────────── Wave I1 — AccountFlagged ────────────────────
+
+describe("buildAccountFlaggedRow", () => {
+  test("produces an idempotent DB row keyed on txHash-logIndex", () => {
+    const flagger = "0xDddDDddddDDDDdddddDdDdDDdddDDDddDdDDDD04";
+    const row = buildAccountFlaggedRow(
+      {
+        marketId,
+        trader: taker,
+        flagger,
+      },
+      baseMeta,
+    );
+    expect(row).toEqual({
+      id: `${txHash}-${baseMeta.logIndex}`,
+      chainId: baseMeta.chainId,
+      marketId: marketId.toLowerCase(),
+      trader: taker.toLowerCase(),
+      state: "flagged",
+      actor: flagger.toLowerCase(),
+      auto: null,
+      blockNumber: 12345n,
+      blockTimestamp: 1_700_000_000n,
+      txHash: txHash.toLowerCase(),
+      logIndex: 7,
     });
   });
 });

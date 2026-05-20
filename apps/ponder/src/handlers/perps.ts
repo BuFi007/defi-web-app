@@ -1,6 +1,7 @@
 import { ponder } from "ponder:registry";
 import type { Context } from "ponder:registry";
 import {
+  perpFundingPoke,
   perpsBadDebt,
   perpsMarketConfig,
   perpsOrderCancellation,
@@ -15,6 +16,8 @@ import { FxPerpClearinghouseAbi } from "@bufi/contracts";
 import { lowerHex } from "@bufi/shared-types/hex";
 
 import {
+  buildFundingMessage,
+  buildFundingPokedRow,
   buildMatchSettledRow,
   buildPositionDecreasedRow,
   buildPositionIncreasedRow,
@@ -275,6 +278,55 @@ ponder.on("FxPerpClearinghouseArc:FundingEngineSet", async ({ event, context }) 
       fundingEngineUpdatedAt: event.block.timestamp,
       fundingEngineUpdatedTxHash: txHash,
     });
+});
+
+// Wave I1 — FxFundingEngine FundingPoked. Versioned tick; (marketId,
+// version) is the chain-side idempotency key, so we mirror that into the
+// row primary key. Fans out to realtime (`funding:<marketId>` channel) +
+// Tinybird (`perp_funding_poked`).
+ponder.on("FxFundingEngineArc:FundingPoked", async ({ event, context }) => {
+  const marketId = event.args.marketId;
+  const args = {
+    marketId,
+    version: BigInt(event.args.version),
+    rateE18PerSecond: event.args.rateE18PerSecond,
+    cumulativeFundingE18: event.args.cumulativeFundingE18,
+  };
+  const meta = {
+    chainId: context.chain.id,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    txHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+  };
+
+  await context.db
+    .insert(perpFundingPoke)
+    .values({
+      id: `${lowerHex(marketId)}-${args.version.toString()}`,
+      chainId: meta.chainId,
+      marketId: lowerHex(marketId),
+      version: args.version,
+      rateE18PerSecond: args.rateE18PerSecond,
+      cumulativeFundingE18: args.cumulativeFundingE18,
+      blockNumber: meta.blockNumber,
+      blockTimestamp: meta.blockTimestamp,
+      txHash: lowerHex(meta.txHash),
+      logIndex: meta.logIndex,
+    })
+    .onConflictDoNothing();
+
+  await publishEvent({
+    realtime: {
+      kind: "funding",
+      marketId: lowerHex(marketId),
+      data: buildFundingMessage(args, meta),
+    },
+    analytics: {
+      dataset: "perp_funding_poked",
+      row: buildFundingPokedRow(args, meta),
+    },
+  });
 });
 
 async function upsertLatestPosition(args: {
