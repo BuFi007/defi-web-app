@@ -27,7 +27,7 @@
     "@bufinance/logger": "0.1.1",
     "@bufinance/worker-base": "0.1.0",
     "@hono/zod-validator": "0.4.2",
-    "hono": "4.12.7",
+    "hono": "4.12.18",
     "viem": "2.45.3",
     "zod": "3.25.76"
   },
