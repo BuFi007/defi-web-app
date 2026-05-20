@@ -42,8 +42,42 @@ import {
   type CandleSource,
 } from "@bufi/market-data";
 import { useLiveMarket } from "@/lib/perps/use-live-market";
-import { useSpacemanTheme } from "@/components/theme-provider";
 import type { Market } from "./data";
+
+/**
+ * Read the active theme straight from `<html data-theme>` — the same
+ * attribute the rest of the app's CSS uses for its `[data-theme="dark"]`
+ * variable swaps. `useSpacemanTheme().resolvedTheme` was occasionally
+ * returning "dark" even when the data-theme attribute (and therefore
+ * the visible page) was "light", presumably because the spaceman
+ * library and the ThemeAttributeSync MutationObserver hydrate from
+ * separate sources. Reading the attribute directly removes that drift.
+ */
+function useDataTheme(): "light" | "dark" {
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    if (typeof document === "undefined") return "light";
+    return document.documentElement.getAttribute("data-theme") === "dark"
+      ? "dark"
+      : "light";
+  });
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    const sync = () => {
+      const next =
+        root.getAttribute("data-theme") === "dark" ? "dark" : "light";
+      setTheme((prev) => (prev === next ? prev : next));
+    };
+    sync();
+    const obs = new MutationObserver(sync);
+    obs.observe(root, {
+      attributes: true,
+      attributeFilter: ["data-theme", "class"],
+    });
+    return () => obs.disconnect();
+  }, []);
+  return theme;
+}
 
 export interface CandleChartProps {
   market: Market;
@@ -153,14 +187,13 @@ export function CandleChart({
   entryPrice,
   markPrice,
 }: CandleChartProps) {
-  // Chart palette follows the RESOLVED THEME, not the Ghost Mode flag
-  // directly. Dark theme === private trading visual (the stealth
-  // PRIVATE_TOKENS) — so the chart can never visually drift from the
-  // rest of the UI even if `isGhostMode` and the persisted theme
-  // happen to diverge on first paint. The ModeToggle ensures both
-  // flags flip together when the user clicks.
-  const { resolvedTheme } = useSpacemanTheme();
-  const privateMode = resolvedTheme === "dark";
+  // Chart palette follows `<html data-theme>` (the canonical CSS source
+  // of truth). Dark theme === private trading visual (PRIVATE_TOKENS).
+  // We read the attribute directly via MutationObserver so the chart
+  // is byte-identical to whatever the page CSS is currently rendering,
+  // with no library-internal state to drift from.
+  const dataTheme = useDataTheme();
+  const privateMode = dataTheme === "dark";
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
