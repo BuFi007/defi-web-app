@@ -27,7 +27,7 @@
  * wallet popup.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
   Dialog,
@@ -64,8 +64,21 @@ export interface ClosePositionDialogProps {
 
 const PRESETS = [25, 50, 75, 100] as const;
 
-export function ClosePositionDialog({
-  open,
+export function ClosePositionDialog(props: ClosePositionDialogProps) {
+  // Body is gated on `open` so every reopen produces a fresh mount —
+  // pct + simError reset naturally without a useEffect+setState trip
+  // through `react-hooks/set-state-in-effect`. Same pattern as
+  // OrderFeedbackBody.
+  return (
+    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+      <DialogContent className="sm:max-w-[420px]">
+        {props.open && <ClosePositionDialogBody {...props} />}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ClosePositionDialogBody({
   onOpenChange,
   marketId,
   symbol,
@@ -81,15 +94,6 @@ export function ClosePositionDialog({
   // — that's the dominant case; partial close is the affordance.
   const [pct, setPct] = useState(100);
   const [simError, setSimError] = useState<SimError | null>(null);
-
-  // Reset state on each dialog open so a previous error doesn't bleed
-  // across sessions. Dialog close-then-reopen should feel pristine.
-  useEffect(() => {
-    if (open) {
-      setPct(100);
-      setSimError(null);
-    }
-  }, [open]);
 
   const closeSizeUsdc = useMemo(() => {
     const raw = (sizeUsdc * pct) / 100;
@@ -142,17 +146,16 @@ export function ClosePositionDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[420px]">
-        <DialogHeader>
-          <DialogTitle>
-            Close {pct === 100 ? "" : `${pct}% of `}position
-          </DialogTitle>
-          <DialogDescription>
-            {symbol} · {side.toUpperCase()} · {leverage}x · Market order at the
-            current mark price.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <DialogHeader>
+        <DialogTitle>
+          Close {pct === 100 ? "" : `${pct}% of `}position
+        </DialogTitle>
+        <DialogDescription>
+          {symbol} · {side.toUpperCase()} · {leverage}x · Market order at the
+          current mark price.
+        </DialogDescription>
+      </DialogHeader>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div className="field">
@@ -299,8 +302,7 @@ export function ClosePositionDialog({
             </button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+    </>
   );
 }
 
