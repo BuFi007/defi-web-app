@@ -127,19 +127,14 @@ export interface MarketsState {
 /**
  * Static fallback: build TelaranaMarketSerialized[] from the deployment
  * manifests in @bufi/contracts. We have the marketId hash, loan/collateral
- * addresses, oracle adapter address, and the IrmMock from the manifest;
- * the only runtime-only field is `state` (totalSupplyAssets / borrow /
- * util), which stays undefined so the UI renders honest em-dashes for
- * APY/util/tvl. The on-chain identity (marketId + loanToken + decimals)
- * IS populated, which is what `market.onchain` needs — the Confirm Lend
- * button + the BALANCE row + the useLendingAction submit path ALL work
- * even when `/fx-telarana/markets` is unreachable.
- *
- * LLTV defaults to 86% (0.86e18). All M1-M4 markets ship with this
- * value per the deploy scripts; revisit if a non-86% market lands.
+ * addresses, oracle adapter address, the IrmMock, AND the per-market LLTV
+ * (from the manifest's `marketLltvs` map) all from the manifest; the only
+ * runtime-only field is `state` (totalSupplyAssets / borrow / util), which
+ * stays undefined so the UI renders honest em-dashes for APY/util/tvl.
+ * The on-chain identity (marketId + loanToken + decimals + lltv) IS
+ * populated, so `market.onchain` works even when `/fx-telarana/markets`
+ * is unreachable.
  */
-const STATIC_LLTV = "860000000000000000"; // 0.86e18
-
 function staticMarketsSerialized(): TelaranaMarketSerialized[] {
   return listTelaranaMarkets().map((m) => {
     const deployment = TELARANA_DEPLOYMENTS[m.chainId as TelaranaHubChainId];
@@ -152,7 +147,7 @@ function staticMarketsSerialized(): TelaranaMarketSerialized[] {
       collateralToken: m.collateralToken,
       oracle: m.morphoOracleAdapter,
       irm: deployment.contracts.IrmMock,
-      lltv: STATIC_LLTV,
+      lltv: m.lltv.toString(),
       // state stays undefined -> toLoanMarket() renders supply/borrow/util/tvl
       // as null -> "—" in the UI. Honest about not knowing the live state.
     } satisfies TelaranaMarketSerialized;

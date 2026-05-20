@@ -95,6 +95,11 @@ export interface TelaranaMarket {
   collateralToken: Address;
   /** Per-market Morpho oracle adapter that wraps the global FxOracle. */
   morphoOracleAdapter: Address;
+  /** Immutable LLTV from MarketParams, in WAD (1e18). Sourced from the
+   *  deployment manifest's `marketLltvs[key]`. Falls back to 0.86e18 if
+   *  the manifest omits the entry (all M1-M4 ship at 0.86 today; this
+   *  fallback exists so an older manifest can't crash the loader). */
+  lltv: bigint;
 }
 
 interface TelaranaDeployment {
@@ -131,6 +136,25 @@ function tryAddress(value: unknown): Address | null {
   return /^0x[0-9a-fA-F]{40}$/.test(value) ? (value as Address) : null;
 }
 
+/** LLTV fallback when the manifest omits a marketLltvs entry. Every
+ *  M1-M4 market on Fuji + Arc ships at 0.86e18 per the deploy scripts;
+ *  this keeps the loader working if a future manifest forgets to fill
+ *  the new field. */
+const DEFAULT_LLTV_WAD = 860_000_000_000_000_000n;
+
+function lltvFromManifest(
+  marketLltvs: Record<string, string> | undefined,
+  key: TelaranaMarketKey,
+): bigint {
+  const raw = marketLltvs?.[key];
+  if (typeof raw !== "string" || raw.length === 0) return DEFAULT_LLTV_WAD;
+  try {
+    return BigInt(raw);
+  } catch {
+    return DEFAULT_LLTV_WAD;
+  }
+}
+
 function buildDeployment(
   raw: typeof telaranaArcDeployment | typeof telaranaFujiDeployment,
   hubName: TelaranaHubName,
@@ -138,6 +162,8 @@ function buildDeployment(
 ): TelaranaDeployment {
   const contracts = raw.contracts as Record<string, string>;
   const marketIds = raw.marketIds as Record<string, string>;
+  const marketLltvs = (raw as { marketLltvs?: Record<string, string> })
+    .marketLltvs;
   const external = (raw.external ?? {}) as Record<string, unknown>;
   const loanUSDC = asAddress(external.USDC);
   // Fuji has no native Circle EURC deployment — fall back to the MockEURC
@@ -168,6 +194,7 @@ function buildDeployment(
       loanToken: loanEURC,
       collateralToken: loanUSDC,
       morphoOracleAdapter: asAddress(contracts.MorphoOracleAdapterM1),
+      lltv: lltvFromManifest(marketLltvs, "M1_EURC_USDC"),
     },
     {
       id: asHex(marketIds.M2_USDC_EURC ?? ""),
@@ -177,6 +204,7 @@ function buildDeployment(
       loanToken: loanUSDC,
       collateralToken: loanEURC,
       morphoOracleAdapter: asAddress(contracts.MorphoOracleAdapterM2),
+      lltv: lltvFromManifest(marketLltvs, "M2_USDC_EURC"),
     },
   ];
 
@@ -194,6 +222,7 @@ function buildDeployment(
       loanToken: loanMXNB,
       collateralToken: loanUSDC,
       morphoOracleAdapter: adapterM3,
+      lltv: lltvFromManifest(marketLltvs, "M3_MXNB_USDC"),
     });
   }
   if (loanMXNB && adapterM4 && m4MxnbId) {
@@ -205,6 +234,7 @@ function buildDeployment(
       loanToken: loanUSDC,
       collateralToken: loanMXNB,
       morphoOracleAdapter: adapterM4,
+      lltv: lltvFromManifest(marketLltvs, "M4_USDC_MXNB"),
     });
   }
   if (loanAUDF && adapterM3 && m3AudfId) {
@@ -216,6 +246,7 @@ function buildDeployment(
       loanToken: loanAUDF,
       collateralToken: loanUSDC,
       morphoOracleAdapter: adapterM3,
+      lltv: lltvFromManifest(marketLltvs, "M3_AUDF_USDC"),
     });
   }
   if (loanAUDF && adapterM4 && m4AudfId) {
@@ -227,6 +258,7 @@ function buildDeployment(
       loanToken: loanUSDC,
       collateralToken: loanAUDF,
       morphoOracleAdapter: adapterM4,
+      lltv: lltvFromManifest(marketLltvs, "M4_USDC_AUDF"),
     });
   }
 

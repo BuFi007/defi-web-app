@@ -115,7 +115,9 @@ export function clearMarketListCacheForTests(): void {
 /**
  * Fall-back: if the on-chain registry read fails (e.g. RPC offline during dev),
  * we still surface the markets declared in the deployment manifests so the UI
- * isn't blank. State and `isLive` get conservative defaults.
+ * isn't blank. State and `isLive` get conservative defaults. LLTV is read
+ * per-market from the manifest's `marketLltvs` map (see `TelaranaMarket.lltv`
+ * in @bufi/contracts) — no longer a hardcoded constant.
  */
 function staticMarkets(): LendingMarket[] {
   return (Object.entries(TELARANA_DEPLOYMENTS) as Array<[string, (typeof TELARANA_DEPLOYMENTS)[TelaranaHubChainId]]>).flatMap(
@@ -130,8 +132,7 @@ function staticMarkets(): LendingMarket[] {
         collateralToken: market.collateralToken,
         oracle: market.morphoOracleAdapter,
         irm: deployment.contracts.IrmMock,
-        // LLTV from the protocol manifest: M1 + M2 both ship at 86% (0.86e18).
-        lltv: 860_000_000_000_000_000n,
+        lltv: market.lltv,
       }));
     },
   );

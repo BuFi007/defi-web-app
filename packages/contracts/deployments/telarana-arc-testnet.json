@@ -48,6 +48,13 @@
     "M3_AUDF_USDC": "0x9053f4eeb53341cc43953030d52023d84aa9c1ad0cacb2312cdfc76078b227a4",
     "M4_USDC_AUDF": "0x6ffe9245d0750dc7190730f03b2a8f7bbcf91b5f80fea88388d68a4eabc6daad"
   },
+  "marketLltvsNote": "Immutable per-market LLTV (Morpho MarketParams.lltv) in WAD (1e18). Sourced from contracts/script/Deploy*.s.sol — keep in sync when a new market lands. Web UI reads this as the fallback when the live FxMarketRegistry read is unavailable; the live read always wins when present.",
+  "marketLltvs": {
+    "M1_EURC_USDC": "860000000000000000",
+    "M2_USDC_EURC": "860000000000000000",
+    "M3_AUDF_USDC": "860000000000000000",
+    "M4_USDC_AUDF": "860000000000000000"
+  },
   "hub": {
     "network": "avalanche-fuji",
     "chainId": 43113,
