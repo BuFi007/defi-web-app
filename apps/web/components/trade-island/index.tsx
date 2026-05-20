@@ -39,6 +39,17 @@ import type { PerpsPositionDto, PerpsTradeDto } from "@/lib/perps/client";
 import { safeBigInt, e18ToNumber } from "@/lib/perps/units";
 import { useLiveMarket } from "@/lib/perps/use-live-market";
 import { useMarketStats } from "@/lib/perps/use-market-stats";
+import { PerpChainSelector } from "./perp-chain-selector";
+import { MarketRiskCard } from "./market-risk-card";
+import { FundingRateWidget } from "./funding-rate-widget";
+import { CrossChainPositions } from "./cross-chain-positions";
+import {
+  DEFAULT_PERPS_CHAIN_ID,
+  perpChainFromSearchParams,
+  type PerpsChainId,
+} from "@/lib/perps/chains";
+import { useMarkets as usePerpsMarkets } from "@/lib/perps/hooks";
+import type { Hex } from "viem";
 import {
   usePositions as useTelaranaPositions,
   useMarkets as useTelaranaMarkets,
@@ -1003,7 +1014,11 @@ function LoanPositionsView() {
   );
 }
 
-function PositionsOnlyTab() {
+function PositionsOnlyTab({
+  onPickPerpChain,
+}: {
+  onPickPerpChain?: (id: PerpsChainId) => void;
+}) {
   const [sub, setSub] = useState("perps");
   const { address } = useAccount();
   const { data: livePositions } = usePositions();
@@ -1040,7 +1055,12 @@ function PositionsOnlyTab() {
           <span className="pp-subtab-count">{loanLegCount}</span>
         </button>
       </div>
-      {sub === "perps" && <PerpsPositionsView />}
+      {sub === "perps" && (
+        <>
+          <CrossChainPositions onPickChain={onPickPerpChain} />
+          <PerpsPositionsView />
+        </>
+      )}
       {sub === "loan" && <LoanPositionsView />}
     </div>
   );
@@ -1050,10 +1070,12 @@ function TradeTab({
   market,
   marketSym,
   setMarketSym,
+  perpChainId,
 }: {
   market: Market;
   marketSym: string;
   setMarketSym: (s: string) => void;
+  perpChainId: PerpsChainId;
 }) {
   // Switch to the dedicated mobile layout under the `lg` breakpoint. Matches
   // the island.css cutover at 1023.98px so the two systems agree.
@@ -1068,6 +1090,35 @@ function TradeTab({
   useEffect(() => {
     setLev(1);
   }, [market.sym]);
+
+  // Resolve the bytes32 marketId for the active UI symbol on the
+  // currently-selected perp chain. `usePerpsMarkets(chainId)` hits the
+  // /perps/markets endpoint scoped to that chain — same source the
+  // OrderPanelCard already consumes for chain-correct routing.
+  // Matching strategy mirrors `resolveLiveMarket()` in panels.tsx:
+  // (1) prefer the symbol with a matching base prefix on the chain;
+  // (2) fall back to the first enabled market so the risk card still
+  // surfaces _something_ while the user finds their pair.
+  const { data: chainMarkets } = usePerpsMarkets(perpChainId);
+  const activeMarketId = useMemo<Hex | undefined>(() => {
+    if (!chainMarkets || chainMarkets.length === 0) return undefined;
+    const enabled = chainMarkets.filter((m) => m.enabled);
+    const pool = enabled.length > 0 ? enabled : chainMarkets;
+    const base = market.sym.split(/[/-]/)[0]?.toUpperCase() ?? "";
+    const aliases: Record<string, string[]> = {
+      EUR: ["EURC"],
+      JPY: ["JPYC", "TJPYC"],
+      MXN: ["MXNB", "TMXNB"],
+      CHF: ["CHFC", "TCHFC"],
+    };
+    const candidates = [base, ...(aliases[base] ?? [])];
+    for (const c of candidates) {
+      const hit = pool.find((m) => m.symbol.toUpperCase().startsWith(c));
+      if (hit) return hit.marketId as Hex;
+    }
+    return pool[0]?.marketId as Hex | undefined;
+  }, [chainMarkets, market.sym]);
+
   if (isMobile) {
     return (
       <div className="trade-tab trade-tab-mobile">
@@ -1087,6 +1138,22 @@ function TradeTab({
         </div>
         <div className="t-chart">
           <ChartCard market={market} selectedLeverage={lev} />
+          <div
+            className="t-risk-row"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr) minmax(0, 0.6fr)",
+              gap: 10,
+              marginTop: 10,
+            }}
+          >
+            <MarketRiskCard
+              chainId={perpChainId}
+              marketId={activeMarketId}
+              marketLabel={market.sym}
+            />
+            <FundingRateWidget chainId={perpChainId} marketId={activeMarketId} />
+          </div>
         </div>
         <div className="t-order">
           <OrderPanelCard market={market} leverage={lev} setLeverage={setLev} />
@@ -1103,6 +1170,8 @@ function TradeIslandHeader({
   setMarketSym,
   arcade,
   setArcade,
+  perpChainId,
+  setPerpChainId,
 }: {
   tab: string;
   setTab: (id: string) => void;
@@ -1110,6 +1179,8 @@ function TradeIslandHeader({
   setMarketSym: (s: string) => void;
   arcade: boolean;
   setArcade: (v: boolean) => void;
+  perpChainId: PerpsChainId;
+  setPerpChainId: (id: PerpsChainId) => void;
 }) {
   // Live position count drives the tab pill; mock orders + mock positions are
   // no longer trusted for the trader-visible total.
@@ -1141,8 +1212,12 @@ function TradeIslandHeader({
           of the island chrome and keeps the pair price always visible
           in the upper-left where the user's eye lands first. */}
       {tab === "trade" && (
-        <div className="island-leading">
+        <div
+          className="island-leading"
+          style={{ display: "flex", alignItems: "center", gap: 10 }}
+        >
           <MarketPicker market={market} setMarketSym={setMarketSym} />
+          <PerpChainSelector value={perpChainId} onChange={setPerpChainId} />
         </div>
       )}
       <div className="island-tabs">
@@ -1196,6 +1271,27 @@ export default function TradeIsland() {
   const [tab, setTab] = useState("trade");
   const [marketSym, setMarketSym] = useState("EUR/USD");
   const [arcade, setArcade] = useState(false);
+  // Active perp chain. URL-synced (`?perp_chain=<id>`) so refresh holds.
+  // SSR uses the default; the client effect below promotes the URL value
+  // once `window` is available. We never auto-switch the wallet chain
+  // from here — the chain selector renders an explicit "Switch wallet"
+  // CTA when the user wants the two to align.
+  const [perpChainId, setPerpChainId] = useState<PerpsChainId>(DEFAULT_PERPS_CHAIN_ID);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const fromUrl = perpChainFromSearchParams(new URLSearchParams(window.location.search));
+    if (fromUrl) setPerpChainId(fromUrl);
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (perpChainId === DEFAULT_PERPS_CHAIN_ID) {
+      url.searchParams.delete("perp_chain");
+    } else {
+      url.searchParams.set("perp_chain", String(perpChainId));
+    }
+    window.history.replaceState({}, "", url.toString());
+  }, [perpChainId]);
   const baseMarket = useMemo(
     () => ALL_MARKETS.find((m) => m.sym === marketSym) || FX_MARKETS[0],
     [marketSym],
@@ -1287,6 +1383,8 @@ export default function TradeIsland() {
         setMarketSym={setMarketSym}
         arcade={arcade}
         setArcade={setArcade}
+        perpChainId={perpChainId}
+        setPerpChainId={setPerpChainId}
       />
 
       <div
@@ -1313,6 +1411,7 @@ export default function TradeIsland() {
                 market={market}
                 marketSym={marketSym}
                 setMarketSym={setMarketSym}
+                perpChainId={perpChainId}
               />
             )}
             {tab === "trade" && arcade && (
@@ -1322,7 +1421,14 @@ export default function TradeIsland() {
                 onPhaseChange={setArcadePhase}
               />
             )}
-            {tab === "positions" && <PositionsOnlyTab />}
+            {tab === "positions" && (
+              <PositionsOnlyTab
+                onPickPerpChain={(id) => {
+                  setPerpChainId(id);
+                  setTab("trade");
+                }}
+              />
+            )}
             {tab === "loan" && <LoanTab />}
             {tab === "leaders" && <LeadersTab />}
             {tab === "history" && <HistoryTab />}
