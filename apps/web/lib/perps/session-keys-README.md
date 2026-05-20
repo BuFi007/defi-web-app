@@ -55,28 +55,133 @@ the EOA `useSignTypedData` path in `usePlaceOrder` runs unchanged.
 Until QA passes end-to-end on Arc Testnet with a real Pimlico bundler
 + paymaster wired up, the flag stays off in production.
 
-## Open items (paymaster / bundler)
+## Bundler / paymaster wiring (Wave F4)
 
-ZeroDev's `createKernelAccountClient` needs a bundler URL (Pimlico or
-ZeroDev-hosted) to submit `settleMatch` UserOps. Arc Testnet does not
-yet have a ZeroDev project ID provisioned; on the next pass we either:
+ZeroDev's `createKernelAccountClient` needs a bundler URL to submit
+`settleMatch` / `cancelOrder` / `depositMargin` / `withdrawMargin`
+UserOps. Arc Testnet does not have a ZeroDev project ID, so Wave F4
+routes the rails through Pimlico instead — the kernel signing stays
+ZeroDev, but the bundler + paymaster are Pimlico (which speaks the
+ERC-7677 paymaster RPC schema viem consumes directly).
 
-- (a) configure a Pimlico endpoint that routes to Arc Testnet's bundler
-  and sponsor UserOps via a Circle-issued paymaster, OR
-- (b) defer to EIP-7702 mode once Arc's clients support it (the
-  `eip7702Account` createKernelAccount path keeps `order.trader = userEOA`
-  AND uses the session-key validator — eliminating the deposit-to-kernel
-  caveat entirely).
+```
+EOA (one popup, owner approval)
+   │
+   ▼
+ZeroDev kernel (session-key-policies.ts)
+   │ session key signs each UserOp
+   ▼
+buildKernelClient()           ← apps/web/lib/perps/pimlico-client.ts
+   │  bundlerTransport → Pimlico bundler RPC
+   │  paymaster         → Pimlico paymaster RPC (ERC-7677) — OPTIONAL
+   ▼
+On-chain settleMatch / cancelOrder / depositMargin / withdrawMargin
+```
 
-This worktree ships the policy + storage + UI scaffolding. The bundler
-wire-up + acceptance tests live downstream of paymaster sign-off.
+### Env vars
+
+| Var                                       | Required | Notes |
+|-------------------------------------------|----------|-------|
+| `NEXT_PUBLIC_PIMLICO_BUNDLER_URL`         | yes      | Pimlico bundler URL template, e.g. `https://api.pimlico.io/v2/{CHAIN_ID}/rpc?apikey=<key>`. `{CHAIN_ID}` is substituted at runtime so one var serves Arc + Fuji. |
+| `NEXT_PUBLIC_PIMLICO_PAYMASTER_URL`       | no       | Same template, paymaster path. Omit to pay UserOp gas in USDC (Arc's native gas) instead of sponsoring. |
+| `NEXT_PUBLIC_PIMLICO_SPONSORSHIP_POLICY_ID` | no     | Pimlico sponsorship policy id. Passed via `paymasterContext` so only allow-listed UserOps get sponsored. |
+
+The API key is `NEXT_PUBLIC_*` because Pimlico scopes keys to a
+referrer / domain allowlist; the risk of bare exposure is bounded to
+"someone burns the budget" rather than "someone drains funds". Tighten
+the allowlist in the Pimlico dashboard for prod.
+
+### Hooks
+
+```
+apps/web/lib/perps/pimlico-client.ts          buildKernelClient(), isPimlicoConfigured()
+apps/web/lib/perps/use-session-key-write.ts   useSessionKeyWrite() — kernel UserOp submit
+apps/web/lib/perps/use-fast-perp-write.ts     useFastPerpWrite()   — composer with EOA fallback
+```
+
+`useFastPerpWrite()` is the call-site-facing surface. It exposes:
+
+```ts
+const { submit, isActive } = useFastPerpWrite();
+const { txHash, mode } = await submit({
+  address: settlementAddress,
+  abi: FxOrderSettlementAbi,
+  functionName: "settleMatch",
+  args: [...],
+});
+// mode === "session-key" → UserOp via Pimlico
+// mode === "eoa"         → wagmi writeContract
+```
+
+### Fallback strategy
+
+The composer tries the session-key path first when `isActive === true`.
+If `submit()` throws for ANY reason (Pimlico 500, kernel not deployed,
+policy mismatch, RPC blip), it logs a console warning and falls
+through to the EOA `walletClient.writeContract(...)` path. The user
+sees their normal wallet popup — same flow they had before session
+keys existed — never a hard failure. The `fallbackReason` field on
+the result surfaces the underlying error for an optional toast.
+
+When PR #44's `useSimulatedWrite` lands, swap the inline `eoaSubmit`
+body for `useSimulatedWrite().submit(...)`. The composer's public API
+(`{ submit, isActive }`) doesn't change.
+
+### Integration pattern (call sites)
+
+Wave F4 ships the PRIMITIVE LAYER only — the actual swap-in at
+`order-entry-cta.tsx` / `<MarginPanel />` is a follow-up so this PR
+stays small. To wire a call site:
+
+```diff
+- const { signTypedDataAsync } = useSignTypedData();
+- // ... build EIP-712, sign, POST ...
++ const { submit } = useFastPerpWrite();
++ const { txHash, mode } = await submit({
++   address: settlement,
++   abi: FxOrderSettlementAbi,
++   functionName: "settleMatch",
++   args: [makerOrder, takerOrder, fillSizeE18, priceE18],
++ });
+```
+
+For the place-order flow specifically, the EIP-712 path stays — the
+matcher consumes signed intents off-chain. Session keys are about
+direct on-chain calls (settleMatch self-fill, cancelOrder,
+deposit/withdraw margin).
+
+### Pimlico cost notes
+
+- Free tier: enough for testnet demo + early mainnet (low TPS).
+- Production: bundler + paymaster typically ~$50–200/mo on Pimlico's
+  growth tier depending on volume; check the live pricing page for
+  current numbers. The biggest cost lever is sponsorship — gating
+  sponsored UserOps via the policy ID keeps spend bounded.
+- Self-hosted alternative: Alto (Pimlico's open-source bundler) +
+  Skandha (Etherspot's). Slot for later once volume warrants
+  cutting Pimlico out of the path.
+
+### Open items
+
+- **ERC-4337 on Arc Testnet**: confirmed Arc's RPC accepts the
+  standard EntryPoint v0.7 + bundler interface. Pimlico's chain
+  registry needs `5042002` listed; if it isn't yet, the env var stays
+  unset and the composer silently uses the EOA path.
+- **EIP-7702 mode**: once Arc clients support it, the
+  `eip7702Account` createKernelAccount path keeps `order.trader =
+  userEOA` AND uses the session-key validator — eliminating the
+  deposit-to-kernel caveat entirely. Stays a future-PR concern; the
+  current PR works with the kernel-as-trader path.
 
 ## File map
 
 ```
-session-key-storage.ts     encrypted localStorage (PBKDF2 + AES-GCM)
-session-key-policies.ts    call + timestamp policy builders
-use-session-key.ts         React hook — enable / revoke / decrypt
+session-key-storage.ts                           encrypted localStorage (PBKDF2 + AES-GCM)
+session-key-policies.ts                          call + timestamp policy builders
+use-session-key.ts                               React hook — enable / revoke / decrypt
+pimlico-client.ts                                bundler + paymaster wiring (Wave F4)
+use-session-key-write.ts                         kernel UserOp submit hook (Wave F4)
+use-fast-perp-write.ts                           composer: session-key + EOA fallback (Wave F4)
 components/trade-island/session-key-toggle.tsx   the "Enable fast trading" UI
 app/[locale]/settings/session-keys/page.tsx      manage active sessions
 ```
