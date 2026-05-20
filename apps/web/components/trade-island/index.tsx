@@ -38,6 +38,8 @@ import { usePositions, useTrades } from "@/lib/perps/hooks";
 import type { PerpsPositionDto, PerpsTradeDto } from "@/lib/perps/client";
 import { safeBigInt, e18ToNumber } from "@/lib/perps/units";
 import { useLiveMarket } from "@/lib/perps/use-live-market";
+import { usePythHermesPrice } from "@/lib/market-data/use-pyth-hermes";
+import { AnimatedNumber } from "@/components/animated-number";
 import { useMarketStats } from "@/lib/perps/use-market-stats";
 import {
   usePositions as useTelaranaPositions,
@@ -439,79 +441,144 @@ function HistoryTab() {
 function PerpsPositionCards({ rows }: { rows: PositionRow[] }) {
   return (
     <div className="pos-cards" aria-label="Open perp positions">
-      {rows.map((p, i) => {
-        const m = ALL_MARKETS.find((mm) => mm.sym === p.sym);
-        const dec =
-          p.entry !== null ? (p.entry < 10 ? 4 : p.entry < 1000 ? 2 : 1) : 4;
-        const pnlPct =
-          p.pnl !== null ? (p.pnl / Math.max(p.margin, 1)) * 100 : null;
-        return (
-          <article key={`${p.sym}-${i}`} className="pos-card">
-            <header className="pos-card-head">
-              <TokenIconPair
-                base={m?.base ?? p.sym}
-                quote={m?.quote ?? "USD"}
-                size={22}
-              />
-              <div className="pos-card-meta">
-                <div className="pos-card-sym">{p.sym}</div>
-                <div className="pos-card-sub">{p.leverage}x · Cross</div>
-              </div>
-              <span className={"side-tag " + p.side}>
-                {p.side.toUpperCase()}
-              </span>
-              <div
-                className={
-                  "pos-card-pnl mono " + ((p.pnl ?? 0) >= 0 ? "profit" : "loss")
-                }
-              >
-                <div className="pos-card-pnl-v">
-                  {p.pnl === null
-                    ? "—"
-                    : (p.pnl >= 0 ? "+" : "") + fmtUSD(p.pnl)}
-                </div>
-                <div className="pos-card-pnl-pct">
-                  {pnlPct === null ? "" : fmtPct(pnlPct)}
-                </div>
-              </div>
-            </header>
-            <dl className="pos-card-grid">
-              <div>
-                <dt>Size</dt>
-                <dd className="mono">{p.size.toLocaleString()}</dd>
-              </div>
-              <div>
-                <dt>Margin</dt>
-                <dd className="mono">{fmtUSD(p.margin)}</dd>
-              </div>
-              <div>
-                <dt>Entry</dt>
-                <dd className="mono">{p.entry?.toFixed(dec) ?? "—"}</dd>
-              </div>
-              <div>
-                <dt>Mark</dt>
-                <dd className="mono">{p.mark?.toFixed(dec) ?? "—"}</dd>
-              </div>
-              <div>
-                <dt>Liq.</dt>
-                <dd className="mono" style={{ color: "var(--loss-ink)" }}>
-                  {p.liq?.toFixed(dec) ?? "—"}
-                </dd>
-              </div>
-              <div>
-                <dt>TP/SL</dt>
-                <dd>
-                  <button className="copy-btn" style={{ padding: "3px 8px" }}>
-                    <Icon name="plus" size={10} /> Set
-                  </button>
-                </dd>
-              </div>
-            </dl>
-            <button className="pos-card-close">Close position</button>
-          </article>
-        );
-      })}
+      {rows.map((p, i) => (
+        <PerpsPositionCard key={`${p.sym}-${i}`} row={p} />
+      ))}
     </div>
+  );
+}
+
+/**
+ * Per-row sub-component so each card gets its own Pyth Hermes WS subscription.
+ * The shared singleton stream multiplexes — under the hood this is still one
+ * physical socket, but each row owns its own subscribe/unsubscribe lifecycle
+ * + tick state.
+ *
+ * Live mark price drives the displayed Mark field and the unrealized PnL
+ * formula `sizeUsdc * (mark - entry) / entry * (long ? 1 : -1)`. Falls back
+ * to the server-derived `row.pnl` whenever the live mark or entry isn't
+ * available yet (cold mount, stale feed, untradeable symbol).
+ *
+ * Stale visual: when no tick has arrived in 10s, desaturate the PnL via
+ * `opacity: 0.55` and append a "·stale" badge so traders can see the data
+ * froze without removing the value entirely.
+ */
+function PerpsPositionCard({ row }: { row: PositionRow }) {
+  const m = ALL_MARKETS.find((mm) => mm.sym === row.sym);
+  const dec =
+    row.entry !== null ? (row.entry < 10 ? 4 : row.entry < 1000 ? 2 : 1) : 4;
+
+  const pyth = usePythHermesPrice(row.sym, { staleAfterMs: 10_000 });
+
+  // Live mark: prefer the Pyth tick, fall back to whatever the server gave us.
+  const liveMark =
+    pyth.price !== null && Number.isFinite(pyth.price) && pyth.price > 0
+      ? pyth.price
+      : row.mark;
+
+  // Live PnL: compute from sizeUsdc when we have both a live mark and an
+  // entry. Both prices are in the same units (quote per base), so the ratio
+  // works for any symbol orientation. If anything's missing, fall back to
+  // the server-quoted `row.pnl` (which `liveToPositionRow` already pulled
+  // off the perps API's `unrealizedPnlUsdc`).
+  const livePnl =
+    liveMark !== null &&
+    row.entry !== null &&
+    row.entry > 0 &&
+    Number.isFinite(row.size)
+      ? row.size * (liveMark / row.entry - 1) * (row.side === "long" ? 1 : -1)
+      : row.pnl;
+
+  const pnlPct =
+    livePnl !== null && row.margin > 0 ? (livePnl / row.margin) * 100 : null;
+
+  const isStale = pyth.isStale;
+
+  return (
+    <article className="pos-card">
+      <header className="pos-card-head">
+        <TokenIconPair
+          base={m?.base ?? row.sym}
+          quote={m?.quote ?? "USD"}
+          size={22}
+        />
+        <div className="pos-card-meta">
+          <div className="pos-card-sym">{row.sym}</div>
+          <div className="pos-card-sub">{row.leverage}x · Cross</div>
+        </div>
+        <span className={"side-tag " + row.side}>{row.side.toUpperCase()}</span>
+        <div
+          className={
+            "pos-card-pnl mono " + ((livePnl ?? 0) >= 0 ? "profit" : "loss")
+          }
+          style={isStale ? { opacity: 0.55 } : undefined}
+          title={
+            isStale
+              ? "Pyth Hermes WS stalled — last value held"
+              : "Live PnL — Pyth Hermes WS"
+          }
+        >
+          <div className="pos-card-pnl-v">
+            {livePnl === null ? (
+              "—"
+            ) : (
+              <AnimatedNumber
+                value={livePnl}
+                currency="USD"
+                minimumFractionDigits={2}
+                maximumFractionDigits={2}
+                prefix={livePnl >= 0 ? "+" : ""}
+              />
+            )}
+          </div>
+          <div className="pos-card-pnl-pct">
+            {pnlPct === null ? "" : fmtPct(pnlPct)}
+            {isStale ? " · stale" : ""}
+          </div>
+        </div>
+      </header>
+      <dl className="pos-card-grid">
+        <div>
+          <dt>Size</dt>
+          <dd className="mono">{row.size.toLocaleString()}</dd>
+        </div>
+        <div>
+          <dt>Margin</dt>
+          <dd className="mono">{fmtUSD(row.margin)}</dd>
+        </div>
+        <div>
+          <dt>Entry</dt>
+          <dd className="mono">{row.entry?.toFixed(dec) ?? "—"}</dd>
+        </div>
+        <div>
+          <dt>Mark</dt>
+          <dd
+            className="mono"
+            style={isStale ? { opacity: 0.55 } : undefined}
+            title={
+              isStale ? "Pyth feed stalled — last mark held" : "Live mark — Pyth"
+            }
+          >
+            {liveMark?.toFixed(dec) ?? "—"}
+          </dd>
+        </div>
+        <div>
+          <dt>Liq.</dt>
+          <dd className="mono" style={{ color: "var(--loss-ink)" }}>
+            {row.liq?.toFixed(dec) ?? "—"}
+          </dd>
+        </div>
+        <div>
+          <dt>TP/SL</dt>
+          <dd>
+            <button className="copy-btn" style={{ padding: "3px 8px" }}>
+              <Icon name="plus" size={10} /> Set
+            </button>
+          </dd>
+        </div>
+      </dl>
+      <button className="pos-card-close">Close position</button>
+    </article>
   );
 }
 

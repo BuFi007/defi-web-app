@@ -42,6 +42,7 @@ import {
   type CandleSource,
 } from "@bufi/market-data";
 import { useLiveMarket } from "@/lib/perps/use-live-market";
+import { usePythHermesPrice } from "@/lib/market-data/use-pyth-hermes";
 import type { Market } from "./data";
 
 /**
@@ -221,6 +222,14 @@ export function CandleChart({
   // gracefully returns `tick === null` + `status === 'error'` when the env
   // var is missing, so the chart silently keeps rendering historical data.
   const live = useLiveMarket(market.sym, { enabled: liveSource === "ws" });
+
+  // Pyth Hermes browser-direct WebSocket. Independent of `NEXT_PUBLIC_API_URL`
+  // — opens a direct wss://hermes.pyth.network/ws connection. This is the
+  // always-on "sub-100ms feel" source: the API WS is a backup once it's
+  // configured. Both update the same `candleSeriesRef`; lightweight-charts
+  // de-dupes monotonic timestamps internally, and we dedup again below
+  // against the seed candle so two equal-second ticks don't crash.
+  const pyth = usePythHermesPrice(market.sym, { enabled: liveSource === "ws" });
 
   // Chart lifecycle — create once, dispose on unmount.
   useEffect(() => {
@@ -516,6 +525,67 @@ export function CandleChart({
     // privateMode in deps so entry/liq/mark line colors swap with the
     // palette when stealth mode flips.
   }, [entryPrice, liquidationPrice, markPrice, privateMode]);
+
+  // Pyth Hermes browser-direct fold-in. Runs alongside the API WS fold-in
+  // below — whichever source ticks first wins; lightweight-charts handles
+  // equal-second timestamps as in-place updates. The Pyth tick carries its
+  // own `publishTime` (unix seconds), so the lastCandle bucket boundary is
+  // checked against that. We never crash on equal-second duplicates: the
+  // dedup guard against `lastFoldTsRef` drops the second tick rather than
+  // letting it through and risking lightweight-charts' monotonic assertion.
+  const lastFoldTsRef = useRef<number>(0);
+  useEffect(() => {
+    if (liveSource !== "ws") return;
+    if (pyth.price === null || pyth.publishTime === null) return;
+    const candleSeries = candleSeriesRef.current;
+    if (!candleSeries) return;
+    const seed = lastCandleRef.current;
+    if (!seed) return;
+    const mark = pyth.price;
+    if (!Number.isFinite(mark) || mark <= 0) return;
+    const ts = pyth.publishTime;
+    // Drop ticks that arrive at the same second as the last folded tick,
+    // and never let time go backwards (lightweight-charts requires strict
+    // monotonicity).
+    if (ts < lastFoldTsRef.current) return;
+    let next: Candle;
+    if (ts >= seed.time + 1) {
+      // Same or later second than seed; if strictly later, append a fresh
+      // candle to the series, else update in place.
+      const time = Math.max(ts, seed.time);
+      const isNewBucket = time > seed.time;
+      next = isNewBucket
+        ? { time, o: mark, h: mark, l: mark, c: mark, v: 0 }
+        : {
+            time,
+            o: seed.o,
+            h: Math.max(seed.h, mark),
+            l: Math.min(seed.l, mark),
+            c: mark,
+            v: seed.v,
+          };
+    } else {
+      // ts < seed.time + 1, i.e. same second or older — fold into seed.
+      next = {
+        time: seed.time,
+        o: seed.o,
+        h: Math.max(seed.h, mark),
+        l: Math.min(seed.l, mark),
+        c: mark,
+        v: seed.v,
+      };
+    }
+    candleSeries.update({
+      time: next.time as UTCTimestamp,
+      open: next.o,
+      high: next.h,
+      low: next.l,
+      close: next.c,
+    });
+    lastCandleRef.current = next;
+    lastFoldTsRef.current = next.time;
+    if (chartStatus === "empty") setChartStatus("ready");
+  }, [liveSource, pyth.price, pyth.publishTime, chartStatus]);
 
   // Live-tick fold-in. Only runs when `liveSource === 'ws'` AND the hook has
   // delivered a tick. We mutate the in-memory `lastCandleRef` so subsequent
