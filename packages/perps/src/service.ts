@@ -1,3 +1,7 @@
+import {
+  PERPS_INTENT_INSERTED_CHANNEL,
+  type PerpsIntentInsertedMessage,
+} from "@bufi/realtime";
 import type { MarketRegistryEntry, PerpIntent, PerpQuote } from "@bufi/shared-types";
 import type { Hex } from "viem";
 
@@ -81,6 +85,23 @@ export interface PerpsIntentStore {
   recordFill(intentId: string, fillSizeDelta: bigint): Promise<PerpIntent>;
 }
 
+/**
+ * Cross-process notification hook fired after a fresh intent lands in the
+ * store. The matcher subscribes to the corresponding Redis channel and uses
+ * the notify to schedule an early match attempt (~100ms vs ~30s poll).
+ *
+ * Optional + fire-and-forget: the service awaits it (so errors surface in
+ * logs) but never lets a publish failure bubble out of `createIntent`. A
+ * dropped notify just means the matcher waits for its next poll tick.
+ *
+ * Injected from the caller (apps/api wraps `@bufi/realtime`'s
+ * `publishChannel`) so `@bufi/perps` doesn't gain a direct Redis dep.
+ */
+export type PerpsRealtimePublish = (args: {
+  channel: string;
+  payload: unknown;
+}) => Promise<void>;
+
 export interface CreatePerpsServiceOptions {
   markets?: MarketRegistryEntry[];
   quoteReader?: PerpsQuoteReader;
@@ -91,6 +112,13 @@ export interface CreatePerpsServiceOptions {
   /** Chain to default `listPositions` to when caller doesn't specify. */
   defaultChainId?: number;
   now?: () => number;
+  /**
+   * Optional Wave H1 hook — fires once per persisted intent on the
+   * `perps:intent:inserted` channel. The matcher subscribes and runs an
+   * early match attempt; without it the matcher waits for the next poll
+   * tick (~30s by default).
+   */
+  realtimePublish?: PerpsRealtimePublish;
 }
 
 export interface PerpsService {
@@ -185,6 +213,22 @@ export function createPerpsService(opts: CreatePerpsServiceOptions = {}): PerpsS
       intent.replacementOf = meta.replacementOf;
     }
     await store.put(intent);
+    // Fire-and-forget notify so the matcher can pick this up sub-second
+    // instead of waiting for its next poll tick. We deliberately await
+    // (so the publish is sequenced after store.put) but the publish
+    // surface itself never throws — see PerpsRealtimePublish docs.
+    if (opts.realtimePublish) {
+      await opts.realtimePublish({
+        channel: PERPS_INTENT_INSERTED_CHANNEL,
+        payload: {
+          intentId: intent.intentId,
+          marketId: intent.marketId,
+          chainId: intent.chainId,
+          side: intent.side,
+          insertedAt: Date.now(),
+        } satisfies PerpsIntentInsertedMessage,
+      });
+    }
     return {
       intentId: intent.intentId,
       digest,
