@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { privateKeyToAccount } from "viem/accounts";
 
 import {
+  SIGNED_ORDER_TYPES,
   buildPerpsOrderTypedData,
   buildSignedOrderMessage,
   hashPerpsOrder,
@@ -14,6 +15,23 @@ const marketId = `0x${"11".repeat(32)}`;
 const verifyingContract = `0x${"22".repeat(20)}`;
 
 describe("perps SignedOrder typed data", () => {
+  // Regression guard: the on-chain typehash in FxOrderSettlement.sol has
+  // 9 fields with `maxFee:uint256` between `priceE18` and `orderType`.
+  // Drift here = every trader-side signature reverts with InvalidSignature.
+  test("SignedOrder schema mirrors FxOrderSettlement.SIGNED_ORDER_TYPEHASH exactly", () => {
+    expect(SIGNED_ORDER_TYPES.SignedOrder).toEqual([
+      { name: "trader", type: "address" },
+      { name: "marketId", type: "bytes32" },
+      { name: "sizeDeltaE18", type: "int256" },
+      { name: "priceE18", type: "uint256" },
+      { name: "maxFee", type: "uint256" },
+      { name: "orderType", type: "uint8" },
+      { name: "flags", type: "uint8" },
+      { name: "nonce", type: "uint64" },
+      { name: "deadline", type: "uint64" },
+    ]);
+  });
+
   test("matches the Phase E SignedOrder contract shape", () => {
     const message = buildSignedOrderMessage({
       chainId: 5042002,
@@ -34,12 +52,31 @@ describe("perps SignedOrder typed data", () => {
       marketId,
       sizeDeltaE18: -10_500_000n,
       priceE18: 1_230_000_000_000_000_000n,
+      maxFee: 0n,
       orderType: 1,
       flags: 3,
       nonce: 7n,
     });
     expect(orderFlags({ reduceOnly: true, postOnly: false })).toBe(1);
     expect(signedSizeDelta({ side: "long", sizeDelta: "42", sizeUsdc: "1" })).toBe(42n);
+  });
+
+  test("maxFee round-trips when explicitly set", () => {
+    const message = buildSignedOrderMessage({
+      chainId: 5042002,
+      trader: `0x${"aa".repeat(20)}`,
+      marketId,
+      side: "long",
+      orderType: "market",
+      sizeUsdc: "1.000000",
+      leverage: 1,
+      priceE18: "1000000000000000000",
+      maxFee: "5000",
+      reduceOnly: false,
+      nonce: "0",
+      deadline: 1_800_000_000,
+    });
+    expect(message.maxFee).toBe(5_000n);
   });
 
   test("verifies the trader EIP-712 signature", async () => {

@@ -16,12 +16,21 @@ export const PERPS_ORDER_DOMAIN = {
   version: "1",
 } as const;
 
+// MUST match FxOrderSettlement.SIGNED_ORDER_TYPEHASH (9 fields including
+// `maxFee` between `priceE18` and `orderType`). Prior version omitted
+// `maxFee` — `hashTypedData` would compute a digest that ECDSA-recovers
+// to a different address than the on-chain hasher expects, and
+// FxOrderSettlement.settleMatch reverts with `InvalidSignature`.
+// The keeper-perps-matcher submission path was accidentally fine because
+// it passes `maxFee: 0n` directly in the SignedOrder struct calldata, but
+// trader-side signing built from this package was structurally broken.
 export const SIGNED_ORDER_TYPES = {
   SignedOrder: [
     { name: "trader", type: "address" },
     { name: "marketId", type: "bytes32" },
     { name: "sizeDeltaE18", type: "int256" },
     { name: "priceE18", type: "uint256" },
+    { name: "maxFee", type: "uint256" },
     { name: "orderType", type: "uint8" },
     { name: "flags", type: "uint8" },
     { name: "nonce", type: "uint64" },
@@ -44,6 +53,13 @@ export interface PerpsOrderTypedDataInput {
   leverage: number;
   limitPrice?: string;
   priceE18?: string;
+  /**
+   * Optional cap on the matcher-charged trading fee for this fill, atomic
+   * units (USDC, 6 decimals). Defaults to "0" (uncapped) when omitted —
+   * matches the existing matcher path which submits `maxFee: 0n` directly.
+   * Set this if the trader wants to refuse fills above a fee threshold.
+   */
+  maxFee?: string;
   reduceOnly: boolean;
   postOnly?: boolean;
   nonce: string;
@@ -55,6 +71,7 @@ export interface SignedOrderMessage {
   marketId: Hex;
   sizeDeltaE18: bigint;
   priceE18: bigint;
+  maxFee: bigint;
   orderType: number;
   flags: number;
   nonce: bigint;
@@ -97,6 +114,7 @@ export function buildSignedOrderMessage(req: PerpsOrderTypedDataInput): SignedOr
     marketId: req.marketId as Hex,
     sizeDeltaE18: signedSizeDelta(req),
     priceE18: BigInt(req.priceE18 ?? req.limitPrice ?? "0"),
+    maxFee: BigInt(req.maxFee ?? "0"),
     orderType: orderTypeCode(req.orderType),
     flags: orderFlags(req),
     nonce,
