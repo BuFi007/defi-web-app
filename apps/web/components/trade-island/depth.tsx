@@ -28,15 +28,13 @@
  * via Pyth Hermes today, plus the REST fallback for cold-start.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import uPlot, { type AlignedData, type Options } from "uplot";
 
-import { useUplot } from "@/lib/perps/uplot";
-import "@/lib/perps/uplot"; // CSS side-effect — the index barrel imports uplot.css
-import {
-  fmtPriceForDepth,
-  fmtSizeForDepth,
-} from "@/lib/perps/uplot/format";
+// Importing the barrel pulls in `./uplot.css` as a side-effect for any
+// page that mounts a uPlot component. Named imports come from the same
+// module so we don't list two import lines for the same path.
+import { useUplot, fmtPriceForDepth, fmtSizeForDepth } from "@/lib/perps/uplot";
 import { useLiveMarket } from "@/lib/perps/use-live-market";
 import { usePendingIntents } from "@/lib/perps/use-pending-intents";
 
