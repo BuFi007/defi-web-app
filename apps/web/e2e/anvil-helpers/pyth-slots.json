@@ -1,0 +1,81 @@
+{
+  "Pyth": "0x2880aB155794e7179c9eE2e38200202908C17B43",
+  "chainId": 5042002,
+  "verifiedAt": "2026-05-20T22:42:35.441Z",
+  "verifiedAtBlock": "43248450",
+  "slots": {
+    "priceInfoMapping": "0x00000000000000000000000000000000000000000000000000000000000000d5",
+    "feeds": {
+      "EURC": {
+        "feedId": "0x76fa85158bf14ede77087fe3ae472f66213f6ea2f5b411cb2de472794990fa5c",
+        "priceSlot": "0x7749865cc250abcd902df3f9b06d804adfdaa67cc5a070ee1f6409f32a8ff15e"
+      },
+      "USDC": {
+        "feedId": "0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
+        "priceSlot": "0x722e7100a3d24c397610faf61a4be63ed8ba9109ab7d026e295c4f7b757e549a"
+      }
+    }
+  },
+  "structPacking": {
+    "priceInfoSlot1": {
+      "publishTime": {
+        "offset": 0,
+        "size": 8,
+        "type": "uint64"
+      },
+      "expo": {
+        "offset": 8,
+        "size": 4,
+        "type": "int32"
+      },
+      "price": {
+        "offset": 12,
+        "size": 8,
+        "type": "int64"
+      },
+      "conf": {
+        "offset": 20,
+        "size": 8,
+        "type": "uint64"
+      }
+    },
+    "priceInfoSlot2": {
+      "emaPrice": {
+        "offset": 0,
+        "size": 8,
+        "type": "int64"
+      },
+      "emaConf": {
+        "offset": 8,
+        "size": 8,
+        "type": "uint64"
+      }
+    }
+  },
+  "values": {
+    "EURC": {
+      "priceSlot1": "0x000000000000000000023b9c0000000006eaf573fffffff8000000006a0d2e7d",
+      "priceSlot2": "0x00000000000000000000000000000000000000000002535b0000000006ea3f53",
+      "decoded": {
+        "publishTime": "1779248765",
+        "expo": "-8",
+        "price": "116061555",
+        "conf": "146332",
+        "emaPrice": "116014931",
+        "emaConf": "152411"
+      }
+    },
+    "USDC": {
+      "priceSlot1": "0x0000000000000000000178900000000005f58534fffffff8000000006a0d2e7d",
+      "priceSlot2": "0x0000000000000000000000000000000000000000000179e50000000005f58309",
+      "decoded": {
+        "publishTime": "1779248765",
+        "expo": "-8",
+        "price": "99976500",
+        "conf": "96400",
+        "emaPrice": "99975945",
+        "emaConf": "96741"
+      }
+    }
+  }
+}
