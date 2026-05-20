@@ -159,16 +159,25 @@ const healthRoute = createRoute({
 // Non-OpenAPI `.use` / `.route` calls keep mutating `app` and continue to
 // work at runtime (same instance) — they just don't appear in the typed
 // client until they're also converted to `app.openapi(...)`.
-const typedApp = app.openapi(healthRoute, (c) =>
-  c.json(
-    {
-      status: "ok" as const,
-      uptime: typeof process.uptime === "function" ? process.uptime() : 0,
-      version: process.env.npm_package_version ?? "0.0.0",
-    },
-    200,
-  ),
-);
+// `marketsRoutes` is itself an OpenAPIHono now (wk1d2). We chain its
+// `.route("/markets", marketsRoutes)` onto the typedApp capture so the
+// markets endpoints (list / get / price / candles) propagate into AppType
+// and the apps/web `hc<AppType>` client can call them with full request +
+// response inference. Plain `app.route("/markets", marketsRoutes)` below
+// still runs at runtime (same instance), but type refinement only flows
+// through the captured chain.
+const typedApp = app
+  .openapi(healthRoute, (c) =>
+    c.json(
+      {
+        status: "ok" as const,
+        uptime: typeof process.uptime === "function" ? process.uptime() : 0,
+        version: process.env.npm_package_version ?? "0.0.0",
+      },
+      200,
+    ),
+  )
+  .route("/markets", marketsRoutes);
 
 app.route("/liveblocks", liveblocksRoutes);
 app.route("/markets", marketsRoutes);
