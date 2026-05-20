@@ -1,7 +1,17 @@
 import { type Page, expect } from "@playwright/test";
+import type { Address } from "viem";
 
 import { gotoIsland } from "./fixtures";
-import { isAnvilReachable, getChainId } from "./anvil-helpers";
+import {
+  getAnvilRpcUrl,
+  isAnvilReachable,
+  getChainId,
+  mineBlocks,
+} from "./anvil-helpers";
+import {
+  disableRedstone,
+  widenOracleAgeLimit,
+} from "./anvil-helpers/oracle-cheats";
 
 /**
  * Wave E2 — Perp-specific UI driver helpers.
@@ -296,6 +306,77 @@ export class ForkUnavailableError extends Error {
     super(message);
     this.name = "ForkUnavailableError";
   }
+}
+
+/**
+ * Wave F5c — `forceLiquidatable` cheat orchestrator.
+ *
+ * Wraps the F5b oracle cheats (`widenOracleAgeLimit` + `disableRedstone`) into
+ * a single best-effort call usable from a liquidation e2e test. The shape
+ * matches the F5c task spec's `test.extend(...)` proposal as a flat helper —
+ * the existing `perps-fixtures.ts` doesn't carry a Playwright-fixture context
+ * (no `test.extend` skeleton from PR #54), so a flat function is the minimal
+ * diff that keeps the same API surface callers expect.
+ *
+ * ## What this DOES
+ *
+ *   1. `widenOracleAgeLimit(3600s)` — relaxes `FxOracle.maxOracleAge` so any
+ *      stale Pyth publishTime on the forked block passes the freshness gate.
+ *      Without this, `getMid()` reverts with `OracleTooStale` long before any
+ *      HF-driven liquidation logic gets to fire.
+ *   2. `disableRedstone(EURC)` + `disableRedstone(USDC)` — zeroes the
+ *      `redstoneFeedOf` mapping entries so FxOracle falls back to Pyth-only
+ *      pricing. Useful because Redstone's payload-relay is unforked.
+ *   3. `evm_mine(1)` — surfaces the new oracle state on the next block read.
+ *
+ * ## What this DOES NOT DO
+ *
+ * This helper does NOT push a position into the danger zone. It only
+ * normalises the oracle-side preconditions so the rest of a liquidation test
+ * has a working oracle to read. Driving the trader's health factor across
+ * the liquidation threshold requires writing a synthetic Pyth price — which
+ * needs `setPythPrice`, deferred to Wave F5d. See
+ * `anvil-helpers/oracle-cheats.ts` `SET_PYTH_PRICE_DEFERRED` and the F5b
+ * README.
+ *
+ * Concretely: tests that need actual HF-driven liquidation (price-driven
+ * danger pill, rescind CTA, AccountLiquidated event) stay `test.fixme()`
+ * with an `F5d` TODO. The flag-delay-countdown test ALSO stays fixmed at the
+ * F5c boundary because no flag-countdown UI exists on this base — the
+ * `[data-flag-delay]` selector is part of Wave B's PR #50 which is NOT on
+ * `feat/wk1f-anvil-oracle-cheats`. See perps-liquidation.spec.ts.
+ *
+ * ## Arguments
+ *
+ *   - `marketId`: kept in the signature to match the F5c task spec, but
+ *     unused by the current implementation. When `setPythPrice` lands the
+ *     same arg surfaces the target market's feedId.
+ *   - `trader`: same — present for API stability, unused today.
+ *
+ * Both args are validated only as 0x-prefixed hex by the type system; no
+ * runtime checks here because tests pass values straight from contract ABIs.
+ */
+export async function forceLiquidatable(_args: {
+  marketId: `0x${string}`;
+  trader: Address;
+}): Promise<void> {
+  const rpcUrl = getAnvilRpcUrl();
+  // Token addresses mirror anvil-helpers/oracle-cheats.ts `labelForToken`.
+  // Hard-coded here too rather than re-exported because oracle-cheats.ts is
+  // F5b territory — we deliberately don't ask it to widen its public surface
+  // for a fixture downstream of it.
+  const EURC: Address = "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a";
+  const USDC: Address = "0x3600000000000000000000000000000000000000";
+
+  // 1h freshness window — long enough to swallow any reasonable fork-block
+  // staleness without going so far we mask a separate freshness bug in the
+  // contract under test.
+  await widenOracleAgeLimit({ rpcUrl, newMaxAge: 3600n });
+  await disableRedstone({ rpcUrl, token: EURC });
+  await disableRedstone({ rpcUrl, token: USDC });
+  // Surface the new state on the next read. Without this, getMid() can still
+  // see the pre-write oracle config until the next tx mines a block.
+  await mineBlocks(1);
 }
 
 function escapeRegex(s: string): string {
