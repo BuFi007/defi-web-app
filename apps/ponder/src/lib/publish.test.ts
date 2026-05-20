@@ -32,7 +32,7 @@ describe("publishEvent — silent no-op", () => {
 
   test("does nothing when no tokens set even if envelope is full", async () => {
     const fetchMock = mock(async () => new Response(null, { status: 202 }));
-    globalThis.fetch = fetchMock;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     await publishEvent({
       realtime: { kind: "trades", marketId: "EUR-USD", data: { side: "long" } },
@@ -45,8 +45,12 @@ describe("publishEvent — silent no-op", () => {
   test("only realtime fires when ingest token unset", async () => {
     process.env.INTERNAL_REALTIME_TOKEN = "rt-secret";
     delete process.env.INTERNAL_INGEST_TOKEN;
-    const fetchMock = mock(async () => new Response(null, { status: 202 }));
-    globalThis.fetch = fetchMock;
+    const urls: string[] = [];
+    const fetchMock = mock(async (url: string | URL | Request) => {
+      urls.push(String(url));
+      return new Response(null, { status: 202 });
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     await publishEvent({
       realtime: { kind: "trades", marketId: "EUR-USD", data: { ts: 1 } },
@@ -54,15 +58,18 @@ describe("publishEvent — silent no-op", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url] = fetchMock.mock.calls[0]!;
-    expect(String(url)).toContain("/internal/realtime/publish");
+    expect(urls[0]).toContain("/internal/realtime/publish");
   });
 
   test("only analytics fires when realtime token unset", async () => {
     delete process.env.INTERNAL_REALTIME_TOKEN;
     process.env.INTERNAL_INGEST_TOKEN = "tb-secret";
-    const fetchMock = mock(async () => new Response(null, { status: 202 }));
-    globalThis.fetch = fetchMock;
+    const urls: string[] = [];
+    const fetchMock = mock(async (url: string | URL | Request) => {
+      urls.push(String(url));
+      return new Response(null, { status: 202 });
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     await publishEvent({
       realtime: { kind: "trades", marketId: "EUR-USD", data: { ts: 1 } },
@@ -70,8 +77,7 @@ describe("publishEvent — silent no-op", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url] = fetchMock.mock.calls[0]!;
-    expect(String(url)).toContain("/internal/tinybird/ingest");
+    expect(urls[0]).toContain("/internal/tinybird/ingest");
   });
 });
 
