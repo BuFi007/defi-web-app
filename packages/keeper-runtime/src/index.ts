@@ -59,6 +59,22 @@ import {
 } from "viem";
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
 
+import { resolveHealthPort, startHealthServer } from "./health-server";
+
+export {
+  resolveHealthPort,
+  startHealthServer,
+  type HealthServerOptions,
+  type HealthStatus,
+} from "./health-server";
+export {
+  postPublish,
+  type AnalyticsEnvelope,
+  type PublishEnvelope,
+  type PublishResult,
+  type RealtimeEnvelope,
+} from "./publish";
+
 export interface KeeperContext {
   name: string;
   log: Logger;
@@ -150,30 +166,59 @@ export async function runKeeper(def: KeeperDefinition): Promise<void> {
   const ctx = createKeeperContext(def.name);
   const pollMs = ctx.env.KEEPER_POLL_MS;
   let lastOkAt = 0;
+  let lastTickAt: number | undefined; // ms; undefined before first success
   let lastError: string | null = null;
   let idledForMissingSigner = false;
   let tickIndex = 0;
 
-  if (ctx.env.PORT) {
-    Bun.serve({
-      port: ctx.env.PORT,
-      fetch(req) {
-        const url = new URL(req.url);
-        if (url.pathname === "/health") {
-          return Response.json({
-            ok: lastError === null,
-            app: def.name,
-            lastOkAt,
-            lastError,
-            idle: idledForMissingSigner,
-          });
-        }
-        return new Response("not found", { status: 404 });
+  // Three missed ticks = degraded. Keepers vary widely in cadence
+  // (matcher 5s, funding 1h), so we derive the staleness threshold
+  // from KEEPER_POLL_MS rather than hard-coding a wall-clock.
+  const staleAfterMs = pollMs * 3;
+  const getHealthStatus = () => {
+    if (idledForMissingSigner) {
+      return {
+        healthy: false,
+        lastTick: lastTickAt,
+        meta: {
+          app: def.name,
+          idle: true,
+          lastError,
+        },
+      };
+    }
+    const fresh = lastTickAt !== undefined && Date.now() - lastTickAt < staleAfterMs;
+    const healthy = fresh && lastError === null;
+    return {
+      healthy,
+      lastTick: lastTickAt,
+      meta: {
+        app: def.name,
+        pollMs,
+        staleAfterMs,
+        ...(lastError ? { lastError } : {}),
       },
-    });
+    };
+  };
+
+  // New per-keeper health port: KEEPER_<APP>_HEALTH_PORT (preferred) or
+  // generic KEEPER_HEALTH_PORT. Skip entirely when neither is set so we
+  // don't double-bind in tests.
+  const healthPort = resolveHealthPort(def.name);
+  if (healthPort !== null) {
+    startHealthServer({ name: def.name, port: healthPort, getStatus: getHealthStatus });
+  } else if (ctx.env.PORT) {
+    // Back-compat: pre-F3 deploys set the per-keeper PORT env. Serve the
+    // same /health shape there so existing infra keeps working until they
+    // migrate to KEEPER_*_HEALTH_PORT.
+    startHealthServer({ name: def.name, port: ctx.env.PORT, getStatus: getHealthStatus });
   }
 
-  ctx.log.info("keeper.boot", { pollMs, port: ctx.env.PORT ?? null });
+  ctx.log.info("keeper.boot", {
+    pollMs,
+    healthPort: healthPort ?? ctx.env.PORT ?? null,
+    staleAfterMs,
+  });
   for (;;) {
     const started = Date.now();
     try {
@@ -203,6 +248,7 @@ export async function runKeeper(def: KeeperDefinition): Promise<void> {
           otelServiceName,
         );
         lastOkAt = Math.floor(Date.now() / 1000);
+        lastTickAt = Date.now();
         lastError = null;
         // No per-tick heartbeat log -- each keeper's own scan log already
         // serves as a heartbeat (and is deduped). Re-add via KEEPER_TICK_LOG=1
