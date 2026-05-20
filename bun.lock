@@ -23,6 +23,7 @@
         "@bufi/logger": "workspace:*",
         "@bufi/market-data": "workspace:*",
         "@bufi/mcp": "workspace:*",
+        "@bufi/observability": "workspace:*",
         "@bufi/perps": "workspace:*",
         "@bufi/shared-types": "workspace:*",
         "@bufi/x402": "workspace:*",
