@@ -2,3 +2,7 @@
 playwright-report/
 test-results/
 playwright/.cache/
+
+# Wave E2 — Anvil fork runtime (pid + log + rpc-url written by
+# e2e/global-setup.ts; recreated on every run).
+e2e/.anvil-runtime/
