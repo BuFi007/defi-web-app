@@ -1,7 +1,9 @@
-import {
-  PERPS_INTENT_INSERTED_CHANNEL,
-  type PerpsIntentInsertedMessage,
-} from "@bufi/realtime";
+// Subpath-import the channel constant + payload type only. Pulling from the
+// package root drags ioredis (and its `net`/`dns`/`tls` deps) into every
+// client bundle that transitively touches @bufi/perps. The `channels` and
+// `types` subpath exports stay pure constants / types.
+import { PERPS_INTENT_INSERTED_CHANNEL } from "@bufi/realtime/channels";
+import type { PerpsIntentInsertedMessage } from "@bufi/realtime/types";
 import type { MarketRegistryEntry, PerpIntent, PerpQuote } from "@bufi/shared-types";
 import type { Hex } from "viem";
 
