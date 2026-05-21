@@ -167,16 +167,24 @@ const healthRoute = createRoute({
 // Non-OpenAPI `.use` / `.route` calls keep mutating `app` and continue to
 // work at runtime (same instance) — they just don't appear in the typed
 // client until they're also converted to `app.openapi(...)`.
-const typedApp = app.openapi(healthRoute, (c) =>
-  c.json(
-    {
-      status: "ok" as const,
-      uptime: typeof process.uptime === "function" ? process.uptime() : 0,
-      version: process.env.npm_package_version ?? "0.0.0",
-    },
-    200,
-  ),
-);
+// `marketsRoutes` is itself an OpenAPIHono (wk1d2). Chain its `.route(...)`
+// onto the typedApp capture so the typed `hc<AppType>` client sees the
+// markets union with full path-param + body + response inference. The plain
+// `app.route("/markets", ...)` below is left in place for runtime; the chain
+// here is what extends the surface type. Lost during D-J integration merge;
+// restored.
+const typedApp = app
+  .openapi(healthRoute, (c) =>
+    c.json(
+      {
+        status: "ok" as const,
+        uptime: typeof process.uptime === "function" ? process.uptime() : 0,
+        version: process.env.npm_package_version ?? "0.0.0",
+      },
+      200,
+    ),
+  )
+  .route("/markets", marketsRoutes);
 
 app.route("/liveblocks", liveblocksRoutes);
 app.route("/markets", marketsRoutes);
