@@ -1,0 +1,35 @@
+[package]
+name = "bufi-matcher-server"
+description = "BUFI matcher gRPC server binary."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "bufi-matcher"
+path = "src/main.rs"
+
+[dependencies]
+bufi-orderbook = { path = "../orderbook" }
+bufi-matcher-types = { path = "../matcher-types" }
+
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+futures = { workspace = true }
+tonic = { workspace = true }
+prost = { workspace = true }
+
+redis = { workspace = true }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[lints.rust]
+unsafe_code = "forbid"

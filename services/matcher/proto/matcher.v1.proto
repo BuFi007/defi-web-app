@@ -1,0 +1,242 @@
+// BUFI matcher v1 — source of truth for cross-language types.
+// Edits here REQUIRE updates to docs/matcher-architecture.md in the same PR.
+//
+// Numeric encoding:
+//   - `bytes` carries big-endian-encoded u256 for `size` and `price`.
+//     Sizes are 6-decimal USDC quantums; prices are 18-decimal WAD.
+//   - `uint64` for nonces, expiries, timestamps, sequence numbers.
+//   - Never `double` or `float` anywhere.
+//
+// Wire-format decisions captured in docs/matcher-reading-notes.md
+// table rows 1-3.
+
+syntax = "proto3";
+
+package matcher.v1;
+
+// =============================================================================
+// Service
+// =============================================================================
+
+service Matcher {
+  // Submit a signed intent. Returns synchronously with the match outcome.
+  // User-facing latency budget: < 200ms.
+  rpc SubmitIntent(SignedIntent) returns (MatchResult);
+
+  // Cancel a resting order by intent id. Idempotent.
+  // Returns CancelStatus + residual size at cancellation time.
+  rpc CancelIntent(IntentRef) returns (CancelResult);
+
+  // Snapshot the current book for a single market. Used by clients on connect,
+  // before they subscribe to diffs.
+  rpc GetBook(MarketRef) returns (BookSnapshot);
+
+  // Streaming book updates. First message after subscribe has `snapshot=true`
+  // — clients MUST discard prior local state on every such message.
+  // Subsequent messages are incremental diffs (snapshot=false) carrying one
+  // or more `PriceLevel` changes.
+  rpc StreamBook(BookSubscription) returns (stream BookUpdate);
+
+  // Streaming trade tape (one Trade event per fill, for all subscribed markets).
+  rpc StreamTrades(TradeSubscription) returns (stream Trade);
+
+  // Liveness + engine state. Used by load balancers, the reconciler,
+  // and humans curious why nothing is matching.
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+// =============================================================================
+// Enums
+// =============================================================================
+
+enum Side {
+  SIDE_UNSPECIFIED = 0;
+  SIDE_LONG = 1;
+  SIDE_SHORT = 2;
+}
+
+enum OrderType {
+  ORDER_TYPE_UNSPECIFIED = 0;
+  ORDER_TYPE_LIMIT = 1;
+  ORDER_TYPE_MARKET = 2;
+}
+
+enum TimeInForce {
+  TIF_UNSPECIFIED = 0;
+  TIF_GTC = 1;  // Good-til-cancel — rest on book if not fully filled
+  TIF_IOC = 2;  // Immediate-or-cancel — drop residual after matching
+  TIF_FOK = 3;  // Fill-or-kill — atomic; reject if can't fully fill on peek
+}
+
+enum MatchStatus {
+  MATCH_STATUS_UNSPECIFIED = 0;
+  MATCH_STATUS_FILLED = 1;
+  MATCH_STATUS_PARTIAL = 2;
+  MATCH_STATUS_RESTING = 3;
+  MATCH_STATUS_REJECTED = 4;
+}
+
+enum CancelStatus {
+  CANCEL_STATUS_UNSPECIFIED = 0;
+  CANCEL_STATUS_CANCELED = 1;
+  CANCEL_STATUS_NOT_FOUND = 2;
+  CANCEL_STATUS_ALREADY_FILLED = 3;
+}
+
+// =============================================================================
+// Submit / cancel
+// =============================================================================
+
+message SignedIntent {
+  // FxMarketRegistry id (bytes32).
+  bytes market_id = 1;
+  Side side = 2;
+  OrderType order_type = 3;
+  // 6-decimal USDC quantums, big-endian u256.
+  bytes size = 4;
+  // 18-decimal WAD, big-endian u256. Required for LIMIT; ignored for MARKET.
+  bytes limit_price = 5;
+  TimeInForce tif = 6;
+  // Per-account monotonic. Replay-protection. Matcher tracks `(account, nonce)`.
+  uint64 nonce = 7;
+  // Unix-ms expiry. Matcher rejects past expiry.
+  uint64 expires_at_ms = 8;
+  // The signer (recovered from `signature` must match this 20-byte address).
+  bytes account = 9;
+  // EIP-712 signature (65 bytes: r || s || v).
+  bytes signature = 10;
+  // Optional client tag (echoed in fills) — latency tracing, group hints, etc.
+  string client_tag = 11;
+}
+
+message IntentRef {
+  // bytes32 intent id derived from signed-intent hash.
+  bytes intent_id = 1;
+  bytes market_id = 2;
+}
+
+message MarketRef {
+  bytes market_id = 1;
+}
+
+message MatchResult {
+  IntentRef intent_ref = 1;
+  // Empty if rested on book without matching.
+  repeated Fill fills = 2;
+  MatchStatus status = 3;
+  // Populated only if status = REJECTED.
+  optional string reject_reason = 4;
+}
+
+message CancelResult {
+  IntentRef intent_ref = 1;
+  CancelStatus status = 2;
+  // Size remaining on book at cancel time (0 if already filled or not found).
+  bytes residual_size = 3;
+}
+
+// =============================================================================
+// Book streaming
+// =============================================================================
+
+message BookSubscription {
+  // Markets to subscribe to. Empty = all markets the caller is authorised for.
+  repeated bytes market_ids = 1;
+}
+
+message BookSnapshot {
+  bytes market_id = 1;
+  // All resting bids and asks. Ordered: bids descending by price, asks ascending.
+  repeated PriceLevel bids = 2;
+  repeated PriceLevel asks = 3;
+  uint64 sequence_number = 4;
+  uint64 timestamp_ms = 5;
+}
+
+message BookUpdate {
+  bytes market_id = 1;
+  // On `true`: clients discard prior state for this market and rebuild from
+  // `levels`. On `false`: apply the diffs in `levels` to the existing state.
+  bool snapshot = 2;
+  // Each level: `size = 0` means remove the level.
+  repeated PriceLevel levels = 3;
+  // Monotonic per market. Clients detect gaps by tracking the last seen value.
+  uint64 sequence_number = 4;
+  uint64 timestamp_ms = 5;
+}
+
+message PriceLevel {
+  Side side = 1;
+  // 18-decimal WAD, big-endian u256.
+  bytes price = 2;
+  // 6-decimal USDC quantums, big-endian u256. Zero = remove this level.
+  bytes size = 3;
+  uint64 sequence_number = 4;
+}
+
+// =============================================================================
+// Trade tape
+// =============================================================================
+
+message TradeSubscription {
+  repeated bytes market_ids = 1;
+}
+
+message Trade {
+  // bytes32 fill identifier — deterministic hash of
+  // (maker_intent_id, taker_intent_id, sequence_no).
+  bytes fill_id = 1;
+  bytes maker_intent_id = 2;
+  bytes taker_intent_id = 3;
+  bytes market_id = 4;
+  // Taker's side (maker is on the opposite).
+  Side taker_side = 5;
+  bytes price = 6;
+  bytes size = 7;
+  uint64 timestamp_ms = 8;
+  // Cumulative quantums filled on each intent up to and including this fill.
+  uint64 maker_cumulative_filled = 9;
+  uint64 taker_cumulative_filled = 10;
+  // Phase-4: true when the counter-party is the LP vault.
+  bool is_lp_fill = 11;
+  // Phase-5: true when the taker is a protocol-generated liquidation order.
+  bool is_liquidation = 12;
+}
+
+// Same shape as `Trade` but emitted in the synchronous SubmitIntent response.
+// Kept as a separate message so the stream and RPC can evolve independently
+// if/when needed.
+message Fill {
+  bytes fill_id = 1;
+  bytes maker_intent_id = 2;
+  bytes taker_intent_id = 3;
+  bytes market_id = 4;
+  Side taker_side = 5;
+  bytes price = 6;
+  bytes size = 7;
+  uint64 timestamp_ms = 8;
+  bool is_lp_fill = 9;
+}
+
+// =============================================================================
+// Health
+// =============================================================================
+
+message HealthRequest {}
+
+message HealthResponse {
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_HEALTHY = 1;
+    STATUS_DEGRADED = 2;
+    STATUS_UNHEALTHY = 3;
+  }
+  Status status = 1;
+  // Global counter of intents the matcher has processed since boot.
+  uint64 match_sequence_number = 2;
+  // Unix-ms of the most recent fill across all markets. 0 if none yet.
+  uint64 last_fill_timestamp_ms = 3;
+  uint64 uptime_seconds = 4;
+  // Service version (semver) for ops dashboards.
+  string version = 5;
+}

@@ -1,0 +1,61 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/orderbook",
+    "crates/matcher-types",
+    "crates/matcher-server",
+    "crates/matcher-reconciler",
+    "crates/matcher-test-harness",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "Apache-2.0"
+repository = "https://github.com/BuFi007/defi-web-app"
+authors = ["BUFI matcher team"]
+
+[workspace.dependencies]
+# --- numeric / serialization ---
+rust_decimal = "1.36"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+
+# --- proto + grpc ---
+prost = "0.13"
+prost-types = "0.13"
+tonic = { version = "0.12", features = ["transport", "tls", "prost"] }
+tonic-build = "0.12"
+
+# --- async runtime (matcher-server only) ---
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+futures = "0.3"
+
+# --- redis fan-out (matcher-server only) ---
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
+
+# --- EIP-712 signing (matcher-types only) ---
+alloy-sol-types = { version = "0.8", default-features = false }
+alloy-primitives = { version = "0.8", default-features = false }
+
+# --- observability ---
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+opentelemetry = "0.27"
+
+# --- testing ---
+proptest = "1"
+insta = { version = "1", features = ["json"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+debug = "line-tables-only"
+panic = "abort"
+
+[profile.bench]
+inherits = "release"
+debug = true

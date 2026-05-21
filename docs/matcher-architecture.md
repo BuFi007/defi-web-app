@@ -116,6 +116,12 @@ or Rust-side type can diverge.
 
 ### Service definition (v1)
 
+> The sketch below is the *summary*. The canonical, machine-checked proto
+> lives at `services/matcher/proto/matcher.v1.proto`. The amendments captured
+> during Phase 0 reading (`docs/matcher-reading-notes.md` §Source 2, rows 1-7)
+> are already applied to the canonical file. Diffs against this summary may
+> exist while the spec catches up.
+
 ```protobuf
 syntax = "proto3";
 package matcher.v1;
