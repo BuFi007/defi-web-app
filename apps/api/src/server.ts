@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { ErrorHandler, MiddlewareHandler, NotFoundHandler } from "hono";
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { createLogger } from "@bufinance/logger";
 import { createLogger as createStructuredLogger, type Logger } from "@bufi/logger";
 import {
@@ -10,10 +11,9 @@ import {
   type RequestContext,
 } from "@bufinance/worker-base";
 
-import { analyticsRoutes } from "./routes/analytics";
 import { fxBentoRoutes } from "./routes/fx-bento";
 import { fxTelaranaRoutes } from "./routes/fx-telarana";
-import { tinybirdIngestRoutes } from "./routes/internal/tinybird-ingest";
+import { graphRoutes } from "./routes/graph";
 import { liveblocksRoutes } from "./routes/liveblocks";
 import { marketsRoutes } from "./routes/markets";
 import { mcpRoutes } from "./routes/mcp";
@@ -40,7 +40,13 @@ declare module "hono" {
 // @sentry/node package isn't installed.
 void initApiSentry();
 
-const app = new Hono();
+// Top-level app is OpenAPIHono — `OpenAPIHono` extends `Hono`, so every
+// downstream `.use`, `.route`, `.onError`, `.notFound` still types and
+// behaves identically. Routes that opt into typed request/response
+// schemas (currently just /health; markets.ts is route #2 in a
+// follow-up PR) use `app.openapi(route, handler)`. Plain `.get/.post`
+// still work for routes that haven't been converted.
+const app = new OpenAPIHono();
 const log = createLogger({ prefix: "bufx-api" });
 const corsMiddleware = createCorsMiddleware({
   origins: {
@@ -64,6 +70,7 @@ const corsMiddleware = createCorsMiddleware({
       "Content-Type",
       "Authorization",
       "X-API-Key",
+      "X-Bufi-Api-Key",
       "X-Request-Id",
       "X-Wallet-Address",
       "X-Wallet-ChainId",
@@ -74,7 +81,13 @@ const corsMiddleware = createCorsMiddleware({
       // Set by apps/web/lib/api-client.ts resilientFetch on POST/PUT/PATCH.
       "Idempotency-Key",
     ],
-    exposeHeaders: ["X-Request-Id", "X-Response-Time"],
+    exposeHeaders: [
+      "X-Request-Id",
+      "X-Response-Time",
+      "X-RateLimit-Limit",
+      "X-RateLimit-Remaining",
+      "Retry-After",
+    ],
     maxAge: 600,
     credentials: true,
   },
@@ -119,7 +132,51 @@ app.use("*", async (c, next) => {
   );
 });
 
-app.get("/health", (c) => c.json({ ok: true, ts: Date.now() }));
+// ───────────────────────── /health ─────────────────────────
+// First route on the typed BFF pipe. Response schema is the contract
+// the apps/web `hc<AppType>` client infers — adding/removing fields
+// here changes the typed surface in apps/web. See HealthResponse below.
+const HealthResponse = z
+  .object({
+    status: z.literal("ok"),
+    uptime: z.number().describe("Process uptime in seconds"),
+    version: z.string().describe("apps/api package version"),
+  })
+  .openapi("HealthResponse");
+
+const healthRoute = createRoute({
+  method: "get",
+  path: "/health",
+  tags: ["meta"],
+  summary: "Liveness probe",
+  description:
+    "Read by the Playwright e2e harness and by Railway's healthcheck. Body shape is part of the typed BFF contract; do not narrow without bumping consumers.",
+  responses: {
+    200: {
+      content: { "application/json": { schema: HealthResponse } },
+      description: "Service is up",
+    },
+  },
+});
+
+// `.openapi()` returns the same Hono instance with a refined type that
+// includes the /health route in its route union. We capture that refined
+// reference as `typedApp` so the bottom-of-file `AppType = typeof typedApp`
+// surfaces the typed route to the apps/web `hc<AppType>` client.
+//
+// Non-OpenAPI `.use` / `.route` calls keep mutating `app` and continue to
+// work at runtime (same instance) — they just don't appear in the typed
+// client until they're also converted to `app.openapi(...)`.
+const typedApp = app.openapi(healthRoute, (c) =>
+  c.json(
+    {
+      status: "ok" as const,
+      uptime: typeof process.uptime === "function" ? process.uptime() : 0,
+      version: process.env.npm_package_version ?? "0.0.0",
+    },
+    200,
+  ),
+);
 
 app.route("/liveblocks", liveblocksRoutes);
 app.route("/markets", marketsRoutes);
@@ -129,8 +186,11 @@ app.route("/fx-bento", fxBentoRoutes);
 app.route("/fx-telarana", fxTelaranaRoutes);
 app.route("/mcp", mcpRoutes);
 app.route("/x402", x402Routes);
-app.route("/analytics", analyticsRoutes);
-app.route("/internal/tinybird", tinybirdIngestRoutes);
+// Public GraphQL gateway in front of apps/ponder. Carries its own
+// rate-limit middleware (per-IP + per-API-key, token-bucket) so we
+// don't need to touch the global pipe. Mutations blocked at the edge.
+// See apps/api/src/routes/graph/index.ts + docs/integrator/GRAPHQL.md.
+app.route("/graph", graphRoutes);
 
 const port = Number(process.env.PORT ?? 3002);
 
@@ -179,3 +239,12 @@ export default {
 };
 
 log.info({ port }, "server.boot");
+
+// Typed BFF surface for apps/web. `hc<AppType>(...)` in apps/web/lib/api-client.ts
+// infers every typed route + response shape from this. Currently /health is the
+// only fully-typed route (via `app.openapi(...)`); the result of that call is
+// captured as `typedApp` above. Plain `.use` / `.route` calls don't refine
+// `typeof app`, so additional routes (markets.ts is next, in a follow-up PR)
+// must be added as `.openapi(...)` calls and chained / re-captured to extend
+// the typed surface.
+export type AppType = typeof typedApp;
