@@ -1,5 +1,5 @@
 {
-  "ranAt": "2026-05-21T15:46:42.435Z",
+  "ranAt": "2026-05-21T16:17:09.400Z",
   "status": "dry-run",
   "dryRun": true,
   "network": {
@@ -44,7 +44,7 @@
       "step": "probe-arc-v4-pool-manager",
       "status": "ok",
       "detail": "PoolManager at 0x3FA22b7Aeda9ebBe34732ea394f1711887363B34 responded to extsload",
-      "durationMs": 434
+      "durationMs": 433
     },
     {
       "step": "probe-arc-telarana-gateway-hub-hook",
@@ -53,10 +53,11 @@
       "durationMs": 434
     },
     {
-      "step": "fx-swap-hook-abi-presence",
-      "status": "stub",
-      "detail": "FxSwapHook (fx-telarana/contracts/src/hub/FxSwapHook.sol) is shipped on the contract side but its ABI is not synced into packages/contracts/src/abis/ yet. The minimal `parseAbi` stub in this script is a marker; the real beforeSwap-routed swap goes through PoolManager.unlock + PoolManager.swap with hookData carrying the GatewayMintContext.",
-      "stubReason": "waiting on Wave K1 — `scripts/sync-abis.mjs` must publish FxSwapHookAbi to packages/contracts/src/abis/"
+      "step": "probe-arc-fx-swap-hook",
+      "status": "blocked",
+      "detail": "FX_SWAP_HOOK_ADDRESS env is not set. FxSwapHook ABI ships via @bufi/contracts (K1, packages/contracts/src/abis/FxSwapHook.ts), but the on-chain hook is not in deployments/telarana-arc-testnet.json yet. Set FX_SWAP_HOOK_ADDRESS=<deployed address> to enable the real PoolManager.unlock + swap path.",
+      "stubReason": "waiting on Wave L-or-later — FxSwapHook deploy on Arc Testnet (telarana hub manifest update)",
+      "durationMs": 0
     },
     {
       "step": "dry-run-exit",

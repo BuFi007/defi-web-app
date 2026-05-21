@@ -78,6 +78,7 @@ import {
   CIRCLE_GATEWAY,
   CONTRACTS,
   DEFAULT_RPC_URLS,
+  FxSwapHookAbi,
   LIVE_ROUTE_IDS,
   SPOT_FX_ROUTES,
   type SpotFxSymbol,
@@ -90,8 +91,10 @@ import {
   createWalletClient,
   decodeEventLog,
   defineChain,
+  encodeAbiParameters,
   encodeFunctionData,
   formatUnits,
+  getAddress,
   type Hex,
   http,
   pad,
@@ -136,7 +139,13 @@ const AMOUNT_USDC_STR = process.env.V4_SWAP_AMOUNT_USDC ?? "1";
 const AMOUNT_RAW = parseUnits(AMOUNT_USDC_STR, 6);
 const TARGET_TOKEN = (process.env.V4_SWAP_TARGET_TOKEN ??
   "EURC") as SpotFxSymbol;
-const DRY_RUN = (process.env.V4_SWAP_DRY_RUN ?? "true").toLowerCase() === "true";
+// Argv override: `--dry-run` flag matches the convention in the task brief
+// and the wider scripts/ folder. Either source flips DRY_RUN on; the env
+// var still wins when explicitly set to "false".
+const ARGV_DRY_RUN_FLAG = process.argv.slice(2).includes("--dry-run");
+const DRY_RUN =
+  ARGV_DRY_RUN_FLAG ||
+  (process.env.V4_SWAP_DRY_RUN ?? "true").toLowerCase() === "true";
 const SKIP_CCTP =
   (process.env.V4_SWAP_SKIP_CCTP ?? "false").toLowerCase() === "true";
 const ATTESTATION_TIMEOUT_MS = Number(
@@ -145,6 +154,41 @@ const ATTESTATION_TIMEOUT_MS = Number(
 const ATTESTATION_POLL_MS = Number(process.env.V4_SWAP_POLL_MS ?? 5_000);
 const MAX_FEE_RAW = BigInt(process.env.V4_SWAP_MAX_FEE ?? "500");
 const DEADLINE_HORIZON_SEC = Number(process.env.V4_SWAP_DEADLINE_SEC ?? 600);
+
+// Wave L4 — FxSwapHook v4 wiring knobs.
+//
+// `FX_SWAP_HOOK_ADDRESS` is required to attempt a real v4 swap. The hook
+// ABI ships in @bufi/contracts (K1), but the on-chain hook itself isn't in
+// the canonical Arc Testnet telarana manifest yet (see deployments/
+// telarana-arc-testnet.json). Until it's deployed, we keep the dry-run
+// probe alive but mark the broadcast leg blocked.
+//
+// `V4_SWAP_FEE` + `V4_SWAP_TICK_SPACING` mirror the FxSwapHook pool
+// constructor convention (Uniswap v4 default: 100 / 1 for a tight stable
+// pair; FxSwapHook docs target fee=100 = 0.01%, tickSpacing=1). Override
+// via env if a different pool gets initialized.
+//
+// `V4_SWAP_TEST_ROUTER` is the address of a contract implementing
+// `IUnlockCallback` (i.e. an EOA-callable router that re-enters
+// PoolManager.swap inside its `unlockCallback`). Required for actual
+// broadcast because EOAs cannot satisfy the v4 unlock callback shape
+// directly — PoolManager.unlock(...) reverts when the caller has no code.
+const FX_SWAP_HOOK_ADDRESS =
+  parseAddressEnv(process.env.FX_SWAP_HOOK_ADDRESS);
+const V4_SWAP_FEE = Number(process.env.V4_SWAP_FEE ?? 100);
+const V4_SWAP_TICK_SPACING = Number(process.env.V4_SWAP_TICK_SPACING ?? 1);
+const V4_SWAP_TEST_ROUTER =
+  parseAddressEnv(process.env.V4_SWAP_TEST_ROUTER);
+// Disable slippage protection by default for testnet smoke (mirrors the
+// telarana submit-request step). Production callers should set a real bound.
+const V4_SQRT_PRICE_LIMIT_X96_UPPER =
+  // 1461446703485210103287273052203988822378723970341n is MAX_SQRT_PRICE - 1
+  // (TickMath.MAX_SQRT_PRICE_RATIO - 1) — used for zeroForOne=false.
+  1461446703485210103287273052203988822378723970341n;
+const V4_SQRT_PRICE_LIMIT_X96_LOWER =
+  // 4295128740n is MIN_SQRT_PRICE + 1 (TickMath.MIN_SQRT_PRICE_RATIO + 1)
+  // — used for zeroForOne=true.
+  4295128740n;
 
 // ─────────────────────────── ABIs (inline) ──────────────────────────────
 
@@ -163,33 +207,34 @@ const MESSAGE_TRANSMITTER_V2_ABI = parseAbi([
   "event MessageSent(bytes message)",
 ]);
 
-// TODO (Wave K1 — sync-abis.mjs): the canonical `FxSwapHook` ABI from
-// `fx-telarana/contracts/src/hub/FxSwapHook.sol` is not in
-// `packages/contracts/src/abis/` yet. Until K1 lands, we hold a minimal
-// signature shape inline. The function-name / shape below is provisional
-// and the script will print "stub: waiting on FxSwapHook ABI sync (K1)"
-// if it can't drive a real beforeSwap-routed swap.
+// Wave L4 — FxSwapHook ABI now lives in @bufi/contracts (synced by K1 /
+// scripts/sync-contracts.mjs from fx-telarana/contracts/src/hub/
+// FxSwapHook.sol). The hook does NOT expose a direct `fxSwap` entrypoint;
+// the canonical Uniswap v4 path is:
+//   1. Build PoolKey = { currency0, currency1, fee, tickSpacing,
+//                        hooks: FxSwapHook }
+//   2. Call IPoolManager.unlock(callbackData) — only callable from a
+//      contract implementing IUnlockCallback. The PoolManager re-enters
+//      that contract's unlockCallback, which calls
+//      IPoolManager.swap(poolKey, params, hookData). The hook's
+//      `beforeSwap(sender, key, params, hookData)` runs inside that swap.
 //
-// What we expect K1 to produce:
-//   function fxSwap(
-//     PoolKey calldata key,
-//     SwapParams calldata params,
-//     bytes calldata hookData
-//   ) external returns (BalanceDelta delta);
-// — driven through `IPoolManager.unlock` + `swap`, with the hook reading
-// the GatewayMintContext from `hookData`.
-const FX_SWAP_HOOK_ABI_STUB = parseAbi([
-  // intentionally narrow surface; we never *call* this in the current
-  // script — it's a marker for what K1 needs to land.
-  "function isFxSwapHook() view returns (bool)",
+// We use `FxSwapHookAbi` to *probe* a deployed instance (TOKEN0 / TOKEN1
+// / POOL_MANAGER reads) so we can validate the env-provided address
+// before broadcasting.
+
+// Uniswap v4 PoolManager — calldata surface for `unlock` + `swap` (the
+// real path FxSwapHook attaches to). `extsload` is kept so we can still
+// confirm liveness with a single rpc read.
+const POOL_MANAGER_ABI = parseAbi([
+  "function extsload(bytes32 slot) view returns (bytes32)",
+  "function unlock(bytes data) returns (bytes)",
+  "function swap((address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks) key, (bool zeroForOne, int256 amountSpecified, uint160 sqrtPriceLimitX96) params, bytes hookData) returns (int256 delta)",
 ]);
 
-// Uniswap v4 PoolManager — minimal probe surface (we only readContract
-// `extsload` to confirm the contract is alive; the real `swap` path goes
-// through `unlock` and would be wired by K1's ABI sync.)
-const POOL_MANAGER_PROBE_ABI = parseAbi([
-  "function extsload(bytes32 slot) view returns (bytes32)",
-]);
+// Helper: re-export the IPoolManager.swap calldata shape so we can also
+// hand a fully encoded swap call to an external IUnlockCallback router
+// (the `V4_SWAP_TEST_ROUTER` env knob) without dragging in a router ABI.
 
 // ─────────────────────────── types ──────────────────────────────────────
 
@@ -432,7 +477,7 @@ async function main(): Promise<void> {
       // confirm the address has code.
       await arcPublic.readContract({
         address: arcPoolManager,
-        abi: POOL_MANAGER_PROBE_ABI,
+        abi: POOL_MANAGER_ABI,
         functionName: "extsload",
         args: [
           "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -498,22 +543,104 @@ async function main(): Promise<void> {
     });
   }
 
-  // ── step 3 (annotation): FxSwapHook ABI status ───────────────────────
-  // This is the load-bearing differentiator we WANT to drive but can't
-  // until K1 lands the ABI. Surface it as `stub` rather than silently
-  // skipping.
-  steps.push({
-    step: "fx-swap-hook-abi-presence",
-    status: "stub",
-    detail:
-      "FxSwapHook (fx-telarana/contracts/src/hub/FxSwapHook.sol) is shipped on the contract side " +
-      "but its ABI is not synced into packages/contracts/src/abis/ yet. The minimal `parseAbi` stub " +
-      "in this script is a marker; the real beforeSwap-routed swap goes through PoolManager.unlock + " +
-      "PoolManager.swap with hookData carrying the GatewayMintContext.",
-    stubReason:
-      "waiting on Wave K1 — `scripts/sync-abis.mjs` must publish FxSwapHookAbi to packages/contracts/src/abis/",
-  });
-  void FX_SWAP_HOOK_ABI_STUB; // satisfy lint — kept as a marker.
+  // ── step 3: probe FxSwapHook deployment (Wave L4 unstub) ────────────
+  // K1 landed the ABI. We now (a) read TOKEN0/TOKEN1/POOL_MANAGER from
+  // the env-provided FX_SWAP_HOOK_ADDRESS to validate it's wired against
+  // the same PoolManager + the expected USDC/EURC currencies, and
+  // (b) build the canonical PoolKey we'll later hand to PoolManager.unlock.
+  //
+  // FxSwapHook is NOT in deployments/telarana-arc-testnet.json yet. If
+  // FX_SWAP_HOOK_ADDRESS is missing or empty, this step is `blocked`
+  // (not `stub`) and the broadcast path will refuse to attempt the v4
+  // swap, with a clear reason.
+  let fxSwapHookProbe:
+    | {
+        address: Address;
+        token0: Address;
+        token1: Address;
+        poolManager: Address;
+        consistent: boolean;
+      }
+    | null = null;
+  let poolKey: {
+    currency0: Address;
+    currency1: Address;
+    fee: number;
+    tickSpacing: number;
+    hooks: Address;
+  } | null = null;
+  let hookProbeStart2 = Date.now();
+  if (!FX_SWAP_HOOK_ADDRESS) {
+    steps.push({
+      step: "probe-arc-fx-swap-hook",
+      status: "blocked",
+      detail:
+        "FX_SWAP_HOOK_ADDRESS env is not set. FxSwapHook ABI ships via @bufi/contracts " +
+        "(K1, packages/contracts/src/abis/FxSwapHook.ts), but the on-chain hook is not in " +
+        "deployments/telarana-arc-testnet.json yet. Set FX_SWAP_HOOK_ADDRESS=<deployed address> " +
+        "to enable the real PoolManager.unlock + swap path.",
+      stubReason:
+        "waiting on Wave L-or-later — FxSwapHook deploy on Arc Testnet (telarana hub manifest update)",
+      durationMs: Date.now() - hookProbeStart2,
+    });
+  } else {
+    try {
+      const [hookToken0, hookToken1, hookPoolManager] = await Promise.all([
+        arcPublic.readContract({
+          address: FX_SWAP_HOOK_ADDRESS,
+          abi: FxSwapHookAbi,
+          functionName: "TOKEN0",
+        }) as Promise<Address>,
+        arcPublic.readContract({
+          address: FX_SWAP_HOOK_ADDRESS,
+          abi: FxSwapHookAbi,
+          functionName: "TOKEN1",
+        }) as Promise<Address>,
+        arcPublic.readContract({
+          address: FX_SWAP_HOOK_ADDRESS,
+          abi: FxSwapHookAbi,
+          functionName: "POOL_MANAGER",
+        }) as Promise<Address>,
+      ]);
+      const consistent =
+        !!arcPoolManager &&
+        hookPoolManager.toLowerCase() === arcPoolManager.toLowerCase();
+      fxSwapHookProbe = {
+        address: FX_SWAP_HOOK_ADDRESS,
+        token0: hookToken0,
+        token1: hookToken1,
+        poolManager: hookPoolManager,
+        consistent,
+      };
+      // PoolKey currencies are *sorted ascending* by address — both the
+      // hook's TOKEN0/TOKEN1 and the v4 PoolKey enforce this. We mirror
+      // the hook's reading so the pool id matches.
+      poolKey = {
+        currency0: getAddress(hookToken0),
+        currency1: getAddress(hookToken1),
+        fee: V4_SWAP_FEE,
+        tickSpacing: V4_SWAP_TICK_SPACING,
+        hooks: getAddress(FX_SWAP_HOOK_ADDRESS),
+      };
+      steps.push({
+        step: "probe-arc-fx-swap-hook",
+        status: consistent ? "ok" : "blocked",
+        detail:
+          `FxSwapHook=${FX_SWAP_HOOK_ADDRESS}; TOKEN0=${hookToken0}; TOKEN1=${hookToken1}; ` +
+          `POOL_MANAGER=${hookPoolManager}${
+            consistent ? " (matches Bento PoolManager)" : " (DOES NOT match Bento PoolManager — pool key would mismatch)"
+          }`,
+        durationMs: Date.now() - hookProbeStart2,
+      });
+    } catch (e) {
+      steps.push({
+        step: "probe-arc-fx-swap-hook",
+        status: "blocked",
+        detail: `FxSwapHook read failed at ${FX_SWAP_HOOK_ADDRESS}: ${(e as Error).message}`,
+        durationMs: Date.now() - hookProbeStart2,
+      });
+    }
+  }
 
   // ── dry-run gate ─────────────────────────────────────────────────────
   if (DRY_RUN) {
@@ -555,6 +682,8 @@ async function main(): Promise<void> {
           mode: "dry-run",
           arcPoolManagerAlive,
           arcHookHasGatewayMinter,
+          fxSwapHookAddress: fxSwapHookProbe?.address ?? null,
+          fxSwapHookConsistent: fxSwapHookProbe?.consistent ?? null,
           steps: steps.length,
         },
         null,
@@ -881,17 +1010,169 @@ async function main(): Promise<void> {
     }
   }
 
-  // ── step 9: stub markers for the parts that don't yet settle ────────
+  // ── step 9: PoolManager.unlock → swap with FxSwapHook attached ──────
+  // Wave L4 unstub: replaces the previous "stub: FxSwapHook.beforeSwap"
+  // marker. This is the load-bearing v4 path — PoolKey carries `hooks:
+  // FxSwapHook`, PoolManager.unlock(callbackData) re-enters the unlock
+  // callback which invokes PoolManager.swap(poolKey, params, hookData).
+  // The hook's beforeSwap runs inside that swap.
+  //
+  // Constraints surfaced honestly:
+  //   1. EOAs cannot satisfy IUnlockCallback — PoolManager.unlock
+  //      re-enters `IUnlockCallback(msg.sender).unlockCallback(data)`.
+  //      So an EOA-only broadcast reverts in the callback. The script
+  //      requires a router contract (V4_SWAP_TEST_ROUTER env). Without
+  //      it, we encode the calldata for inspection and stop.
+  //   2. The FxSwapHook itself isn't in deployments/telarana-arc-
+  //      testnet.json yet, so FX_SWAP_HOOK_ADDRESS must be supplied via
+  //      env. Without it we can't construct a valid PoolKey.
+  let unlockSwapTxHash: Hex | undefined;
+  if (!poolKey) {
+    steps.push({
+      step: "v4-pool-manager-unlock-swap",
+      status: "blocked",
+      detail:
+        "PoolKey could not be constructed because FxSwapHook probe failed (see " +
+        "probe-arc-fx-swap-hook step). Set FX_SWAP_HOOK_ADDRESS to a deployed FxSwapHook " +
+        "on Arc Testnet to enable this leg.",
+    });
+  } else if (!arcPoolManager) {
+    steps.push({
+      step: "v4-pool-manager-unlock-swap",
+      status: "blocked",
+      detail:
+        "Bento PoolManager address is missing on Arc — cannot route the swap.",
+    });
+  } else {
+    // Direction: we always swap USDC → spotRoute.tokenOut. zeroForOne is
+    // true iff USDC (arcUsdc) == PoolKey.currency0.
+    const usdcAddr = arcUsdc ?? CONTRACTS[ARC_CHAIN_ID].tokens.usdc;
+    const zeroForOne =
+      !!usdcAddr &&
+      usdcAddr.toLowerCase() === poolKey.currency0.toLowerCase();
+    // Negative `amountSpecified` = exact-input in v4. Positive = exact-
+    // output. We use exact-input AMOUNT_RAW of USDC.
+    const amountSpecified = -AMOUNT_RAW; // exact-input USDC → tokenOut
+    const sqrtPriceLimitX96 = zeroForOne
+      ? V4_SQRT_PRICE_LIMIT_X96_LOWER
+      : V4_SQRT_PRICE_LIMIT_X96_UPPER;
+    const swapParams = {
+      zeroForOne,
+      amountSpecified,
+      sqrtPriceLimitX96,
+    } as const;
+    // hookData carries the GatewayMintContext the hook reads in
+    // beforeSwap. For this demo we pass empty bytes — the hook's
+    // `_decodeHookData` path treats empty as "no override" and uses its
+    // own reserve. A production caller would encode the canonical
+    // GatewayMintContext here (see TelaranaGatewayHubHook ABI for the
+    // type shape).
+    const hookData: Hex = "0x" as Hex;
+
+    // Encode the inner PoolManager.swap call — this is the calldata an
+    // IUnlockCallback router would re-enter the PoolManager with from
+    // inside its unlockCallback.
+    const innerSwapCalldata = encodeFunctionData({
+      abi: POOL_MANAGER_ABI,
+      functionName: "swap",
+      args: [poolKey, swapParams, hookData],
+    });
+    // The unlock `data` parameter is router-defined; the canonical
+    // pattern wraps (poolKey, params, hookData) abi-encoded. We use the
+    // tuple shape so a router that simply forwards it can decode.
+    const unlockCallbackData = encodeAbiParameters(
+      [
+        {
+          type: "tuple",
+          components: [
+            { name: "currency0", type: "address" },
+            { name: "currency1", type: "address" },
+            { name: "fee", type: "uint24" },
+            { name: "tickSpacing", type: "int24" },
+            { name: "hooks", type: "address" },
+          ],
+        },
+        {
+          type: "tuple",
+          components: [
+            { name: "zeroForOne", type: "bool" },
+            { name: "amountSpecified", type: "int256" },
+            { name: "sqrtPriceLimitX96", type: "uint160" },
+          ],
+        },
+        { type: "bytes" },
+      ],
+      [poolKey, swapParams, hookData],
+    );
+
+    if (!V4_SWAP_TEST_ROUTER) {
+      steps.push({
+        step: "v4-pool-manager-unlock-swap",
+        status: "blocked",
+        detail:
+          `Encoded calldata ready (poolKey.hooks=${poolKey.hooks}, zeroForOne=${zeroForOne}, ` +
+          `amountSpecified=${amountSpecified.toString()}). NOT broadcasting: ` +
+          "PoolManager.unlock re-enters IUnlockCallback on msg.sender, so the caller must be a " +
+          "contract. Set V4_SWAP_TEST_ROUTER to a v4 router contract (e.g. PoolSwapTest or a " +
+          "deployed FxSwapRouter) that implements unlockCallback(bytes) and re-enters " +
+          `PoolManager.swap(...). innerSwapCalldata.length=${innerSwapCalldata.length}, ` +
+          `unlockCallbackData.length=${unlockCallbackData.length}.`,
+      });
+    } else {
+      // We assume V4_SWAP_TEST_ROUTER exposes the canonical IPoolManager
+      // shape `unlock(bytes) returns (bytes)` — i.e. it's a thin
+      // forwarding router that calls poolManager.unlock(data) inside
+      // its own `unlock(bytes)` entrypoint. Both PoolSwapTest and the
+      // expected FxSwapRouter satisfy this.
+      const unlockStart = Date.now();
+      try {
+        unlockSwapTxHash = await arcWalletKeeper.writeContract({
+          address: V4_SWAP_TEST_ROUTER,
+          abi: POOL_MANAGER_ABI,
+          functionName: "unlock",
+          args: [unlockCallbackData],
+          account: keeperAccount,
+          chain: arcTestnet,
+        });
+        const unlockReceipt = await arcPublic.waitForTransactionReceipt({
+          hash: unlockSwapTxHash,
+        });
+        steps.push({
+          step: "v4-pool-manager-unlock-swap",
+          status: "ok",
+          txHash: unlockSwapTxHash,
+          explorer: ARC_EXPLORER_BASE + unlockSwapTxHash,
+          detail:
+            `router=${V4_SWAP_TEST_ROUTER} poolKey.hooks=${poolKey.hooks} ` +
+            `zeroForOne=${zeroForOne} amountSpecified=${amountSpecified.toString()} ` +
+            `gasUsed=${unlockReceipt.gasUsed.toString()} block=${unlockReceipt.blockNumber.toString()}`,
+          durationMs: Date.now() - unlockStart,
+        });
+      } catch (e) {
+        steps.push({
+          step: "v4-pool-manager-unlock-swap",
+          status: "error",
+          detail: `unlock(...) reverted: ${(e as Error).message}`,
+          durationMs: Date.now() - unlockStart,
+        });
+      }
+    }
+  }
+
+  // Settlement note — the off-chain relay path (keeper-spot consuming
+  // GatewayAtomicFxSwapRequested → TelaranaGatewayHubHook.receiveGatewayMint
+  // → FxSpotExecutor.executeSpotFx) is still a separate workstream.
+  // Tracking marker only; not load-bearing for this script.
   steps.push({
-    step: "settle-via-fx-swap-hook",
+    step: "settle-via-keeper-spot-loop",
     status: "stub",
     detail:
-      "v4 swap settlement happens when keeper-spot consumes GatewayAtomicFxSwapRequested " +
-      "→ calls TelaranaGatewayHubHook.receiveGatewayMint(attestation, signature, context) " +
-      "→ then FxSpotExecutor.executeSpotFx(requestId). The current keeper-spot is a stub " +
-      "(see apps/keeper-spot/src/index.ts). On-chain side ships, off-chain relay does not.",
+      "Off-chain keeper-spot relay isn't running in this demo (apps/keeper-spot " +
+      "is currently a boot-log shell). The v4 swap leg above broadcasts on-chain " +
+      "as soon as FX_SWAP_HOOK_ADDRESS + V4_SWAP_TEST_ROUTER are set; the spot-FX " +
+      "request submission is already real.",
     stubReason:
-      "waiting on keeper-spot real-loop wiring (rolls under HP1 → PR-H8 / Gateway demo)",
+      "keeper-spot real-loop wiring (HP1 → PR-H8 / Gateway demo)",
   });
 
   // ── step 10: balances (post) — taker target token delta ─────────────
@@ -962,6 +1243,8 @@ async function main(): Promise<void> {
         status,
         burnTx: burnTxHash,
         mintTx: mintTxHash,
+        unlockSwapTx: unlockSwapTxHash,
+        fxSwapHook: fxSwapHookProbe?.address ?? null,
         steps: steps.map((s) => ({ step: s.step, status: s.status })),
       },
       null,
@@ -979,6 +1262,22 @@ function readPk(envNames: string[]): Hex | undefined {
     if (v && /^0x[a-fA-F0-9]{64}$/.test(v)) return v as Hex;
   }
   return undefined;
+}
+
+function parseAddressEnv(raw: string | undefined): Address | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (!/^0x[a-fA-F0-9]{40}$/.test(trimmed)) return null;
+  // Reject the zero address — surfaces as "not set" upstream.
+  if (trimmed.toLowerCase() === "0x0000000000000000000000000000000000000000") {
+    return null;
+  }
+  try {
+    return getAddress(trimmed);
+  } catch {
+    return null;
+  }
 }
 
 function zeroAddress(): Address {
