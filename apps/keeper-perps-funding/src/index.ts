@@ -1,7 +1,14 @@
 import { FxFundingEngineAbi, loadContracts } from "@bufi/contracts";
-import { createKeeperWalletClient, requireKeeperSigner, runKeeper } from "@bufi/keeper-runtime";
+import {
+  createKeeperWalletClient,
+  postPublish,
+  requireKeeperSigner,
+  runKeeper,
+} from "@bufi/keeper-runtime";
+import { mapFundingPokedToPublish } from "@bufi/keeper-runtime/publish-mappers";
 import { withSpan } from "@bufi/observability";
 import { livePerpsMarketIds } from "@bufi/perps";
+import { decodeEventLog, type Hex } from "viem";
 
 const ARC_CHAIN_ID = 5042002;
 
@@ -60,6 +67,53 @@ await runKeeper({
         );
         lastPokeAt.set(marketId, now);
         poked.push({ marketId, tx: hash });
+
+        // Wait for the receipt + publish post-confirmation. Failures here
+        // never block subsequent markets — we already set lastPokeAt so a
+        // partial publish failure won't cause a retry storm on next tick.
+        try {
+          const receipt = await ctx.clients.arc.waitForTransactionReceipt({ hash });
+          if (receipt.status !== "success") {
+            ctx.log.warn("perps_funding.poke_reverted", {
+              marketId,
+              tx: hash,
+            });
+            continue;
+          }
+          const decoded = decodeFundingPokedFromReceipt({
+            logs: receipt.logs,
+            fundingEngine,
+            marketId: marketId as Hex,
+          });
+          if (!decoded) {
+            // No FundingPoked log on a successful tx is unexpected but
+            // not fatal — skip publish, log so we can investigate.
+            ctx.log.warn("perps_funding.no_event_in_receipt", {
+              marketId,
+              tx: hash,
+            });
+            continue;
+          }
+          void postPublish(
+            mapFundingPokedToPublish(decoded.args, {
+              txHash: hash,
+              blockNumber: receipt.blockNumber,
+              logIndex: decoded.logIndex,
+            }),
+          ).catch((err) => {
+            ctx.log.warn("perps_funding.publish_failed", {
+              error: (err as Error).message,
+              tx: hash,
+            });
+          });
+        } catch (publishErr) {
+          // Receipt-wait or decode failures shouldn't take down the loop.
+          ctx.log.warn("perps_funding.post_receipt_failed", {
+            marketId,
+            tx: hash,
+            error: (publishErr as Error).message,
+          });
+        }
       } catch (e) {
         const msg = (e as Error).message ?? String(e);
         // Underpriced / already-known come from racing the same nonce
@@ -86,4 +140,51 @@ await runKeeper({
 
 function activeMarketIds(): string[] {
   return livePerpsMarketIds(ARC_CHAIN_ID);
+}
+
+// Walk a receipt's logs for the FundingPoked event matching `marketId`
+// emitted by the fundingEngine contract. Decoded args are the raw bigint
+// fields from the ABI; the mapper layer is responsible for stringifying.
+//
+// Returns the log index (within the receipt) of the matched event so the
+// downstream Tinybird dedupe key `${txHash}-${logIndex}` is stable across
+// retries.
+function decodeFundingPokedFromReceipt(args: {
+  logs: ReadonlyArray<{ address: `0x${string}`; topics: readonly `0x${string}`[]; data: `0x${string}` }>;
+  fundingEngine: `0x${string}`;
+  marketId: Hex;
+}): {
+  args: {
+    marketId: `0x${string}`;
+    version: bigint;
+    rateE18PerSecond: bigint;
+    cumulativeFundingE18: bigint;
+  };
+  logIndex: number;
+} | null {
+  const targetEngine = args.fundingEngine.toLowerCase();
+  for (let i = 0; i < args.logs.length; i += 1) {
+    const log = args.logs[i]!;
+    if (log.address.toLowerCase() !== targetEngine) continue;
+    try {
+      const decoded = decodeEventLog({
+        abi: FxFundingEngineAbi,
+        eventName: "FundingPoked",
+        data: log.data,
+        topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+      });
+      // decodeEventLog narrows args to the FundingPoked tuple when eventName matches.
+      const decodedArgs = decoded.args as {
+        marketId: `0x${string}`;
+        version: bigint;
+        rateE18PerSecond: bigint;
+        cumulativeFundingE18: bigint;
+      };
+      if (decodedArgs.marketId.toLowerCase() !== args.marketId.toLowerCase()) continue;
+      return { args: decodedArgs, logIndex: i };
+    } catch {
+      // Not a FundingPoked log; continue scanning.
+    }
+  }
+  return null;
 }
