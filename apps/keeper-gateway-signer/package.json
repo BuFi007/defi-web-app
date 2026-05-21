@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "bun run --hot src/index.ts",
     "start": "bun run src/index.ts",
+    "mint": "bun run src/mint-attestation.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

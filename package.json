@@ -26,6 +26,7 @@
     "dev:core": "bun run --filter ./apps/web --filter ./apps/api --filter ./apps/ponder dev",
     "dev:complete": "bun run --filter './apps/*' dev",
     "keeper:gateway-signer": "bun run --filter ./apps/keeper-gateway-signer dev",
+    "keeper:gateway-signer:mint": "bun run --filter ./apps/keeper-gateway-signer mint",
     "keeper:spot": "bun run --filter ./apps/keeper-spot dev",
     "keeper:perps-matcher": "bun run --filter ./apps/keeper-perps-matcher dev",
     "keeper:perps-liquidator": "bun run --filter ./apps/keeper-perps-liquidator dev",

@@ -38,6 +38,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# env vars are wired up without leaking actual secrets.
+!.env.local.example
+!.env.example
 
 # vercel
 .vercel
