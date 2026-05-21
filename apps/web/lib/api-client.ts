@@ -302,6 +302,46 @@ export function resilientJsonFetch(
   return resilientFetch(input, { ...init, headers });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Typed BFF client (hc<AppType>) — week 1 day 1 pipe.
+//
+// Pairs with apps/api/src/server.ts:`export type AppType = typeof app`.
+// Currently only /health is fully typed (request + response schema inferred
+// from the OpenAPIHono route). Other routes are callable through the same
+// client but without response-shape inference until they're converted to
+// `app.openapi(...)` route-by-route (markets.ts is route #2, follow-up PR).
+//
+// This intentionally does NOT layer the resilientFetch retry logic in yet —
+// that's a follow-up once we know which routes need write-side retries vs
+// which routes should fail fast. The first wired consumer is read-only
+// health, so plain fetch is correct.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { hc } from "hono/client";
+import type { AppType } from "@bufi/api";
+
+const DEFAULT_API_URL = "http://localhost:3002";
+
+export function apiBaseUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_API_URL ??
+    process.env.NEXT_PUBLIC_BUFI_API_URL ??
+    DEFAULT_API_URL
+  );
+}
+
+/**
+ * Typed Hono RPC client. Use for new call sites where you want the
+ * response shape inferred from the API's zod schemas. Existing call sites
+ * stay on `resilientFetch` until converted route-by-route.
+ *
+ * Usage:
+ *   const res = await api.health.$get();
+ *   if (!res.ok) throw new Error("api down");
+ *   const body = await res.json();   // typed: { status: "ok"; uptime: number; version: string }
+ */
+export const api = hc<AppType>(apiBaseUrl());
+
 // Re-export the default decider so callers can compose policy on top of it.
 export const __test = {
   defaultRetryOn,

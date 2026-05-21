@@ -2,8 +2,8 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useAccount, useBalance } from "wagmi";
-import { formatUnits, type Address } from "viem";
+import { useAccount, useReadContracts } from "wagmi";
+import { erc20Abi, formatUnits, type Address } from "viem";
 import { AnimatePresence, motion } from "framer-motion";
 import type { WagmiChainId } from "@/utils/chain";
 import { ChainSelect } from "@/components/chain-select";
@@ -68,45 +68,110 @@ interface ChainBalanceRow {
 // popover list and sums every chain's rows for the trigger pill (which
 // surfaces the USDC-equivalent TOTAL across all chains AND all stables,
 // not just USDC face value on one chain).
+//
+// Wk1d1: replaced an N×M (~40) nested `useBalance` fan-out with one
+// `useReadContracts` per chain — wagmi v2 routes batched balanceOf calls
+// through multicall3 (canonical address is wired into each chain's viem
+// definition: Avalanche Fuji, Arc Testnet, Sepolia, Arbitrum Sepolia all
+// have it at 0xcA11bde…CA11). End-state: ~40 eth_calls → 4 multicalls,
+// one per chain. Hook count is now N_chains (constant 4) instead of
+// N_chains × M_tokens.
 const useAllChainsStableBalances = (
   walletAddress: Address | undefined,
 ): Record<number, ChainBalanceRow[]> => {
-  // Flat double-loop: SPOKE_CHAINS × STABLE_TOKEN_LIST. Both lists are
-  // module-level constants, so the iteration order is identical render
-  // to render — the hook-count invariant is satisfied even though we
-  // call `useBalance` from inside a nested map.
-  const entries = SPOKE_CHAINS.map((cfg) => {
-    const rows = STABLE_TOKEN_LIST.map((t): ChainBalanceRow => {
+  // One `useReadContracts` per chain in fixed `SPOKE_CHAINS` order. The
+  // hook count is the SPOKE_CHAINS length — stable across renders even
+  // though we're calling a hook inside `.map()`, identical to the prior
+  // pattern's justification.
+  //
+  // We only include DEPLOYED tokens in the batched `contracts[]`; an
+  // undeployed slot would either error (no address) or read the wrong
+  // contract. The full STABLE_TOKEN_LIST grid still drives the output
+  // shape — undeployed entries are emitted as `deployed: false` rows
+  // without consuming a multicall slot.
+  const chainBatches = SPOKE_CHAINS.map((cfg) => {
+    type SlotMeta = {
+      asset: StableTokenType;
+      address: Address;
+      decimals: number;
+      usdPrice: number;
+    };
+    const deployedSlots: SlotMeta[] = [];
+    for (const t of STABLE_TOKEN_LIST) {
       const deployment = cfg.tokens.find((d) => d.asset === t.asset);
-      const decimals = deployment?.decimals ?? 6;
-      const address = (deployment?.address ?? null) as Address | null;
-      const enabled = Boolean(cfg.isWagmiSupported && address && walletAddress);
-      // eslint-disable-next-line react-hooks/rules-of-hooks
-      const bal = useBalance({
-        address: walletAddress,
-        token: (address ?? undefined) as Address | undefined,
-        chainId: cfg.chainId as NonNullable<WagmiChainId>,
-        query: { enabled },
-      });
-      const formatted = bal.data ? formatUnits(bal.data.value, decimals) : "0";
-      const balance = bal.data ? Number(formatted) : 0;
-      const price = t.usdPrice ?? 0;
-      const usdValue =
-        Number.isFinite(balance) && address ? balance * price : 0;
-      return {
+      if (!deployment?.address) continue;
+      deployedSlots.push({
         asset: t.asset,
-        address,
-        decimals,
+        address: deployment.address as Address,
+        decimals: deployment.decimals ?? 6,
+        usdPrice: t.usdPrice ?? 0,
+      });
+    }
+
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const query = useReadContracts({
+      // wagmi v2 picks up the canonical multicall3 from viem's chain
+      // definition (see comment above) and batches every read here into
+      // a single `aggregate3` call.
+      contracts: deployedSlots.map((s) => ({
+        address: s.address,
+        abi: erc20Abi,
+        functionName: "balanceOf" as const,
+        args: [walletAddress ?? "0x0000000000000000000000000000000000000000"] as readonly [Address],
+        chainId: cfg.chainId as NonNullable<WagmiChainId>,
+      })),
+      allowFailure: true,
+      query: {
+        enabled: Boolean(cfg.isWagmiSupported && walletAddress),
+      },
+    });
+
+    return { cfg, deployedSlots, query };
+  });
+
+  const result: Record<number, ChainBalanceRow[]> = {};
+  for (const { cfg, deployedSlots, query } of chainBatches) {
+    // Build the FULL grid (STABLE_TOKEN_LIST × this chain). Deployed
+    // entries pull their balance from the multicall result by index;
+    // undeployed entries emit the same shape with `deployed: false`.
+    const slotByAsset = new Map(
+      deployedSlots.map((s, idx) => [s.asset, { slot: s, idx }] as const),
+    );
+    result[cfg.chainId] = STABLE_TOKEN_LIST.map((t): ChainBalanceRow => {
+      const hit = slotByAsset.get(t.asset);
+      if (!hit) {
+        return {
+          asset: t.asset,
+          address: null,
+          decimals: 6,
+          formatted: "0",
+          balance: 0,
+          usdValue: 0,
+          deployed: false,
+          isLoading: false,
+        };
+      }
+      const { slot, idx } = hit;
+      const entry = query.data?.[idx];
+      const raw =
+        entry && entry.status === "success" ? (entry.result as bigint) : null;
+      const formatted = raw !== null ? formatUnits(raw, slot.decimals) : "0";
+      const balance = raw !== null ? Number(formatted) : 0;
+      const usdValue =
+        Number.isFinite(balance) ? balance * slot.usdPrice : 0;
+      return {
+        asset: slot.asset,
+        address: slot.address,
+        decimals: slot.decimals,
         formatted,
         balance,
         usdValue,
-        deployed: Boolean(address),
-        isLoading: Boolean(bal.isLoading),
+        deployed: true,
+        isLoading: query.isLoading,
       };
     });
-    return [cfg.chainId, rows] as const;
-  });
-  return Object.fromEntries(entries);
+  }
+  return result;
 };
 
 // One row = inline render. Stateless — all data comes from the parent's

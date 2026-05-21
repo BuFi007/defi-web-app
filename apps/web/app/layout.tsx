@@ -4,6 +4,7 @@ import "@/css/global.scss";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import { SentryClientInit } from "@/lib/sentry/SentryClientInit";
+import { ApiHealthBeacon } from "@/components/api-health-beacon";
 import "./globals.css";
 
 const viewport: Viewport = {
@@ -33,6 +34,10 @@ export default function RootLayout({
         {/* Fires Sentry's browser init when SENTRY_DSN_WEB is configured AND
             `@sentry/nextjs` is installed; otherwise it's a silent no-op. */}
         <SentryClientInit />
+        {/* First consumer of the typed `hc<AppType>` BFF pipe (apps/api
+            /health). Renders nothing; mirrors api state onto
+            <html data-api-status="ok|down|loading"> for QA. */}
+        <ApiHealthBeacon />
         {/* cacheComponents boundary: the [locale] layout awaits params,
             which is runtime data. Suspense here lets Next prerender the
             static shell (this body + bg gradient) while the locale-aware

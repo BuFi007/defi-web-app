@@ -14,6 +14,7 @@
     "e2e:report": "playwright show-report"
   },
   "dependencies": {
+    "@bufi/api": "workspace:*",
     "@bufi/contracts": "workspace:*",
     "@bufi/fx-bento": "workspace:*",
     "@bufi/fx-telarana": "workspace:*",
@@ -70,6 +71,7 @@
     "framer-motion": "12.38.0",
     "geist": "1.7.0",
     "gsap": "3.15.0",
+    "hono": "^4.12.18",
     "html-to-image": "1.11.11",
     "just-debounce-it": "3.2.0",
     "lightweight-charts": "5.2.0",
