@@ -36,6 +36,7 @@
 
   --yellow: #ffe27a;
   --yellow-soft: #fff4c4;
+  --yellow-ink: #b08400;
 
   --profit: #a89ce8;
   --profit-soft: #ece6ff;
@@ -76,9 +77,13 @@
   --primary-ink: #c8bdff;
 
   --mint-soft: #1d3f2c;
+  --mint-ink: #74e0a4;
   --peach-soft: #4a2f1f;
+  --peach-ink: #ffb89a;
   --rose-soft: #4a1f2e;
+  --rose-ink: #ff8aa8;
   --yellow-soft: #3f3618;
+  --yellow-ink: #ffd54a;
 
   --profit: #b8acf0;
   --profit-soft: #2a1f6a;
@@ -463,7 +468,7 @@ input:focus { outline: none; }
 .pill.primary { background: var(--primary-soft); color: var(--primary-ink); }
 .pill.muted { background: var(--surface-3); color: var(--ink-3); }
 .pill.mint { background: var(--mint-soft); color: var(--mint-ink); }
-.pill.beta { background: var(--yellow-soft); color: #b08400; padding: 3px 10px 3px 8px; }
+.pill.beta { background: var(--yellow-soft); color: var(--yellow-ink); padding: 3px 10px 3px 8px; }
 .pill.beta::before { content: '✦'; }
 
 /* Market ticker */
@@ -836,7 +841,7 @@ input:focus { outline: none; }
 .metric-icon.mint { background: var(--mint-soft); color: var(--mint-ink); }
 .metric-icon.peach { background: var(--peach-soft); color: var(--peach-ink); }
 .metric-icon.rose { background: var(--rose-soft); color: var(--rose-ink); }
-.metric-icon.yellow { background: var(--yellow-soft); color: #b08400; }
+.metric-icon.yellow { background: var(--yellow-soft); color: var(--yellow-ink); }
 .metric-value { font-weight: 800; font-size: 19px; letter-spacing: -0.01em; }
 .metric-value.profit { color: var(--profit-ink, var(--primary-ink)); }
 .metric-value.loss { color: var(--loss-ink); }
