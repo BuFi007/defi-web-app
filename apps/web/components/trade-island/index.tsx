@@ -35,6 +35,7 @@ import {
 import { ArcadeRoom } from "./multiplayer";
 import { MobileTrade } from "./mobile-trade";
 import { MarketPicker } from "./market-picker";
+import { IslandBorder } from "./island-border";
 import { StablecoinBalances } from "@/components/stablecoin-balances";
 import { usePositions, useTrades } from "@/lib/perps/hooks";
 import type { PerpsPositionDto, PerpsTradeDto } from "@/lib/perps/client";
@@ -1362,6 +1363,7 @@ export default function TradeIsland() {
       : (ISLAND_MAX_WIDTH[tab] ?? 1440);
 
   return (
+    <IslandBorder>
     <motion.div
       layout
       initial={false}
@@ -1425,6 +1427,7 @@ export default function TradeIsland() {
         </AnimatePresence>
       </div>
     </motion.div>
+    </IslandBorder>
   );
 }
 
