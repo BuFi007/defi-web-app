@@ -1,0 +1,128 @@
+{
+  "name": "@bufi/sdk",
+  "version": "0.1.0",
+  "description": "Public TypeScript SDK for the BUFI perps + FX protocol. Wraps the REST API, EIP-712 helpers, contract addresses, and ABIs into a single integrator-friendly surface.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    },
+    "./chains": {
+      "types": "./dist/chains.d.ts",
+      "import": "./dist/chains.js"
+    },
+    "./contracts": {
+      "types": "./dist/contracts.d.ts",
+      "import": "./dist/contracts.js"
+    },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "import": "./dist/errors.js"
+    },
+    "./perps": {
+      "types": "./dist/perps/index.d.ts",
+      "import": "./dist/perps/index.js"
+    },
+    "./perps/open": {
+      "types": "./dist/perps/open.d.ts",
+      "import": "./dist/perps/open.js"
+    },
+    "./perps/close": {
+      "types": "./dist/perps/close.d.ts",
+      "import": "./dist/perps/close.js"
+    },
+    "./perps/margin": {
+      "types": "./dist/perps/margin.d.ts",
+      "import": "./dist/perps/margin.js"
+    },
+    "./perps/orders": {
+      "types": "./dist/perps/orders.d.ts",
+      "import": "./dist/perps/orders.js"
+    },
+    "./perps/typed-data": {
+      "types": "./dist/perps/typed-data.d.ts",
+      "import": "./dist/perps/typed-data.js"
+    },
+    "./queries": {
+      "types": "./dist/queries/index.d.ts",
+      "import": "./dist/queries/index.js"
+    },
+    "./queries/markets": {
+      "types": "./dist/queries/markets.d.ts",
+      "import": "./dist/queries/markets.js"
+    },
+    "./queries/positions": {
+      "types": "./dist/queries/positions.d.ts",
+      "import": "./dist/queries/positions.js"
+    },
+    "./queries/analytics": {
+      "types": "./dist/queries/analytics.d.ts",
+      "import": "./dist/queries/analytics.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "check:example": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@bufi/contracts": "workspace:*",
+    "@bufi/perps": "workspace:*",
+    "@bufi/shared-types": "workspace:*"
+  },
+  "peerDependencies": {
+    "viem": "^2.0.0",
+    "@tanstack/react-query": "^5.0.0",
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@tanstack/react-query": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "5.62.0",
+    "@types/react": "18.3.18",
+    "react": "18.3.1",
+    "typescript": "5",
+    "viem": "2.45.3"
+  },
+  "keywords": [
+    "bufi",
+    "perps",
+    "perpetual",
+    "trading",
+    "defi",
+    "fx",
+    "arc",
+    "avalanche",
+    "circle",
+    "usdc",
+    "sdk"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}
