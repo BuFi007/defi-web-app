@@ -1,0 +1,40 @@
+# Per-trader fill count over a window. Used to gate the leaderboard
+# (`min_trades` filter) and to render trader profile cards.
+#
+# Query params:
+#   trader — optional, address. If unset, returns all traders.
+#   window — `24h` | `7d` | `30d` | `all` (default `7d`)
+#   limit  — 1..1000 (default 500)
+
+TOKEN "analytics_read" READ
+
+NODE counts
+SQL >
+    %
+    SELECT
+        trader,
+        count()                               AS trade_count,
+        countDistinct(market_id)              AS markets_traded,
+        sum(notional_usdc)                    AS volume_usdc,
+        min(timestamp)                        AS first_trade_at,
+        max(timestamp)                        AS last_trade_at
+    FROM (
+        SELECT taker AS trader, market_id, notional_usdc, timestamp FROM perp_match_settled
+        UNION ALL
+        SELECT maker AS trader, market_id, notional_usdc, timestamp FROM perp_match_settled
+    )
+    WHERE 1=1
+        {% if defined(trader) %}
+        AND trader = {{ String(trader) }}
+        {% end %}
+        {% if defined(window) and window != 'all' %}
+        AND timestamp >= now() - INTERVAL
+            {% if window == '24h' %} 24 HOUR
+            {% elif window == '7d' %} 7 DAY
+            {% elif window == '30d' %} 30 DAY
+            {% else %} 7 DAY
+            {% end %}
+        {% end %}
+    GROUP BY trader
+    ORDER BY trade_count DESC
+    LIMIT {{ Int32(limit, 500, min=1, max=1000) }}

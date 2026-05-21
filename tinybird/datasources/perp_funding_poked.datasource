@@ -1,0 +1,24 @@
+# One row per `FundingPoked` event emitted by the perps funding keeper
+# (apps/keeper-perps-funding). Powers /analytics/markets/:id/funding.
+#
+# Sort key: (marketId, timestamp). Funding queries are always per-market
+# rolling windows.
+
+SCHEMA >
+    `event_id`            String   `json:$.eventId`,
+    `chain_id`            Int32    `json:$.chainId`,
+    `block_number`        Int64    `json:$.blockNumber`,
+    `tx_hash`             String   `json:$.txHash`,
+    `log_index`           Int32    `json:$.logIndex`,
+    `market_id`           String   `json:$.marketId`,
+    `funding_rate_e18`    Int64    `json:$.fundingRateE18`,
+    `cumulative_funding`  Int64    `json:$.cumulativeFunding`,
+    `mark_price_e18`      Int64    `json:$.markPriceE18`,
+    `index_price_e18`     Int64    `json:$.indexPriceE18`,
+    `interval_seconds`    Int32    `json:$.intervalSeconds`,
+    `timestamp`           DateTime64(3) `json:$.timestamp`
+
+ENGINE "MergeTree"
+ENGINE_SORTING_KEY "market_id, timestamp"
+ENGINE_PARTITION_KEY "toYYYYMM(timestamp)"
+ENGINE_TTL "timestamp + INTERVAL 18 MONTH"

@@ -1,0 +1,38 @@
+# Leaderboard: top traders by realized PnL.
+#
+# Query params:
+#   window  — `24h` | `7d` | `30d` | `all` (default `7d`)
+#   limit   — 1..100 (default 100)
+#   min_trades — minimum settled trades to qualify (default 5)
+#
+# Sources: `perp_position_change` (realized_pnl on Decrease/Close
+# events). One row per (trader) in the response — we aggregate inside
+# the pipe so the API surface stays trivial.
+
+TOKEN "analytics_read" READ
+
+NODE compute
+SQL >
+    %
+    SELECT
+        trader,
+        sum(realized_pnl)                       AS realized_pnl,
+        count()                                 AS trade_count,
+        countDistinct(market_id)                AS markets_traded,
+        min(timestamp)                          AS first_trade_at,
+        max(timestamp)                          AS last_trade_at
+    FROM perp_position_change
+    WHERE delta_kind IN ('decrease', 'close')
+        AND realized_pnl != 0
+        {% if defined(window) and window != 'all' %}
+        AND timestamp >= now() - INTERVAL
+            {% if window == '24h' %} 24 HOUR
+            {% elif window == '7d' %} 7 DAY
+            {% elif window == '30d' %} 30 DAY
+            {% else %} 7 DAY
+            {% end %}
+        {% end %}
+    GROUP BY trader
+    HAVING trade_count >= {{ Int32(min_trades, 5) }}
+    ORDER BY realized_pnl DESC
+    LIMIT {{ Int32(limit, 100, min=1, max=100) }}

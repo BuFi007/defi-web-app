@@ -1,0 +1,32 @@
+# One row per `PositionIncreased` / `PositionDecreased` event emitted
+# by the perps clearinghouse. Used to reconstruct net OI per market
+# over time without scanning every match.
+#
+# `delta_kind` is "increase" | "decrease" — LowCardinality so the
+# string dictionary is shared across rows.
+#
+# Sort key: (marketId, timestamp) — OI history queries are per-market
+# time-window scans.
+
+SCHEMA >
+    `event_id`         String   `json:$.eventId`,
+    `chain_id`         Int32    `json:$.chainId`,
+    `block_number`     Int64    `json:$.blockNumber`,
+    `tx_hash`          String   `json:$.txHash`,
+    `log_index`        Int32    `json:$.logIndex`,
+    `market_id`        String   `json:$.marketId`,
+    `trader`           String   `json:$.trader`,
+    `delta_kind`       LowCardinality(String) `json:$.deltaKind`,
+    `side`             LowCardinality(String) `json:$.side`,
+    `size_delta`       Int64    `json:$.sizeDelta`,
+    `new_size`         Int64    `json:$.newSize`,
+    `entry_price_e18`  Int64    `json:$.entryPriceE18`,
+    `margin_delta`     Int64    `json:$.marginDelta`,
+    `new_margin`       Int64    `json:$.newMargin`,
+    `realized_pnl`     Int64    `json:$.realizedPnl`,
+    `timestamp`        DateTime64(3) `json:$.timestamp`
+
+ENGINE "MergeTree"
+ENGINE_SORTING_KEY "market_id, timestamp"
+ENGINE_PARTITION_KEY "toYYYYMM(timestamp)"
+ENGINE_TTL "timestamp + INTERVAL 18 MONTH"

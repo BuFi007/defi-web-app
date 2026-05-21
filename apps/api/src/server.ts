@@ -1,9 +1,7 @@
 import { Hono } from "hono";
 import type { ErrorHandler, MiddlewareHandler, NotFoundHandler } from "hono";
-import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { createLogger } from "@bufinance/logger";
 import { createLogger as createStructuredLogger, type Logger } from "@bufi/logger";
-import { initOtel } from "@bufi/observability";
 import {
   createCorsMiddleware,
   errorHandler,
@@ -12,20 +10,15 @@ import {
   type RequestContext,
 } from "@bufinance/worker-base";
 
-import { otelMiddleware } from "./middleware/otel";
+import { analyticsRoutes } from "./routes/analytics";
 import { fxBentoRoutes } from "./routes/fx-bento";
 import { fxTelaranaRoutes } from "./routes/fx-telarana";
-import { keepersHealthRoutes } from "./routes/keepers-health";
+import { tinybirdIngestRoutes } from "./routes/internal/tinybird-ingest";
 import { liveblocksRoutes } from "./routes/liveblocks";
 import { marketsRoutes } from "./routes/markets";
 import { mcpRoutes } from "./routes/mcp";
 import { perpsRoutes } from "./routes/perps";
-import { realtimeRoutes } from "./routes/realtime";
 import { spotRoutes } from "./routes/spot";
-import {
-  bootWebhookSurface,
-  mountWebhookRoutes,
-} from "./routes/webhooks";
 import {
   makeUpgradeData,
   marketsWebSocketHandler,
@@ -46,17 +39,8 @@ declare module "hono" {
 // Fire-and-forget Sentry init. No-ops if SENTRY_DSN_API is unset or the
 // @sentry/node package isn't installed.
 void initApiSentry();
-// Fire-and-forget OpenTelemetry init. NoOp tracer when AXIOM_TOKEN is unset
-// so local dev pays zero perf cost; full OTLP exporter to Axiom when set.
-void initOtel({ serviceName: "bufi-api" });
 
-// Top-level app is OpenAPIHono — `OpenAPIHono` extends `Hono`, so every
-// downstream `.use`, `.route`, `.onError`, `.notFound` still types and
-// behaves identically. Routes that opt into typed request/response
-// schemas (currently just /health; markets.ts is route #2 in a
-// follow-up PR) use `app.openapi(route, handler)`. Plain `.get/.post`
-// still work for routes that haven't been converted.
-const app = new OpenAPIHono();
+const app = new Hono();
 const log = createLogger({ prefix: "bufx-api" });
 const corsMiddleware = createCorsMiddleware({
   origins: {
@@ -99,10 +83,6 @@ const requestContextMiddleware =
   requestContext as unknown as () => MiddlewareHandler;
 
 app.use("*", requestContextMiddleware());
-// Span-per-request. Mounted right after requestContext so the span covers
-// every downstream middleware (CORS, wallet session, structured logger)
-// AND the route handler. NoOp when AXIOM_TOKEN is unset.
-app.use("*", otelMiddleware());
 app.use("*", corsMiddleware);
 app.use("*", walletSession({ required: false }));
 
@@ -139,62 +119,8 @@ app.use("*", async (c, next) => {
   );
 });
 
-// ───────────────────────── /health ─────────────────────────
-// First route on the typed BFF pipe. Response schema is the contract
-// the apps/web `hc<AppType>` client infers — adding/removing fields
-// here changes the typed surface in apps/web. See HealthResponse below.
-const HealthResponse = z
-  .object({
-    status: z.literal("ok"),
-    uptime: z.number().describe("Process uptime in seconds"),
-    version: z.string().describe("apps/api package version"),
-  })
-  .openapi("HealthResponse");
+app.get("/health", (c) => c.json({ ok: true, ts: Date.now() }));
 
-const healthRoute = createRoute({
-  method: "get",
-  path: "/health",
-  tags: ["meta"],
-  summary: "Liveness probe",
-  description:
-    "Read by the Playwright e2e harness and by Railway's healthcheck. Body shape is part of the typed BFF contract; do not narrow without bumping consumers.",
-  responses: {
-    200: {
-      content: { "application/json": { schema: HealthResponse } },
-      description: "Service is up",
-    },
-  },
-});
-
-// `.openapi()` returns the same Hono instance with a refined type that
-// includes the /health route in its route union. We capture that refined
-// reference as `typedApp` so the bottom-of-file `AppType = typeof typedApp`
-// surfaces the typed route to the apps/web `hc<AppType>` client.
-//
-// Non-OpenAPI `.use` / `.route` calls keep mutating `app` and continue to
-// work at runtime (same instance) — they just don't appear in the typed
-// client until they're also converted to `app.openapi(...)`.
-// `marketsRoutes` is itself an OpenAPIHono now (wk1d2). We chain its
-// `.route("/markets", marketsRoutes)` onto the typedApp capture so the
-// markets endpoints (list / get / price / candles) propagate into AppType
-// and the apps/web `hc<AppType>` client can call them with full request +
-// response inference. Plain `app.route("/markets", marketsRoutes)` below
-// still runs at runtime (same instance), but type refinement only flows
-// through the captured chain.
-const typedApp = app
-  .openapi(healthRoute, (c) =>
-    c.json(
-      {
-        status: "ok" as const,
-        uptime: typeof process.uptime === "function" ? process.uptime() : 0,
-        version: process.env.npm_package_version ?? "0.0.0",
-      },
-      200,
-    ),
-  )
-  .route("/markets", marketsRoutes);
-
-app.route("/keepers", keepersHealthRoutes);
 app.route("/liveblocks", liveblocksRoutes);
 app.route("/markets", marketsRoutes);
 app.route("/perps", perpsRoutes);
@@ -203,25 +129,8 @@ app.route("/fx-bento", fxBentoRoutes);
 app.route("/fx-telarana", fxTelaranaRoutes);
 app.route("/mcp", mcpRoutes);
 app.route("/x402", x402Routes);
-// Internal realtime publish route — guarded by X-Internal-Token. See
-// `apps/api/src/routes/realtime.ts` for the envelope shape and
-// `apps/api/src/lib/REALTIME.md` for the channel-naming convention.
-app.route("/internal/realtime", realtimeRoutes);
-
-// Webhook delivery surface (Wave H2). The store + delivery worker boot
-// lazily on first mount; the worker subscribes to PR #56's Redis channels
-// and fans out signed POSTs to registered integrator URLs. Skipped when
-// `BUFI_WEBHOOK_DISABLED=1` so headless tests don't open a SQLite handle.
-if (process.env.BUFI_WEBHOOK_DISABLED !== "1") {
-  void bootWebhookSurface()
-    .then(({ store, worker }) => {
-      mountWebhookRoutes(app, { store, worker });
-      log.info({ workerActive: Boolean(worker) }, "webhook.surface.mounted");
-    })
-    .catch((err) => {
-      log.error({ err: (err as Error).message }, "webhook.surface.boot_failed");
-    });
-}
+app.route("/analytics", analyticsRoutes);
+app.route("/internal/tinybird", tinybirdIngestRoutes);
 
 const port = Number(process.env.PORT ?? 3002);
 
@@ -270,12 +179,3 @@ export default {
 };
 
 log.info({ port }, "server.boot");
-
-// Typed BFF surface for apps/web. `hc<AppType>(...)` in apps/web/lib/api-client.ts
-// infers every typed route + response shape from this. Currently /health is the
-// only fully-typed route (via `app.openapi(...)`); the result of that call is
-// captured as `typedApp` above. Plain `.use` / `.route` calls don't refine
-// `typeof app`, so additional routes (markets.ts is next, in a follow-up PR)
-// must be added as `.openapi(...)` calls and chained / re-captured to extend
-// the typed surface.
-export type AppType = typeof typedApp;

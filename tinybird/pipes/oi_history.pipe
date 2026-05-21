@@ -1,0 +1,55 @@
+# Open-interest history per market.
+#
+# Query params:
+#   market_id — required, bytes32 hex string
+#   bar       — `1m` | `5m` | `15m` | `1h` | `4h` | `1d` (default `5m`)
+#   limit     — 1..1000 (default 500)
+#
+# Aggregates net long / short OI per bar by summing signed size deltas.
+# `delta_kind` distinguishes increase vs decrease; `side` distinguishes
+# long vs short. Net OI per side per bar:
+#
+#   long_oi  =  sum(case when side='long'  and delta_kind='increase' then size_delta
+#                        when side='long'  and delta_kind='decrease' then -size_delta
+#                        else 0 end)
+#   short_oi = analogous for side='short'
+#
+# Bars are running totals via window function so consumers can render
+# a step chart directly.
+
+TOKEN "analytics_read" READ
+
+NODE buckets
+SQL >
+    %
+    SELECT
+        toStartOfInterval(
+            timestamp,
+            INTERVAL
+                {% if defined(bar) and bar == '1m'  %} 1  MINUTE
+                {% elif defined(bar) and bar == '15m' %} 15 MINUTE
+                {% elif defined(bar) and bar == '1h'  %} 1  HOUR
+                {% elif defined(bar) and bar == '4h'  %} 4  HOUR
+                {% elif defined(bar) and bar == '1d'  %} 1  DAY
+                {% else %} 5 MINUTE
+                {% end %}
+        )                                                    AS bar_start,
+        sumIf(size_delta,  side = 'long'  AND delta_kind = 'increase') -
+        sumIf(size_delta,  side = 'long'  AND delta_kind = 'decrease') AS long_delta,
+        sumIf(size_delta,  side = 'short' AND delta_kind = 'increase') -
+        sumIf(size_delta,  side = 'short' AND delta_kind = 'decrease') AS short_delta
+    FROM perp_position_change
+    WHERE market_id = {{ String(market_id, required=True) }}
+    GROUP BY bar_start
+    ORDER BY bar_start ASC
+
+NODE running_oi
+SQL >
+    %
+    SELECT
+        bar_start,
+        sum(long_delta)  OVER (ORDER BY bar_start) AS long_oi,
+        sum(short_delta) OVER (ORDER BY bar_start) AS short_oi
+    FROM buckets
+    ORDER BY bar_start DESC
+    LIMIT {{ Int32(limit, 500, min=1, max=1000) }}

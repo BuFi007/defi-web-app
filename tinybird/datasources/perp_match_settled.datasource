@@ -1,0 +1,34 @@
+# One row per `MatchSettled` event emitted by the perps clearinghouse.
+#
+# The matcher keeper (apps/keeper-perps-matcher) and the Ponder indexer
+# (apps/ponder) both publish to this datasource via the internal ingest
+# route (see apps/api/src/routes/internal/tinybird-ingest.ts).
+#
+# Sort key: (marketId, timestamp). Hot-path queries are per-market
+# time-window scans (24h volume, OHLCV), so co-locating by market id
+# keeps the working set small.
+
+SCHEMA >
+    `event_id`         String   `json:$.eventId`,
+    `chain_id`         Int32    `json:$.chainId`,
+    `block_number`     Int64    `json:$.blockNumber`,
+    `tx_hash`          String   `json:$.txHash`,
+    `log_index`        Int32    `json:$.logIndex`,
+    `market_id`        String   `json:$.marketId`,
+    `taker`            String   `json:$.taker`,
+    `maker`            String   `json:$.maker`,
+    `taker_intent_id`  String   `json:$.takerIntentId`,
+    `maker_intent_id`  String   `json:$.makerIntentId`,
+    `side`             LowCardinality(String) `json:$.side`,
+    `size_delta`       Int64    `json:$.sizeDelta`,
+    `price_e18`        Int64    `json:$.priceE18`,
+    `notional_usdc`    Int64    `json:$.notionalUsdc`,
+    `fee_usdc`         Int64    `json:$.feeUsdc`,
+    `taker_pnl`        Int64    `json:$.takerPnl`,
+    `maker_pnl`        Int64    `json:$.makerPnl`,
+    `timestamp`        DateTime64(3) `json:$.timestamp`
+
+ENGINE "MergeTree"
+ENGINE_SORTING_KEY "market_id, timestamp"
+ENGINE_PARTITION_KEY "toYYYYMM(timestamp)"
+ENGINE_TTL "timestamp + INTERVAL 18 MONTH"
