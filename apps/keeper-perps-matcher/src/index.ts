@@ -1,6 +1,7 @@
 import { FxOrderSettlementAbi, loadContracts } from "@bufi/contracts";
 import { createTradingMachineDbFromEnv } from "@bufi/db";
 import { createKeeperWalletClient, requireKeeperSigner, runKeeper } from "@bufi/keeper-runtime";
+import { withSpan } from "@bufi/observability";
 import {
   PERPS_REPLACEMENT_NEEDED_EVENT,
   buildPerpsReplacementNeededEvent,
@@ -40,19 +41,35 @@ await runKeeper({
     }
 
     const wallet = createKeeperWalletClient(ctx, "arc");
-    const matches = matchPriceTimePriority(ready);
+    const matches = await withSpan(
+      "perps.matcher.match-loop",
+      () => matchPriceTimePriority(ready),
+      { "matcher.intents_pending": ready.length },
+      "keeper.perps-matcher",
+    );
     const settled: Array<{ maker: string; taker: string; tx: string }> = [];
     const failed: Array<{ maker: string; taker: string; error: string }> = [];
     const replacementNeeded: string[] = [];
 
     for (const match of matches) {
       try {
-        const hash = await settleMatch({
-          publicClient: ctx.clients.arc,
-          wallet,
-          orderSettlement,
-          match,
-        });
+        const hash = await withSpan(
+          "perps.matcher.settle-match",
+          () =>
+            settleMatch({
+              publicClient: ctx.clients.arc,
+              wallet,
+              orderSettlement,
+              match,
+            }),
+          {
+            "matcher.maker_intent_id": match.maker.intentId,
+            "matcher.taker_intent_id": match.taker.intentId,
+            "matcher.market_id": match.maker.marketId,
+            "matcher.settlement_mode": SETTLEMENT_MODE,
+          },
+          "keeper.perps-matcher",
+        );
         const maker = await db.perpsIntents.recordFill(match.maker.intentId, match.makerFillSizeDelta);
         const taker = await db.perpsIntents.recordFill(match.taker.intentId, match.takerFillSizeDelta);
         const emitted = await emitReplacementNeededEvents({

@@ -33,6 +33,7 @@ import {
   runKeeper,
   sleep,
 } from "@bufi/keeper-runtime";
+import { withSpan } from "@bufi/observability";
 import type { Address, Hex } from "viem";
 
 const FUJI_CHAIN_ID = 43113;
@@ -80,7 +81,12 @@ await runKeeper({
 
     let candidates: LiquidationCandidate[];
     try {
-      candidates = await fetchCandidates();
+      candidates = await withSpan(
+        "telarana.liquidator.candidate-scan",
+        () => fetchCandidates(),
+        { "liquidator.chain_id": TELARANA_CHAIN_ID },
+        "keeper.telarana-liquidator",
+      );
       rpcBackoffMs = 0;
     } catch (err) {
       rpcBackoffMs = nextBackoff(rpcBackoffMs);
@@ -108,59 +114,82 @@ await runKeeper({
 
     for (const candidate of candidates) {
       try {
-        // Race protection: re-read the position right before submitting.
-        const fresh = await getAccountPosition({
-          account: candidate.account,
-          hubChainId: candidate.hubChainId,
-          marketId: candidate.marketId,
-        });
-        if (!fresh || !isStillLiquidatable(fresh)) {
-          failed.push({ id: candidate.id, reason: "no_longer_liquidatable" });
-          continue;
-        }
+        const outcome = await withSpan(
+          "telarana.liquidator.attempt",
+          async (span): Promise<
+            | { kind: "skipped"; reason: string }
+            | { kind: "dry_run" }
+            | { kind: "liquidated"; tx: Hex }
+          > => {
+            // Race protection: re-read the position right before submitting.
+            const fresh = await getAccountPosition({
+              account: candidate.account,
+              hubChainId: candidate.hubChainId,
+              marketId: candidate.marketId,
+            });
+            if (!fresh || !isStillLiquidatable(fresh)) {
+              span.setAttribute("liquidator.skipped", "no_longer_liquidatable");
+              return { kind: "skipped", reason: "no_longer_liquidatable" };
+            }
 
-        const market = await getMarketById({
-          hubChainId: candidate.hubChainId,
-          marketId: candidate.marketId,
-        });
-        if (!market) {
-          failed.push({ id: candidate.id, reason: "market_not_found" });
-          continue;
-        }
+            const market = await getMarketById({
+              hubChainId: candidate.hubChainId,
+              marketId: candidate.marketId,
+            });
+            if (!market) {
+              span.setAttribute("liquidator.skipped", "market_not_found");
+              return { kind: "skipped", reason: "market_not_found" };
+            }
 
-        if (LIQUIDATOR_DRY_RUN || !wallet) {
-          ctx.log.info("telarana_liquidator.dry_run", {
-            id: candidate.id,
-            account: candidate.account,
-            healthFactorE18: fresh.healthFactorE18?.toString() ?? null,
-          });
-          continue;
-        }
+            if (LIQUIDATOR_DRY_RUN || !wallet) {
+              ctx.log.info("telarana_liquidator.dry_run", {
+                id: candidate.id,
+                account: candidate.account,
+                healthFactorE18: fresh.healthFactorE18?.toString() ?? null,
+              });
+              span.setAttribute("liquidator.dry_run", true);
+              return { kind: "dry_run" };
+            }
 
-        const hash = await wallet.writeContract({
-          chain: null,
-          account: wallet.account!,
-          address: liquidator as Address,
-          abi: FxLiquidatorAbi,
-          functionName: "liquidate",
-          args: [
-            market.loanToken,
-            market.collateralToken,
-            candidate.account,
-            // Seize the full collateral — Morpho clamps to position.collateral
-            // internally, so this lets the protocol pick the optimal amount
-            // without round-trip math on the keeper side.
-            fresh.collateral,
-            0n,
-            // No bound on repay assets — the keeper EOA must hold sufficient
-            // loanToken approval to the liquidator beforehand.
-            (1n << 255n) - 1n,
-            true,
-            [] as Hex[],
-          ],
-          value: 0n,
-        });
-        liquidated.push({ id: candidate.id, tx: hash });
+            const hash = await wallet.writeContract({
+              chain: null,
+              account: wallet.account!,
+              address: liquidator as Address,
+              abi: FxLiquidatorAbi,
+              functionName: "liquidate",
+              args: [
+                market.loanToken,
+                market.collateralToken,
+                candidate.account,
+                // Seize the full collateral — Morpho clamps to position.collateral
+                // internally, so this lets the protocol pick the optimal amount
+                // without round-trip math on the keeper side.
+                fresh.collateral,
+                0n,
+                // No bound on repay assets — the keeper EOA must hold sufficient
+                // loanToken approval to the liquidator beforehand.
+                (1n << 255n) - 1n,
+                true,
+                [] as Hex[],
+              ],
+              value: 0n,
+            });
+            return { kind: "liquidated", tx: hash };
+          },
+          {
+            "liquidator.candidate_id": candidate.id,
+            "liquidator.account": candidate.account,
+            "liquidator.market_id": candidate.marketId,
+            "liquidator.chain_id": TELARANA_CHAIN_ID,
+          },
+          "keeper.telarana-liquidator",
+        );
+
+        if (outcome.kind === "skipped") {
+          failed.push({ id: candidate.id, reason: outcome.reason });
+        } else if (outcome.kind === "liquidated") {
+          liquidated.push({ id: candidate.id, tx: outcome.tx });
+        }
       } catch (err) {
         // Don't crash the loop — record and continue.
         failed.push({ id: candidate.id, reason: (err as Error).message });

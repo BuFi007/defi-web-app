@@ -6,6 +6,7 @@ import {
 } from "@bufi/contracts";
 import { createTradingMachineDbFromEnv } from "@bufi/db";
 import { createKeeperWalletClient, requireKeeperSigner, runKeeper } from "@bufi/keeper-runtime";
+import { withSpan } from "@bufi/observability";
 
 const ARC_CHAIN_ID = 5042002;
 const db = createTradingMachineDbFromEnv();
@@ -30,41 +31,67 @@ await runKeeper({
     }
 
     const wallet = createKeeperWalletClient(ctx, "arc");
-    const accounts = await knownAccounts();
+    const accounts = await withSpan(
+      "perps.liquidator.candidate-scan",
+      () => knownAccounts(),
+      { "liquidator.chain_id": ARC_CHAIN_ID },
+      "keeper.perps-liquidator",
+    );
     const liquidations: Array<{ marketId: string; trader: string; flagTx: string; liquidateTx: string }> = [];
     for (const account of accounts) {
-      const liquidatable = await ctx.clients.arc.readContract({
-        address: healthChecker,
-        abi: FxHealthCheckerAbi,
-        functionName: "isLiquidatable",
-        args: [account.marketId as `0x${string}`, account.trader as `0x${string}`],
-      });
-      if (!liquidatable) continue;
-      const position = await ctx.clients.arc.readContract({
-        address: clearinghouse,
-        abi: FxPerpClearinghouseAbi,
-        functionName: "position",
-        args: [account.marketId as `0x${string}`, account.trader as `0x${string}`],
-      });
-      const maxClose = abs(positionSize(position));
-      if (maxClose === 0n) continue;
-      const hash = await wallet.writeContract({
-        chain: null,
-        account: wallet.account!,
-        address: liquidationEngine,
-        abi: FxLiquidationEngineAbi,
-        functionName: "flagAccount",
-        args: [account.marketId as `0x${string}`, account.trader as `0x${string}`],
-      });
-      const liquidateHash = await wallet.writeContract({
-        chain: null,
-        account: wallet.account!,
-        address: liquidationEngine,
-        abi: FxLiquidationEngineAbi,
-        functionName: "liquidate",
-        args: [account.marketId as `0x${string}`, account.trader as `0x${string}`, maxClose],
-      });
-      liquidations.push({ ...account, flagTx: hash, liquidateTx: liquidateHash });
+      const { flagTx, liquidateTx } = await withSpan(
+        "perps.liquidator.attempt",
+        async (span) => {
+          const liquidatable = await ctx.clients.arc.readContract({
+            address: healthChecker,
+            abi: FxHealthCheckerAbi,
+            functionName: "isLiquidatable",
+            args: [account.marketId as `0x${string}`, account.trader as `0x${string}`],
+          });
+          if (!liquidatable) {
+            span.setAttribute("liquidator.skipped", "not_liquidatable");
+            return { flagTx: null, liquidateTx: null };
+          }
+          const position = await ctx.clients.arc.readContract({
+            address: clearinghouse,
+            abi: FxPerpClearinghouseAbi,
+            functionName: "position",
+            args: [account.marketId as `0x${string}`, account.trader as `0x${string}`],
+          });
+          const maxClose = abs(positionSize(position));
+          if (maxClose === 0n) {
+            span.setAttribute("liquidator.skipped", "zero_size");
+            return { flagTx: null, liquidateTx: null };
+          }
+          const hash = await wallet.writeContract({
+            chain: null,
+            account: wallet.account!,
+            address: liquidationEngine,
+            abi: FxLiquidationEngineAbi,
+            functionName: "flagAccount",
+            args: [account.marketId as `0x${string}`, account.trader as `0x${string}`],
+          });
+          const liquidateHash = await wallet.writeContract({
+            chain: null,
+            account: wallet.account!,
+            address: liquidationEngine,
+            abi: FxLiquidationEngineAbi,
+            functionName: "liquidate",
+            args: [account.marketId as `0x${string}`, account.trader as `0x${string}`, maxClose],
+          });
+          span.setAttribute("liquidator.max_close", maxClose.toString());
+          return { flagTx: hash, liquidateTx: liquidateHash };
+        },
+        {
+          "liquidator.market_id": account.marketId,
+          "liquidator.trader": account.trader,
+          "liquidator.chain_id": ARC_CHAIN_ID,
+        },
+        "keeper.perps-liquidator",
+      );
+      if (flagTx && liquidateTx) {
+        liquidations.push({ ...account, flagTx, liquidateTx });
+      }
     }
 
     // Skip the per-tick scan log when nothing happened — the empty

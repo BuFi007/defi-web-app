@@ -12,6 +12,7 @@
     "@bufi/contracts": "workspace:*",
     "@bufi/db": "workspace:*",
     "@bufi/keeper-runtime": "workspace:*",
+    "@bufi/observability": "workspace:*",
     "@bufi/perps": "workspace:*",
     "@bufi/shared-types": "workspace:*",
     "viem": "2.45.3"

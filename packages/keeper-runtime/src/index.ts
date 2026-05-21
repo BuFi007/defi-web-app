@@ -48,6 +48,7 @@ loadRootEnvLocal();
 
 import { getRpcUrl } from "@bufi/contracts";
 import { serverEnv } from "@bufi/env";
+import { initOtel, withSpan } from "@bufi/observability";
 import { createLogger, type Logger } from "@bufinance/logger";
 import {
   createPublicClient,
@@ -138,11 +139,20 @@ export class KeeperSignerMissingError extends Error {
 }
 
 export async function runKeeper(def: KeeperDefinition): Promise<void> {
+  // Initialise OTel once per keeper process. NoOp when AXIOM_TOKEN is unset
+  // so dev pays zero cost; full OTLP exporter when set. Service name maps
+  // a `@bufi/keeper-foo` package name to the Axiom convention `keeper.foo`.
+  const otelServiceName = def.name
+    .replace(/^@bufi\//, "")
+    .replace(/^keeper-/, "keeper.");
+  void initOtel({ serviceName: otelServiceName });
+
   const ctx = createKeeperContext(def.name);
   const pollMs = ctx.env.KEEPER_POLL_MS;
   let lastOkAt = 0;
   let lastError: string | null = null;
   let idledForMissingSigner = false;
+  let tickIndex = 0;
 
   if (ctx.env.PORT) {
     Bun.serve({
@@ -172,7 +182,26 @@ export async function runKeeper(def: KeeperDefinition): Promise<void> {
         // every pollMs. Health endpoint still serves; bringing the key
         // online requires a restart.
       } else {
-        await def.tick(ctx);
+        const currentTick = tickIndex;
+        tickIndex += 1;
+        // One span per tick. `withSpan` re-throws so the outer catch still
+        // sees the original error and records it the same way as before;
+        // the span captures the exception + ERROR status as a side effect.
+        await withSpan(
+          "keeper.tick",
+          async (span) => {
+            try {
+              await def.tick(ctx);
+            } finally {
+              span.setAttribute("tick.duration_ms", Date.now() - started);
+            }
+          },
+          {
+            "keeper.name": def.name,
+            "tick.index": currentTick,
+          },
+          otelServiceName,
+        );
         lastOkAt = Math.floor(Date.now() / 1000);
         lastError = null;
         // No per-tick heartbeat log -- each keeper's own scan log already

@@ -3,6 +3,7 @@ import type { ErrorHandler, MiddlewareHandler, NotFoundHandler } from "hono";
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { createLogger } from "@bufinance/logger";
 import { createLogger as createStructuredLogger, type Logger } from "@bufi/logger";
+import { initOtel } from "@bufi/observability";
 import {
   createCorsMiddleware,
   errorHandler,
@@ -11,6 +12,7 @@ import {
   type RequestContext,
 } from "@bufinance/worker-base";
 
+import { otelMiddleware } from "./middleware/otel";
 import { fxBentoRoutes } from "./routes/fx-bento";
 import { fxTelaranaRoutes } from "./routes/fx-telarana";
 import { liveblocksRoutes } from "./routes/liveblocks";
@@ -39,6 +41,9 @@ declare module "hono" {
 // Fire-and-forget Sentry init. No-ops if SENTRY_DSN_API is unset or the
 // @sentry/node package isn't installed.
 void initApiSentry();
+// Fire-and-forget OpenTelemetry init. NoOp tracer when AXIOM_TOKEN is unset
+// so local dev pays zero perf cost; full OTLP exporter to Axiom when set.
+void initOtel({ serviceName: "bufi-api" });
 
 // Top-level app is OpenAPIHono — `OpenAPIHono` extends `Hono`, so every
 // downstream `.use`, `.route`, `.onError`, `.notFound` still types and
@@ -89,6 +94,10 @@ const requestContextMiddleware =
   requestContext as unknown as () => MiddlewareHandler;
 
 app.use("*", requestContextMiddleware());
+// Span-per-request. Mounted right after requestContext so the span covers
+// every downstream middleware (CORS, wallet session, structured logger)
+// AND the route handler. NoOp when AXIOM_TOKEN is unset.
+app.use("*", otelMiddleware());
 app.use("*", corsMiddleware);
 app.use("*", walletSession({ required: false }));
 
