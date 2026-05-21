@@ -15,6 +15,7 @@ import {
 import { otelMiddleware } from "./middleware/otel";
 import { fxBentoRoutes } from "./routes/fx-bento";
 import { fxTelaranaRoutes } from "./routes/fx-telarana";
+import { keepersHealthRoutes } from "./routes/keepers-health";
 import { liveblocksRoutes } from "./routes/liveblocks";
 import { marketsRoutes } from "./routes/markets";
 import { mcpRoutes } from "./routes/mcp";
@@ -193,6 +194,7 @@ const typedApp = app
   )
   .route("/markets", marketsRoutes);
 
+app.route("/keepers", keepersHealthRoutes);
 app.route("/liveblocks", liveblocksRoutes);
 app.route("/markets", marketsRoutes);
 app.route("/perps", perpsRoutes);
