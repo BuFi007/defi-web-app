@@ -1,0 +1,66 @@
+{
+  "ranAt": "2026-05-20T03:31:39.151Z",
+  "network": {
+    "fujiChainId": 43113,
+    "arcChainId": 5042002
+  },
+  "contracts": {
+    "fujiUsdc": "0x5425890298aed601595a70AB815c96711a31Bc65",
+    "arcUsdc": "0x3600000000000000000000000000000000000000",
+    "fujiTokenMessengerV2": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
+    "arcMessageTransmitterV2": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275"
+  },
+  "keeper": {
+    "address": "0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69",
+    "fujiUsdcErc20Before": "2.45",
+    "fujiUsdcErc20After": "0.45",
+    "arcNativeGasBefore": "4287057707487.403734"
+  },
+  "amountPerWalletUsdc": "1",
+  "maxFeeRaw": "500",
+  "status": "ok",
+  "wallets": [
+    {
+      "label": "maker",
+      "address": "0xa00b6D3a1C999DEc09EE1178d61EDC520c7d7AB9",
+      "amountUsdc": "1",
+      "fuji": {
+        "erc20UsdcBefore": "0",
+        "erc20UsdcAfter": "0",
+        "approveTxHash": "0x71ace3beee83a76253449aa880275054af0ddaca03fab1234fed7eb1ca519756",
+        "burnTxHash": "0xe137a8e109236353768e5a79b80e1842114ff310a53d71a3193bd4889bfd423f"
+      },
+      "arc": {
+        "erc20UsdcBefore": "9.998891",
+        "erc20UsdcAfter": "10.998891",
+        "mintTxHash": "0xe78aef6d6b078256e862e13cea96a0731468212359e1f26fac15d28cde7bf2ea"
+      },
+      "attestation": {
+        "durationMs": 29930,
+        "status": "complete"
+      },
+      "status": "minted"
+    },
+    {
+      "label": "taker",
+      "address": "0xca437B03CDb1f2BCddB49dc45e267fc7038291fD",
+      "amountUsdc": "1",
+      "fuji": {
+        "erc20UsdcBefore": "0",
+        "erc20UsdcAfter": "0",
+        "approveTxHash": "0x71ace3beee83a76253449aa880275054af0ddaca03fab1234fed7eb1ca519756",
+        "burnTxHash": "0x999b499ec7c5171d9d091f35d3e9eba11a5f20a8ea6439909340e121e55eb82b"
+      },
+      "arc": {
+        "erc20UsdcBefore": "10",
+        "erc20UsdcAfter": "11",
+        "mintTxHash": "0xd101e7cd79fd4918f005224aacabed7a3f3cbe679ad06bf907b3f854f6ed919b"
+      },
+      "attestation": {
+        "durationMs": 12158,
+        "status": "complete"
+      },
+      "status": "minted"
+    }
+  ]
+}
