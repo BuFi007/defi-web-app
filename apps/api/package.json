@@ -27,6 +27,7 @@
     "@bufi/mcp": "workspace:*",
     "@bufi/observability": "workspace:*",
     "@bufi/perps": "workspace:*",
+    "@bufi/realtime": "workspace:*",
     "@bufi/shared-types": "workspace:*",
     "@bufi/webhooks": "workspace:*",
     "@bufi/x402": "workspace:*",

@@ -14,7 +14,9 @@
     "@bufi/keeper-runtime": "workspace:*",
     "@bufi/observability": "workspace:*",
     "@bufi/perps": "workspace:*",
+    "@bufi/realtime": "workspace:*",
     "@bufi/shared-types": "workspace:*",
+    "@bufinance/logger": "0.1.1",
     "viem": "2.45.3"
   },
   "devDependencies": { "@types/node": "20", "typescript": "5" }

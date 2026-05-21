@@ -12,7 +12,9 @@ import {
   createViemPerpsNonceReader,
   createViemPerpsQuoteReader,
   livePerpsMarkets,
+  type PerpsRealtimePublish,
 } from "@bufi/perps";
+import { publishChannel } from "@bufi/realtime";
 import { createCircleGatewayVerifier, mockVerifier } from "@bufi/x402";
 
 import {
@@ -39,6 +41,12 @@ if (env.BENTO_DB_PATH) {
 export const telaranaService = createFxTelaranaService();
 const perpsMarkets = livePerpsMarkets();
 export const perpsPositionReader = createPonderPerpsPositionReaderFromEnv(process.env);
+// Wave H1 — wrap @bufi/realtime's publishChannel so the perps domain
+// package stays Redis-agnostic. Swallow publish errors here too; the
+// matcher's poll fallback covers any dropped notify.
+const realtimePublish: PerpsRealtimePublish = async ({ channel, payload }) => {
+  await publishChannel(channel, payload);
+};
 export const perpsService = createPerpsService({
   markets: perpsMarkets,
   quoteReader: createViemPerpsQuoteReader({ markets: perpsMarkets }),
@@ -46,6 +54,7 @@ export const perpsService = createPerpsService({
   positionReader: perpsPositionReader ?? undefined,
   intentStore: tradingDb.perpsIntents,
   maxOracleStaleSeconds: env.PYTH_MAX_STALE_SECONDS,
+  realtimePublish,
 });
 
 export const receiptStore = tradingDb.receipts;

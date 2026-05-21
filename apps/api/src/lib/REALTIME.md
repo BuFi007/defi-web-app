@@ -79,11 +79,42 @@ import {
 keeper. Guarded by `X-Internal-Token` against the `INTERNAL_REALTIME_TOKEN`
 env var. This is the most testable path and the one the v1 keeper uses.
 
-### 3. Keeper-direct (v2)
+### 3. Keeper-direct (Wave H1 — matcher *subscribes*; publish still TBD)
 
-`apps/keeper-perps-matcher/` will publish straight to Redis after
-`settleMatch` confirms, skipping the API hop. Pulled out of v1 scope so the
-keeper doesn't gain a Redis dep before we've shaken out the channel schema.
+`apps/keeper-perps-matcher/` now imports `@bufi/realtime` and subscribes
+to `perps:intent:inserted` for sub-second pickup of new intents. Publishing
+trade fills from the matcher (skipping the API hop) is still TBD —
+holding off until the channel schema has settled in production.
+
+## Matcher-driven channels (Wave H1)
+
+In addition to the per-market `trades:`, `book:`, `funding:` channels, the
+matcher subscribes to a single *global* channel for intent-inserted
+notifications:
+
+| Channel | Source | Consumer | Payload shape |
+|---|---|---|---|
+| `perps:intent:inserted` | `packages/perps/src/service.ts` after `store.put` (called from `POST /perps/intents`) | `apps/keeper-perps-matcher` — subscribes at boot, runs an early match pass on each notify | `PerpsIntentInsertedMessage` (see `packages/realtime/src/channels.ts`) |
+
+Payload:
+
+```ts
+interface PerpsIntentInsertedMessage {
+  intentId: string;            // PerpIntent.intentId / EIP-712 digest
+  marketId: string;            // Hex marketId; matcher reads full intent row from SQLite
+  chainId: number;             // matcher filters to its target chain (currently Arc 5042002)
+  side: "long" | "short" | "unknown";
+  insertedAt: number;          // unix ms; used to measure end-to-end notify latency
+}
+```
+
+One channel, all markets multiplexed. The matcher needs to scan every
+market on every notify anyway (cross-intent matches are global), so
+splitting by marketId would explode subscription state for no win.
+
+The matcher's poll loop (`KEEPER_POLL_MS`, default 30s) remains as a
+fallback for when Redis is unconfigured or a notify gets dropped. See
+`docs/runbook/MATCHER_REDIS_NOTIFY.md` for end-to-end verification.
 
 ## Adding a new channel kind
 

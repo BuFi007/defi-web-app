@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@bufi/contracts": "workspace:*",
+    "@bufi/realtime": "workspace:*",
     "@bufi/shared-types": "workspace:*",
     "viem": "2.45.3",
     "zod": "3.25.76"
