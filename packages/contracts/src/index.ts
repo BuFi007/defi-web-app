@@ -63,6 +63,9 @@ export {
 export {
   TelaranaGatewayHubHookAbi,
 } from "./abis/TelaranaGatewayHubHook";
+export {
+  FxSwapHookAbi,
+} from "./abis/FxSwapHook";
 
 export const SUPPORTED_CHAIN_IDS = [43113, 5042002] as const;
 

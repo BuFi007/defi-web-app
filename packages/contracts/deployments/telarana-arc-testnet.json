@@ -20,7 +20,20 @@
     "FxLiquidator": "0xa50f7D4D4a1A0D3CF418515973545b80E037B379",
     "MorphoBlue": "0x3c9b95C6E7B23f094f066733E7797C8680760830",
     "IrmMock": "0x8CC1B64D712eE2ff2891D56a5108eC4FDa73b9c1",
-    "FxSpokeToArc": "0x5d10d2c3b9951054845534b2f60a68ebc0898cd3"
+    "FxSpokeToArc": "0x5d10d2c3b9951054845534b2f60a68ebc0898cd3",
+    "FxSwapHook": "0xC6F894f30d0D28972C876B4af58C02A4E88A0aC8",
+    "TelaranaGatewayHubHook": "0xe895CB461AFF6E98167a7FA0Db252ba906714088"
+  },
+  "v4Periphery": {
+    "_notes": "Wave M1 hooks (deployed 2026-05-21) + v4 swap router. FxSwapHook permissionFlagsLow14Bits 0xAC8 (beforeAddLiquidity | beforeRemoveLiquidity | beforeSwap | afterSwap | beforeSwapReturnDelta). TelaranaGatewayHubHook 0x88 (beforeSwap | beforeSwapReturnDelta). Source: fx-telarana@feat/wave-m1-deploy-arc-hooks deployments/arc-testnet.json. V4SwapRouter is null pending Wave M3 deploy in fx-telarana (Universal Router not deployed on Arc Testnet — verified 2026-05-21 against https://developers.uniswap.org/contracts/v4/deployments). Until pinned, M4 demo scripts read env V4_SWAP_ROUTER_5042002.",
+    "FxSwapHook": "0xC6F894f30d0D28972C876B4af58C02A4E88A0aC8",
+    "FxSwapHookDeployTx": "0x016e2d483852c19e5dab5eb0338b80d73f7321ad3ee2593ee49876ee3332edb7",
+    "FxSwapHookSalt": "0x0000000000000000000000000000000000000000000000000000000000000122",
+    "TelaranaGatewayHubHook": "0xe895CB461AFF6E98167a7FA0Db252ba906714088",
+    "TelaranaGatewayHubHookDeployTx": "0x53eca2cddbc9618941038a37166799da8d666db3cc10d42fd4b4bf9ed0601bde",
+    "TelaranaGatewayHubHookSalt": "0x00000000000000000000000000000000000000000000000000000000000001a6",
+    "V4SwapRouter": null,
+    "V4SwapRouterEnvVar": "V4_SWAP_ROUTER_5042002"
   },
   "deprecated": {
     "V1FxHubMessageReceiver": "0x07db64fb19C6c4a1eBB1B7bfdaFd4676b43Cf276",
