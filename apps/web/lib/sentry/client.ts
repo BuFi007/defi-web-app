@@ -3,11 +3,13 @@
  * (or `SENTRY_DSN_WEB` inlined at build) is set AND `@sentry/nextjs` is
  * installed.
  *
- *   bun add @sentry/nextjs      # only when SENTRY_DSN_WEB is set
- *
- * Safe to call unconditionally; dynamic import + try/catch makes a missing
- * package a silent no-op.
+ * Init details (replay integration, sample rates, network scope, tunnel)
+ * live in `./sentry.client.config.ts`. This file is purely the
+ * fail-safe dynamic-import shell so a missing package can never crash
+ * a page load.
  */
+import type * as SentryNs from "@sentry/nextjs";
+
 export async function initWebSentryClient(): Promise<void> {
   const dsn =
     process.env.NEXT_PUBLIC_SENTRY_DSN_WEB ??
@@ -16,13 +18,10 @@ export async function initWebSentryClient(): Promise<void> {
   try {
     const mod = (await import(/* @vite-ignore */ "@sentry/nextjs" as string).catch(
       () => null,
-    )) as { init?: (opts: Record<string, unknown>) => void } | null;
+    )) as typeof SentryNs | null;
     if (!mod?.init) return;
-    mod.init({
-      dsn,
-      environment: process.env.NODE_ENV ?? "development",
-      tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 0,
-    });
+    const { initSentryClient } = await import("./sentry.client.config");
+    initSentryClient(mod);
   } catch {
     // Swallow — observability must never crash a page load.
   }
