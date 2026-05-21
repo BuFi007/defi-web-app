@@ -1,0 +1,73 @@
+{
+  "ranAt": "2026-05-21T16:33:56.653Z",
+  "status": "ok-stubbed",
+  "dryRun": true,
+  "differentiatorNote": "Real-Time FX Swap Pools Using Gateway: single PoolManager.swap() tx, Gateway mints USDC inside beforeSwap, ZERO Iris attestation polling. This is the PR-H8 differentiator over CCTP-only flows.",
+  "network": {
+    "chainId": 5042002,
+    "poolManager": "0x3FA22b7Aeda9ebBe34732ea394f1711887363B34",
+    "telaranaGatewayHubHook": "0x74E894aFf25c89d707873347cd2554d30E0541fa",
+    "usdc": "0x3600000000000000000000000000000000000000",
+    "targetTokenSymbol": "EURC",
+    "targetTokenAddress": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
+    "spotRouteId": "0x4b50d101784ab33ee4adc9ca42080b10cdd2b23d71004a34a9625f3554e97f19",
+    "routeId": "0x3f33eac8dff59c398344f248d475ac6e1fbd1f2c9c2febed5985a4392fd6f5bf",
+    "requestId": "0x7af369adbf17504adb9db4cf13bd54d4bd3c01ce11d823a812bc0407b5460fde",
+    "gatewayMinter": "0x0022222ABE238Cc2C7Bb1f21003F0a260052475B"
+  },
+  "actors": {
+    "keeper": {
+      "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A"
+    },
+    "taker": {
+      "address": "0x1563915e194D8CfBA1943570603F7606A3115508"
+    }
+  },
+  "amountUsdc": "1",
+  "amountRaw": "1000000",
+  "steps": [
+    {
+      "step": "probe-arc-v4-pool-manager",
+      "status": "ok",
+      "detail": "PoolManager at 0x3FA22b7Aeda9ebBe34732ea394f1711887363B34 responded to extsload",
+      "durationMs": 460
+    },
+    {
+      "step": "probe-arc-telarana-gateway-hub-hook",
+      "status": "ok",
+      "detail": "GATEWAY_MINTER() = 0x0022222ABE238Cc2C7Bb1f21003F0a260052475B (matches canonical Circle Gateway minter)",
+      "durationMs": 460
+    },
+    {
+      "step": "probe-pr-h8-ihooks-surface",
+      "status": "stub",
+      "detail": "getHookPermissions() reverted — deployed hook does not expose v4 IHooks surface yet",
+      "stubReason": "fx-telarana#33 (PR-H8 phase 1) not yet deployed on Arc — see https://github.com/BuFi007/fx-telarana/pull/33. Error: The contract function \"getHookPermissions\" reverted.\n\nContract Call:\n  address:   0x74E894aFf25c89d707873347cd2554d30E0541fa\n  function:  getHookPermissions()\n\nDocs: https://viem.sh/docs/contract/readContract\nVersion: viem@2.45.3",
+      "durationMs": 462
+    },
+    {
+      "step": "probe-pool-gateway-route-binding",
+      "status": "stub",
+      "detail": "skipped — PR-H8 surface not present on deployed hook",
+      "stubReason": "Pending fx-telarana#33 deploy + setPoolGatewayRoute(poolId, routeId) call"
+    },
+    {
+      "step": "no-cctp-attestation-poll",
+      "status": "ok",
+      "detail": "By design, this demo skips the Fuji burn → Iris poll → Arc receiveMessage leg entirely. The whole point of Gateway intra-hook liquidity is that the USDC materialises atomically inside `beforeSwap`. K2 (scripts/v4-swap-pool-demo-cctp.ts) shows the CCTP comparator."
+    },
+    {
+      "step": "dry-run-exit",
+      "status": "dry-run",
+      "detail": "V4_SWAP_DRY_RUN=true (default). Pass V4_SWAP_DRY_RUN=false plus V4_SWAP_GATEWAY_ATTESTATION + V4_SWAP_GATEWAY_SIGNATURE to actually broadcast."
+    }
+  ],
+  "swapTxHash": null,
+  "noAttestationPolling": true,
+  "balances": {
+    "takerArcUsdcBefore": "0",
+    "takerArcUsdcAfter": null,
+    "takerArcTargetBefore": "0",
+    "takerArcTargetAfter": null
+  }
+}
