@@ -60,10 +60,22 @@ const DEPLOYMENTS: Record<
   // Arc Testnet (5042002) -- hub. USDC is a special precompile at
   // 0x36...0000 (native gas-token bridge); we treat it as a 6-dp ERC-20
   // for balance reads, which works through viem's standard contract path.
+  //
+  // Wave N1 (2026-05-21) — MXNB / QCAD / cirBTC promoted from "mock" to
+  // real on-chain tokens. On-chain verification (cast call name/symbol/
+  // decimals against rpc.testnet.arc.network):
+  //   MXNB   0x836F...A461  name="MXNB"                   symbol="MXNB"   decimals=6
+  //   QCAD   0x23d7...825d  name="QCAD"                   symbol="QCAD"   decimals=6
+  //   cirBTC 0xf0C4...432BF name="Circle Wrapped Bitcoin" symbol="cirBTC" decimals=8
+  // cirBTC is the first non-6-dp asset in this table; downstream UI
+  // callers must read `decimals` per row, NOT assume 6.
   5042002: {
     USDC: { address: "0x3600000000000000000000000000000000000000", decimals: 6 },
     EURC: { address: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a", decimals: 6 },
     AUDF: { address: "0xd2a530170D71a9Cfe1651Fb468E2B98F7Ed7456b", decimals: 6 },
+    MXNB: { address: "0x836F73Fbc370A9329Ba4957E47912DfDBA6BA461", decimals: 6 },
+    QCAD: { address: "0x23d7CFFd0876f3ABb6B074287ba2aeefBc83825d", decimals: 6 },
+    cirBTC: { address: "0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF", decimals: 8 },
   },
   // Ethereum Sepolia (11155111) -- spoke.
   11155111: {

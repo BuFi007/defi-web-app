@@ -289,6 +289,13 @@ export function symbolForToken(address: Address): string {
     "0x3600000000000000000000000000000000000000": "USDC",
     "0x89b50855aa3be2f677cd6303cec089b5f319d72a": "EURC",
     "0xd2a530170d71a9cfe1651fb468e2b98f7ed7456b": "AUDF", // Forte canonical (same address on Eth Sepolia)
+    // Wave N1 (2026-05-21) — real MXNB / QCAD / cirBTC on Arc. MXNB here is
+    // distinct from Fuji's Bitso MXNB (0xab99...85ebb) and from the SDK's
+    // protocol "tMXNB" mock (0xe8F7...FBeb). cirBTC is 8-dp; see
+    // decimalsForSymbol below.
+    "0x836f73fbc370a9329ba4957e47912dfdba6ba461": "MXNB",
+    "0x23d7cffd0876f3abb6b074287ba2aeefbc83825d": "QCAD",
+    "0xf0c4a4ce82a5746abaad9425360ab04fbba432bf": "cirBTC",
     // Ethereum Sepolia
     "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238": "USDC", // Circle canonical
     "0x5fd84259d66cd46123540766be93dfe6d43130d7": "USDC", // (legacy: actually OP Sepolia — kept for backward-compat)
@@ -302,12 +309,22 @@ export function symbolForToken(address: Address): string {
 }
 
 function decimalsForSymbol(sym: string): number {
-  // USDC, EURC, MXNB, and AUDF are all 6-dp on the live testnet deployments
-  // (Bitso ships MXNB at 6-dp, Forte ships AUDF at 6-dp; both match the
-  // Fuji/Arc USDC representation). The synthetic mJPYC / mKRW1 / mZCHF
-  // tokens shown in the static LOAN_MARKETS aren't backed by real onchain
-  // markets — they keep the table populated for demo purposes.
-  if (sym === "USDC" || sym === "EURC" || sym === "MXNB" || sym === "AUDF") return 6;
+  // USDC, EURC, MXNB, QCAD, and AUDF are all 6-dp on the live testnet
+  // deployments (Bitso ships MXNB at 6-dp, Forte ships AUDF at 6-dp; both
+  // match the Fuji/Arc USDC representation). cirBTC ships at 8 dp — Wave
+  // N1 wiring (2026-05-21). The synthetic mJPYC / mKRW1 / mZCHF tokens
+  // shown in the static LOAN_MARKETS aren't backed by real onchain markets
+  // — they keep the table populated for demo purposes.
+  if (sym === "cirBTC") return 8;
+  if (
+    sym === "USDC" ||
+    sym === "EURC" ||
+    sym === "MXNB" ||
+    sym === "AUDF" ||
+    sym === "QCAD"
+  ) {
+    return 6;
+  }
   return 6;
 }
 

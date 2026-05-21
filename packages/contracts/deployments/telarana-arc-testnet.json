@@ -36,11 +36,15 @@
     "EURC": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
     "AUDF": "0xd2a530170D71a9Cfe1651Fb468E2B98F7Ed7456b",
     "AUDFFaucet": "0x14e18b333C971B92887de1fa9a23b5451F32213e",
+    "MXNB": "0x836F73Fbc370A9329Ba4957E47912DfDBA6BA461",
+    "QCAD": "0x23d7CFFd0876f3ABb6B074287ba2aeefBc83825d",
+    "cirBTC": "0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF",
     "Pyth": "0x2880aB155794e7179c9eE2e38200202908C17B43",
     "GatewayWallet": "0x0077777d7EBA4688BDeF3E311b846F25870A19B9",
     "GatewayMinter": "0x0022222ABE238Cc2C7Bb1f21003F0a260052475B",
     "GatewayLocalDomain": 26
   },
+  "externalNote": "Wave N1 (2026-05-21): MXNB / QCAD / cirBTC added. On-chain verification (cast call against rpc.testnet.arc.network): MXNB → name=\"MXNB\" symbol=\"MXNB\" decimals=6; QCAD → name=\"QCAD\" symbol=\"QCAD\" decimals=6; cirBTC → name=\"Circle Wrapped Bitcoin\" symbol=\"cirBTC\" decimals=8. cirBTC is the only non-6-dp token in this manifest — consumers reading balances must NOT assume 6 dp; read the per-token decimals via `@bufi/location/deployments` (the canonical decimals source for user wallets) or call `decimals()` on the ERC-20 directly. None of these tokens have v4 pools initialized yet; trade-island swap CTAs should stay gated until pool init + LP seed.",
   "marketIdsNote": "M3 + M4 added 2026-05-18 via contracts/script/DeployArcAudfMarkets.s.sol. Both verified via MorphoBlue.idToMarketParams. M3/M4 use FxOracleAudf (fresh, USDC+AUDF, AUD/USD not inverted); M1/M2 keep using the original FxOracle (USDC+EURC, owned by FxTimelock, not retrofittable).",
   "marketIds": {
     "M1_EURC_USDC": "0xf6fac2b9b801a7ae3deeccfa95a7f1e768b4873a22f0def0d93f7f0172cc2da2",

@@ -65,7 +65,13 @@ export type StableTokenType =
   | "MXNB"
   | "PHPC"
   | "QCAD"
-  | "ZARU";
+  | "ZARU"
+  // Wave N1 (2026-05-21): Circle Wrapped Bitcoin shipped on Arc Testnet
+  // (`0xf0C4...432BF`). Decimals 8 — every other entry on this list is 6
+  // dp; callers that assume 6 dp will mis-quote balances. See
+  // `displayDecimals` here for UI rounding; atomic-unit precision lives
+  // alongside the per-chain deployment record.
+  | "cirBTC";
 
 // `usdPrice` values mirror the legacy `TOKEN_USD_PRICE` table in the
 // stablecoin-balances component plus the `price` column on LOAN_TOKENS in
@@ -132,6 +138,17 @@ const StableTokenMap: Record<StableTokenType, StableToken> = {
     name: "South African Rand (ZARU)", asset: "ZARU",
     icon: `${ASSET_BASE}/zaru_token_icon.png`,
     usdPrice: 0.0526, mock: false, displayDecimals: 2,
+  },
+  // cirBTC is the only non-stable on this list — it tracks BTC, not a fiat
+  // currency. We reuse the StableToken record shape (BUFI's token registry
+  // doesn't distinguish "asset class" today) and pick a flag/icon that
+  // make sense for a wrapped-BTC asset. `usdPrice` is a fallback — every
+  // BTC surface should query a live Pyth feed before user-visible math.
+  cirBTC: {
+    code: "BTC", unicode: "U+20BF", flag: "₿",
+    name: "Circle Wrapped Bitcoin", asset: "cirBTC",
+    icon: `${ASSET_BASE}/cirbtc_token_icon.svg`,
+    usdPrice: 100_000, mock: false, displayDecimals: 6,
   },
 };
 
