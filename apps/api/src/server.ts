@@ -184,7 +184,13 @@ const typedApp = app
       200,
     ),
   )
-  .route("/markets", marketsRoutes);
+  .route("/markets", marketsRoutes)
+  // Wave K3 / PR-H4 — /spot is now an OpenAPIHono carrying typed
+  // `/spot/quote` + `/spot/fills` + legacy `/spot/intents`. Chained here
+  // so `hc<AppType>` sees the new RFQ surface. The plain `.route` call
+  // below mutates the same instance for runtime continuity but doesn't
+  // refine the type; the chain capture here is what extends `AppType`.
+  .route("/spot", spotRoutes);
 
 app.route("/liveblocks", liveblocksRoutes);
 app.route("/markets", marketsRoutes);
