@@ -29,6 +29,23 @@ export {
 } from "./pyth-stream";
 
 export {
+  createPythHermesStream,
+  decodePythPrice,
+  HERMES_DEFAULT_WS_URL,
+  type PythHermesStream,
+  type PythHermesStreamOptions,
+  type PythHermesTick,
+  type PythTickListener,
+} from "./hermes-ws-client";
+
+export {
+  PYTH_FX_FEEDS,
+  pythFeedForFxSymbol,
+  isFxFeedInverted,
+  type PythFxSymbol,
+} from "./pyth-feeds";
+
+export {
   fetchBenchmarksHistory,
   pythBenchmarksSymbol,
   tfToBenchmarksResolution,
