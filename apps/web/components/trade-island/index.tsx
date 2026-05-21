@@ -34,26 +34,11 @@ import { ArcadeRoom } from "./multiplayer";
 import { MobileTrade } from "./mobile-trade";
 import { MarketPicker } from "./market-picker";
 import { StablecoinBalances } from "@/components/stablecoin-balances";
-import { OnrampCta } from "@/components/onramp/onramp-cta";
 import { usePositions, useTrades } from "@/lib/perps/hooks";
 import type { PerpsPositionDto, PerpsTradeDto } from "@/lib/perps/client";
 import { safeBigInt, e18ToNumber } from "@/lib/perps/units";
 import { useLiveMarket } from "@/lib/perps/use-live-market";
-import { usePythHermesPrice } from "@/lib/market-data/use-pyth-hermes";
-import { AnimatedNumber } from "@/components/animated-number";
 import { useMarketStats } from "@/lib/perps/use-market-stats";
-import { PerpChainSelector } from "./perp-chain-selector";
-import { MarketRiskCard } from "./market-risk-card";
-import { FundingRateWidget } from "./funding-rate-widget";
-import { DepthChart } from "./depth";
-import { CrossChainPositions } from "./cross-chain-positions";
-import {
-  DEFAULT_PERPS_CHAIN_ID,
-  perpChainFromSearchParams,
-  type PerpsChainId,
-} from "@/lib/perps/chains";
-import { useMarkets as usePerpsMarkets } from "@/lib/perps/hooks";
-import type { Hex } from "viem";
 import {
   usePositions as useTelaranaPositions,
   useMarkets as useTelaranaMarkets,
@@ -113,11 +98,23 @@ interface PositionRow {
   leverage: number;
   liq: number | null;
   marketId?: string;
+  /** True iff this row was inserted optimistically and hasn't been
+   *  confirmed by the matcher yet. Drives the pulse animation in
+   *  PerpsPositionCards so the user has visual feedback that the order
+   *  is mid-flight. Tag carried via OptimisticPositionTag on the DTO. */
+  isPending?: boolean;
 }
 
 function liveToPositionRow(p: PerpsPositionDto): PositionRow {
   const markPriceE18 = safeBigInt(p.markPrice);
   const sizeUsdc = Number(p.sizeUsdc);
+  // Optimistic rows inserted by useOptimisticPlaceOrder carry an
+  // `isPending` flag on the same DTO shape. We don't import the
+  // OptimisticPerpsPositionDto type here to keep this file's dep surface
+  // minimal — the synthetic field is just an optional boolean.
+  const isPending = Boolean(
+    (p as PerpsPositionDto & { isPending?: boolean }).isPending,
+  );
   return {
     // /perps/markets returns symbols like "EURC/USDC" — usable as-is here.
     sym: p.marketId.slice(0, 10),
@@ -130,6 +127,7 @@ function liveToPositionRow(p: PerpsPositionDto): PositionRow {
     leverage: p.leverage,
     liq: p.liqPriceE18 ? e18ToNumber(safeBigInt(p.liqPriceE18)) : null,
     marketId: p.marketId,
+    isPending,
   };
 }
 
@@ -454,144 +452,102 @@ function HistoryTab() {
 function PerpsPositionCards({ rows }: { rows: PositionRow[] }) {
   return (
     <div className="pos-cards" aria-label="Open perp positions">
-      {rows.map((p, i) => (
-        <PerpsPositionCard key={`${p.sym}-${i}`} row={p} />
-      ))}
-    </div>
-  );
-}
-
-/**
- * Per-row sub-component so each card gets its own Pyth Hermes WS subscription.
- * The shared singleton stream multiplexes — under the hood this is still one
- * physical socket, but each row owns its own subscribe/unsubscribe lifecycle
- * + tick state.
- *
- * Live mark price drives the displayed Mark field and the unrealized PnL
- * formula `sizeUsdc * (mark - entry) / entry * (long ? 1 : -1)`. Falls back
- * to the server-derived `row.pnl` whenever the live mark or entry isn't
- * available yet (cold mount, stale feed, untradeable symbol).
- *
- * Stale visual: when no tick has arrived in 10s, desaturate the PnL via
- * `opacity: 0.55` and append a "·stale" badge so traders can see the data
- * froze without removing the value entirely.
- */
-function PerpsPositionCard({ row }: { row: PositionRow }) {
-  const m = ALL_MARKETS.find((mm) => mm.sym === row.sym);
-  const dec =
-    row.entry !== null ? (row.entry < 10 ? 4 : row.entry < 1000 ? 2 : 1) : 4;
-
-  const pyth = usePythHermesPrice(row.sym, { staleAfterMs: 10_000 });
-
-  // Live mark: prefer the Pyth tick, fall back to whatever the server gave us.
-  const liveMark =
-    pyth.price !== null && Number.isFinite(pyth.price) && pyth.price > 0
-      ? pyth.price
-      : row.mark;
-
-  // Live PnL: compute from sizeUsdc when we have both a live mark and an
-  // entry. Both prices are in the same units (quote per base), so the ratio
-  // works for any symbol orientation. If anything's missing, fall back to
-  // the server-quoted `row.pnl` (which `liveToPositionRow` already pulled
-  // off the perps API's `unrealizedPnlUsdc`).
-  const livePnl =
-    liveMark !== null &&
-    row.entry !== null &&
-    row.entry > 0 &&
-    Number.isFinite(row.size)
-      ? row.size * (liveMark / row.entry - 1) * (row.side === "long" ? 1 : -1)
-      : row.pnl;
-
-  const pnlPct =
-    livePnl !== null && row.margin > 0 ? (livePnl / row.margin) * 100 : null;
-
-  const isStale = pyth.isStale;
-
-  return (
-    <article className="pos-card">
-      <header className="pos-card-head">
-        <TokenIconPair
-          base={m?.base ?? row.sym}
-          quote={m?.quote ?? "USD"}
-          size={22}
-        />
-        <div className="pos-card-meta">
-          <div className="pos-card-sym">{row.sym}</div>
-          <div className="pos-card-sub">{row.leverage}x · Cross</div>
-        </div>
-        <span className={"side-tag " + row.side}>{row.side.toUpperCase()}</span>
-        <div
-          className={
-            "pos-card-pnl mono " + ((livePnl ?? 0) >= 0 ? "profit" : "loss")
-          }
-          style={isStale ? { opacity: 0.55 } : undefined}
-          title={
-            isStale
-              ? "Pyth Hermes WS stalled — last value held"
-              : "Live PnL — Pyth Hermes WS"
-          }
-        >
-          <div className="pos-card-pnl-v">
-            {livePnl === null ? (
-              "—"
-            ) : (
-              <AnimatedNumber
-                value={livePnl}
-                currency="USD"
-                minimumFractionDigits={2}
-                maximumFractionDigits={2}
-                prefix={livePnl >= 0 ? "+" : ""}
-              />
-            )}
-          </div>
-          <div className="pos-card-pnl-pct">
-            {pnlPct === null ? "" : fmtPct(pnlPct)}
-            {isStale ? " · stale" : ""}
-          </div>
-        </div>
-      </header>
-      <dl className="pos-card-grid">
-        <div>
-          <dt>Size</dt>
-          <dd className="mono">{row.size.toLocaleString()}</dd>
-        </div>
-        <div>
-          <dt>Margin</dt>
-          <dd className="mono">{fmtUSD(row.margin)}</dd>
-        </div>
-        <div>
-          <dt>Entry</dt>
-          <dd className="mono">{row.entry?.toFixed(dec) ?? "—"}</dd>
-        </div>
-        <div>
-          <dt>Mark</dt>
-          <dd
-            className="mono"
-            style={isStale ? { opacity: 0.55 } : undefined}
-            title={
-              isStale ? "Pyth feed stalled — last mark held" : "Live mark — Pyth"
+      {/* Keyframes for the optimistic-pending pulse. Hoisted next to the
+          consumer so we don't grow the global stylesheet for a single
+          card state — same pattern the OrderEntryCTA uses for its
+          progress shimmer. */}
+      <style jsx>{`
+        @keyframes pos-pending-pulse {
+          0%, 100% { opacity: 0.92; box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.0); }
+          50% { opacity: 1; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18); }
+        }
+      `}</style>
+      {rows.map((p, i) => {
+        const m = ALL_MARKETS.find((mm) => mm.sym === p.sym);
+        const dec =
+          p.entry !== null ? (p.entry < 10 ? 4 : p.entry < 1000 ? 2 : 1) : 4;
+        const pnlPct =
+          p.pnl !== null ? (p.pnl / Math.max(p.margin, 1)) * 100 : null;
+        return (
+          <article
+            key={`${p.sym}-${i}`}
+            className={"pos-card" + (p.isPending ? " is-pending" : "")}
+            data-pending={p.isPending ? "true" : undefined}
+            style={
+              p.isPending
+                ? {
+                    animation: "pos-pending-pulse 1.8s ease-in-out infinite",
+                    outline: "1px dashed var(--primary, #6366f1)",
+                    outlineOffset: 2,
+                  }
+                : undefined
             }
           >
-            {liveMark?.toFixed(dec) ?? "—"}
-          </dd>
-        </div>
-        <div>
-          <dt>Liq.</dt>
-          <dd className="mono" style={{ color: "var(--loss-ink)" }}>
-            {row.liq?.toFixed(dec) ?? "—"}
-          </dd>
-        </div>
-        <div>
-          <dt>TP/SL</dt>
-          <dd>
-            <button className="copy-btn" style={{ padding: "3px 8px" }}>
-              <Icon name="plus" size={10} /> Set
-            </button>
-          </dd>
-        </div>
-      </dl>
-      <button className="pos-card-close">Close position</button>
-    </article>
+            <header className="pos-card-head">
+              <TokenIconPair
+                base={m?.base ?? p.sym}
+                quote={m?.quote ?? "USD"}
+                size={22}
+              />
+              <div className="pos-card-meta">
+                <div className="pos-card-sym">{p.sym}</div>
+                <div className="pos-card-sub">{p.leverage}x · Cross</div>
+              </div>
+              <span className={"side-tag " + p.side}>
+                {p.side.toUpperCase()}
+              </span>
+              <div
+                className={
+                  "pos-card-pnl mono " + ((p.pnl ?? 0) >= 0 ? "profit" : "loss")
+                }
+              >
+                <div className="pos-card-pnl-v">
+                  {p.pnl === null
+                    ? "—"
+                    : (p.pnl >= 0 ? "+" : "") + fmtUSD(p.pnl)}
+                </div>
+                <div className="pos-card-pnl-pct">
+                  {pnlPct === null ? "" : fmtPct(pnlPct)}
+                </div>
+              </div>
+            </header>
+            <dl className="pos-card-grid">
+              <div>
+                <dt>Size</dt>
+                <dd className="mono">{p.size.toLocaleString()}</dd>
+              </div>
+              <div>
+                <dt>Margin</dt>
+                <dd className="mono">{fmtUSD(p.margin)}</dd>
+              </div>
+              <div>
+                <dt>Entry</dt>
+                <dd className="mono">{p.entry?.toFixed(dec) ?? "—"}</dd>
+              </div>
+              <div>
+                <dt>Mark</dt>
+                <dd className="mono">{p.mark?.toFixed(dec) ?? "—"}</dd>
+              </div>
+              <div>
+                <dt>Liq.</dt>
+                <dd className="mono" style={{ color: "var(--loss-ink)" }}>
+                  {p.liq?.toFixed(dec) ?? "—"}
+                </dd>
+              </div>
+              <div>
+                <dt>TP/SL</dt>
+                <dd>
+                  <button className="copy-btn" style={{ padding: "3px 8px" }}>
+                    <Icon name="plus" size={10} /> Set
+                  </button>
+                </dd>
+              </div>
+            </dl>
+            <button className="pos-card-close">Close position</button>
+          </article>
+        );
+      })}
+    </div>
   );
 }
 
@@ -1083,11 +1039,7 @@ function LoanPositionsView() {
   );
 }
 
-function PositionsOnlyTab({
-  onPickPerpChain,
-}: {
-  onPickPerpChain?: (id: PerpsChainId) => void;
-}) {
+function PositionsOnlyTab() {
   const [sub, setSub] = useState("perps");
   const { address } = useAccount();
   const { data: livePositions } = usePositions();
@@ -1124,12 +1076,7 @@ function PositionsOnlyTab({
           <span className="pp-subtab-count">{loanLegCount}</span>
         </button>
       </div>
-      {sub === "perps" && (
-        <>
-          <CrossChainPositions onPickChain={onPickPerpChain} />
-          <PerpsPositionsView />
-        </>
-      )}
+      {sub === "perps" && <PerpsPositionsView />}
       {sub === "loan" && <LoanPositionsView />}
     </div>
   );
@@ -1139,12 +1086,10 @@ function TradeTab({
   market,
   marketSym,
   setMarketSym,
-  perpChainId,
 }: {
   market: Market;
   marketSym: string;
   setMarketSym: (s: string) => void;
-  perpChainId: PerpsChainId;
 }) {
   // Switch to the dedicated mobile layout under the `lg` breakpoint. Matches
   // the island.css cutover at 1023.98px so the two systems agree.
@@ -1159,35 +1104,6 @@ function TradeTab({
   useEffect(() => {
     setLev(1);
   }, [market.sym]);
-
-  // Resolve the bytes32 marketId for the active UI symbol on the
-  // currently-selected perp chain. `usePerpsMarkets(chainId)` hits the
-  // /perps/markets endpoint scoped to that chain — same source the
-  // OrderPanelCard already consumes for chain-correct routing.
-  // Matching strategy mirrors `resolveLiveMarket()` in panels.tsx:
-  // (1) prefer the symbol with a matching base prefix on the chain;
-  // (2) fall back to the first enabled market so the risk card still
-  // surfaces _something_ while the user finds their pair.
-  const { data: chainMarkets } = usePerpsMarkets(perpChainId);
-  const activeMarketId = useMemo<Hex | undefined>(() => {
-    if (!chainMarkets || chainMarkets.length === 0) return undefined;
-    const enabled = chainMarkets.filter((m) => m.enabled);
-    const pool = enabled.length > 0 ? enabled : chainMarkets;
-    const base = market.sym.split(/[/-]/)[0]?.toUpperCase() ?? "";
-    const aliases: Record<string, string[]> = {
-      EUR: ["EURC"],
-      JPY: ["JPYC", "TJPYC"],
-      MXN: ["MXNB", "TMXNB"],
-      CHF: ["CHFC", "TCHFC"],
-    };
-    const candidates = [base, ...(aliases[base] ?? [])];
-    for (const c of candidates) {
-      const hit = pool.find((m) => m.symbol.toUpperCase().startsWith(c));
-      if (hit) return hit.marketId as Hex;
-    }
-    return pool[0]?.marketId as Hex | undefined;
-  }, [chainMarkets, market.sym]);
-
   if (isMobile) {
     return (
       <div className="trade-tab trade-tab-mobile">
@@ -1207,29 +1123,6 @@ function TradeTab({
         </div>
         <div className="t-chart">
           <ChartCard market={market} selectedLeverage={lev} />
-          <div style={{ marginTop: 10 }}>
-            <DepthChart
-              marketSym={market.sym}
-              marketId={activeMarketId}
-              height={120}
-            />
-          </div>
-          <div
-            className="t-risk-row"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(0, 1fr) minmax(0, 0.6fr)",
-              gap: 10,
-              marginTop: 10,
-            }}
-          >
-            <MarketRiskCard
-              chainId={perpChainId}
-              marketId={activeMarketId}
-              marketLabel={market.sym}
-            />
-            <FundingRateWidget chainId={perpChainId} marketId={activeMarketId} />
-          </div>
         </div>
         <div className="t-order">
           <OrderPanelCard market={market} leverage={lev} setLeverage={setLev} />
@@ -1246,8 +1139,6 @@ function TradeIslandHeader({
   setMarketSym,
   arcade,
   setArcade,
-  perpChainId,
-  setPerpChainId,
 }: {
   tab: string;
   setTab: (id: string) => void;
@@ -1255,8 +1146,6 @@ function TradeIslandHeader({
   setMarketSym: (s: string) => void;
   arcade: boolean;
   setArcade: (v: boolean) => void;
-  perpChainId: PerpsChainId;
-  setPerpChainId: (id: PerpsChainId) => void;
 }) {
   // Live position count drives the tab pill; mock orders + mock positions are
   // no longer trusted for the trader-visible total.
@@ -1288,12 +1177,8 @@ function TradeIslandHeader({
           of the island chrome and keeps the pair price always visible
           in the upper-left where the user's eye lands first. */}
       {tab === "trade" && (
-        <div
-          className="island-leading"
-          style={{ display: "flex", alignItems: "center", gap: 10 }}
-        >
+        <div className="island-leading">
           <MarketPicker market={market} setMarketSym={setMarketSym} />
-          <PerpChainSelector value={perpChainId} onChange={setPerpChainId} />
         </div>
       )}
       <div className="island-tabs">
@@ -1314,7 +1199,6 @@ function TradeIslandHeader({
         ))}
       </div>
       <div className="island-summary">
-        <OnrampCta />
         <StablecoinBalances />
         {liveTotalPnl !== 0 && (
           <span className={"pill " + (liveTotalPnl >= 0 ? "profit" : "loss")}>
@@ -1348,27 +1232,6 @@ export default function TradeIsland() {
   const [tab, setTab] = useState("trade");
   const [marketSym, setMarketSym] = useState("EUR/USD");
   const [arcade, setArcade] = useState(false);
-  // Active perp chain. URL-synced (`?perp_chain=<id>`) so refresh holds.
-  // SSR uses the default; the client effect below promotes the URL value
-  // once `window` is available. We never auto-switch the wallet chain
-  // from here — the chain selector renders an explicit "Switch wallet"
-  // CTA when the user wants the two to align.
-  const [perpChainId, setPerpChainId] = useState<PerpsChainId>(DEFAULT_PERPS_CHAIN_ID);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const fromUrl = perpChainFromSearchParams(new URLSearchParams(window.location.search));
-    if (fromUrl) setPerpChainId(fromUrl);
-  }, []);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const url = new URL(window.location.href);
-    if (perpChainId === DEFAULT_PERPS_CHAIN_ID) {
-      url.searchParams.delete("perp_chain");
-    } else {
-      url.searchParams.set("perp_chain", String(perpChainId));
-    }
-    window.history.replaceState({}, "", url.toString());
-  }, [perpChainId]);
   const baseMarket = useMemo(
     () => ALL_MARKETS.find((m) => m.sym === marketSym) || FX_MARKETS[0],
     [marketSym],
@@ -1460,8 +1323,6 @@ export default function TradeIsland() {
         setMarketSym={setMarketSym}
         arcade={arcade}
         setArcade={setArcade}
-        perpChainId={perpChainId}
-        setPerpChainId={setPerpChainId}
       />
 
       <div
@@ -1488,7 +1349,6 @@ export default function TradeIsland() {
                 market={market}
                 marketSym={marketSym}
                 setMarketSym={setMarketSym}
-                perpChainId={perpChainId}
               />
             )}
             {tab === "trade" && arcade && (
@@ -1498,14 +1358,7 @@ export default function TradeIsland() {
                 onPhaseChange={setArcadePhase}
               />
             )}
-            {tab === "positions" && (
-              <PositionsOnlyTab
-                onPickPerpChain={(id) => {
-                  setPerpChainId(id);
-                  setTab("trade");
-                }}
-              />
-            )}
+            {tab === "positions" && <PositionsOnlyTab />}
             {tab === "loan" && <LoanTab />}
             {tab === "leaders" && <LeadersTab />}
             {tab === "history" && <HistoryTab />}

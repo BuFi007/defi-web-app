@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAccount, useBalance, useChainId } from "wagmi";
 import { formatUnits } from "viem";
 
@@ -10,13 +10,17 @@ import { Icon, fmtUSD, fmtPct, type Market } from "./data";
 import { TokenIconPair } from "./token-icon";
 import { Hint } from "./hint";
 import { CandleChart } from "./chart";
+import { OrderEntryCTA } from "./order-entry-cta";
+import { OrderFeedback } from "./order-feedback";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/components/ui/use-toast";
 import { errMsg } from "@/utils";
-import { useMarkets, usePlaceOrder } from "@/lib/perps/hooks";
+import { useMarkets } from "@/lib/perps/hooks";
+import { useOptimisticPlaceOrder } from "@/lib/perps/use-optimistic-position";
 import { useMarketStats } from "@/lib/perps/use-market-stats";
 import { usePendingIntents } from "@/lib/perps/use-pending-intents";
 import { getPerpsReplacementDevWallet } from "@/lib/perps/dev-mock-wallet";
+import { prettifySimError, type SimError } from "@/lib/web3/use-simulated-write";
 import type { PerpsMarketDto } from "@/lib/perps/client";
 import {
   Dialog,
@@ -239,16 +243,44 @@ export function OrderPanelCard({
   const devWallet = useMemo(() => getPerpsReplacementDevWallet(), []);
   const { toast } = useToast();
   const { data: markets } = useMarkets();
-  const placeOrder = usePlaceOrder();
+  // Optimistic wrapper preserves the same `.mutateAsync` shape as the
+  // underlying usePlaceOrder, but inserts a pending row into the positions
+  // cache as soon as the user signs and rolls back on revert. The
+  // `markPriceFloat` argument lets the optimistic row carry an honest
+  // entry-price proxy for market orders that don't supply a priceE18.
+  const placeOrder = useOptimisticPlaceOrder();
   const liveMarket = useMemo(() => resolveLiveMarket(market.sym, markets), [market.sym, markets]);
   const usdc = useUsdcBalance(address);
 
   const canTrade = Boolean(isConnected || devWallet);
   const hasSize = sizeV > 0;
   const needsLimitPrice = orderType === "limit" && (!price || parseFloat(price) <= 0);
-  const submitDisabled = !canTrade || !liveMarket || !hasSize || needsLimitPrice || placeOrder.isPending;
+  // The CTA tracks its own busy state from props; we only gate the
+  // disabled bit on validation + wallet readiness here. The CTA component
+  // disables itself while `simulating` or `submitting` so we don't have to
+  // re-thread `placeOrder.isPending` into `submitDisabled`.
+  const submitDisabled = !canTrade || !liveMarket || !hasSize || needsLimitPrice;
+
+  // Inline-revert state, owned by the panel. We surface the decoded
+  // custom-error name via `<OrderFeedback>` so the user sees exactly which
+  // contract check would have failed BEFORE the wallet popup ever fires.
+  const [simError, setSimError] = useState<SimError | null>(null);
+  const [justFilled, setJustFilled] = useState(false);
+  const [hadError, setHadError] = useState(false);
+
+  // Auto-clear the brief "Filled ✓" flash after ~1.4s so the CTA returns
+  // to its neutral label for the next order. The justFilled gate also
+  // suppresses the flash if another error landed in between.
+  useEffect(() => {
+    if (!justFilled) return;
+    const t = setTimeout(() => setJustFilled(false), 1400);
+    return () => clearTimeout(t);
+  }, [justFilled]);
 
   const submit = async (side: "long" | "short") => {
+    // Clear any prior inline revert before the next attempt.
+    setSimError(null);
+    setHadError(false);
     if (!liveMarket) {
       toast({
         variant: "destructive",
@@ -288,6 +320,10 @@ export function OrderPanelCard({
         priceE18: apiKind === "limit" ? priceToE18(price || String(market.price)) : "0",
         reduceOnly,
         postOnly: apiKind === "limit" ? postOnly : false,
+        // Optimistic entry for market orders falls back to the live mark
+        // we already display on the chart. The matcher will overwrite
+        // with the real fill price on settle.
+        markPriceFloat: market.price,
       });
       const buyish = side === "long";
       const verb = isSpot ? (buyish ? "Buy" : "Sell") : (buyish ? "Long" : "Short");
@@ -295,8 +331,22 @@ export function OrderPanelCard({
         title: `${verb} submitted`,
         description: `${liveMarket.symbol} · ${apiKind.toUpperCase()} · intent ${shortDigest(result.digest)}`,
       });
+      setJustFilled(true);
     } catch (error) {
-      toast({ variant: "destructive", title: "Order failed", description: errMsg(error) });
+      // Map the error into a SimError shape so the inline feedback card
+      // can render the decoded custom-error name. This works for both
+      // viem reverts (decoded errorName) and matcher/API failures (short
+      // message only).
+      const pretty = prettifySimError(error);
+      setSimError(pretty);
+      setHadError(true);
+      // Keep the destructive toast for accessibility (screen readers
+      // announce it) but the inline card carries the decoded reason.
+      toast({
+        variant: "destructive",
+        title: pretty.reason ? `Would revert: ${pretty.reason}` : "Order failed",
+        description: errMsg(error),
+      });
     }
   };
 
@@ -531,26 +581,33 @@ export function OrderPanelCard({
         </div>
       </div>
 
-      <div className="long-short">
-        <button
-          className={"long" + (initialSide === "long" ? " primed" : "")}
-          disabled={submitDisabled}
-          onClick={() => submit("long")}
-          aria-busy={placeOrder.isPending}
-          data-primed={initialSide === "long" ? "true" : undefined}
-        >
-          <Icon name="sparkle" size={14} /> {placeOrder.isPending ? "Signing..." : sideALabel}
-        </button>
-        <button
-          className={"short" + (initialSide === "short" ? " primed" : "")}
-          disabled={submitDisabled}
-          onClick={() => submit("short")}
-          aria-busy={placeOrder.isPending}
-          data-primed={initialSide === "short" ? "true" : undefined}
-        >
-          <Icon name="sparkle" size={14} /> {placeOrder.isPending ? "Signing..." : sideBLabel}
-        </button>
-      </div>
+      {/* Progress-aware CTA — "Validating…" during simulateContract, then
+          "Confirming…" once the wallet signs, brief "Filled ✓" flash on
+          success. The inline feedback card below carries the decoded
+          revert reason so users never sign-then-revert anymore. */}
+      {/* place-order is API-mediated (EIP-712 sign → /perps/intents POST)
+          rather than a direct on-chain write, so there's no separate
+          simulateContract phase to surface here. We map the whole
+          isPending window to "submitting" — the wallet popup is already
+          open by the time isPending flips true. The depositMargin /
+          withdrawMargin / cancelOrder paths in use-perp-writes.ts DO
+          carry the simulating vs submitting split for callers that wire
+          them through their own CTAs. */}
+      <OrderEntryCTA
+        longLabel={sideALabel}
+        shortLabel={sideBLabel}
+        primedSide={initialSide ?? null}
+        disabled={submitDisabled}
+        simulating={false}
+        submitting={placeOrder.isPending}
+        justFilled={justFilled}
+        hadError={hadError}
+        onSubmit={submit}
+      />
+      <OrderFeedback
+        simError={simError}
+        onDismiss={() => setSimError(null)}
+      />
       <div className="avail-line">
         {address ? (
           <>
