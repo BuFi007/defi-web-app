@@ -4,7 +4,9 @@ import { http } from "viem";
 import {
   CONTRACTS,
   DEFAULT_RPC_URLS,
+  FxFundingEngineAbi,
   FxHubMessageReceiverAbi,
+  FxLiquidationEngineAbi,
   FxMarketRegistryAbi,
   FxOrderSettlementAbi,
   FxOracleAbi,
@@ -56,6 +58,21 @@ const fxMarketRegistryArc =
   process.env.PONDER_MARKET_REGISTRY_ADDRESS_ARC ?? arc.telarana.fxMarketRegistry!;
 const fxMarketRegistryStartBlockArc = Number(
   process.env.PONDER_MARKET_REGISTRY_START_BLOCK_ARC ?? perpsStartBlockArc,
+);
+
+// Wave I1 — funding + liquidation engine addresses on Arc. Both contracts
+// are exposed via `packages/contracts/src/index.ts` (perps.fundingEngine /
+// perps.liquidationEngine). Start block falls back to perpsStartBlockArc
+// so a single PONDER_PERPS_START_BLOCK_ARC tunes the whole perp surface.
+const fxFundingEngineArc =
+  process.env.PONDER_FUNDING_ENGINE_ADDRESS_ARC ?? arc.perps.fundingEngine!;
+const fxFundingEngineStartBlockArc = Number(
+  process.env.PONDER_FUNDING_START_BLOCK_ARC ?? perpsStartBlockArc,
+);
+const fxLiquidationEngineArc =
+  process.env.PONDER_LIQUIDATION_ENGINE_ADDRESS_ARC ?? arc.perps.liquidationEngine!;
+const fxLiquidationEngineStartBlockArc = Number(
+  process.env.PONDER_LIQUIDATION_START_BLOCK_ARC ?? perpsStartBlockArc,
 );
 
 export default createConfig({
@@ -131,6 +148,27 @@ export default createConfig({
       abi: FxMarketRegistryAbi,
       address: fxMarketRegistryArc as `0x${string}`,
       startBlock: fxMarketRegistryStartBlockArc,
+    },
+    // Wave I1 — funding-rate engine. Emits FundingPoked (versioned funding
+    // tick) on every external poke + on every interactive trade path that
+    // calls FxFundingEngine.poke(). One row per tick; same key dedupes
+    // replays.
+    FxFundingEngineArc: {
+      chain: "arcTestnet",
+      abi: FxFundingEngineAbi,
+      address: fxFundingEngineArc as `0x${string}`,
+      startBlock: fxFundingEngineStartBlockArc,
+    },
+    // Wave I1 — liquidation engine. Emits AccountFlagged (keeper marks an
+    // unhealthy account) and AccountLiquidated (keeper closes after
+    // flagDelay). A rescind event is NOT emitted by the current contract —
+    // `liquidate()` auto-deletes the flag without an explicit event. If a
+    // FlagRescinded event is later added, extend this handler accordingly.
+    FxLiquidationEngineArc: {
+      chain: "arcTestnet",
+      abi: FxLiquidationEngineAbi,
+      address: fxLiquidationEngineArc as `0x${string}`,
+      startBlock: fxLiquidationEngineStartBlockArc,
     },
     // ─────────────────────────── FX Bento (Arc) ──────────────────────────
     // Subscribed by default — Arc Testnet is the live Bento stack per

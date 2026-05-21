@@ -382,6 +382,65 @@ export const perpsProtocolConfig = onchainTable("perps_protocol_config", (t) => 
 }));
 
 /**
+ * Wave I1 — FxFundingEngine FundingPoked tick log. Each poke is a single
+ * versioned snapshot of (rateE18PerSecond, cumulativeFundingE18) for a
+ * market. Primary key matches the chain idempotency: same (marketId,
+ * version) pair never repeats, so replays collapse.
+ */
+export const perpFundingPoke = onchainTable("perp_funding_poke", (t) => ({
+  id: t.text().primaryKey(), // `${marketId}-${version}`
+  chainId: t.integer().notNull(),
+  marketId: t.hex().notNull(),
+  version: t.bigint().notNull(),
+  rateE18PerSecond: t.bigint().notNull(),
+  cumulativeFundingE18: t.bigint().notNull(),
+  blockNumber: t.bigint().notNull(),
+  blockTimestamp: t.bigint().notNull(),
+  txHash: t.hex().notNull(),
+  logIndex: t.integer().notNull(),
+}));
+
+/**
+ * Wave I1 — FxLiquidationEngine AccountLiquidated log. Append-only — one
+ * row per liquidation event. `socializedLossAtomic` is int256: when the
+ * close path realises bad debt larger than the trader's remaining margin
+ * the surplus is socialised to the insurance pool.
+ */
+export const perpLiquidation = onchainTable("perp_liquidation", (t) => ({
+  id: t.text().primaryKey(), // `${txHash}-${logIndex}`
+  chainId: t.integer().notNull(),
+  marketId: t.hex().notNull(),
+  trader: t.hex().notNull(),
+  liquidator: t.hex().notNull(),
+  rewardAtomic: t.bigint().notNull(),
+  socializedLossAtomic: t.bigint().notNull(),
+  blockNumber: t.bigint().notNull(),
+  blockTimestamp: t.bigint().notNull(),
+  txHash: t.hex().notNull(),
+  logIndex: t.integer().notNull(),
+}));
+
+/**
+ * Wave I1 — FxLiquidationEngine AccountFlagged log. Append-only. The
+ * current contract has no FlagRescinded event — `liquidate()` deletes the
+ * flag inline without emitting. Until that lands the `state` column only
+ * carries "flagged"; `auto` is reserved for the future rescind row.
+ */
+export const perpAccountFlag = onchainTable("perp_account_flag", (t) => ({
+  id: t.text().primaryKey(), // `${txHash}-${logIndex}`
+  chainId: t.integer().notNull(),
+  marketId: t.hex().notNull(),
+  trader: t.hex().notNull(),
+  state: t.text().notNull(), // "flagged" | "rescinded"
+  actor: t.hex().notNull(),  // flagger (state=flagged) | rescinder (state=rescinded)
+  auto: t.boolean(),          // only set on rescinded rows (true = auto-clear from liquidate())
+  blockNumber: t.bigint().notNull(),
+  blockTimestamp: t.bigint().notNull(),
+  txHash: t.hex().notNull(),
+  logIndex: t.integer().notNull(),
+}));
+
+/**
  * FxHubMessageReceiver deposit lifecycle (Fuji spoke). Lets the UI show
  * "pending CCTP attestation" / "stranded — sweep available" without
  * polling the contract.
