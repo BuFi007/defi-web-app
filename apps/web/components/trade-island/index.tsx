@@ -20,6 +20,8 @@ import { TokenIconPair } from "./token-icon";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Hint } from "./hint";
 import { OrderbookCard, OrderPanelCard, ChartCard } from "./panels";
+import { MarginPanel } from "./margin-panel";
+import { ClosePositionDialog } from "./close-position-dialog";
 import {
   LoanTab,
   LOAN_TOKENS,
@@ -39,8 +41,6 @@ import type { PerpsPositionDto, PerpsTradeDto } from "@/lib/perps/client";
 import { safeBigInt, e18ToNumber } from "@/lib/perps/units";
 import { useLiveMarket } from "@/lib/perps/use-live-market";
 import { useMarketStats } from "@/lib/perps/use-market-stats";
-import { PositionLiquidationStatus } from "./position-liquidation-status";
-import { LiquidationFeed } from "./liquidation-feed";
 import {
   usePositions as useTelaranaPositions,
   useMarkets as useTelaranaMarkets,
@@ -451,7 +451,16 @@ function HistoryTab() {
   );
 }
 
-function PerpsPositionCards({ rows }: { rows: PositionRow[] }) {
+function PerpsPositionCards({
+  rows,
+  onClose,
+}: {
+  rows: PositionRow[];
+  /** Click handler for the per-card "Close position" button. Wired from
+   *  the parent so close-dialog state lives once at the view level
+   *  (otherwise mobile + desktop would each have their own modal). */
+  onClose?: (row: PositionRow) => void;
+}) {
   return (
     <div className="pos-cards" aria-label="Open perp positions">
       {/* Keyframes for the optimistic-pending pulse. Hoisted next to the
@@ -545,16 +554,15 @@ function PerpsPositionCards({ rows }: { rows: PositionRow[] }) {
                 </dd>
               </div>
             </dl>
-            {p.marketId && (
-              <div style={{ padding: "0 0 8px" }}>
-                <PositionLiquidationStatus
-                  marketId={p.marketId as `0x${string}`}
-                  hf={null}
-                  mode="card"
-                />
-              </div>
-            )}
-            <button className="pos-card-close">Close position</button>
+            <button
+              className="pos-card-close"
+              type="button"
+              onClick={() => onClose?.(p)}
+              disabled={p.isPending || !onClose || !p.marketId}
+              aria-disabled={p.isPending || !onClose || !p.marketId}
+            >
+              {p.isPending ? "Closing…" : "Close position"}
+            </button>
           </article>
         );
       })}
@@ -578,6 +586,12 @@ function PerpsPositionsView() {
   // Surface a sentinel when the wallet isn't connected so a real trader knows
   // why they're staring at zeros (vs. assuming the keeper is broken).
   const showConnectHint = !address && !isLoading;
+
+  // Close-dialog state lives at the view level so the desktop table and
+  // mobile cards share one modal — no risk of two close confirmations
+  // open at once, and the dialog can outlive a row remount mid-close
+  // (e.g. when the optimistic update re-renders the list).
+  const [closeTarget, setCloseTarget] = useState<PositionRow | null>(null);
 
   return (
     <div className="pp-view">
@@ -766,14 +780,7 @@ function PerpsPositionsView() {
                     <td className="mono">{p.entry?.toFixed(dec) ?? "—"}</td>
                     <td className="mono">{p.mark?.toFixed(dec) ?? "—"}</td>
                     <td className="mono" style={{ color: "var(--loss-ink)" }}>
-                      <div>{p.liq?.toFixed(dec) ?? "—"}</div>
-                      {p.marketId && (
-                        <PositionLiquidationStatus
-                          marketId={p.marketId as `0x${string}`}
-                          hf={null}
-                          mode="row"
-                        />
-                      )}
+                      {p.liq?.toFixed(dec) ?? "—"}
                     </td>
                     <td className="mono">{fmtUSD(p.margin)}</td>
                     <td
@@ -799,17 +806,50 @@ function PerpsPositionsView() {
                       </button>
                     </td>
                     <td>
-                      <button className="close-btn">Close</button>
+                      <button
+                        className="close-btn"
+                        type="button"
+                        onClick={() => setCloseTarget(p)}
+                        disabled={p.isPending || !p.marketId}
+                        aria-disabled={p.isPending || !p.marketId}
+                        title={
+                          p.isPending
+                            ? "Position update pending — wait for settlement"
+                            : "Close this position at the current mark price"
+                        }
+                      >
+                        {p.isPending ? "Closing…" : "Close"}
+                      </button>
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-          <PerpsPositionCards rows={rows} />
+          <PerpsPositionCards
+            rows={rows}
+            onClose={(row) => setCloseTarget(row)}
+          />
         </>
       )}
-      <LiquidationFeed />
+      {/* Margin management lives below the position list so a trader
+          scanning their open trades doesn't have to leave the tab to
+          deposit collateral or withdraw free margin. The card hides
+          itself when the wallet isn't connected — useMarginBalances
+          gates on `address` so the contract reads never fire. */}
+      {address && <MarginPanel />}
+      <ClosePositionDialog
+        open={Boolean(closeTarget)}
+        onOpenChange={(o) => {
+          if (!o) setCloseTarget(null);
+        }}
+        marketId={closeTarget?.marketId}
+        symbol={closeTarget?.sym ?? ""}
+        side={closeTarget?.side ?? "long"}
+        sizeUsdc={closeTarget?.size ?? 0}
+        leverage={closeTarget?.leverage ?? 1}
+        markPriceFloat={closeTarget?.mark ?? closeTarget?.entry ?? undefined}
+      />
     </div>
   );
 }
