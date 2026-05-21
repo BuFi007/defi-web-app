@@ -130,9 +130,13 @@ export const BENTO_ARC_TESTNET_DEPLOYMENT: BentoDeploymentArtifact = {
     // PoolManager swap path so a single tx can pull liquidity from a
     // remote chain and execute the swap atomically.
     TelaranaGatewayHubHook: "0xe895CB461AFF6E98167a7FA0Db252ba906714088",
-    // V4SwapRouter: pending Wave M3 deploy in fx-telarana. Read via
-    // env var V4_SWAP_ROUTER_5042002 in the interim — see
-    // .env.local.example.
+    // Canonical Uniswap v4 PoolSwapTest from lib/v4-core/src/test/.
+    // Satisfies IUnlockCallback so EOAs can drive PoolManager.swap via
+    // the unlock/callback dance. Wave N2a deploy on Arc Testnet, tx
+    // 0xfcc77cb2…d39f. Closes the M4 Phase-D CCTP demo blocker. The
+    // env-var fallback (V4_SWAP_ROUTER_5042002) still works as an
+    // override for ops experimenting with a custom router.
+    V4SwapRouter: "0x60004B08372Ea953762fCD5cb4D0c723F32311fa",
   },
 } as const;
 
