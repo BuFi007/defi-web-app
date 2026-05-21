@@ -57,3 +57,21 @@ required to be byte-identical between hosts.
 - [`docs/matcher-reading-notes.md`](../../docs/matcher-reading-notes.md) — Phase 0 reference findings
 - `docs/lp-backstop-design.md` — TODO, written before Phase 4 starts
 - `docs/matcher-mainnet-readiness.md` — TODO, written before any mainnet touch
+
+## /rust-matcher skill
+
+The `services/matcher/skills/rust-matcher/SKILL.md` file is the master
+prompt for anything that touches this service. Symlink it into your local
+`.claude/skills/` so the runtime picks it up:
+
+```bash
+mkdir -p .claude/skills
+ln -s ../../services/matcher/skills/rust-matcher .claude/skills/rust-matcher
+```
+
+It chains the 32 actionbook skills (`rust-router`, `domain-fintech`,
+`m01`…`m15`, `coding-guidelines`, `unsafe-checker`) plus 6 npx-installed
+packs (`rust-engineer`, `rust-async-patterns`, `rust-testing`,
+`rust-best-practices`, `rust-mcp-server-generator`, a second `m15`).
+Reproduce the npx installs with `npx skills install` against the tracked
+`skills-lock.json` at the repo root.
