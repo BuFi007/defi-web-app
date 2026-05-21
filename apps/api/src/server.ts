@@ -11,6 +11,7 @@ import {
   type RequestContext,
 } from "@bufinance/worker-base";
 
+import { apiKey } from "./middleware/api-key";
 import { fxBentoRoutes } from "./routes/fx-bento";
 import { fxTelaranaRoutes } from "./routes/fx-telarana";
 import { graphRoutes } from "./routes/graph";
@@ -98,6 +99,12 @@ const requestContextMiddleware =
 app.use("*", requestContextMiddleware());
 app.use("*", corsMiddleware);
 app.use("*", walletSession({ required: false }));
+// Wave K4 / PR-H5 — reads `X-API-Key` and stows the resolved B2B role
+// (`market-taker` | `market-setter` | null) on `c.var.apiKeyRole`. Never
+// short-circuits the request on its own; `requireRole(...)` is the gate
+// applied on the LP-mutating spot endpoints. Keys are seeded once at
+// boot from MARKET_SETTER_API_KEYS / MARKET_TAKER_API_KEYS.
+app.use("*", apiKey());
 
 // Per-request structured logger bound with {requestId, method, path}.
 // Routes read it as `c.var.log` and emit `route_error` / `route_ok` events.
@@ -185,9 +192,11 @@ const typedApp = app
     ),
   )
   .route("/markets", marketsRoutes)
-  // Wave K3 / PR-H4 — /spot is now an OpenAPIHono carrying typed
-  // `/spot/quote` + `/spot/fills` + legacy `/spot/intents`. Chained here
-  // so `hc<AppType>` sees the new RFQ surface. The plain `.route` call
+  // Wave K3 / PR-H4 + Wave K4 / PR-H5 — /spot is an OpenAPIHono carrying
+  // typed `/spot/quote` + `/spot/fills` + legacy `/spot/intents` (K3) +
+  // `/spot/pools` + `/spot/pools/:id/positions` (K4 — market-setter
+  // gated via the `apiKey()` middleware mounted above). Chained here so
+  // `hc<AppType>` sees the full B2B surface. The plain `.route` call
   // below mutates the same instance for runtime continuity but doesn't
   // refine the type; the chain capture here is what extends `AppType`.
   .route("/spot", spotRoutes);
