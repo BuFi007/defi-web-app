@@ -5,6 +5,7 @@ import {
   CONTRACTS,
   DEFAULT_RPC_URLS,
   FxHubMessageReceiverAbi,
+  FxMarketRegistryAbi,
   FxOrderSettlementAbi,
   FxOracleAbi,
   FxPerpClearinghouseAbi,
@@ -51,6 +52,11 @@ const fxOrderSettlementArc =
   arc.perps.orderSettlement!;
 const fxPerpClearinghouseArc =
   process.env.PONDER_PERPS_CLEARINGHOUSE_ADDRESS_ARC ?? arc.perps.clearinghouse!;
+const fxMarketRegistryArc =
+  process.env.PONDER_MARKET_REGISTRY_ADDRESS_ARC ?? arc.telarana.fxMarketRegistry!;
+const fxMarketRegistryStartBlockArc = Number(
+  process.env.PONDER_MARKET_REGISTRY_START_BLOCK_ARC ?? perpsStartBlockArc,
+);
 
 export default createConfig({
   database,
@@ -115,6 +121,16 @@ export default createConfig({
       abi: FxPerpClearinghouseAbi,
       address: fxPerpClearinghouseArc as `0x${string}`,
       startBlock: perpsStartBlockArc,
+    },
+    // FxMarketRegistry — single-surface router over Morpho Blue isolated
+    // lending markets. Only deployed on Arc Testnet (Fuji has no registry).
+    // Emits MarketRegistered / PoolLiveSet / BorrowDelegateSet — see
+    // src/handlers/markets.ts.
+    FxMarketRegistryArc: {
+      chain: "arcTestnet",
+      abi: FxMarketRegistryAbi,
+      address: fxMarketRegistryArc as `0x${string}`,
+      startBlock: fxMarketRegistryStartBlockArc,
     },
     // ─────────────────────────── FX Bento (Arc) ──────────────────────────
     // Subscribed by default — Arc Testnet is the live Bento stack per
