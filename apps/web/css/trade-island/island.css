@@ -1313,17 +1313,21 @@ body[data-banner="open"] .island {
 
 /* ------------------------------------------------------------------
    Dynamic Island TradeDrawer (mobile) — multi-step Buy / Long flow.
-   Reuses the bottom-sheet backdrop pattern but adds step transitions,
-   a progress dot row, and a primary CTA pinned to the safe-area bottom.
+   Wave J2: chrome is now driven by Vaul (`Drawer.Root` / `Overlay` /
+   `Content`). Vaul owns the slide-up/down transform, the swipe-down
+   gesture, body scroll lock, focus trap, and overlay fade — so this
+   stylesheet only paints the resting appearance (rounded top, surface
+   fill, safe-area padding) and keeps the multi-step internal layout
+   identical to the legacy CSS sheet.
    ------------------------------------------------------------------ */
-.td-backdrop {
+.td-overlay {
   position: fixed; inset: 0; z-index: 70;
   background: rgba(31, 23, 64, .55);
-  display: flex; align-items: flex-end; justify-content: stretch;
-  animation: td-fade .18s ease-out;
 }
-@keyframes td-fade { from { opacity: 0; } to { opacity: 1; } }
 .td-sheet {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 71;
   width: 100%;
   max-height: 90vh;
   background: var(--surface);
@@ -1331,11 +1335,10 @@ body[data-banner="open"] .island {
   border-top-right-radius: 24px;
   box-shadow: 0 -8px 32px rgba(40, 25, 90, .25);
   display: flex; flex-direction: column;
-  animation: td-slide .26s cubic-bezier(.2, .8, .2, 1);
   overflow: hidden;
   padding-bottom: env(safe-area-inset-bottom, 0);
+  outline: none;
 }
-@keyframes td-slide { from { transform: translateY(100%); } to { transform: translateY(0); } }
 .td-head {
   position: relative;
   display: flex; align-items: center; justify-content: space-between;
@@ -1473,5 +1476,5 @@ body[data-banner="open"] .island {
 }
 .td-cta:active { transform: translateY(1px); }
 .td-cta:disabled { opacity: .45; pointer-events: none; box-shadow: none; }
-body:has(.td-backdrop) .mt-cta-bar { display: none; }
+body:has([data-vaul-drawer][data-state="open"]) .mt-cta-bar { display: none; }
 
