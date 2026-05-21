@@ -15,6 +15,8 @@ import {
   type StableTokenType,
 } from "@bufi/location/stable-tokens";
 import type { Token } from "@/lib/types";
+import { useUnifiedUsdcBalance } from "@/lib/circle-gateway/use-unified-usdc-balance";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { SPOKE_CHAINS, type SpokeChain } from "./deployments";
 
@@ -263,6 +265,32 @@ export const StablecoinBalances: React.FC = () => {
     () => sortedRows.reduce((sum, r) => sum + r.usdValue, 0),
     [sortedRows],
   );
+
+  // Circle Gateway unified USDC balance. Hook returns a `disabled: true`
+  // state when no proxy URL is configured (no toast, no error) so the
+  // popover collapses the section cleanly in unconfigured envs. The
+  // `perHub` map is chainId → decimal-string and only contains chains
+  // that Gateway tracks for this address — we filter SPOKE_CHAINS by it
+  // when rendering the breakdown.
+  const gateway = useUnifiedUsdcBalance({ walletAddress: address });
+  const gatewayTotalUsdc = React.useMemo(
+    () => Number(gateway.value.total),
+    [gateway.value.total],
+  );
+  const gatewayBreakdownRows = React.useMemo(() => {
+    if (gateway.value.disabled) return [];
+    // Only surface chains we have a popover label for. Gateway-supported
+    // chains we don't render (OP Sepolia, Base Sepolia, etc.) still
+    // contribute to the unified total — they just don't get a row.
+    return SPOKE_CHAINS.map((cfg) => {
+      const raw = gateway.value.perHub[String(cfg.chainId)];
+      const value = raw ? Number(raw) : 0;
+      return { cfg, value, deployed: raw !== undefined };
+    })
+      .filter((r) => r.deployed)
+      .sort((a, b) => b.value - a.value);
+  }, [gateway.value.disabled, gateway.value.perHub]);
+  const [gatewayExpanded, setGatewayExpanded] = useState(false);
 
   // Dynamic-Island morph: pill, ad-pill, and panel all share
   // `layoutId="acct-fx-island"`, so framer-motion smoothly animates the
@@ -589,6 +617,103 @@ export const StablecoinBalances: React.FC = () => {
                         variant="ghost"
                       />
                     </div>
+
+                    {/* Circle Gateway unified USDC balance. Hidden when the
+                        proxy isn't configured (env-var absent) so unconfigured
+                        envs see the same popover as before. Tap the row to
+                        expand the per-hub breakdown — Gateway tracks USDC
+                        across every CCTP-Gateway domain, but we only render
+                        labels for the ones the popover knows about (Arc,
+                        Fuji, etc.); other domains still roll into `total`. */}
+                    {!gateway.value.disabled && isConnected && (
+                      <div className="gateway-island-section">
+                        <button
+                          type="button"
+                          className="gateway-island-row"
+                          aria-expanded={gatewayExpanded}
+                          aria-controls="gateway-island-breakdown"
+                          onClick={() => setGatewayExpanded((v) => !v)}
+                          disabled={gateway.value.isLoading || gatewayBreakdownRows.length === 0}
+                        >
+                          <span className="gateway-island-row-l">
+                            <span className="gateway-island-badge" aria-hidden="true">
+                              Gateway
+                            </span>
+                            <span className="acct-l">USDC across all hubs</span>
+                          </span>
+                          <span className="gateway-island-row-r">
+                            {gateway.value.isLoading ? (
+                              <Skeleton className="h-[15px] w-[68px] rounded" />
+                            ) : gateway.value.error ? (
+                              <span className="gateway-island-err" title={gateway.value.error.message}>
+                                unavailable
+                              </span>
+                            ) : (
+                              <>
+                                <span className="mono gateway-island-v">
+                                  <AnimatedNumber
+                                    value={gatewayTotalUsdc}
+                                    maximumFractionDigits={2}
+                                    minimumFractionDigits={2}
+                                  />
+                                </span>
+                                <span className="gateway-island-unit">USDC</span>
+                                {gatewayBreakdownRows.length > 0 && (
+                                  <svg
+                                    width="10"
+                                    height="10"
+                                    viewBox="0 0 10 10"
+                                    aria-hidden="true"
+                                    className="gateway-island-chev"
+                                    style={{
+                                      transform: gatewayExpanded
+                                        ? "rotate(180deg)"
+                                        : "rotate(0deg)",
+                                      transition: "transform 0.18s ease",
+                                    }}
+                                  >
+                                    <path
+                                      d="M2 4 L5 7 L8 4"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="1.5"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    />
+                                  </svg>
+                                )}
+                              </>
+                            )}
+                          </span>
+                        </button>
+                        <AnimatePresence initial={false}>
+                          {gatewayExpanded && gatewayBreakdownRows.length > 0 && (
+                            <motion.ul
+                              id="gateway-island-breakdown"
+                              className="gateway-island-breakdown"
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                            >
+                              {gatewayBreakdownRows.map((r) => (
+                                <li key={`gw-${r.cfg.chainId}`} className="gateway-island-breakdown-row">
+                                  <span className="gateway-island-breakdown-l">{r.cfg.label}</span>
+                                  <span className="mono gateway-island-breakdown-v tabular-nums">
+                                    <AnimatedNumber
+                                      value={r.value}
+                                      maximumFractionDigits={2}
+                                      minimumFractionDigits={2}
+                                    />
+                                    <span className="text-zinc-400 dark:text-zinc-500 ml-1">USDC</span>
+                                  </span>
+                                </li>
+                              ))}
+                            </motion.ul>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    )}
 
                     <ul className="acct-island-list">
                       {sortedRows.map((row) => (

@@ -13,6 +13,7 @@ import {
 
 import { fxBentoRoutes } from "./routes/fx-bento";
 import { fxTelaranaRoutes } from "./routes/fx-telarana";
+import { gatewayRoutes } from "./routes/gateway";
 import { graphRoutes } from "./routes/graph";
 import { liveblocksRoutes } from "./routes/liveblocks";
 import { marketsRoutes } from "./routes/markets";
@@ -194,6 +195,10 @@ app.route("/fx-bento", fxBentoRoutes);
 app.route("/fx-telarana", fxTelaranaRoutes);
 app.route("/mcp", mcpRoutes);
 app.route("/x402", x402Routes);
+// Circle Gateway proxy. Holds CIRCLE_GATEWAY_API_KEY server-side so
+// the apps/web wallet popover can render a unified USDC balance
+// without exposing the key to the browser.
+app.route("/gateway", gatewayRoutes);
 // Public GraphQL gateway in front of apps/ponder. Carries its own
 // rate-limit middleware (per-IP + per-API-key, token-bucket) so we
 // don't need to touch the global pipe. Mutations blocked at the edge.

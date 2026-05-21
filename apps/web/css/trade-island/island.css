@@ -434,6 +434,119 @@ body[data-banner="open"] .island {
   border-top: 1px solid var(--border);
 }
 
+/* Circle Gateway unified USDC balance — sits BETWEEN the network picker
+   and the per-token list. Visually distinct from the per-chain rows
+   below (subtle accent tint) so users grok that this number aggregates
+   across hubs, not just the active network. Tap-to-expand reveals a
+   per-hub breakdown. */
+.gateway-island-section {
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(
+    90deg,
+    rgba(132, 116, 255, 0.04),
+    rgba(132, 116, 255, 0.00)
+  );
+}
+[data-theme="dark"] .gateway-island-section {
+  background: linear-gradient(
+    90deg,
+    rgba(132, 116, 255, 0.06),
+    rgba(132, 116, 255, 0.00)
+  );
+}
+.gateway-island-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  transition: background .12s;
+}
+.gateway-island-row:hover:not(:disabled) {
+  background: var(--surface-2, rgba(132, 116, 255, 0.04));
+}
+.gateway-island-row:disabled { cursor: default; }
+.gateway-island-row-l {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.gateway-island-row-r {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.gateway-island-badge {
+  font-family: 'Nunito', sans-serif;
+  font-size: 9px; font-weight: 800;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 3px 7px; border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+  white-space: nowrap;
+}
+.gateway-island-v {
+  font-size: 13px; font-weight: 800;
+  color: var(--primary-ink);
+  font-variant-numeric: tabular-nums;
+}
+.gateway-island-unit {
+  font-size: 10px; font-weight: 700;
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+}
+.gateway-island-chev {
+  color: var(--ink-3);
+  margin-left: 2px;
+}
+.gateway-island-err {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-style: italic;
+}
+.gateway-island-breakdown {
+  list-style: none;
+  margin: 0;
+  padding: 0 14px 8px;
+  overflow: hidden;
+}
+.gateway-island-breakdown-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 12px;
+}
+.gateway-island-breakdown-l {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.gateway-island-breakdown-v {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Mobile — the panel already clamps to `calc(100vw - 32px)`. Tighten the
+   internal padding so the unified row doesn't push the per-token list
+   below the fold on narrow phones. */
+@media (max-width: 480px) {
+  .gateway-island-row { padding: 9px 12px; }
+  .gateway-island-breakdown { padding: 0 12px 6px; }
+  .gateway-island-badge { font-size: 8.5px; padding: 2px 6px; }
+}
+
 .acct-island-scrim {
   position: fixed;
   inset: 0;
