@@ -2,6 +2,7 @@ import "server-only";
 
 import { cacheLife, cacheTag } from "next/cache";
 import type { MarketRegistryEntry } from "@bufi/shared-types";
+import { api } from "@/lib/api-client";
 import { bufiGet } from "./client";
 
 export const MARKET_DATA_TAG = "market-data" as const;
@@ -38,9 +39,17 @@ export async function getMarket(marketId: string): Promise<MarketRegistryEntry |
   cacheLife("minutes");
   cacheTag(MARKET_DATA_TAG, `market-${marketId}`);
 
+  // wk1d2: routed through the typed BFF client (hc<AppType>). Response
+  // shape `{ market: MarketRegistryEntry }` is inferred from
+  // apps/api/src/routes/markets.ts. Behavior preserved: 404/other-error
+  // still maps to `null` so RSC fallback paths keep rendering.
   try {
-    const { market } = await bufiGet<MarketResponse>(`/markets/${marketId}`);
-    return market;
+    const res = await api.markets[":marketId"].$get({ param: { marketId } });
+    if (!res.ok) return null;
+    const { market } = await res.json();
+    // The zod schema is `.passthrough()` on MarketRegistryEntry — runtime
+    // shape matches the shared type, narrow with a cast at the boundary.
+    return market as MarketRegistryEntry;
   } catch {
     return null;
   }
