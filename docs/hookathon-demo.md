@@ -4,8 +4,8 @@
 
 **Status legend:**
 - `<TBD-M1>` → contract address; filled when Wave M1 (ABI/contract sync) lands. **M1 has landed** (fx-telarana PR #34) — addresses below.
-- `<TBD-M3>` → router / wiring env var; filled when Wave M3 (env wiring) lands. **M3 has NOT landed** — `V4_SWAP_TEST_ROUTER` is still `<PENDING-M3>`.
-- `<TBD-M4>` → on-chain tx hash; filled when Wave M4 (live broadcast) records the broadcast. **M4 has partially landed** — see §11 for the broadcast inventory; live USDC↔EURC swap through `FxSwapHook` is still `<PENDING-M3-ROUTER>` until M3 deploys a v4 router contract that satisfies `IUnlockCallback`.
+- `<TBD-M3>` → router / wiring env var; filled when Wave M3 (env wiring) lands. **M3 has partially landed (Wave N2a)** — `V4_SWAP_TEST_ROUTER` is pinned to canonical v4-core `PoolSwapTest` at `0x60004B08372Ea953762fCD5cb4D0c723F32311fa`. **However, Wave N3 discovered on chain that PoolSwapTest is the wrong shape for FxSwapHook's PMM** (settle-after-swap vs settle-inside-beforeSwap). The right shim is `FxV4RouterHarness` from `fx-telarana/contracts/test/utils/`. Re-pin is the last remaining router gap. See §2 Demo A "N3 broadcast" + §11 Phase F for the on-chain proof.
+- `<TBD-M4>` → on-chain tx hash; filled when Wave M4 (live broadcast) records the broadcast. **M4 + N3 have partially landed** — see §11 for the broadcast inventory (Phase A–C + Phase F). Wave N3 captured the full CCTP burn → Iris attest → Arc mint chain live, plus a Pyth oracle refresh, plus an on-chain reverted swap that proves the router-shape mismatch. A successful live USDC→EURC swap through FxSwapHook is one router re-pin away.
 
 Every TBD above is greppable: `grep -nE '<TBD-(M1|M3|M4)>|<PENDING-' docs/hookathon-demo.md`.
 
@@ -41,7 +41,8 @@ bun scripts/v4-swap-pool-demo-cctp.ts
 |---|---|---|
 | `KEEPER_PRIVATE_KEY` | local `.env.local` | Funded on Fuji (USDC + AVAX gas) and Arc (USDC for gas). |
 | `FX_SWAP_HOOK_ADDRESS` | `0xC6F894f30d0D28972C876B4af58C02A4E88A0aC8` | CREATE2-mined low 14 bits = `0xAC8` (beforeAddLiquidity \| beforeRemoveLiquidity \| beforeSwap \| afterSwap \| beforeSwapReturnDelta). Salt `0x0000…0122`. Deploy tx `0x016e2d48…32edb7` (fx-telarana PR #34). |
-| `V4_SWAP_TEST_ROUTER` | `<PENDING-M3>` | Arc-side v4 test router that calls `PoolManager.unlock`. Wave M3 deploys a `PoolSwapTest`-equivalent contract that satisfies `IUnlockCallback`. EOAs cannot satisfy this — an EOA-only broadcast reverts. |
+| `V4_SWAP_TEST_ROUTER` | `0x60004B08372Ea953762fCD5cb4D0c723F32311fa` | Arc-side canonical v4-core `PoolSwapTest` — Wave N2a pin (fx-telarana PR #37 + defi-web-app PR #95). Code present on Arc (`cast code` non-empty), `manager() = 0x3FA22b…3B34`, `swap` selector `0x2229d0b4` and `unlockCallback` selector `0x91dd7346` present. **Caveat (discovered Wave N3): PoolSwapTest is the *standard v4 LP* router shape — it settles input AFTER `manager.swap` returns. FxSwapHook is a PMM that calls `inputCurrency.take(POOL_MANAGER, hook, amountIn)` INSIDE `beforeSwap`, which requires PoolManager to already hold input. The two shapes are incompatible — see N3 broadcast block + §11 Phase E for the on-chain proof.** The correct shim is `fx-telarana/contracts/test/utils/FxV4RouterHarness.sol` (`_settleFrom(input, sender, amountIn)` before `manager.swap`). Re-pin pending. |
+| `FX_ORACLE_ADDRESS` | `0x77b3A3B420dB98B01085b8C46a753Ed9879e2865` | Wave N3 — required for inline Pyth refresh. The demo script calls `FxOracle.getMidWithUpdatePyth(USDC, EURC, [hermesVAA])` in the same broadcast window as the swap so the on-chain `getMid` is fresh when `FxSwapHook.beforeSwap` reads it. |
 | `IRIS_API_URL` | default `https://iris-api-sandbox.circle.com` | Circle's CCTP attestation service. Public. |
 
 **Expected output shape**
@@ -59,12 +60,44 @@ bun scripts/v4-swap-pool-demo-cctp.ts
 ```
 Any step that can't run (missing env, contract not yet deployed) prints `status: "blocked"` with a `reason` field — the script never silently succeeds.
 
-**Tx-hash placeholders** *(Wave M4 — partial)*
-- **Fuji burn tx: `<PENDING-M3-ROUTER>`** — script broadcasts the burn on Fuji once a funded `TAKER_PRIVATE_KEY` is supplied; the demo orchestrator gates this behind a successful router probe so that an end-to-end run isn't half-finished.
-- **Arc mint tx: `<PENDING-M3-ROUTER>`** — same gate.
-- **Arc v4 swap tx: `<PENDING-M3-ROUTER>`** — `V4_SWAP_TEST_ROUTER` is unset. Wave M4 *did* land the upstream prerequisites — pool initialize (tx `0xf86f5d37dc9f842c3874077321ad001d0ecd992263bc0c9b82d946ded9f6463e`, poolId `0xd5e4a30d113d293ff50273c0aa3626e66c3a1cb8b6ba2bf22f2420ed4f92a1ef`) and FxSwapHook PMM seed (tx `0xf69fccaff9a734ad6675380ffde628a41e00ea8a07cbedc769387a2b6fed5f02`, 1.0 USDC + 0.9 EURC, `totalShares` = 1,900,000). See §11.
+**Tx-hash placeholders** *(Wave N3 — live broadcast)*
+- **Fuji burn tx: `0x524074675dd212222b4f0a1978e2699d4e9a8caba9992073e823cff357187ca8`** — Wave N3, block `55616926` on Fuji. `TokenMessengerV2.depositForBurn(0.1 USDC, dstDomain=26, mintRecipient=keeper, maxFee=500, finality=1000)`. Snowtrace: [view](https://testnet.snowtrace.io/tx/0x524074675dd212222b4f0a1978e2699d4e9a8caba9992073e823cff357187ca8). Gas used 133,815.
+- **Arc mint tx: `0x55e40c3f0ff76edeb5ca05925171b43b5a21f3a4f88aaf5ff589b249c2971f51`** — Wave N3, block `43389708` on Arc Testnet. `MessageTransmitterV2.receiveMessage(message, attestation)`. Arcscan: [view](https://testnet.arcscan.app/tx/0x55e40c3f0ff76edeb5ca05925171b43b5a21f3a4f88aaf5ff589b249c2971f51). 0.1 USDC minted to keeper. Gas used 162,577. Iris attestation came back in **5.9 seconds** (CCTP V2 fast-finality, source domain 1, finalityThresholdExecuted 2000, eventNonce `0x4744694a…a8c5b3`).
+- **Arc v4 swap tx: `0xde83acb726a6e33c670b1a17f9ce54f22ab72616c063c076bc769458647a62f6`** — Wave N3, block `43390846` on Arc Testnet. **REVERTED on-chain.** Force-broadcast via `cast send --gas-limit 800000` to capture the precise revert reason as an immutable artefact. Arcscan: [view](https://testnet.arcscan.app/tx/0xde83acb726a6e33c670b1a17f9ce54f22ab72616c063c076bc769458647a62f6). Revert selector `0x90bfb865` = `WrappedError(FxSwapHook, beforeSwap=0x575e24b4, inner=WrappedError(USDC, transfer=0xa9059cbb, "ERC20: transfer amount exceeds balance"))`. Root cause: PoolSwapTest settles input AFTER `manager.swap`, but FxSwapHook's `beforeSwap` calls `inputCurrency.take(POOL_MANAGER, ...)` INSIDE the swap (FxSwapHook.sol L731), which transfers from a PoolManager that hasn't been paid yet. Pool prerequisites are healthy: pool initialize (tx `0xf86f5d37dc9f842c3874077321ad001d0ecd992263bc0c9b82d946ded9f6463e`, poolId `0xd5e4a30d113d293ff50273c0aa3626e66c3a1cb8b6ba2bf22f2420ed4f92a1ef`) and FxSwapHook PMM seed (tx `0xf69fccaff9a734ad6675380ffde628a41e00ea8a07cbedc769387a2b6fed5f02`, 1.0 USDC + 0.9 EURC, `totalShares` = 1,900,000); the gap is solely the router shape. See §11 Phase E + the N3 broadcast block below.
 
-**Wave M4 also flagged a third blocker for the live swap path: `FxOracle.getMid(USDC,EURC)` reverts `StalePrice()`. The Pyth EUR/USD feed (`0x76fa8515…0fa5c`) is wired in `FxOracle`, but no on-chain refresh ran inside this M4 window. Production demo flow MUST call `FxOracle.getMidWithUpdatePyth(...)` with a Hermes update blob in the same tx, OR a cron must keep the feed warm. Surfacing this here so the judge sees the full live-readiness picture, not just the router gap.**
+**Wave N3 closure status for the three M4-flagged blockers:**
+- **M4-BLOCK-1 (router):** **partially closed.** Wave N2a deployed canonical `PoolSwapTest` at `0x60004B08…11Fa`, but PoolSwapTest's settle-after-swap semantics are incompatible with FxSwapHook's settle-inside-beforeSwap PMM. The closure path is `FxV4RouterHarness` from `fx-telarana/contracts/test/utils/`. See "N3 broadcast" block below for the on-chain proof.
+- **M4-BLOCK-2 (Pyth stale):** **closed (live-bracketed).** N3 demonstrated the inline refresh via `FxOracle.getMidWithUpdatePyth(USDC, EURC, [hermesVAA])` — Arc tx `0x7b1cb2f46ddc86d4fa248fdb1354bbb43815531f6c5dbd9f1757fa6484614e5c` (and re-warm `0x097eea5cf2790b8aa2f1b979d20807be2cd7f1606f81688f786917d4ca51fa81`) returned a fresh mid `0.860375e18` (EUR/USD ~1.16) with on-chain fee of 2 wei. N2b's keep-warm daemon (`apps/keeper-pyth`) is the production-time closure; the inline refresh is the per-broadcast workaround.
+- **M4-BLOCK-3 (Gateway attestation):** **unchanged.** Demo B only — owned by Wave N2c.
+
+**N3 broadcast** *(2026-05-21, live on chain)*
+
+| Step | Tx hash | Block | Status | Explorer |
+|---|---|---|---|---|
+| `cctp-approve-fuji-usdc` | `0xae606d2d924f2951c2d0bff45380ba1c31b237c3b134decd69d13b54952e12c5` | Fuji 55616923 | ok | [Snowtrace](https://testnet.snowtrace.io/tx/0xae606d2d924f2951c2d0bff45380ba1c31b237c3b134decd69d13b54952e12c5) |
+| `cctp-burn-fuji` (TokenMessengerV2.depositForBurn) | `0x524074675dd212222b4f0a1978e2699d4e9a8caba9992073e823cff357187ca8` | Fuji 55616926 | ok | [Snowtrace](https://testnet.snowtrace.io/tx/0x524074675dd212222b4f0a1978e2699d4e9a8caba9992073e823cff357187ca8) |
+| `cctp-attest-iris` (off-chain, 5.9s) | *n/a — eventNonce `0x4744694a…a8c5b3`* | n/a | ok | n/a |
+| `cctp-mint-arc` (MessageTransmitterV2.receiveMessage) | `0x55e40c3f0ff76edeb5ca05925171b43b5a21f3a4f88aaf5ff589b249c2971f51` | Arc 43389708 | ok | [Arcscan](https://testnet.arcscan.app/tx/0x55e40c3f0ff76edeb5ca05925171b43b5a21f3a4f88aaf5ff589b249c2971f51) |
+| `pyth-refresh-pre-swap` (FxOracle.getMidWithUpdatePyth) | `0x7b1cb2f46ddc86d4fa248fdb1354bbb43815531f6c5dbd9f1757fa6484614e5c` | Arc 43390625 | ok | [Arcscan](https://testnet.arcscan.app/tx/0x7b1cb2f46ddc86d4fa248fdb1354bbb43815531f6c5dbd9f1757fa6484614e5c) |
+| `pyth-refresh-pre-swap` *(second warm, post-iteration)* | `0x097eea5cf2790b8aa2f1b979d20807be2cd7f1606f81688f786917d4ca51fa81` | Arc 43390780 | ok | [Arcscan](https://testnet.arcscan.app/tx/0x097eea5cf2790b8aa2f1b979d20807be2cd7f1606f81688f786917d4ca51fa81) |
+| `v4-approve-pool-manager` (keeper → 200000 raw USDC) | `0x53387349faba05c543b1d9df94e2d5db94ff2aba0ccb5f778aa516a6cbaedaa6` | Arc 43390742 | ok | [Arcscan](https://testnet.arcscan.app/tx/0x53387349faba05c543b1d9df94e2d5db94ff2aba0ccb5f778aa516a6cbaedaa6) |
+| `v4-pool-manager-unlock-swap` (PoolSwapTest.swap) | `0xde83acb726a6e33c670b1a17f9ce54f22ab72616c063c076bc769458647a62f6` | Arc 43390846 | **reverted** | [Arcscan](https://testnet.arcscan.app/tx/0xde83acb726a6e33c670b1a17f9ce54f22ab72616c063c076bc769458647a62f6) |
+
+**Balance deltas** (keeper at `0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69`, all three actor roles collapsed onto KEEPER for this run because the demo MAKER + TAKER EOAs have zero Fuji USDC/AVAX):
+
+| Asset | Before | After | Delta |
+|---|---|---|---|
+| Fuji USDC | 0.150000 | 0.050000 | **−0.100000** (the burn, locked in CCTP TokenMessengerV2) |
+| Arc USDC (native + ERC20) | 22.124323 | 22.198716 | **+0.074393** (mint +0.1, then ≈0.0257 consumed by Arc-side gas: Pyth refresh × 2, approve, reverted swap) |
+| Arc EURC | 33.955639 | 33.955639 | 0 (swap reverted — no EURC delivered) |
+| Fuji AVAX | 5.724988…828074 | 5.724988…311618 | −0.000000…516456 (Fuji-side gas) |
+
+**Honest "Real-Time FX Swap Pool Using CCTP" status (post-N3):**
+- The **CCTP-attestation-routed-under-the-hook** leg is LIVE. Fuji burn → Iris attest (5.9s) → Arc mint, end-to-end, on-chain. This is the load-bearing primitive in the §2 Hookathon claim.
+- The **Pyth refresh before swap** workaround is LIVE — proves `FxOracle.getMidWithUpdatePyth` works on Arc Testnet.
+- The **v4 hook-driven settlement** leg is NOT yet live as a single-tx swap. It requires `FxV4RouterHarness` (settle-before-swap router) to replace the canonical `PoolSwapTest` at the N2a-pinned address. **Capital and oracle are healthy; only the router shape is wrong.** Pool + hook reserves verified mid 0.860 EURC/USDC, hook holds 1.0 USDC + 0.9 EURC.
+
+Source artefact: [`scripts/n3-cctp-demo-broadcast.json`](../scripts/n3-cctp-demo-broadcast.json).
 
 ---
 
@@ -344,20 +377,20 @@ Every Hookathon contract deployed on Arc Testnet and Avalanche Fuji.
 
 **`<TBD-M1>`** — **CLOSED.** All M1 placeholders are filled from fx-telarana PR #34 (`5b6d310`). The only remaining `<TBD-M1-GHOST>` row is `FxGhostCommitmentRegistry` on Arc, which is intentionally deferred per §10 honesty note 6 — the noir.js client prover is a v0.2 scaffold and the on-chain registry isn't deployed on Arc yet.
 
-**`<TBD-M3>`** — **STILL OPEN.** Wave M3 (router pin) has not landed. Remaining placeholders:
-- §2 `V4_SWAP_TEST_ROUTER` → `<PENDING-M3>`
-- §3 `V4_SWAP_TEST_ROUTER` → `<PENDING-M3>`
-- §8 `V4_SWAP_TEST_ROUTER` row → `<PENDING-M3>`
+**`<TBD-M3>`** — **PARTIALLY CLOSED (Wave N2a + N3).** Wave N2a deployed canonical `PoolSwapTest` at `0x60004B08372Ea953762fCD5cb4D0c723F32311fa` (Arc Testnet), filling the §2/§3/§8 `V4_SWAP_TEST_ROUTER` env rows. **However**, Wave N3 discovered on chain (Arc tx `0xde83acb726a6e33c670b1a17f9ce54f22ab72616c063c076bc769458647a62f6`) that PoolSwapTest's standard v4-LP settle-after-swap pattern is incompatible with FxSwapHook's PMM settle-inside-beforeSwap. The correct router shape is `FxV4RouterHarness` from `fx-telarana/contracts/test/utils/FxV4RouterHarness.sol`, which calls `_settleFrom(input, sender, amountIn)` BEFORE `manager.swap`. Re-pinning is the only remaining gap — and it's a one-line deploy + manifest update, not a contract write.
 
-Wave M3 needs to: deploy a v4 router contract on Arc that satisfies `IUnlockCallback` (canonical pattern: `PoolSwapTest` from v4-core, or a custom forwarder). The router shape the demo scripts already encode against is a single `unlock(bytes)` external that re-enters `PoolManager.unlock(data)` from inside `unlockCallback(bytes)` and there forwards into `PoolManager.swap(poolKey, params, hookData)`. Without this, `PoolManager.unlock(...)` from an EOA reverts because EOAs can't satisfy `IUnlockCallback.unlockCallback`.
+**`<TBD-M4>`** — **PARTIALLY CLOSED.** See §11 for the broadcast inventory; N3 added Phase F live broadcasts.
 
-**`<TBD-M4>`** — **PARTIALLY CLOSED.** See §11 for the broadcast inventory.
+Open / pending (post-N3):
+- §2 v4 swap tx — captured **on-chain as a reverted artefact** (`0xde83acb7…62f6`) so the precise root cause is documented; a successful live USDC→EURC swap still requires the `FxV4RouterHarness` re-pin.
+- §3 `<PENDING-GATEWAY-ATTESTATION>` — single Gateway v4 swap. Gated by Circle Gateway attestation env (`V4_SWAP_GATEWAY_ATTESTATION` + `V4_SWAP_GATEWAY_SIGNATURE`) — Wave N2c territory.
+- §5 `/swap` widget fill — gated by the same router re-pin as §2.
+- §6 curl `/spot/fills` — gated by the same router re-pin as §2.
 
-Open / pending:
-- §2 `<PENDING-M3-ROUTER>` × 3 — Fuji burn, Arc mint, Arc v4 swap. Gated by `<TBD-M3>`.
-- §3 `<PENDING-GATEWAY-ATTESTATION>` — single Gateway v4 swap. Gated by Circle Gateway attestation env (`V4_SWAP_GATEWAY_ATTESTATION` + `V4_SWAP_GATEWAY_SIGNATURE`) — the keeper-gateway-signer service has not minted an attestation yet.
-- §5 `/swap` widget fill — gated by `<PENDING-M3-ROUTER>`.
-- §6 curl `/spot/fills` — gated by `<PENDING-M3-ROUTER>`.
+Closed by Wave N3 (live on chain):
+- §2 Fuji CCTP burn: `0x524074675dd212222b4f0a1978e2699d4e9a8caba9992073e823cff357187ca8`.
+- §2 Arc CCTP mint: `0x55e40c3f0ff76edeb5ca05925171b43b5a21f3a4f88aaf5ff589b249c2971f51` (5.9s after burn via Iris).
+- §2 Pyth oracle refresh (live workaround for M4-BLOCK-2): `0x7b1cb2f46ddc86d4fa248fdb1354bbb43815531f6c5dbd9f1757fa6484614e5c` (and a second warm `0x097eea5cf2790b8aa2f1b979d20807be2cd7f1606f81688f786917d4ca51fa81`).
 
 Closed by Wave M4 (live on chain):
 - §3 TGH admin: `setGatewayRoute` `0x992fb619…cc75d70`, `setGatewayContextProofMode` `0x84f37814…0bfeacf6`.
@@ -416,11 +449,11 @@ Every transaction Wave M4 actually broadcast on Arc Testnet, by phase. Captured 
 
 ### Phase D — Live USDC↔EURC swap through FxSwapHook.beforeSwap
 
-**Status:** **blocked, NOT broadcast.** Three pre-flight blockers all needed before a live swap can clear:
+**Status (post-N3):** **two of three pre-flight blockers cleared by Wave N3; the third turned out to be a router-shape mismatch, not a missing deploy.** Re-stated honestly:
 
-1. **`V4_SWAP_TEST_ROUTER` not deployed (Wave M3 unmerged).** `PoolManager.unlock(bytes)` re-enters `IUnlockCallback(msg.sender).unlockCallback(data)` — EOAs can't satisfy this. Both demo scripts (`scripts/v4-swap-pool-demo-cctp.ts` and `scripts/v4-swap-pool-demo-gateway.ts`) refuse to broadcast the unlock leg without `V4_SWAP_TEST_ROUTER` and emit `status: "blocked"` with the encoded calldata + lengths.
-2. **`FxOracle.getMid(USDC,EURC)` reverts `StalePrice()` (0x19abf40e).** Pyth EUR/USD feed (`0x76fa8515…0fa5c`) is wired in `FxOracle.setFeed`, but no fresh price has been pushed during this M4 window. The live swap path must call `FxOracle.getMidWithUpdatePyth(...)` with a Hermes update blob in the same tx (the FxSwapHook's `beforeSwap` reads `ORACLE.getMid` directly, so a wrapping router must update Pyth first OR a cron must keep the feed warm).
-3. **Circle Gateway attestation env not provisioned.** Demo B (Gateway) additionally needs `V4_SWAP_GATEWAY_ATTESTATION` + `V4_SWAP_GATEWAY_SIGNATURE`. `apps/keeper-gateway-signer` is the source for these but no live attestation has been minted yet.
+1. **`V4_SWAP_TEST_ROUTER`: deployed but architecturally wrong for FxSwapHook (Wave N3 discovery).** Wave N2a deployed canonical v4-core `PoolSwapTest` at `0x60004B08372Ea953762fCD5cb4D0c723F32311fa` — verified live (code present, `manager() = 0x3FA22b…3B34`, selectors `swap=0x2229d0b4` + `unlockCallback=0x91dd7346`). However, **PoolSwapTest implements the standard v4 LP settlement pattern (sender pays AFTER `manager.swap` returns)**, and FxSwapHook is a PMM that calls `inputCurrency.take(POOL_MANAGER, hook, amountIn)` INSIDE `beforeSwap` (FxSwapHook.sol L731), which transfers from a PoolManager that hasn't been paid yet. The two shapes don't compose. The right router ships in `fx-telarana/contracts/test/utils/FxV4RouterHarness.sol` — `_settleFrom(input, sender, amountIn)` BEFORE `manager.swap`, so PoolManager already holds input when the hook tries to take it. **On-chain proof of the mismatch: Arc tx `0xde83acb726a6e33c670b1a17f9ce54f22ab72616c063c076bc769458647a62f6` (block 43390846) reverted with `WrappedError(FxSwapHook, beforeSwap, WrappedError(USDC, transfer, "ERC20: transfer amount exceeds balance"))`** — exactly the missing-pre-fund signature. Closure path: redeploy a `FxV4RouterHarness` instance on Arc Testnet and re-pin `V4_SWAP_ROUTER_5042002`.
+2. **`FxOracle.getMid(USDC,EURC)`: CLOSED (Wave N3 live-bracketed).** N3 demonstrated inline Pyth refresh via `FxOracle.getMidWithUpdatePyth(USDC, EURC, [hermesVAA])` — Arc tx `0x7b1cb2f46ddc86d4fa248fdb1354bbb43815531f6c5dbd9f1757fa6484614e5c` (initial warm) + `0x097eea5cf2790b8aa2f1b979d20807be2cd7f1606f81688f786917d4ca51fa81` (re-warm before swap attempt) returned a fresh mid `0.860375e18` (EUR/USD ~1.16). Pyth's `getUpdateFee` quoted at **2 wei** on Arc — negligible. N2b's `apps/keeper-pyth` keep-warm daemon is the production-time closure once it lands on `main`.
+3. **Circle Gateway attestation env not provisioned.** Demo B (Gateway) only — `V4_SWAP_GATEWAY_ATTESTATION` + `V4_SWAP_GATEWAY_SIGNATURE`. Out of scope for N3; owned by Wave N2c.
 
 **What broadcasting a live swap looks like once M3 lands** *(reference encoding, Wave M4 verified)*:
 ```
@@ -438,14 +471,39 @@ tx            = V4_SWAP_TEST_ROUTER.unlock(callbackData)
 
 ### Phase E — Runbook TBD fills
 
-This PR. Branch `feat/wk1m4-fill-runbook-tbds` based on `feat/wk1m5-hookathon-demo-runbook`. All `<TBD-M1>` rows filled from M1 deploys; all `<TBD-M3>` rows surfaced precisely as `<PENDING-M3>` (router) or `<PENDING-GATEWAY-ATTESTATION>` (Circle); all `<TBD-M4>` rows either filled with real tx hashes (live broadcasts) or marked with the precise downstream gap.
+Wave M4 PR (`feat/wk1m4-fill-runbook-tbds`). All `<TBD-M1>` rows filled from M1 deploys; all `<TBD-M3>` rows surfaced precisely as `<PENDING-M3>` (router) or `<PENDING-GATEWAY-ATTESTATION>` (Circle); all `<TBD-M4>` rows either filled with real tx hashes (live broadcasts) or marked with the precise downstream gap.
 
-### Gas consumed on Arc Testnet during Wave M4
+### Phase F — Wave N3 live CCTP broadcast *(2026-05-21)*
+
+Live end-to-end broadcast of Demo A (§2). Captured artefact: [`scripts/n3-cctp-demo-broadcast.json`](../scripts/n3-cctp-demo-broadcast.json). Demo script lives on PR #87's branch (`feat/wk1l4-unstub-cctp-demo`, commit `a60f0b7`); the broadcast was run against that head with two in-flight script fixes (an inline Pyth refresh step and a switch from `unlock(bytes)` to `PoolSwapTest.swap` calldata shape) that are proposed for a separate script-fix PR.
+
+| Step | Tx hash | Chain / Block | Status | Notes |
+|---|---|---|---|---|
+| `cctp-approve-fuji-usdc` | `0xae606d2d924f2951c2d0bff45380ba1c31b237c3b134decd69d13b54952e12c5` | Fuji 55616923 | ok | Taker (keeper) approves TokenMessengerV2 to spend USDC. |
+| `cctp-burn-fuji` | `0x524074675dd212222b4f0a1978e2699d4e9a8caba9992073e823cff357187ca8` | Fuji 55616926 | ok | `TokenMessengerV2.depositForBurn(0.1 USDC, dstDomain=26, mintRecipient=keeper, maxFee=500, finality=1000)`. Gas 133,815. |
+| `cctp-attest-iris` | *(off-chain, eventNonce `0x4744694a…a8c5b3`)* | n/a | ok | Iris attestation came back in **5.9 seconds** (CCTP V2 fast finality). |
+| `cctp-mint-arc` | `0x55e40c3f0ff76edeb5ca05925171b43b5a21f3a4f88aaf5ff589b249c2971f51` | Arc 43389708 | ok | `MessageTransmitterV2.receiveMessage(message, attestation)`. 0.1 USDC delivered to keeper on Arc. Gas 162,577. |
+| `pyth-refresh-pre-swap` | `0x7b1cb2f46ddc86d4fa248fdb1354bbb43815531f6c5dbd9f1757fa6484614e5c` | Arc 43390625 | ok | `FxOracle.getMidWithUpdatePyth(USDC, EURC, [hermesVAA])`. Fee 2 wei. Returned mid `0.860375e18`. |
+| `pyth-refresh-pre-swap` *(second warm)* | `0x097eea5cf2790b8aa2f1b979d20807be2cd7f1606f81688f786917d4ca51fa81` | Arc 43390780 | ok | Re-warm right before the force-broadcasted swap (first warm had gone stale during iteration on the router mismatch). |
+| `v4-approve-pool-manager` | `0x53387349faba05c543b1d9df94e2d5db94ff2aba0ccb5f778aa516a6cbaedaa6` | Arc 43390742 | ok | Keeper approves PoolManager (`0x3FA22b…3B34`) to spend `200_000` raw USDC. |
+| `v4-pool-manager-unlock-swap` | `0xde83acb726a6e33c670b1a17f9ce54f22ab72616c063c076bc769458647a62f6` | Arc 43390846 | **reverted** | `PoolSwapTest.swap(poolKey, swapParams, testSettings, hookData)` with `amountSpecified=-10000` (0.01 USDC, lowered from 0.1 to reduce gas waste on a known-reverting tx). Force-broadcast via `cast send --gas-limit 800000` to capture the revert on-chain. Selector `0x90bfb865` = `WrappedError`. Decoded: hook beforeSwap called `USDC.transfer(...)` from a zero-balance PoolManager. Root cause: PoolSwapTest settle-after-swap vs FxSwapHook PMM settle-inside-beforeSwap. See Phase D blocker 1. |
+
+**Balance deltas** (keeper at `0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69` — used as keeper + maker + taker because the demo MAKER/TAKER EOAs have zero Fuji USDC/AVAX):
+
+| Asset | Before | After | Delta |
+|---|---|---|---|
+| Fuji USDC | 0.150000 | 0.050000 | **−0.100000** (locked in CCTP TokenMessengerV2 on Fuji as part of the burn) |
+| Arc USDC | 22.124323 | 22.198716 | **+0.074393** (mint +0.1 then ≈0.0257 consumed by Arc-side gas across Pyth refresh × 2, approve, reverted swap) |
+| Arc EURC | 33.955639 | 33.955639 | 0 (swap reverted — no EURC delivered) |
+| Fuji AVAX | 5.724988122488828074 | 5.724988122488311618 | −516,456 wei (Fuji-side gas) |
+
+### Gas consumed on Arc Testnet during Waves M4 + N3
 
 | Metric | Value |
 |---|---|
-| Keeper balance before | `1.442130723250403730` USDC (native gas, 18-dec form) |
-| Keeper balance after | `0.429094931493403730` USDC |
-| Total consumed | `1.013035791757000000` USDC across Phase A + B + C broadcasts (8 txs). |
+| Keeper balance before M4 | `1.442130723250403730` USDC (native gas, 18-dec form) |
+| Keeper balance after M4 | `0.429094931493403730` USDC (− `1.013035791757` USDC across M4 Phase A + B + C broadcasts, 8 txs) |
+| Keeper balance before N3 | `22.124323594188403699` USDC (native, post-M4 refill) |
+| Keeper balance after N3 | `22.198716733909403693` USDC (net **+0.0744** USDC — the CCTP mint delivered 0.1 USDC, ≈0.0257 burned to Arc-side gas across 5 N3 broadcasts) |
 
 ---

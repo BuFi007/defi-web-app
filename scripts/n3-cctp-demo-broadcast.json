@@ -1,0 +1,178 @@
+{
+  "wave": "N3",
+  "broadcastAt": "2026-05-21T18:52:22.614Z",
+  "agent": "Wave N3 — live broadcast Demo A (CCTP → Arc swap)",
+  "scriptUsed": {
+    "path": "scripts/v4-swap-pool-demo-cctp.ts",
+    "branch": "feat/wk1l4-unstub-cctp-demo (PR #87 head, commit a60f0b7)",
+    "note": "Script not on this branch's base (feat/wk1m4-fill-runbook-tbds). Broadcast was executed against PR #87's head with two N3 in-flight patches (Pyth-refresh-pre-swap step + PoolSwapTest.swap encoding) that did NOT land in this PR — they're proposed for a separate script-fix PR. The captured CCTP tx hashes are immutable on-chain artefacts regardless of script location."
+  },
+  "network": {
+    "fuji": {
+      "chainId": 43113,
+      "name": "Avalanche Fuji",
+      "rpc": "https://api.avax-test.network/ext/bc/C/rpc",
+      "explorerBase": "https://testnet.snowtrace.io/tx/"
+    },
+    "arc": {
+      "chainId": 5042002,
+      "name": "Arc Testnet",
+      "rpc": "https://rpc.testnet.arc.network",
+      "explorerBase": "https://testnet.arcscan.app/tx/"
+    },
+    "cctp": {
+      "version": 2,
+      "sourceDomain": 1,
+      "destinationDomain": 26,
+      "tokenMessengerV2Fuji": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
+      "messageTransmitterV2Arc": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
+      "iris": "https://iris-api-sandbox.circle.com"
+    }
+  },
+  "actors": {
+    "keeper": {
+      "address": "0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69",
+      "note": "Used as keeper, maker, and taker — the configured DEMO_TAKER + DEMO_MAKER EOAs have zero Fuji USDC + AVAX, so the broadcast collapsed all three roles onto KEEPER for the live run."
+    }
+  },
+  "contracts": {
+    "poolManager": "0x3FA22b7Aeda9ebBe34732ea394f1711887363B34",
+    "fxSwapHook": "0xC6F894f30d0D28972C876B4af58C02A4E88A0aC8",
+    "fxOracle": "0x77b3A3B420dB98B01085b8C46a753Ed9879e2865",
+    "pythPriceFeed": "0x2880aB155794e7179c9eE2e38200202908C17B43",
+    "poolSwapTestRouter": "0x60004B08372Ea953762fCD5cb4D0c723F32311fa",
+    "fujiUsdc": "0x5425890298aed601595a70AB815c96711a31Bc65",
+    "arcUsdc": "0x3600000000000000000000000000000000000000",
+    "arcEurc": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
+    "poolId": "0xd5e4a30d113d293ff50273c0aa3626e66c3a1cb8b6ba2bf22f2420ed4f92a1ef"
+  },
+  "pythFeedIds": {
+    "usdcUsd": "0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
+    "eurUsd": "0x76fa85158bf14ede77087fe3ae472f66213f6ea2f5b411cb2de472794990fa5c"
+  },
+  "amount": {
+    "raw": "100000",
+    "human": "0.1 USDC",
+    "maxFeeRaw": "500",
+    "maxFeeHuman": "0.0005 USDC",
+    "feeExecuted": "0"
+  },
+  "balances": {
+    "before": {
+      "fuji.usdc.keeper": "0.150000",
+      "arc.usdc.keeper": "22.124323",
+      "arc.eurc.keeper": "33.955639",
+      "arc.native.keeper": "22.124323594188403699",
+      "fuji.native.keeper.avax": "5.724988122488828074"
+    },
+    "after": {
+      "fuji.usdc.keeper": "0.050000",
+      "arc.usdc.keeper": "22.198716",
+      "arc.eurc.keeper": "33.955639",
+      "arc.native.keeper": "22.198716733909403693",
+      "fuji.native.keeper.avax": "5.724988122488311618"
+    },
+    "deltas": {
+      "fuji.usdc.keeper": "-0.100000 (the burn — 0.1 USDC locked in CCTP TokenMessengerV2 on Fuji)",
+      "arc.usdc.keeper": "+0.074393 (mint minus subsequent Arc-side gas: 0.1 minted → 22.215873; then Pyth refresh + approve + reverted swap consumed ~0.0172 USDC of native gas)",
+      "arc.eurc.keeper": "0 (swap reverted — no EURC delivered; EURC sleeve from M4 unaffected)"
+    }
+  },
+  "fuji": {
+    "step": "cctp-approve + cctp-burn",
+    "approveTxHash": "0xae606d2d924f2951c2d0bff45380ba1c31b237c3b134decd69d13b54952e12c5",
+    "approveExplorer": "https://testnet.snowtrace.io/tx/0xae606d2d924f2951c2d0bff45380ba1c31b237c3b134decd69d13b54952e12c5",
+    "burnTxHash": "0x524074675dd212222b4f0a1978e2699d4e9a8caba9992073e823cff357187ca8",
+    "burnExplorer": "https://testnet.snowtrace.io/tx/0x524074675dd212222b4f0a1978e2699d4e9a8caba9992073e823cff357187ca8",
+    "blockNumber": 55616926,
+    "amountUsdcRaw": "100000",
+    "amountUsdcHuman": "0.1",
+    "destinationDomain": 26,
+    "destinationCaller": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "mintRecipient": "0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69",
+    "maxFeeRaw": "500",
+    "minFinalityThreshold": 1000,
+    "gasUsed": 133815
+  },
+  "iris": {
+    "step": "cctp-attest-iris",
+    "elapsedMs": 5904,
+    "elapsedSec": 5.904,
+    "status": "complete",
+    "eventNonce": "0x4744694a5f8e2d400a0f3b527cdbddd33837edaa847a6cde3862fd4d34a8c5b3",
+    "cctpVersion": 2,
+    "finalityThresholdExecuted": 2000,
+    "attestationLengthHex": 260,
+    "messageLengthHex": 220
+  },
+  "arc": {
+    "mintStep": "cctp-mint-arc (MessageTransmitterV2.receiveMessage)",
+    "mintTxHash": "0x55e40c3f0ff76edeb5ca05925171b43b5a21f3a4f88aaf5ff589b249c2971f51",
+    "mintExplorer": "https://testnet.arcscan.app/tx/0x55e40c3f0ff76edeb5ca05925171b43b5a21f3a4f88aaf5ff589b249c2971f51",
+    "mintBlockNumber": 43389708,
+    "mintGasUsed": 162577,
+    "mintAmountRaw": "100000",
+    "mintAmountHuman": "0.1 USDC delivered to keeper on Arc",
+    "pythRefreshStep": "pyth-refresh-pre-swap (FxOracle.getMidWithUpdatePyth)",
+    "pythRefreshTxHash": "0x7b1cb2f46ddc86d4fa248fdb1354bbb43815531f6c5dbd9f1757fa6484614e5c",
+    "pythRefreshExplorer": "https://testnet.arcscan.app/tx/0x7b1cb2f46ddc86d4fa248fdb1354bbb43815531f6c5dbd9f1757fa6484614e5c",
+    "pythRefreshFeeWei": "2",
+    "pythRefreshBlobs": 1,
+    "pythRefreshBlockNumber": 43390625,
+    "secondPythRefreshTxHash": "0x097eea5cf2790b8aa2f1b979d20807be2cd7f1606f81688f786917d4ca51fa81",
+    "secondPythRefreshNote": "Re-warmed Pyth right before the force-broadcasted swap (the first warm went stale during the swap-attempt iteration)",
+    "approvePoolManagerTxHash": "0x53387349faba05c543b1d9df94e2d5db94ff2aba0ccb5f778aa516a6cbaedaa6",
+    "approvePoolManagerExplorer": "https://testnet.arcscan.app/tx/0x53387349faba05c543b1d9df94e2d5db94ff2aba0ccb5f778aa516a6cbaedaa6",
+    "approvePoolManagerNote": "Approved PoolManager (0x3FA22b…3B34) to spend 200000 USDC raw from keeper, so PoolSwapTest's settle path inside unlockCallback can pull input.",
+    "swapStep": "v4-pool-manager-unlock-swap (PoolSwapTest.swap)",
+    "swapTxHash": "0xde83acb726a6e33c670b1a17f9ce54f22ab72616c063c076bc769458647a62f6",
+    "swapExplorer": "https://testnet.arcscan.app/tx/0xde83acb726a6e33c670b1a17f9ce54f22ab72616c063c076bc769458647a62f6",
+    "swapBlockNumber": 43390846,
+    "swapStatus": "0x0 (REVERTED — broadcast on-chain via cast send --gas-limit 800000 to capture the precise revert reason as an on-chain artefact)",
+    "swapGasUsed": 247119,
+    "swapRevertSelector": "0x90bfb865 (WrappedError(address,bytes4,bytes,bytes))",
+    "swapRevertDecoded": "WrappedError(FxSwapHook=0xC6F894…0aC8, beforeSwap=0x575e24b4, inner=WrappedError(USDC=0x3600…, transfer=0xa9059cbb, reason=Error('ERC20: transfer amount exceeds balance')))",
+    "swapAmountSpecified": "-10000 (exact-input 0.01 USDC, reduced from 0.1 to lower failure cost)",
+    "swapSqrtPriceLimitX96": "4295128740 (MIN_SQRT_PRICE + 1, zeroForOne=true)",
+    "poolKey": {
+      "currency0": "0x3600000000000000000000000000000000000000",
+      "currency1": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
+      "fee": 100,
+      "tickSpacing": 1,
+      "hooks": "0xC6F894f30d0D28972C876B4af58C02A4E88A0aC8"
+    },
+    "amountOutEurc": "0 (swap reverted — no EURC delivered)"
+  },
+  "outcome": {
+    "cctpEndToEnd": "PROVED LIVE. Fuji burn → Iris attest (5.9s) → Arc mint succeeded. 0.1 USDC moved from Fuji custody to Arc keeper balance, confirmed by ERC20 balance delta on Arc (22.124 → 22.215). Settles the load-bearing 'CCTP V2 attestation routed under the hook' claim from §2 of the Hookathon brief.",
+    "pythOracleWarmable": "PROVED LIVE. FxOracle.getMidWithUpdatePyth(USDC, EURC, [hermesVAA]) succeeded and returned a fresh mid (0.860375 EURC/USDC, ~EUR/USD 1.16). This closes M4-BLOCK-2 (StalePrice 0x19abf40e) as long as the refresh runs in the same block as the swap.",
+    "v4SwapLeg": "STILL BLOCKED — newly precise root cause. PoolSwapTest (Wave N2a pin at 0x60004B08…11Fa) is architecturally incompatible with FxSwapHook's PMM pattern: PoolSwapTest settles input AFTER manager.swap returns (standard v4 LP flow), but FxSwapHook calls inputCurrency.take(POOL_MANAGER, ...) INSIDE beforeSwap (line 731 of FxSwapHook.sol), which requires the PoolManager to already hold the input currency. Verified on-chain by the reverted swap tx 0xde83acb7…62f6 — revert path: PoolSwapTest.swap → manager.unlock → unlockCallback → manager.swap → FxSwapHook.beforeSwap → manager.take(USDC) → USDC.transfer(hook) reverts with 'ERC20: transfer amount exceeds balance' (manager holds 0 USDC at that point). The correct router shape ships in fx-telarana at `contracts/test/utils/FxV4RouterHarness.sol` — it does `_settleFrom(input, sender, amountIn)` BEFORE calling `manager.swap`, which seeds PoolManager with input before the hook tries to take it. M3 needs to deploy FxV4RouterHarness (or an equivalent settle-before-swap shim) on Arc Testnet and re-pin V4_SWAP_ROUTER_5042002.",
+    "loadBearingClaim": "Real-Time FX Swap Pool Using CCTP — TWO OF THREE legs proven live (CCTP attestation routed end-to-end; Pyth oracle refresh inline before the swap block). The third leg (v4 hook-driven swap settlement) IS one router-deploy away — the FxSwapHook PMM contract itself is healthy (probe-arc-fx-swap-hook ok, reserves 1 USDC + 0.9 EURC, quote-rate would be 0.917 EURC per USDC). Honesty note: Demo A is not yet a single-tx end-to-end USDC→EURC swap; it's a two-step (CCTP-deliver-USDC THEN hook-swap-USDC→EURC) flow where step 2 needs the right router pinned."
+  },
+  "blockers": {
+    "M4-BLOCK-1": {
+      "status": "PARTIALLY CLOSED",
+      "name": "V4_SWAP_TEST_ROUTER not deployed",
+      "newPrecisionFromN3": "Wave N2a deployed canonical v4-core PoolSwapTest (0x60004B08…11Fa). PoolSwapTest IS deployed and IS callable (verified — manager() returns 0x3FA22b…, swap selector 0x2229d0b4 present), but it is NOT the right router shape for FxSwapHook's settle-inside-beforeSwap PMM pattern. The closure path is to deploy FxV4RouterHarness from fx-telarana/contracts/test/utils/FxV4RouterHarness.sol.",
+      "fixOwner": "Wave M3 (or a new wave N4) — re-pin V4_SWAP_ROUTER_5042002 to an FxV4RouterHarness deployment."
+    },
+    "M4-BLOCK-2": {
+      "status": "CLOSED in this wave (live-bracket workaround)",
+      "name": "FxOracle.getMid(USDC,EURC) reverts StalePrice()",
+      "closureMechanism": "Wave N3 demonstrated inline Pyth refresh via FxOracle.getMidWithUpdatePyth using Hermes VAA in the same tx. Tx 0x7b1cb2f4…14e5c (and the second warm 0x097eea5c…1fa81). N2b's keep-warm daemon is the production-time closure; this wave's inline refresh is the per-broadcast workaround that keeps the swap block fresh."
+    },
+    "M4-BLOCK-3": {
+      "status": "UNCHANGED",
+      "name": "Circle Gateway attestation env not provisioned",
+      "note": "Demo B (Gateway) only — out of scope for N3. Owned by N2c."
+    }
+  },
+  "perBroadcastGasBudget": {
+    "fujiBurnGasUsedAvax": "133815 * gasPrice ≈ 0.0034 AVAX",
+    "arcMintGasUsedNative": "162577 (native gas, USDC-denominated)",
+    "arcPythRefreshGasUsedNative": "≈ 250000 (across two warm calls)",
+    "arcApprovePoolManagerGasUsedNative": "≈ 47000",
+    "arcSwapAttemptGasUsedNative": "247119 (reverted, but gas consumed)",
+    "totalKeeperUsdcConsumedArc": "0.025607 (22.124323 - 22.198716 - 0.1 mint = -0.0257 — keeper netted +0.0744 USDC after subtracting 0.1 burn cost on Fuji)"
+  }
+}
