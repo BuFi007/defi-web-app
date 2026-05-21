@@ -7,22 +7,24 @@
  *   - Current funding rate (per-8h fmt, signed, with direction tag)
  *   - Annualized rate as a secondary read
  *   - Last-poke countdown ("Δ 12s ago")
+ *   - <FundingSparkline /> — a uPlot pure-curve sparkline of the
+ *     accumulated funding-rate history. Color-shifts on the LATEST
+ *     rate's sign (positive → loss-ink, negative → profit-ink,
+ *     balanced → muted), matching the "longs pay / shorts pay" pill.
  *
- * Sparkline is intentionally NOT rendered in this first cut. The brief
- * lists it as optional and requires a Ponder-side `FundingPoked` history
- * endpoint that doesn't exist yet (see Stop-condition in the brief). We
- * leave a hook-shaped placeholder div with an explanatory tooltip so
- * the layout doesn't shift when the data lands.
- *
- * Refresh: relies on `useFundingRate`'s 30-second poll. A separate
- * 1-second `tick` interval drives the "ago Ns" display without
- * triggering RPC fetches.
+ * The sparkline data source is `useFundingHistory` — see that hook
+ * for the analytics → WS → in-memory accumulator fallback chain. The
+ * 30-s `useFundingRate` poll keeps the accumulator fresh.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { type AlignedData, type Options } from "uplot";
 
 import { Hint } from "./hint";
 import { useFundingRate } from "@/lib/perps/use-funding-rate";
+import { useFundingHistory } from "@/lib/perps/use-funding-history";
+// Barrel import — also pulls in `uplot.css` for the sparkline.
+import { useUplot, fmtAnnualizedPct } from "@/lib/perps/uplot";
 import type { PerpsChainId } from "@/lib/perps/chains";
 import { PERPS_CHAIN_BY_ID } from "@/lib/perps/chains";
 import type { Hex } from "viem";
@@ -158,20 +160,128 @@ export function FundingRateWidget({ chainId, marketId }: FundingRateWidgetProps)
         <span className="mono">v{live?.version ?? 0}</span>
       </div>
 
-      {/* Sparkline placeholder — wires up once Ponder indexes
-          FundingPoked history (brief Stop-condition #3 — TODO). */}
+      <FundingSparkline chainId={chainId} marketId={marketId} tone={tone} />
+    </div>
+  );
+}
+
+interface FundingSparklineProps {
+  chainId: PerpsChainId;
+  marketId: Hex | undefined;
+  tone: "profit" | "loss" | "neutral";
+}
+
+/**
+ * Pure-curve uPlot sparkline of the funding-rate history. No axes, no
+ * legend, no markers — just the curve in the tone color of the latest
+ * sample. Renders a striped placeholder until the accumulator has at
+ * least 2 samples (one tick after mount).
+ *
+ * Memoised independently from the parent widget so the 1-second "ago Ns"
+ * tick doesn't cause uPlot to re-render its data — the chart only
+ * updates when a new funding-rate snapshot lands.
+ */
+function FundingSparkline({ chainId, marketId, tone }: FundingSparklineProps) {
+  const { points, isWarmingUp, source } = useFundingHistory({ chainId, marketId });
+
+  const accent = useMemo(() => {
+    // Read the active theme color synchronously from the cascade. We
+    // rebuild the opts when `tone` changes so the stroke updates with
+    // every flip.
+    if (typeof window === "undefined") {
+      return tone === "loss" ? "#ef4444" : tone === "profit" ? "#22c55e" : "#9aa0a6";
+    }
+    const styles = getComputedStyle(document.documentElement);
+    if (tone === "loss") return styles.getPropertyValue("--loss-ink").trim() || "#ef4444";
+    if (tone === "profit") return styles.getPropertyValue("--profit-ink").trim() || "#22c55e";
+    return styles.getPropertyValue("--ink-3").trim() || "#9aa0a6";
+  }, [tone]);
+
+  const data = useMemo<AlignedData>(() => {
+    if (points.length < 2) return [[], []] as unknown as AlignedData;
+    const xs = points.map((p) => p.timestamp);
+    const ys = points.map((p) => p.ratePerSec);
+    return [xs, ys] as unknown as AlignedData;
+  }, [points]);
+
+  const opts = useMemo<Options>(
+    () => ({
+      width: 200,
+      height: 24,
+      // No padding — the sparkline runs edge-to-edge.
+      padding: [2, 2, 2, 2],
+      legend: { show: false },
+      cursor: { show: false },
+      // SAFETY: a sparkline that's a single horizontal line should still
+      // paint — without auto, uPlot snaps Y to (-1,1) and clips a flat
+      // rate to the bottom edge.
+      scales: { x: { time: false }, y: { auto: true } },
+      axes: [
+        { show: false },
+        { show: false },
+      ],
+      series: [
+        {},
+        {
+          stroke: accent,
+          width: 1.5,
+          // No fill — keeps the sparkline weightless next to the rate
+          // number. The widget already has a `tone`-tinted big number;
+          // doubling that as a filled area reads as noise.
+          fill: undefined,
+          points: { show: false },
+          value: (_self, raw) =>
+            raw == null || Number.isNaN(raw) ? "—" : fmtAnnualizedPct(raw),
+        },
+      ],
+    }),
+    [accent],
+  );
+
+  // Re-keying the lifecycle when the accent changes IS the right call
+  // here — a 24-px-tall, 2-series chart costs <1 ms to rebuild and the
+  // alternative is mutating series internals, which is fragile for a
+  // sparkline that's already cheap to redraw.
+  const optsKey = `funding-spark-${accent}`;
+  const { containerRef } = useUplot({ opts, data, optsKey });
+
+  const empty = isWarmingUp;
+  const titleSrc =
+    source === "analytics"
+      ? "From Tinybird funding-history pipe"
+      : source === "ws"
+        ? "From live funding WS channel"
+        : source === "memory"
+          ? "Accumulated in this session from on-chain reads"
+          : "Sparkline warms up after the next funding poke";
+
+  return (
+    <div
+      className="uplot-spark frw-spark"
+      title={titleSrc}
+      style={{
+        marginTop: 2,
+        position: "relative",
+        height: 24,
+      }}
+    >
+      {empty && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: 6,
+            background:
+              "repeating-linear-gradient(90deg, var(--surface-2) 0, var(--surface-2) 4px, transparent 4px, transparent 8px)",
+            opacity: 0.35,
+          }}
+        />
+      )}
       <div
-        className="frw-spark-placeholder"
-        title="24h funding sparkline coming once Ponder exposes a FundingPoked history endpoint."
-        style={{
-          marginTop: 2,
-          height: 24,
-          borderRadius: 6,
-          background:
-            "repeating-linear-gradient(90deg, var(--surface-2) 0, var(--surface-2) 4px, transparent 4px, transparent 8px)",
-          opacity: 0.35,
-        }}
-        aria-hidden="true"
+        ref={containerRef}
+        style={{ width: "100%", height: "100%", opacity: empty ? 0 : 1 }}
+        aria-label="Funding-rate sparkline"
       />
     </div>
   );

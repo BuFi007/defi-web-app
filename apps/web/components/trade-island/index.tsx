@@ -45,6 +45,7 @@ import { useMarketStats } from "@/lib/perps/use-market-stats";
 import { PerpChainSelector } from "./perp-chain-selector";
 import { MarketRiskCard } from "./market-risk-card";
 import { FundingRateWidget } from "./funding-rate-widget";
+import { DepthChart } from "./depth";
 import { CrossChainPositions } from "./cross-chain-positions";
 import {
   DEFAULT_PERPS_CHAIN_ID,
@@ -1206,6 +1207,13 @@ function TradeTab({
         </div>
         <div className="t-chart">
           <ChartCard market={market} selectedLeverage={lev} />
+          <div style={{ marginTop: 10 }}>
+            <DepthChart
+              marketSym={market.sym}
+              marketId={activeMarketId}
+              height={120}
+            />
+          </div>
           <div
             className="t-risk-row"
             style={{
