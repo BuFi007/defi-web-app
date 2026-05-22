@@ -1,7 +1,14 @@
-//! Loader for `fx-telarana/deployments/perps-{chainId}.json`.
+//! Loader for `fx-telarana/deployments/perp-stack-{chainId}.json`.
+//!
+//! **Filename was `perps-{chain_id}.json` in the pre-sprint-1 layout.**
+//! Sprint-1 (broadcast 2026-05-21, PR #38) introduced the
+//! `perp-stack-{chainId}.json` file with the new addresses + liquidation
+//! params. The older `perps-{chain_id}.json` is stale; this loader reads
+//! the sprint-1 file, falling back to the legacy filename only when the
+//! sprint-1 file is missing.
 //!
 //! Schema (flat top-level keys, see
-//! `fx-telarana/deployments/perps-5042002.json`):
+//! `fx-telarana/deployments/perp-stack-5042002.json` HEAD `c0ff0d3`):
 //!
 //! ```json
 //! {
@@ -13,7 +20,10 @@
 //!   "FxFundingEngine": "0x…",
 //!   "FxHealthChecker": "0x…",
 //!   "FxLiquidationEngine": "0x…",
-//!   "FxMarginAccount": "0x…"
+//!   "FxMarginAccount": "0x…",
+//!   "liquidation_bountyBps": 500,
+//!   "liquidation_bountyCap": 5000000,
+//!   "liquidation_flagDelay": 120
 //! }
 //! ```
 //!
@@ -49,6 +59,18 @@ pub struct PerpsContracts {
     pub fx_margin_account: Address,
 }
 
+/// Liquidation parameters baked into the sprint-1 deployment manifest.
+/// Mirrors `FxLiquidationEngine.liquidationConfig`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct LiquidationParams {
+    /// Bounty paid to the keeper, in basis points of the liquidated notional.
+    pub bounty_bps: u32,
+    /// Max bounty cap (USDC quantums, 6-dec).
+    pub bounty_cap: u64,
+    /// Delay between `flagAccount` and `liquidate` (seconds).
+    pub flag_delay_secs: u32,
+}
+
 /// Full deployment metadata for a chain.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PerpsDeployment {
@@ -60,6 +82,8 @@ pub struct PerpsDeployment {
     pub keeper: Address,
     /// Contract addresses.
     pub contracts: PerpsContracts,
+    /// Liquidation params (sprint-1+). Zero-valued for pre-sprint-1 manifests.
+    pub liquidation: LiquidationParams,
 }
 
 /// Errors raised by the deployment loader.
@@ -97,11 +121,16 @@ pub enum DeploymentLoadError {
 }
 
 impl PerpsDeployment {
-    /// Load `perps-{chain_id}.json` from `dir`. Applies the
-    /// `CONTRACT_ADDRESSES_JSON` env override if present.
+    /// Load `perp-stack-{chain_id}.json` from `dir`, falling back to the
+    /// legacy `perps-{chain_id}.json` if the sprint-1 file is missing.
+    /// Applies the `CONTRACT_ADDRESSES_JSON` env override if present.
     pub fn load_from_dir(dir: &Path, chain_id: u64) -> Result<Self, DeploymentLoadError> {
-        let path = dir.join(format!("perps-{chain_id}.json"));
-        Self::load_from_file(&path)
+        let sprint1 = dir.join(format!("perp-stack-{chain_id}.json"));
+        if sprint1.exists() {
+            return Self::load_from_file(&sprint1);
+        }
+        let legacy = dir.join(format!("perps-{chain_id}.json"));
+        Self::load_from_file(&legacy)
     }
 
     /// Load from an explicit JSON path. Applies the env override.
@@ -126,6 +155,11 @@ impl PerpsDeployment {
                 fx_health_checker: flat.fx_health_checker,
                 fx_liquidation_engine: flat.fx_liquidation_engine,
                 fx_margin_account: flat.fx_margin_account,
+            },
+            liquidation: LiquidationParams {
+                bounty_bps: flat.liquidation_bounty_bps.unwrap_or(0),
+                bounty_cap: flat.liquidation_bounty_cap.unwrap_or(0),
+                flag_delay_secs: flat.liquidation_flag_delay.unwrap_or(0),
             },
         };
         apply_env_override(&mut deployment)?;
@@ -156,6 +190,13 @@ struct FlatManifest {
     fx_liquidation_engine: Address,
     #[serde(rename = "FxMarginAccount")]
     fx_margin_account: Address,
+    // Sprint-1+ fields; absent on legacy perps-{id}.json.
+    #[serde(default, rename = "liquidation_bountyBps")]
+    liquidation_bounty_bps: Option<u32>,
+    #[serde(default, rename = "liquidation_bountyCap")]
+    liquidation_bounty_cap: Option<u64>,
+    #[serde(default, rename = "liquidation_flagDelay")]
+    liquidation_flag_delay: Option<u32>,
 }
 
 // ---------------------------------------------------------------------------

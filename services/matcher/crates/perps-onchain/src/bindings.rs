@@ -36,11 +36,41 @@ sol! {
         ) external;
     }
 
-    /// Clearinghouse view surface for the OI gate.
+    /// Per-trader position. Mirrors `FxPerpClearinghouse.Position`.
+    struct Position {
+        int256  sizeE18;
+        uint256 entryPriceE18;
+        uint256 marginReservedUsdc;
+        int256  fundingIndexAtEntryE18;
+    }
+
+    /// Per-market config. Mirrors `FxPerpClearinghouse.MarketConfig`.
+    /// Field order MUST match the contract struct — keep in sync if upstream changes.
+    struct MarketConfig {
+        bool    enabled;
+        bool    fundingEnabled;
+        address baseToken;
+        uint256 maxOpenInterestUsd;
+        uint256 maxSkewUsd;
+        uint32  initialMarginBps;
+        uint32  maintenanceMarginBps;
+        uint32  tradingFeeBps;
+        uint32  maxLeverageBps;
+        int256  fundingVelocityBps;
+        int256  maxFundingRateBpsPerSecond;
+    }
+
+    /// Clearinghouse view surface used by Phase 3c+ (OI gate + position state).
     #[sol(rpc)]
     contract FxPerpClearinghouse {
         function openInterestLong(bytes32 marketId) external view returns (uint256);
         function openInterestShort(bytes32 marketId) external view returns (uint256);
         function maxOpenInterest(bytes32 marketId) external view returns (uint256);
+        function marketConfig(bytes32 marketId) external view returns (MarketConfig);
+        function position(bytes32 marketId, address trader) external view returns (Position);
+        // Lenient read for matcher display + gating.
+        function unrealizedPnl(bytes32 marketId, address trader) external view returns (int256);
+        // Strict read for liquidation use — needs RedStone payload in calldata tail.
+        function unrealizedPnlVerified(bytes32 marketId, address trader) external view returns (int256);
     }
 }

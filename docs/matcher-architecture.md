@@ -168,19 +168,56 @@ three locked decisions live in:
 
 **Market ids (Arc Testnet, chainId 5_042_002):**
 
-Source of truth: `fx-telarana/deployments/perps-config-5042002.json`.
+Source of truth: `fx-telarana/deployments/perps-config-5042002.json` at
+HEAD `c0ff0d3` (sprint-1 broadcast 2026-05-21).
+
+| Symbol | Perp market id | On-chain status |
+|---|---|---|
+| EURC/USDC | `0x565a6e2fab61800aa18813603b5b485af5bed7dea1aa0845bdaa61502063cab8` | listed |
+| CIRBTC/USDC | `0x238aacf17c8d170ad55905cd1c217ae2db8338354b1235059fb0f096e20b777a` | listed |
+| TJPYC/USDC | `0x9ccad283db415085bf69329b696bfc7a34bff2d476f5cf7b1d4a3ba9bc0b70ab` | listed (NEW sprint-1) |
+| TMXNB/USDC | `0xb698dfdbcbae088741081a53b9f1da11df8ff7c92c9278b66e15a34077ea5ca3` | listed (NEW sprint-1) |
+| TCHFC/USDC | `0x992a2a93cd7a43a9ca827907f708a00ef88e9757e8aadab780ec4f58b161c7dd` | **unlisted on-chain**, kept in JSON — `marketConfig(id)` will revert. Filter on the on-chain enable state before consuming. |
+
 **Earlier versions of this doc quoted the Morpho lending market ids
 (`0x7d99…` / `0x1700…`) by mistake — those are from the SPOT money-market
 stack via `FxMarketRegistry`, not the PERP stack via
-`FxPerpClearinghouse._marketConfig`.** Corrected:
-
-- EURC/USDC perp: `0x565a6e2fab61800aa18813603b5b485af5bed7dea1aa0845bdaa61502063cab8`
-- CIRBTC/USDC perp: `0x238aacf17c8d170ad55905cd1c217ae2db8338354b1235059fb0f096e20b777a`
-- TCHFC/USDC perp: `0x992a2a93cd7a43a9ca827907f708a00ef88e9757e8aadab780ec4f58b161c7dd`
+`FxPerpClearinghouse._marketConfig`.**
 
 The matcher loads these via `bufi-perps-onchain::MarketConfigSet` from
 `fx-telarana/deployments/perps-config-{chainId}.json`. Fuji perp ids will
 land in the same file when those markets deploy.
+
+**Sprint-1 addresses (Arc Testnet, broadcast 2026-05-21 — supersede prior):**
+
+| Contract | Address |
+|---|---|
+| `FxOrderSettlement` | `0x93C3d831D6F0657479d7Fb6Cf0D06e75aA05E4CC` |
+| `FxPerpClearinghouse` | `0x39dc43E2133CF860c1d17d4DB75Ef4204eebD46A` |
+| `FxMarginAccount` | `0x4EB6018F988301417B93cb2b8899D74D42273e96` |
+| `FxFundingEngine` | `0x859bA11A3693895f8B03C31C6AE3b8F04992115B` |
+| `FxHealthChecker` | `0xA00Be167609c02F3879138dA8530BC31527c02b8` |
+| `FxLiquidationEngine` | `0xF579e265EF1D5E67EfDbb1F20863465E94a9d3eA` |
+| `FxOracle` | `0xf9b0356A31BC7125e2eD0DADf8b5957860d42c78` |
+
+Deployer / keeper EOA: `0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69` — flagged
+for rotation per `fx-telarana/docs/INTEGRATION_HANDOFF.md` §Security note;
+non-blocking for testnet development.
+
+The matcher loader prefers `perp-stack-{chainId}.json` (sprint-1 file),
+falling back to the legacy `perps-{chainId}.json` only when the new file
+is absent. The fallback exists so the loader keeps working in dev
+environments that haven't synced the latest fx-telarana clone.
+
+**Reference TS signing recipe** for the secp256k1 EIP-712 path is in
+`fx-telarana/packages/sdk/scripts/perp-arc-trading-smoke.ts`:
+
+- `signOrder(account, signedOrder)` at **lines 472-490** — the actual
+  `account.signTypedData(...)` call with the `TelaranaFxOrderSettlement`
+  domain (line 475).
+- Lines 215-260 are the *call site* of `settleMatch`, NOT the signing —
+  the integration-handoff doc references this range but the recipe to
+  port to Rust is the function at 472-490.
 
 ---
 
