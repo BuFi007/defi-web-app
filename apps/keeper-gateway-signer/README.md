@@ -3,14 +3,18 @@
 Signs Circle Gateway `BurnIntent`s for the BUFI / FX Telaraña v4 swap pool
 demo. Two modes live in this app:
 
-1. **`src/index.ts`** — long-running keeper stub. Wakes on a fixed
-   `KEEPER_POLL_MS` cadence, logs the boot config once, and stays silent.
-   This is the placeholder for the future
-   `LockedForRemote → Circle /transfer → gatewayMint` relay loop.
+1. **`src/index.ts`** — long-running rotation keeper (Wave N7c). Boots,
+   reads every `attestations/*.json` artefact written by the CLI, polls
+   Fuji on a 5-min cadence, and re-mints any artefact whose
+   `expirationBlock - currentFuji < GATEWAY_ROTATION_BUFFER_BLOCKS` (default
+   10_800 ≈ 6h). Each rotation runs the same `mintAttestation()` flow the
+   CLI uses, so the persisted artefact always matches the latest live
+   Circle attestation. See `## Keeper mode` below.
 2. **`src/mint-attestation.ts`** — one-shot CLI that mints a real Circle
    Gateway attestation against the testnet API. **This is the Wave N2c
-   deliverable** and the only path currently wired up to produce a
-   broadcast-ready attestation for `scripts/v4-swap-pool-demo-gateway.ts`.
+   deliverable** and is what produces the broadcast-ready attestation for
+   `scripts/v4-swap-pool-demo-gateway.ts`. The CLI also exports
+   `mintAttestation(opts)` which is what N7c's keeper calls.
 
 ## The Wave N2c flow (mint a real attestation)
 
@@ -165,3 +169,128 @@ The canonical endpoint per the Circle Gateway skill
 (`~/.claude/skills/use-gateway/references/evm-to-evm.md`) is
 `POST /v1/transfer` — which the CLI uses. This is the same endpoint
 documented in Circle's developer portal.
+
+## Keeper mode (Wave N7c)
+
+The N2c CLI was a one-shot. For Hookathon demo ops + judging the
+attestation needs to stay fresh — N6 (PR #101) had to re-mint by hand
+because the first attestation's 24h TTL had elapsed. **N7c automates
+that.**
+
+```bash
+# From the workspace root:
+bun run keeper:gateway-signer
+
+# From the app dir:
+bun --cwd apps/keeper-gateway-signer dev
+```
+
+The keeper boots, reads every `attestations/*.json` file, exposes
+`:9101/health`, and ticks every 5 minutes. On each tick:
+
+1. Query Fuji's current block via viem (`getBlockNumber` against
+   `getRpcUrl(43113)`).
+2. For each tracked artefact, compute `remaining = expirationBlock - currentFuji`.
+3. If `remaining < GATEWAY_ROTATION_BUFFER_BLOCKS` (default 10_800 ≈ 6h
+   at 2s blocks), call `mintAttestation({ ...artefactFields, silentEnvBanner: true })`
+   to re-mint. The CLI artefact at `attestations/<label>.json` is
+   overwritten with the new attestation + signature.
+4. A per-label cooldown (`GATEWAY_KEEPER_MIN_REMINT_MS`, default 1h) caps
+   the maximum re-mint frequency. See "Block-clock caveat" below.
+
+### Env
+
+| Var                                | Default      | Purpose                                                              |
+|------------------------------------|--------------|----------------------------------------------------------------------|
+| `GATEWAY_KEEPER_PRIVATE_KEY`       | (falls back to `KEEPER_PRIVATE_KEY`) | Hex signer key. When unset the keeper exits 0 in dry-run mode. |
+| `KEEPER_PRIVATE_KEY`               | (none)       | Used when the dedicated var above is unset. Same dual-key pattern N2b uses. |
+| `GATEWAY_KEEPER_HEALTH_PORT`       | `9101`       | TCP port for the `/health` endpoint (Bun.serve).                    |
+| `GATEWAY_ROTATION_BUFFER_BLOCKS`   | `10800`      | Rotate when `expirationBlock - currentFuji` drops below this.        |
+| `GATEWAY_KEEPER_INTERVAL_MS`       | `300000`     | Tick cadence (5 min by default). Propagated to `KEEPER_POLL_MS`.    |
+| `GATEWAY_KEEPER_MIN_REMINT_MS`     | `3600000`    | Per-label cooldown between rotations (caps fee burn if block math is off — see caveat below). |
+| `CIRCLE_GATEWAY_API_URL` / `GATEWAY_API_BASE` | (testnet URL) | Override Circle's API base. The CLI also reads this. |
+
+### Health endpoint
+
+`GET :9101/health` returns a JSON snapshot:
+
+```jsonc
+{
+  "ok": true,
+  "bootAt": "2026-05-22T15:10:12.234Z",
+  "signerConfigured": true,
+  "lastTickAt": "2026-05-22T15:10:13.137Z",
+  "lastTickError": null,
+  "lastMint": "2026-05-22T15:10:13.137Z",
+  "lastTxId": "b146cf70-f867-4729-b164-34057b9a021c",
+  "nextRotationEta": "2026-05-22T15:10:18.170Z",
+  "currentBlocks": { "fuji": "55651332" },
+  "rotationBufferBlocks": "10800",
+  "intervalMs": 300000,
+  "attestations": [
+    {
+      "label": "wave-n2c-eur-usd-demo",
+      "destinationDomain": 26,
+      "destinationChainId": 5042002,
+      "destinationRecipient": "0xe895CB461AFF6E98167a7FA0Db252ba906714088",
+      "amountUsdc": "0.1",
+      "expirationBlock": "43524365",
+      "blocksRemaining": "-12126967",
+      "dueForRotation": true,
+      "mintedAt": "2026-05-22T15:08:09.007Z",
+      "apiBase": "https://gateway-api-testnet.circle.com/v1"
+    }
+  ],
+  "recentRotations": [ /* last 5 rotation log entries */ ]
+}
+```
+
+`200` when healthy, `503` if the last tick errored.
+
+### Dry-run mode
+
+If neither `GATEWAY_KEEPER_PRIVATE_KEY` nor `KEEPER_PRIVATE_KEY` is set,
+the keeper prints
+`GATEWAY_KEEPER_PRIVATE_KEY not configured — dry-run mode; would rotate <N> attestations on next tick`
+and exits 0. Use for CI smoke testing or when wiring the keeper into
+infra before the signer key is provisioned. Production deploys MUST set
+the key.
+
+### Block-clock caveat
+
+Smoke-testing N7c surfaced a discrepancy that's worth documenting before
+anyone re-spec's the rotation logic:
+
+* The N2c artefact stores `circleResponse.expirationBlock: "43390606"`.
+* Re-minting today yields `expirationBlock: "43524365"`.
+* Fuji's live RPC `getBlockNumber()` returns `~55_651_282`.
+
+The N2c README assumed Circle's `expirationBlock` was a Fuji block number
+(`24h ≈ 43_200 blocks`). The numbers don't match — Circle appears to
+track its own block clock (possibly an internal attestation height or
+the Avalanche P-chain), which is currently ~12M blocks behind Fuji C-chain
+head. As a result the naive `expirationBlock < currentFuji + buffer`
+check ALWAYS triggers on a fresh keeper boot, which would burn one
+0.020005 USDC `/transfer` fee per tick forever.
+
+`GATEWAY_KEEPER_MIN_REMINT_MS` (default 1h) is the safety belt: the
+keeper refuses to re-mint the same label more than once per hour. At
+default cadence that caps the worst-case burn at ~$5.76/day per label
+($0.48/h × 24h × 0.020005 USDC ÷ 0.1 USDC fee), and once Circle confirms
+the correct block clock the rotation buffer math becomes exact and the
+cooldown is redundant.
+
+Follow-up: query Circle's `/balances` (or whichever endpoint surfaces the
+correct block reference) on each tick and compare against THAT, not
+Fuji's RPC. Out of N7c scope.
+
+### Gas budget at default cadence
+
+| Scenario | Rotations/day | USDC burn/day |
+|----------|---------------|---------------|
+| Block clock matches (intended): 24h TTL, 6h buffer | ~4 | ~0.080 USDC |
+| Block clock mismatches (current behaviour, capped by cooldown) | 24 | ~0.480 USDC |
+
+Per rotation: `0.020005 USDC` Circle fee + `~0.005 USDC` Arc gas if the
+attestation is consumed on-chain (the consumer pays that, not the keeper).
+The keeper itself does no on-chain writes — it only POSTs to Circle.

@@ -423,13 +423,100 @@ async function queryUnifiedBalance(
   }
 }
 
-// ───────────────────────── main ────────────────────────────────────────
+// ───────────────────────── reusable entrypoint ─────────────────────────
+//
+// `mintAttestation(opts)` is the keeper-mode call site (Wave N7c). It does
+// the same work as the CLI `main()` below — parses args, signs the
+// BurnIntent, POSTs to Circle, persists the artefact — but accepts an
+// explicit options object so the cron loop can drive it directly without
+// shelling out. The CLI passes `argv` through `parseArgs`; the keeper
+// passes a `MintAttestationOptions` and we skip the argv parse entirely.
+//
+// Both call sites converge on the same shape after `resolveArgs(opts)`
+// runs — keep that the single source of truth.
 
-async function main(): Promise<void> {
-  loadRootEnvLocal();
+export interface MintAttestationOptions {
+  /** Decimal USDC string, e.g. "0.1". Defaults to GATEWAY_AMOUNT_USDC env or "0.1". */
+  amountUsdc?: string;
+  /** Decimal USDC string for maxFee, e.g. "2.01". Defaults to GATEWAY_MAX_FEE_USDC env or "2.01". */
+  maxFeeUsdc?: string;
+  /** Circle Gateway destination domain. Defaults to Arc Testnet (26). */
+  destinationDomain?: number;
+  /** Destination chain id (informational). Defaults to Arc Testnet (5042002). */
+  destinationChainId?: number;
+  /** 0x-prefixed 40-char address. Defaults to the Arc TelaranaGatewayHubHook. */
+  destinationRecipient?: Address;
+  /** 0x-prefixed 40-char address. Defaults to destinationRecipient. */
+  destinationCaller?: Address;
+  /** Filename-safe label (`attestations/<label>.json`). Defaults to "wave-n2c-eur-usd-demo". */
+  label?: string;
+  /** Circle Gateway API base URL. Defaults to GATEWAY_API_BASE env or the testnet URL. */
+  apiBase?: string;
+  /** Set false to skip the Fuji unified-balance pre-flight check. */
+  preCheckBalance?: boolean;
+  /** Override the signer key (hex). Defaults to KEEPER_PRIVATE_KEY env. */
+  privateKey?: Hex;
+  /** Suppress the trailing env-pasteable banner. Useful for the keeper-mode loop. */
+  silentEnvBanner?: boolean;
+}
 
-  const args = parseArgs(process.argv.slice(2));
-  const pk = readPrivateKey();
+export interface MintAttestationResult {
+  /** Absolute filesystem path the artefact was written to. */
+  artefactPath: string;
+  /** Hex attestation payload — drop into V4_SWAP_GATEWAY_ATTESTATION. */
+  attestation: Hex;
+  /** Hex signature — drop into V4_SWAP_GATEWAY_SIGNATURE. */
+  signature: Hex;
+  /** Circle's transfer id (uuid string), if present in the response. */
+  transferId: string | null;
+  /** Decimal USDC fee string from Circle, if present (e.g. "0.020005"). */
+  feeUsdc: string | null;
+  /** Source-chain (Fuji) expiration block, as bigint. null if Circle omitted it. */
+  expirationBlock: bigint | null;
+  /** Re-emitted args for downstream logging. */
+  label: string;
+  amountRaw: bigint;
+  destinationRecipient: Address;
+}
+
+function resolveArgs(opts: MintAttestationOptions): CliArgs {
+  // Build a synthetic argv from opts so `parseArgs` stays the single
+  // source-of-truth for env-fallback + validation logic. Only set flags
+  // the caller actually overrode.
+  const argv: string[] = [];
+  const push = (flag: string, value: string | undefined) => {
+    if (value === undefined) return;
+    argv.push(flag, value);
+  };
+  push("--amount", opts.amountUsdc);
+  push("--max-fee", opts.maxFeeUsdc);
+  push(
+    "--destination-domain",
+    opts.destinationDomain === undefined ? undefined : String(opts.destinationDomain),
+  );
+  push(
+    "--destination-chain-id",
+    opts.destinationChainId === undefined ? undefined : String(opts.destinationChainId),
+  );
+  push("--recipient", opts.destinationRecipient);
+  push("--caller", opts.destinationCaller);
+  push("--label", opts.label);
+  push("--api-base", opts.apiBase);
+  if (opts.preCheckBalance === false) {
+    argv.push("--skip-balance-check");
+  }
+  return parseArgs(argv);
+}
+
+export async function mintAttestation(
+  opts: MintAttestationOptions = {},
+): Promise<MintAttestationResult> {
+  // Don't re-load .env.local from this entry point — the caller (CLI or
+  // keeper) is responsible for env hydration. CLI does it in `main()`;
+  // the keeper imports `@bufi/keeper-runtime` which loads root .env.local
+  // at module-eval time.
+  const args = resolveArgs(opts);
+  const pk = opts.privateKey ?? readPrivateKey();
   const account = privateKeyToAccount(pk);
 
   const fujiContracts = CONTRACTS[FUJI_CHAIN_ID];
@@ -655,15 +742,62 @@ async function main(): Promise<void> {
   console.log("[mint-attestation] artefact written", { path: outPath });
 
   // ─── print env-pasteable bytes ─────────────────────────────────────
-  console.log("\n────────────────────────── ENV ──────────────────────────");
-  console.log(`V4_SWAP_GATEWAY_ATTESTATION=${attestation}`);
-  console.log(`V4_SWAP_GATEWAY_SIGNATURE=${signature}`);
-  console.log("──────────────────────────────────────────────────────────\n");
+  if (!opts.silentEnvBanner) {
+    console.log("\n────────────────────────── ENV ──────────────────────────");
+    console.log(`V4_SWAP_GATEWAY_ATTESTATION=${attestation}`);
+    console.log(`V4_SWAP_GATEWAY_SIGNATURE=${signature}`);
+    console.log("──────────────────────────────────────────────────────────\n");
+  }
   console.log("[mint-attestation] OK");
+
+  // ─── extract response metadata ─────────────────────────────────────
+  // Circle's response shape (per the wave-n2c-eur-usd-demo.json artefact)
+  // includes `transferId`, `fees.total`, and `expirationBlock`. Pull the
+  // bits the keeper-mode caller needs into a typed result; tolerate
+  // missing fields (the cron loop re-checks the persisted artefact).
+  const transferId =
+    typeof apiResponse.transferId === "string" ? apiResponse.transferId : null;
+  const feesRaw = (apiResponse as { fees?: { total?: unknown } }).fees;
+  const feeUsdc =
+    feesRaw && typeof feesRaw.total === "string" ? feesRaw.total : null;
+  const expirationRaw = (apiResponse as { expirationBlock?: unknown })
+    .expirationBlock;
+  let expirationBlock: bigint | null = null;
+  if (typeof expirationRaw === "string" && /^\d+$/.test(expirationRaw)) {
+    expirationBlock = BigInt(expirationRaw);
+  } else if (typeof expirationRaw === "number" && Number.isFinite(expirationRaw)) {
+    expirationBlock = BigInt(expirationRaw);
+  }
+
+  return {
+    artefactPath: outPath,
+    attestation: attestation as Hex,
+    signature: signature as Hex,
+    transferId,
+    feeUsdc,
+    expirationBlock,
+    label: args.label,
+    amountRaw: args.amountRaw,
+    destinationRecipient: args.destinationRecipient,
+  };
 }
 
-main().catch((err) => {
-  const msg = (err as Error).message ?? String(err);
-  console.error(`[mint-attestation] FATAL: ${msg}`);
-  process.exit(1);
-});
+// ───────────────────────── CLI entry ───────────────────────────────────
+//
+// Preserved verbatim so `bun run mint` keeps working. When the keeper
+// (src/index.ts) imports this module, `import.meta.main` is false on the
+// keeper file, so this block is skipped — only `mintAttestation()` is
+// pulled in.
+
+async function main(): Promise<void> {
+  loadRootEnvLocal();
+  await mintAttestation();
+}
+
+if (import.meta.main) {
+  main().catch((err) => {
+    const msg = (err as Error).message ?? String(err);
+    console.error(`[mint-attestation] FATAL: ${msg}`);
+    process.exit(1);
+  });
+}
