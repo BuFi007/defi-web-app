@@ -6,6 +6,7 @@ members = [
     "crates/matcher-server",
     "crates/matcher-reconciler",
     "crates/matcher-test-harness",
+    "crates/perps-db",
 ]
 
 [workspace.package]
@@ -36,6 +37,9 @@ futures = "0.3"
 
 # --- redis fan-out (matcher-server only) ---
 redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
+
+# --- sqlite via sqlx (matches @bufi/db's bun:sqlite store) ---
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "macros"] }
 
 # --- EIP-712 signing (matcher-types only) ---
 alloy-sol-types = { version = "0.8", default-features = false }
