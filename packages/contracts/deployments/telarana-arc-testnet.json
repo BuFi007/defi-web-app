@@ -25,7 +25,8 @@
     "TelaranaGatewayHubHook": "0xe895CB461AFF6E98167a7FA0Db252ba906714088"
   },
   "v4Periphery": {
-    "_notes": "Wave M1 hooks (deployed 2026-05-21) + v4 swap router. FxSwapHook permissionFlagsLow14Bits 0xAC8 (beforeAddLiquidity | beforeRemoveLiquidity | beforeSwap | afterSwap | beforeSwapReturnDelta). TelaranaGatewayHubHook 0x88 (beforeSwap | beforeSwapReturnDelta). V4SwapRouter re-pinned by Wave N4 to FxV4RouterHarness (deployed 2026-05-22 tx 0xedf26e79…17c4) — PMM-aware, settles user input BEFORE manager.swap, which is required by FxSwapHook's beforeSwap (it takes input from PoolManager inside the hook at FxSwapHook.sol L731). Replaces the Wave N2a PoolSwapTest pin (0x60004B…11fa, kept on-chain under V4SwapRouter_deprecated below) which settled AFTER manager.swap — verified incompatible by N3's reverted swap artefact 0xde83acb7…62f6. Source manifests: fx-telarana@feat/wave-m1-deploy-arc-hooks + feat/wk1n4-deploy-fxv4routerharness-arc.",
+    "_notes": "Wave M1 hooks (deployed 2026-05-21) + v4 swap routers. FxSwapHook permissionFlagsLow14Bits 0xAC8 (beforeAddLiquidity | beforeRemoveLiquidity | beforeSwap | afterSwap | beforeSwapReturnDelta). TelaranaGatewayHubHook 0x88 (beforeSwap | beforeSwapReturnDelta). V4SwapRouter re-pinned by Wave N4 to FxV4RouterHarness (deployed 2026-05-22 tx 0xedf26e79…17c4) — PMM-aware, settles user input BEFORE manager.swap, which is required by FxSwapHook's beforeSwap (it takes input from PoolManager inside the hook at FxSwapHook.sol L731). Replaces the Wave N2a PoolSwapTest pin (0x60004B…11fa, kept on-chain under V4SwapRouter_deprecated below) which settled AFTER manager.swap — verified incompatible by N3's reverted swap artefact 0xde83acb7…62f6. V4GatewaySwapRouter pinned by Wave N6 to FxV4RouterHarnessGateway (deployed 2026-05-22 tx 0x0d615d95…) — Gateway-aware sibling of FxV4RouterHarness, threads Circle Gateway attestation through beforeSwap for Demo B. Source manifests: fx-telarana@feat/wave-m1-deploy-arc-hooks + feat/wk1n4-deploy-fxv4routerharness-arc + feat/wk1n6-deploy-fxv4routerharnessgateway-arc.",
+    "_routerSelectionNote": "V4SwapRouter for CCTP (Demo A), V4GatewaySwapRouter for Gateway (Demo B). PMM-aware settlement ordering in both; Gateway variant additionally threads attestation through beforeSwap.",
     "FxSwapHook": "0xC6F894f30d0D28972C876B4af58C02A4E88A0aC8",
     "FxSwapHookDeployTx": "0x016e2d483852c19e5dab5eb0338b80d73f7321ad3ee2593ee49876ee3332edb7",
     "FxSwapHookSalt": "0x0000000000000000000000000000000000000000000000000000000000000122",
@@ -36,6 +37,10 @@
     "V4SwapRouterDeployTx": "0xedf26e793f8117482f01df92273204864b6bf0fa86e37b9e02dc177df3e417c4",
     "V4SwapRouterContract": "FxV4RouterHarness",
     "V4SwapRouterEnvVar": "V4_SWAP_ROUTER_5042002",
+    "V4GatewaySwapRouter": "0x72180a231245E06db12b6A77390Ce919fF041f04",
+    "V4GatewaySwapRouterDeployTx": "0x0d615d95",
+    "V4GatewaySwapRouterContract": "FxV4RouterHarnessGateway",
+    "V4GatewaySwapRouterEnvVar": "V4_GATEWAY_SWAP_ROUTER_5042002",
     "V4SwapRouter_deprecated": "0x60004B08372Ea953762fCD5cb4D0c723F32311fa",
     "V4SwapRouter_deprecatedDeployTx": "0xfcc77cb2085aaded899b8d0a7c8c822eb49b3f8fdd0ab9c2eee34b6f94e3d39f",
     "V4SwapRouter_deprecatedContract": "PoolSwapTest",
