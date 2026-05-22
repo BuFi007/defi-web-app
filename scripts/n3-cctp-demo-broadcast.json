@@ -174,5 +174,20 @@
     "arcApprovePoolManagerGasUsedNative": "≈ 47000",
     "arcSwapAttemptGasUsedNative": "247119 (reverted, but gas consumed)",
     "totalKeeperUsdcConsumedArc": "0.025607 (22.124323 - 22.198716 - 0.1 mint = -0.0257 — keeper netted +0.0744 USDC after subtracting 0.1 burn cost on Fuji)"
+  },
+  "n4ReBroadcast": {
+    "broadcastAt": "2026-05-22T14:02:51.582Z",
+    "router": "0x7cfc449B9A6777F740b2F8F7BA87351B15A4B3b6",
+    "routerDeployTx": "0xedf26e793f8117482f01df92273204864b6bf0fa86e37b9e02dc177df3e417c4",
+    "pythRefreshTxHash": "0xfbed293ae000da2ec147add9edff8ceb2183118b53623e8a76657211072ecc5c",
+    "approveRouterTxHash": "0xd8315f13fc60e336ee34ebb94f2082606e3d44c044a71e0c765fbbd328ea8c0f",
+    "swapTxHash": "0x00360215bae7aa9d822611ffca52bc4224b4449386f2c47ad75fada76a4ec631",
+    "swapStatus": "ok",
+    "swapBlockNumber": "43517872",
+    "swapGasUsed": "339140",
+    "eurcDelta": "+0.008596",
+    "usdcDelta": "-0.02309",
+    "outcome": "PROVED LIVE",
+    "evidence": "Keeper EURC 32.955639 → 32.964235 (Δ +0.008596 EURC). FxV4RouterHarness swap tx 0x00360215bae7aa9d822611ffca52bc4224b4449386f2c47ad75fada76a4ec631. Combined with N3's CCTP + Pyth artefacts, all four legs of \"Real-Time FX Swap Pools Using CCTP\" are now live."
   }
 }
