@@ -1,0 +1,145 @@
+{
+  "wave": "N7a",
+  "addedAt": "2026-05-22T15:15:07.895Z",
+  "agent": "Wave N7a — seed real USDC/EURC LP into TGH-hooked pool",
+  "base": {
+    "branch": "feat/wk1n6-broadcast-demo-gateway-live",
+    "prevWave": "N6"
+  },
+  "network": {
+    "chainId": 5042002,
+    "name": "Arc Testnet",
+    "rpc": "https://rpc.testnet.arc.network"
+  },
+  "actor": {
+    "keeper": "0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69"
+  },
+  "poolKey": {
+    "currency0": "0x3600000000000000000000000000000000000000",
+    "currency1": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
+    "fee": 100,
+    "tickSpacing": 1,
+    "hooks": "0xe895CB461AFF6E98167a7FA0Db252ba906714088"
+  },
+  "poolId": "0xf6b13fe5ae3115d159b3a844a56588d1549293fb6725040f01c54ba31827f711",
+  "router": {
+    "address": "0x10a2eea3db2a4549f9cc3ac5aeaea4ac924b184e",
+    "deployTx": "0xd2cf6986db75e2b26b3ea890cd646504fc218fdac7a85fa4d157188268fec21e",
+    "explorer": "https://testnet.arcscan.app/tx/0xd2cf6986db75e2b26b3ea890cd646504fc218fdac7a85fa4d157188268fec21e",
+    "note": "Canonical Uniswap v4 PoolModifyLiquidityTest from lib/v4-core/src/test/. Bytecode mirrored at scripts/artifacts/PoolModifyLiquidityTest.json (sha256 reproducible from the fx-telarana forge build with foundry.toml's via_ir + cancun config). Deployed fresh in this tx — single-purpose v4 LP router for the keeper's modifyLiquidity calls. Owns the position (positions[keccak(router,tickLower,tickUpper,salt)]) per PoolModifyLiquidityTest's unlockCallback convention (`address(this)` is the owner field in modifyLiquidity)."
+  },
+  "liquiditySeed": {
+    "tickLower": -917,
+    "tickUpper": -817,
+    "liquidityDelta": "191525027",
+    "salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "targetUsdcRaw": "1000000",
+    "actualUsdcDepositRaw": "0",
+    "actualEurcDepositRaw": "916957",
+    "actualEurcDepositHuman": "0.916957",
+    "notes": "L sized via getLiquidityForAmount0 with amount0=1 USDC at sqrtRatio range (tick -917 → tick -817). Because current sqrtPriceX96 is at MAX (price-lock from N6 zero-LP swap), the position lies entirely BELOW the current price → realised single-sided in token1 (EURC), not balanced. ~0.917 EURC consumed; mirrors the brief's 0.9 EURC target. A future USDC→EURC swap (zeroForOne=true, price drops) will cross into [TICK_LOWER, TICK_UPPER] and consume this EURC against real AMM math. Balanced 1 USDC + 0.9 EURC seed cannot be added to THIS specific pool until sqrtPriceX96 is restored — see blocker + recommendedFollowup."
+  },
+  "amounts": {
+    "usdc": "0",
+    "eurc": "916957"
+  },
+  "txHashes": {
+    "deployRouter": "0xd2cf6986db75e2b26b3ea890cd646504fc218fdac7a85fa4d157188268fec21e",
+    "approveUsdc": "0x2a78e4f1939e22d74a5b568116843342d3030abe9e7cc8cdf9bdc10cec635cca",
+    "approveEurc": "0x399491eb2bfb7c434407c45b440e855ac7201f373025913df7d2427ba5d25868",
+    "modifyLiquidity": "0x7b2ef8bbfea164821f1dfecd06a3717e86760a3c7be9f661cb86b6e4323c42ab"
+  },
+  "balancesBefore": {
+    "keeper.usdc": "19.752622",
+    "keeper.eurc": "32.964235"
+  },
+  "balancesAfter": {
+    "keeper.usdc": "19.72506",
+    "keeper.eurc": "32.047278"
+  },
+  "balanceDeltas": {
+    "keeper.usdc": "-0.027562",
+    "keeper.eurc": "-0.916957",
+    "_note": "keeper.usdc delta is gas-only — modifyLiquidity, deploy, and the two approves all paid gas in native USDC. keeper.eurc delta of -0.916957 is the LP deposit (single-sided in token1 because current sqrtPriceX96 sits above the LP range)."
+  },
+  "slot0Before": {
+    "sqrtPriceX96": "1461446703485210103287273052203988822378723970341",
+    "sqrtPriceX96Hex": "0xfffd8963efd1fc6a506488495d951d5263988d25",
+    "tick": 887271,
+    "protocolFee": 0,
+    "lpFee": 100
+  },
+  "slot0After": {
+    "sqrtPriceX96": "1461446703485210103287273052203988822378723970341",
+    "sqrtPriceX96Hex": "0xfffd8963efd1fc6a506488495d951d5263988d25",
+    "tick": 887271,
+    "protocolFee": 0,
+    "lpFee": 100,
+    "_note": "tick unchanged — modifyLiquidity does not move price. Pool remains price-locked at MAX_TICK from the N6 zero-LP swap."
+  },
+  "globalLiquidityBefore": "0",
+  "globalLiquidityAfter": "0",
+  "globalLiquidityNote": "PoolManager Pool.State slot+3 (`liquidity`) tracks GLOBAL active in-range liquidity. Our position range [-917,-817] is BELOW current tick (887271), so the position is INACTIVE — not counted in global liquidity. Verified per-position via extsload at positions[keccak(router=0x10a2…84e, tickLower=-917, tickUpper=-817, salt=0)] which returns liquidity=191525027 (= 0x0b6a70a3) — confirming LP was added to the pool's position store.",
+  "positionVerify": {
+    "owner": "0x10a2eea3db2a4549f9cc3ac5aeaea4ac924b184e",
+    "tickLower": -917,
+    "tickUpper": -817,
+    "salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "positionKey": "0x22b34d53eb8e8470cbf0978918b343699f7ea225f758bce0a6666e16ab30c26f",
+    "positionStorageSlot": "0x6ff21d18ef668850880ba245e6adcd1bf5bea49e714063c840924f6649d14474",
+    "extsloadResultHex": "0x000000000000000000000000000000000000000000000000000000000b6a70a3",
+    "decodedLiquidity": "191525027",
+    "matchesRequestedDelta": true
+  },
+  "steps": [
+    {
+      "step": "sanity-probes",
+      "status": "ok",
+      "detail": "slot0 sqrtPriceX96=1461446703485210103287273052203988822378723970341, tick=887271; pool global liquidity=0; keeper USDC=19.752622 EURC=32.964235"
+    },
+    {
+      "step": "deploy-pool-modify-liquidity-test",
+      "status": "ok",
+      "txHash": "0xd2cf6986db75e2b26b3ea890cd646504fc218fdac7a85fa4d157188268fec21e",
+      "explorer": "https://testnet.arcscan.app/tx/0xd2cf6986db75e2b26b3ea890cd646504fc218fdac7a85fa4d157188268fec21e",
+      "gasUsed": "1025797",
+      "blockNumber": "43523900",
+      "detail": "PoolModifyLiquidityTest deployed at 0x10a2eea3db2a4549f9cc3ac5aeaea4ac924b184e, manager() pinned to 0x3FA22b7Aeda9ebBe34732ea394f1711887363B34"
+    },
+    {
+      "step": "approve-usdc",
+      "status": "ok",
+      "txHash": "0x2a78e4f1939e22d74a5b568116843342d3030abe9e7cc8cdf9bdc10cec635cca",
+      "explorer": "https://testnet.arcscan.app/tx/0x2a78e4f1939e22d74a5b568116843342d3030abe9e7cc8cdf9bdc10cec635cca",
+      "gasUsed": "55786",
+      "blockNumber": "43523908",
+      "detail": "USDC.approve(0x10a2eea3db2a4549f9cc3ac5aeaea4ac924b184e, max) — was 0. Defence-in-depth approval; actual position is single-sided EURC, so no USDC was pulled."
+    },
+    {
+      "step": "approve-eurc",
+      "status": "ok",
+      "txHash": "0x399491eb2bfb7c434407c45b440e855ac7201f373025913df7d2427ba5d25868",
+      "explorer": "https://testnet.arcscan.app/tx/0x399491eb2bfb7c434407c45b440e855ac7201f373025913df7d2427ba5d25868",
+      "gasUsed": "55785",
+      "blockNumber": "43523916",
+      "detail": "EURC.approve(0x10a2eea3db2a4549f9cc3ac5aeaea4ac924b184e, max) — was 0. Required because the position lies above current price → realised in token1 (EURC)."
+    },
+    {
+      "step": "modify-liquidity",
+      "status": "ok",
+      "txHash": "0x7b2ef8bbfea164821f1dfecd06a3717e86760a3c7be9f661cb86b6e4323c42ab",
+      "explorer": "https://testnet.arcscan.app/tx/0x7b2ef8bbfea164821f1dfecd06a3717e86760a3c7be9f661cb86b6e4323c42ab",
+      "gasUsed": "240673",
+      "blockNumber": "43523924",
+      "detail": "modifyLiquidity(poolKey, {tickLower=-917, tickUpper=-817, liquidityDelta=191525027, salt=0}, hookData=0x). Hook callback NOT invoked because TGH.getHookPermissions() returns beforeAddLiquidity=false, afterAddLiquidity=false — PoolManager skips the hook entirely. Position recorded in PoolManager.positions mapping, balance delta paid in EURC (single-sided)."
+    }
+  ],
+  "outcome": {
+    "lpSeeded": "REAL_AMM_LP_ADDED",
+    "readyForProductionSwap": "YES_USDC_TO_EURC_ONLY",
+    "evidence": "tx 0x7b2ef8bbfea164821f1dfecd06a3717e86760a3c7be9f661cb86b6e4323c42ab (status=success, gas=240673, block=43523924) — PoolManager.modifyLiquidity executed against poolId 0xf6b13fe5…7f711. Keeper EURC delta -0.916957 (LP deposit, single-sided), USDC delta -0.027562 (gas only). Position.liquidity at positions[keccak(0x10a2…84e, -917, -817, 0x0)] = 191525027 — confirmed real LP recorded via PoolManager.extsload. Slot0 tick unchanged at 887271 (modifyLiquidity does not move price). The TGH hook was NOT invoked during LP add (per getHookPermissions={beforeAddLiquidity:false, afterAddLiquidity:false}), which is the correct v4 behaviour.",
+    "blocker": "Pool sqrtPriceX96 is at MAX_SQRT_PRICE-1 (tick 887271) from the N6 zero-LP swap. Any EURC→USDC swap (the N6 demo direction) reverts with PriceLimitAlreadyExceeded because the price cannot go higher. This LP seed enables ONLY the USDC→EURC direction — N6's Demo B swap path remains unable to consume LP via AMM math on THIS pool. The TGH Gateway intra-hook USDC mint path still works (it doesn't depend on LP), but the user's input-side EURC settlement still bypasses LP because the swap's price walk is blocked at MAX.",
+    "readyForProductionSwapAgainstRealLP": "NO — not for the N6 Demo B EURC→USDC direction. YES — for the inverse USDC→EURC direction, the seeded ~0.917 EURC is consumable against AMM math at tickUpper=-817 down to tickLower=-917.",
+    "recommendedFollowup": "Initialize a sibling TGH-hooked pool with a different fee tier (e.g. fee=500 or fee=3000) at fresh sqrtPriceX96=0xf52559aa0006380000000000 (tick -867, price 0.917 EURC/USDC). With a freshly-initialized price, balanced 1 USDC + 0.9 EURC LP can be seeded across [-917,-817] and BOTH swap directions will consume real AMM math against LP. This is Wave N7-followup item (N7b)."
+  }
+}
