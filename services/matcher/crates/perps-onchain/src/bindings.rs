@@ -137,6 +137,16 @@ sol! {
         int256  maxFundingRateBpsPerSecond;
     }
 
+    /// `FxOracle` view surface (Phase 4 — LP backstop).
+    /// `publishedAt` is unix seconds; the matcher uses it for invariant 4.
+    #[sol(rpc)]
+    contract IFxOracle {
+        function getMid(address base, address quote)
+            external
+            view
+            returns (uint256 midE18, uint256 publishedAt);
+    }
+
     /// Clearinghouse view surface used by Phase 3c+ (OI gate + position state).
     #[sol(rpc)]
     contract FxPerpClearinghouse {

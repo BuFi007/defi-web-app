@@ -23,9 +23,17 @@ use tracing::{error, info};
 use bufi_perps_db::PerpsDb;
 use bufi_perps_onchain::{PerpsDeployment, PerpsOnchain};
 
+use crate::insurance_fund::InsuranceFundWatchdog;
+use crate::lp_signer::LpSigner;
+use crate::lp_state::PathALpStateView;
+
 mod config;
 mod event_subscriber;
+mod insurance_fund;
 mod intent_translator;
+mod lp_router;
+mod lp_signer;
+mod lp_state;
 mod oi_gate;
 mod price;
 mod replacement_events;
@@ -94,9 +102,34 @@ async fn main() -> ExitCode {
         }
     };
 
+    // ---------- LP signer + state view (Phase 4 backstop) ----------
+    let lp_signer = match cfg.lp_operator_key_hex.as_deref() {
+        Some(key) => match LpSigner::from_hex(key) {
+            Ok(s) => {
+                info!(lp_operator = ?s.address(), "LP backstop enabled (Phase 4 Path A)");
+                Some(s)
+            }
+            Err(e) => {
+                error!(error = ?e, "LP_OPERATOR_PRIVATE_KEY parse: aborting");
+                return ExitCode::FAILURE;
+            }
+        },
+        None => {
+            info!("LP backstop disabled (no LP_OPERATOR_PRIVATE_KEY set)");
+            None
+        }
+    };
+    let lp_state = lp_signer.as_ref().map(|_| PathALpStateView::new(db.clone()));
+
     // ---------- Event subscriber ----------
     let subscriber = Arc::new(event_subscriber::EventSubscriber::new(&cfg, &deployment));
     let subscriber_handle = tokio::spawn(async move { subscriber.run().await });
+
+    // ---------- Insurance-fund watchdog (Phase 4 invariant 6) ----------
+    let if_handle = {
+        let wd = InsuranceFundWatchdog::new(db.clone());
+        tokio::spawn(async move { wd.run().await })
+    };
 
     // ---------- Tick loop ----------
     let tick_cfg = cfg.clone();
@@ -104,7 +137,15 @@ async fn main() -> ExitCode {
     let tick_onchain = onchain.clone();
     let tick_deployment = deployment;
     let tick_handle = tokio::spawn(async move {
-        tick::run(tick_db, tick_onchain, tick_deployment, tick_cfg).await
+        tick::run(
+            tick_db,
+            tick_onchain,
+            tick_deployment,
+            tick_cfg,
+            lp_signer,
+            lp_state,
+        )
+        .await
     });
 
     // ---------- Shutdown ----------
@@ -117,6 +158,9 @@ async fn main() -> ExitCode {
         }
         res = subscriber_handle => {
             error!(result = ?res, "event subscriber exited unexpectedly");
+        }
+        res = if_handle => {
+            error!(result = ?res, "insurance fund watchdog exited unexpectedly");
         }
     }
     info!("BUFI matcher server stopped");

@@ -65,6 +65,41 @@ create index if not exists idx_domain_events_type_created
 
 create index if not exists idx_domain_events_aggregate
   on domain_events (aggregate_id);
+
+-- ============================================================
+-- Phase 4 — synthetic LP backstop (Path A in the Option-C hybrid)
+-- ============================================================
+--
+-- One row per market. The matcher updates `long_e18` / `short_e18` /
+-- `avg_intent_size_e18` whenever it routes a fill to the LP. TVL is the
+-- LP_OPERATOR EOA's USDC balance on FxMarginAccount, mirrored here so
+-- the cap math doesn't have to RPC on every tick.
+--
+-- All bigints stored as text (same convention as `perp_order_intents`).
+
+create table if not exists lp_positions (
+  market_id        text primary key,
+  chain_id         integer not null,
+  tvl_usdc_e6      text not null default '0',
+  long_e18         text not null default '0',
+  short_e18        text not null default '0',
+  avg_intent_size_e18 text not null default '0',
+  enabled          integer not null default 1,
+  updated_at       integer not null
+);
+
+create index if not exists idx_lp_positions_chain on lp_positions (chain_id);
+
+-- One row per (market, day) of realised PnL. The IF watchdog reads this
+-- to decide when to fire invariant 6.
+create table if not exists lp_realised_pnl (
+  market_id   text not null,
+  day_unix    integer not null,
+  realised_pnl_e6 text not null default '0',
+  created_at  integer not null,
+  updated_at  integer not null,
+  primary key (market_id, day_unix)
+);
 "#;
 
 pub(crate) async fn migrate(pool: &SqlitePool) -> Result<(), PerpsDbError> {

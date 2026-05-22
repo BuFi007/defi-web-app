@@ -181,6 +181,17 @@ impl PerpsOnchain {
         Ok(tx_hash)
     }
 
+    /// Accessor used by sibling modules (e.g. `oracle.rs`) that need to
+    /// rebuild a provider with the same signer/url.
+    pub(crate) fn signer_key_hex(&self) -> &str {
+        &self.signer_key_hex
+    }
+
+    /// Accessor used by sibling modules.
+    pub(crate) fn rpc_url(&self) -> &str {
+        &self.rpc_url
+    }
+
     fn parse_signer(&self) -> Result<PrivateKeySigner, PerpsOnchainError> {
         self.signer_key_hex.parse().map_err(
             |e: alloy_signer_local::LocalSignerError| {

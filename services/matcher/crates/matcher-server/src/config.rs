@@ -39,6 +39,10 @@ pub struct Config {
     /// Keeper signing key (`PERP_KEEPER_PRIVATE_KEY` or `DEPLOYER_PRIVATE_KEY`).
     /// `None` causes the boot sequence to error in `Config::require_signer`.
     pub signer_key_hex: Option<String>,
+    /// LP_OPERATOR signing key (`LP_OPERATOR_PRIVATE_KEY`). MUST differ from
+    /// the keeper key — the on-chain `settleMatch` rejects `maker == taker`.
+    /// `None` disables LP routing (matcher works as a pure CLOB).
+    pub lp_operator_key_hex: Option<String>,
     /// Path to the bun:sqlite trading-machine DB.
     pub db_path: PathBuf,
     /// Path to `fx-telarana/deployments/` (env `FX_TELARANA_DEPLOYMENTS`).
@@ -67,6 +71,9 @@ impl Config {
             .or_else(|_| env::var("DEPLOYER_PRIVATE_KEY"))
             .ok()
             .map(|s| s.trim_start_matches("0x").to_string());
+        let lp_operator_key_hex = env::var("LP_OPERATOR_PRIVATE_KEY")
+            .ok()
+            .map(|s| s.trim_start_matches("0x").to_string());
         let db_path = env::var("BUFI_DB_PATH")
             .or_else(|_| env::var("TRADING_MACHINE_DB_PATH"))
             .map(PathBuf::from)
@@ -85,6 +92,7 @@ impl Config {
             chain_id,
             rpc_url,
             signer_key_hex,
+            lp_operator_key_hex,
             db_path,
             fx_telarana_deployments_dir,
             tick_busy,

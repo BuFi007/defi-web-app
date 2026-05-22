@@ -24,7 +24,9 @@ pub mod client;
 pub mod deployment;
 pub mod env;
 pub mod market_config;
+pub mod oracle;
 
 pub use client::{OiSnapshot, PerpsOnchain, PerpsOnchainError};
 pub use deployment::{PerpsContracts, PerpsDeployment};
 pub use market_config::{MarketConfig, MarketConfigSet};
+pub use oracle::OracleSnapshot;

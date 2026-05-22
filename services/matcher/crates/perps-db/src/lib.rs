@@ -18,8 +18,10 @@
 #![warn(missing_docs)]
 
 mod intent;
+mod lp;
 mod migrate;
 mod store;
 
 pub use intent::{PerpIntent, PerpIntentStatus, PerpOrderType, PerpSide};
+pub use lp::{LpPosition, LpRealisedPnlRow, LpStorageError};
 pub use store::{PerpsDb, PerpsDbError};

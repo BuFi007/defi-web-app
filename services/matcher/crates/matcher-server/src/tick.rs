@@ -30,12 +30,14 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::time::sleep;
 use tracing::{info, warn};
 
-use bufi_orderbook::{match_intent, Fill, OrderBook};
+use bufi_orderbook::{cancel_intent, match_intent, Fill, LpStateView, OrderBook};
 use bufi_perps_db::{PerpIntentStatus, PerpsDb};
 use bufi_perps_onchain::{PerpsDeployment, PerpsOnchain};
 
 use crate::config::Config;
 use crate::intent_translator::{self, TranslatedIntent};
+use crate::lp_router::{self};
+use crate::lp_signer::LpSigner;
 use crate::settlement;
 
 /// Outcome of one tick — drives the adaptive pacer.
@@ -52,11 +54,16 @@ pub struct TickOutcome {
 }
 
 /// Single tick. Returns once all pending intents this iteration are handled.
-pub async fn tick(
+///
+/// `lp` is the optional (LP signer + LP state view) pair. When `Some`,
+/// the tick will try to route residuals to LP after the CLOB walk
+/// exhausts. When `None`, LP routing is skipped (pure CLOB behaviour).
+pub async fn tick<L: LpStateView>(
     db: &PerpsDb,
     onchain: &PerpsOnchain,
     deployment: &PerpsDeployment,
     chain_id: i64,
+    lp: Option<(&LpSigner, &L)>,
 ) -> TickOutcome {
     let now_secs = current_unix_secs();
     let pending = match db.list_pending(chain_id, now_secs).await {
@@ -143,6 +150,56 @@ pub async fn tick(
                     ),
                 }
             }
+
+            // ----- LP backstop routing (Phase 4) -----
+            //
+            // If CLOB left a residual AND we have an LP configured AND the
+            // intent's TIF allows IOC-style fallback (GTC + IOC both
+            // qualify; FOK never reaches this branch because peek_match
+            // would have already rejected it), try the LP router. If LP
+            // accepts, we add a paired fill AND remove the residual from
+            // the book (under GTC, match_intent already rested it).
+            if let Some((signer, lp_state)) = lp {
+                if !outcome.residual.is_zero() {
+                    let route = lp_router::try_route_residual_to_lp(
+                        lp_router::RouteContext {
+                            onchain,
+                            lp_state,
+                            signer,
+                            taker: &t,
+                            residual_size: outcome.residual,
+                            now_ms,
+                            now_secs: now_secs as u64,
+                            match_seq,
+                        },
+                    )
+                    .await;
+                    match route {
+                        Ok(Some(routed)) => {
+                            // GTC rested its residual on the book; remove it
+                            // so we don't double-count the trade.
+                            let _ = cancel_intent(&mut book, t.orderbook_intent.id);
+                            paired_fills.push((
+                                routed.lp_intent,
+                                routed.taker_intent,
+                                routed.fill,
+                            ));
+                            match_seq = match_seq.wrapping_add(1);
+                        }
+                        Ok(None) => {
+                            // LP not configured for this market — leave the
+                            // residual where match_intent put it.
+                        }
+                        Err(e) => {
+                            warn!(
+                                intent_id = t.db_intent_id,
+                                error = ?e,
+                                "LP router denied residual; leaving on book / dropped per TIF"
+                            );
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -169,15 +226,22 @@ pub async fn tick(
 }
 
 /// Adaptive pacing loop. Runs forever until cancelled.
-pub async fn run(
+pub async fn run<L: LpStateView + Send + Sync>(
     db: PerpsDb,
     onchain: PerpsOnchain,
     deployment: PerpsDeployment,
     config: Config,
+    lp_signer: Option<LpSigner>,
+    lp_state: Option<L>,
 ) {
     let mut idle_streak: u32 = 0;
     loop {
-        let outcome = tick(&db, &onchain, &deployment, config.chain_id as i64).await;
+        let outcome = match (&lp_signer, &lp_state) {
+            (Some(s), Some(v)) => {
+                tick(&db, &onchain, &deployment, config.chain_id as i64, Some((s, v))).await
+            }
+            _ => tick::<L>(&db, &onchain, &deployment, config.chain_id as i64, None).await,
+        };
         if outcome.did_work {
             idle_streak = 0;
         } else {
@@ -225,6 +289,7 @@ mod tests {
             chain_id: 5_042_002,
             rpc_url: "http://localhost:0".into(),
             signer_key_hex: None,
+            lp_operator_key_hex: None,
             db_path: ".bufi/test.sqlite".into(),
             fx_telarana_deployments_dir: None,
             tick_busy: Duration::from_millis(busy_ms),

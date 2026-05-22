@@ -961,6 +961,7 @@ dependencies = [
  "alloy-provider",
  "alloy-rpc-types-eth",
  "alloy-signer",
+ "alloy-signer-local",
  "alloy-sol-types",
  "bufi-matcher-types",
  "bufi-orderbook",

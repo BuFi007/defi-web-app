@@ -672,6 +672,61 @@ opt in with `cargo test -p bufi-matcher-server --test live_arc_testnet --
 
 ---
 
+## Phase 4 amendment (2026-05-22) — LP backstop, Path A synthetic
+
+Per `docs/lp-backstop-design.md` topology lock (Option C hybrid), Phase 4
+ships the synthetic in-matcher LP first; the on-chain `FxPerpLpVault`
+swap happens later via a one-line `LpStateView` impl change.
+
+What landed:
+
+| Module | Role |
+|---|---|
+| `bufi_orderbook::lp` | `LpStateView` trait, `LpConfig`, `LpSnapshot`, `LpDeny`, pure-compute invariants 3 / 5 / 7 / 8 / 10. No IO; the orderbook's determinism contract stays intact. |
+| `bufi_perps_db::lp` | `lp_positions` + `lp_realised_pnl` tables. `record_lp_fill` updates `(long_e18, short_e18, avg_intent_size_e18)` atomically; `add_lp_realised_pnl` is the IF watchdog's write surface. |
+| `bufi_perps_onchain::oracle` | `OracleSnapshot { mark_e18, published_at_secs }` + `PerpsOnchain::oracle_snapshot(market_id)`. Reads via `clearinghouse.marketConfig.baseToken` then `FxOracle.getMid(baseToken, USDC)`. |
+| `matcher-server::lp_state::PathALpStateView` | Bridges `bufi_perps_db::LpPosition` → `bufi_orderbook::LpSnapshot`. Path A impl; Path B's vault-reading impl lives behind the same trait. |
+| `matcher-server::lp_signer::LpSigner` | EIP-712 signs synthetic `SignedOrder`s for the LP_OPERATOR EOA. Nonces are unix-ms (Permit2 bitmap, 256 nonces per word, collisions revert + retry). |
+| `matcher-server::lp_router` | `try_route_residual_to_lp` runs the 9 ordered invariant checks (cheapest pure → RPC → pure → sign). Returns `(lp_intent, taker_intent, fill_with_is_lp_fill_true)`. |
+| `matcher-server::insurance_fund` | Slow watchdog task. Polls `lp_realised_pnl` every 60s; emits `INVARIANT 6 BREACH` tracing warnings when same-day loss past `max(1% × LP TVL, 10_000 USDC)`. Path B swaps the warning for `FxInsuranceFund.burnShares(loss)`. |
+
+Tick-loop wiring (`tick.rs`):
+
+After `match_intent` resolves with a non-zero `residual` AND the matcher
+has an LP signer, the loop calls `try_route_residual_to_lp`. On accept,
+`cancel_intent` removes the GTC-rested residual from the in-memory book
+(IOC residuals are already dropped) and the LP fill is appended to
+`paired_fills` for `settle_batch`.
+
+New env vars (`config.rs`):
+
+| Var | Default | Purpose |
+|---|---|---|
+| `LP_OPERATOR_PRIVATE_KEY` | (unset) | LP_OPERATOR signing key. **Distinct from `PERP_KEEPER_PRIVATE_KEY`** (the contract rejects `maker == taker`). Unset disables LP routing. |
+| `FX_ORACLE_ADDRESS` | (unset; must be set if LP enabled) | Sprint-1 Arc value: `0xf9b0356A31BC7125e2eD0DADf8b5957860d42c78`. Promote to JSON loader once published in `perp-stack-{id}.json`. |
+| `USDC_ADDRESS` | `0x3600000000000000000000000000000000000000` (Arc Testnet) | Quote-side token for `FxOracle.getMid`. |
+
+Invariant coverage status:
+
+| # | Invariant | Status |
+|---|---|---|
+| 1 | Per-market max OI cap | ✅ Phase 4 — `lp_router` step 4 calls `PerpsOnchain::query_oi` |
+| 2 | Mark-oracle divergence | ✅ Trivially holds — fx-telarana uses one oracle source for both mark and reference (no AMM mark distinct from oracle) |
+| 3 | LP delta cap per market | ✅ Phase 4 — `check_delta_cap` |
+| 4 | Oracle freshness gate | ✅ Phase 4 — `oracle_snapshot.published_at_secs` vs `ORACLE_MAX_AGE_SECS = 30` |
+| 5 | Reduce-only on LP-cap breach | ✅ Phase 4 — `check_delta_cap` reduces-only when `\|delta\| ≥ 95% × cap` |
+| 6 | Insurance fund first-loss | 🟡 Phase 4 Path A — watchdog logs `INVARIANT 6 BREACH`; Path B fires `FxInsuranceFund.burnShares` |
+| 7 | Size-dependent LP spread | ✅ Phase 4 — `spread_bps` monotone in size |
+| 8 | Per-intent LP fill size cap | ✅ Phase 4 — `check_basic_gate` |
+| 9 | Reserve-vs-oracle band | 🟡 Path B only — Path A has no AMM reserve; collapses into invariant 7 |
+| 10 | Market-status veto | ✅ Phase 4 — `LpSnapshot.enabled` |
+| 11 | Funding settles before LP unwind | ✅ Contract-side — `FxPerpClearinghouse._settleFunding` runs before any `applyOrderFill`, including LP-side |
+| 12 | LP fills audit trail | ✅ Phase 4 — `Fill.is_lp_fill = true`; `bufx.perps.replacement_needed` replacement events for partials emitted via the same path as CLOB fills |
+
+Workspace test count: 71 active + 2 ignored live.
+
+---
+
 ## Phasing
 
 | Phase | Scope | Calendar weeks | Gates before next |
