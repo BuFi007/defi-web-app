@@ -8,6 +8,83 @@
 use alloy_sol_types::sol;
 
 sol! {
+    // -------- Events emitted by the perp stack (used by the matcher's
+    // event subscriber for state mirroring). Names + signatures verified
+    // against contracts/src/perp/*.sol at fx-telarana HEAD c0ff0d3. --------
+
+    /// `FxOrderSettlement.MatchSettled` — emitted on every successful settleMatch.
+    #[derive(Debug)]
+    event MatchSettled(
+        bytes32 indexed marketId,
+        address indexed maker,
+        address indexed taker,
+        uint256 fillSizeE18,
+        uint256 fillPriceE18
+    );
+
+    /// `FxOrderSettlement.OrderCancelled` — emitted when a trader burns a nonce.
+    #[derive(Debug)]
+    event OrderCancelled(address indexed trader, uint64 nonce);
+
+    /// `FxPerpClearinghouse.PositionIncreased`.
+    #[derive(Debug)]
+    event PositionIncreased(
+        bytes32 indexed marketId,
+        address indexed trader,
+        int256 sizeDeltaE18,
+        int256 resultingSizeE18,
+        uint256 entryPriceE18,
+        uint256 marginReserved,
+        uint256 fee
+    );
+
+    /// `FxPerpClearinghouse.PositionDecreased`.
+    #[derive(Debug)]
+    event PositionDecreased(
+        bytes32 indexed marketId,
+        address indexed trader,
+        int256 sizeDeltaE18,
+        int256 resultingSizeE18,
+        uint256 priceE18,
+        uint256 marginReleased,
+        int256 pnl,
+        uint256 badDebt
+    );
+
+    /// `FxLiquidationEngine.AccountFlagged`.
+    #[derive(Debug)]
+    event AccountFlagged(
+        bytes32 indexed marketId,
+        address indexed trader,
+        address indexed flagger
+    );
+
+    /// `FxLiquidationEngine.AccountFlagRescinded`.
+    #[derive(Debug)]
+    event AccountFlagRescinded(
+        bytes32 indexed marketId,
+        address indexed trader,
+        address indexed caller,
+        bool auto_
+    );
+
+    /// `FxFundingEngine.FundingPoked`.
+    #[derive(Debug)]
+    event FundingPoked(
+        bytes32 indexed marketId,
+        uint64 version,
+        int256 rateE18PerSecond,
+        int256 cumulativeFundingE18
+    );
+
+    /// `FxFundingEngine.FundingSettled`.
+    #[derive(Debug)]
+    event FundingSettled(
+        bytes32 indexed marketId,
+        address indexed trader,
+        int256 fundingPaid
+    );
+
     /// Mirrors `IFxOrderSettlement.SignedOrder` calldata layout.
     /// Field order MUST equal the contract's `SIGNED_ORDER_TYPEHASH`.
     #[derive(Debug)]

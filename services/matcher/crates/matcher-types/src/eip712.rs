@@ -26,6 +26,7 @@ sol! {
     /// Mirrors `FxOrderSettlement.SignedOrder` field-for-field.
     /// Reordering or renaming any field here breaks signature verification
     /// on the contract side — don't.
+    #[derive(Debug)]
     struct SignedOrder {
         address trader;
         bytes32 marketId;

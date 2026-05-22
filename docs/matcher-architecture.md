@@ -639,6 +639,39 @@ Redis fill stream and warms its book state.
 
 ---
 
+## Phase 3c amendment (2026-05-22) — matcher-server replaces the TS keeper
+
+Phase 3 split into 3a/3b/3b1/3c; 3c collapses the original Phase 3d (TS
+keeper deprecation) into the same commit per a Phase-3-kickoff decision.
+
+`apps/keeper-perps-matcher/` deleted; replaced by
+`services/matcher/crates/matcher-server/`. Same `bun:sqlite` DB; same
+`FxOrderSettlement.settleMatch` calldata; same `bufx.perps.replacement_needed`
+domain-event format. Net change for downstream consumers: zero. The TS
+script `keeper:perps-matcher` is removed from `package.json` and a comment
+points operators at the Rust binary build.
+
+Matcher-server modules (`services/matcher/crates/matcher-server/src/`):
+
+| Module | Role |
+|---|---|
+| `config.rs` | Env loader. Honours `ARC_RPC_URL`, `PERP_KEEPER_PRIVATE_KEY` ∥ `DEPLOYER_PRIVATE_KEY`, `BUFI_DB_PATH`, `FX_TELARANA_DEPLOYMENTS`, `MATCHER_TICK_{BUSY,IDLE}_MS`, `MATCHER_IDLE_TICKS_TO_RELAX`, `MATCHER_EVENT_{POLL_MS,CONFIRMATIONS,CURSOR_PATH}`. |
+| `intent_translator.rs` | `bufi_perps_db::PerpIntent` → `bufi_orderbook::Intent`. Parses string-encoded i256s, builds the typed `SignedOrder`, recovers signer via `PrimitiveSignature::recover_address_from_prehash`, rejects on `recovered != trader`. |
+| `price.rs` | One helper for parsing the E18 price string into `bufi_orderbook::Price`. |
+| `oi_gate.rs` | Defence-in-depth: queries `openInterestLong`/`Short`/`maxOpenInterest` via `PerpsOnchain`; rejects fills that would push `max(long, short) + size > cap`. |
+| `replacement_events.rs` | Writes `bufx.perps.replacement_needed` rows into `domain_events` for partial fills. Bytes-equivalent to `@bufi/perps` `buildPerpsReplacementNeededEvent`. Idempotent via `insert or ignore`. |
+| `settlement.rs` | Per fill: gate → wire-format convert → `settleMatch` → `record_fill` on both sides → emit replacement event for any partial side. Failed settlements leave intents `pending` for the next tick to retry. |
+| `event_subscriber.rs` | HTTP-poll `eth_getLogs` at `head - confirmations`; persists a cursor file (`.bufi/matcher-event-cursor.json` by default). Decodes `MatchSettled` / `OrderCancelled` / `PositionIncreased` / `PositionDecreased` / `AccountFlagged` / `AccountFlagRescinded` / `FundingPoked` / `FundingSettled` and emits each as a structured tracing event. WebSocket subs deferred — polling is reorg-safe by construction. |
+| `tick.rs` | Adaptive 1 s busy / 30 s idle pacer (relax after 5 idle ticks). One tick: `list_pending` → expire stale → translate + verify → match per market → `settle_batch`. |
+| `main.rs` | Wires DB + on-chain client + tick loop + event subscriber under `tokio::select!`; handles SIGTERM/SIGINT. |
+
+Live integration test at
+`crates/matcher-server/tests/live_arc_testnet.rs` is `#[ignore]`-gated;
+opt in with `cargo test -p bufi-matcher-server --test live_arc_testnet --
+--ignored --nocapture` plus the three env vars in the test docstring.
+
+---
+
 ## Phasing
 
 | Phase | Scope | Calendar weeks | Gates before next |
@@ -646,7 +679,7 @@ Redis fill stream and warms its book state.
 | 0 | All 22 PRs land on main | 1-2 | wk1d1 + #39 + #43 + #45 + #56 merged |
 | 1 | Spec, proto, scaffolding | 2 | proto v1 frozen, codegen wired both sides |
 | 2 | Core orderbook + matching (no LP) | 3 | invariants 1-8 tested, golden suite passing |
-| 3 | TS integration (API + keeper + Ponder reconciler) | 2 | end-to-end intent → settled fill via matcher service |
+| 3 | TS integration (API + keeper + Ponder reconciler) — **3a perps-db / 3b perps-onchain / 3b1 sprint-1 align / 3c matcher-server + TS keeper retirement** | 2 | end-to-end intent → settled fill via matcher service |
 | 4 | LP backstop | 4 | invariants 9-10 tested, LP vault audited |
 | 5 | Funding rate + mark price safety | 2 | funding math goldens passing, deviation gate trips on stub oracle drop |
 | 6 | Determinism + invariant suite hardening | ongoing | mainnet readiness doc signed off |

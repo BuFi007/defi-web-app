@@ -1,0 +1,249 @@
+//! Adaptive tick loop.
+//!
+//! ```text
+//!   busy interval  = config.tick_busy   (default 1 s)
+//!   idle interval  = config.tick_idle   (default 30 s)
+//!   relax after    = config.idle_ticks_to_relax (default 5)
+//! ```
+//!
+//! Per tick:
+//!   1. `now_secs = SystemTime::now().as_secs()`.
+//!   2. Pull every pending intent on the configured chain whose deadline
+//!      hasn't passed.
+//!   3. Update DB status to `expired` for any whose deadline fell between
+//!      `list_pending` and our `now_secs` (the SQL filter is best-effort).
+//!   4. Translate each pending intent (parse + EIP-712 verify). Failures
+//!      flip DB status to `rejected`.
+//!   5. Build a fresh in-memory `OrderBook` per market and `match_intent`
+//!      each translated intent against it.
+//!   6. Pair every produced fill with the maker and taker `TranslatedIntent`,
+//!      then `settlement::settle_batch`.
+//!   7. Return `did_work` = (matched_any || expired_any || rejected_any).
+//!
+//! The tick is pure orchestration; all IO and matching live in their own
+//! modules. This file is deliberately short — the surface area is the
+//! state machine, not the heavy lifting.
+
+use std::collections::BTreeMap;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+use tokio::time::sleep;
+use tracing::{info, warn};
+
+use bufi_orderbook::{match_intent, Fill, OrderBook};
+use bufi_perps_db::{PerpIntentStatus, PerpsDb};
+use bufi_perps_onchain::{PerpsDeployment, PerpsOnchain};
+
+use crate::config::Config;
+use crate::intent_translator::{self, TranslatedIntent};
+use crate::settlement;
+
+/// Outcome of one tick — drives the adaptive pacer.
+#[derive(Debug, Clone, Copy)]
+#[allow(dead_code)] // settled/pending land in the tracing log only.
+pub struct TickOutcome {
+    /// `true` iff any of: a fill landed, an intent expired, an intent was
+    /// rejected for being malformed. Used to short-circuit the idle pacer.
+    pub did_work: bool,
+    /// Pure counts for the tracing log line; not consumed elsewhere.
+    pub settled: usize,
+    /// Number of pending intents the tick observed.
+    pub pending: usize,
+}
+
+/// Single tick. Returns once all pending intents this iteration are handled.
+pub async fn tick(
+    db: &PerpsDb,
+    onchain: &PerpsOnchain,
+    deployment: &PerpsDeployment,
+    chain_id: i64,
+) -> TickOutcome {
+    let now_secs = current_unix_secs();
+    let pending = match db.list_pending(chain_id, now_secs).await {
+        Ok(p) => p,
+        Err(e) => {
+            warn!(error = ?e, "list_pending failed");
+            return TickOutcome {
+                did_work: false,
+                settled: 0,
+                pending: 0,
+            };
+        }
+    };
+    let pending_count = pending.len();
+    if pending.is_empty() {
+        return TickOutcome {
+            did_work: false,
+            settled: 0,
+            pending: 0,
+        };
+    }
+
+    // Translate + classify.
+    let mut translated_by_market: BTreeMap<[u8; 32], Vec<TranslatedIntent>> = BTreeMap::new();
+    let mut translated_lookup: BTreeMap<[u8; 32], TranslatedIntent> = BTreeMap::new();
+    let mut expired = 0usize;
+    let mut rejected = 0usize;
+    for intent in pending {
+        // Defensive: list_pending filters on `deadline > now_secs` but the
+        // tick can take seconds — re-check and expire here.
+        if intent.deadline <= now_secs {
+            if let Err(e) = db
+                .update_status(&intent.intent_id, PerpIntentStatus::Expired, now_secs)
+                .await
+            {
+                warn!(intent_id = intent.intent_id, error = ?e, "expire update failed");
+            }
+            expired += 1;
+            continue;
+        }
+        match intent_translator::translate(&intent, deployment) {
+            Ok(t) => {
+                translated_lookup.insert(t.orderbook_intent.id, t.clone());
+                translated_by_market
+                    .entry(t.orderbook_intent.market_id)
+                    .or_default()
+                    .push(t);
+            }
+            Err(e) => {
+                warn!(intent_id = intent.intent_id, error = ?e, "translate failed; rejecting");
+                if let Err(e2) = db
+                    .update_status(&intent.intent_id, PerpIntentStatus::Rejected, now_secs)
+                    .await
+                {
+                    warn!(intent_id = intent.intent_id, error = ?e2, "reject update failed");
+                }
+                rejected += 1;
+            }
+        }
+    }
+
+    // Per market: build a fresh book and match the intents in arrival order.
+    let now_ms = (now_secs as u64).saturating_mul(1_000);
+    let mut paired_fills: Vec<(TranslatedIntent, TranslatedIntent, Fill)> = Vec::new();
+    let mut match_seq = 0u64;
+    for (market_id_bytes, intents) in translated_by_market {
+        let mut book = OrderBook::new(market_id_bytes);
+        for t in intents {
+            let outcome = match_intent(
+                &mut book,
+                t.orderbook_intent.clone(),
+                now_ms,
+                match_seq,
+            );
+            match_seq = match_seq.wrapping_add(1);
+            for fill in outcome.fills {
+                let maker = translated_lookup.get(&fill.maker_intent_id).cloned();
+                let taker = translated_lookup.get(&fill.taker_intent_id).cloned();
+                match (maker, taker) {
+                    (Some(m), Some(t)) => paired_fills.push((m, t, fill)),
+                    _ => warn!(
+                        fill_id = ?fill.fill_id,
+                        "fill references intent not in this tick's translated set"
+                    ),
+                }
+            }
+        }
+    }
+
+    let settled = if paired_fills.is_empty() {
+        0
+    } else {
+        settlement::settle_batch(db, onchain, &paired_fills, now_secs).await
+    };
+
+    let did_work = settled > 0 || expired > 0 || rejected > 0;
+    info!(
+        pending = pending_count,
+        expired,
+        rejected,
+        settled,
+        did_work,
+        "tick complete"
+    );
+    TickOutcome {
+        did_work,
+        settled,
+        pending: pending_count,
+    }
+}
+
+/// Adaptive pacing loop. Runs forever until cancelled.
+pub async fn run(
+    db: PerpsDb,
+    onchain: PerpsOnchain,
+    deployment: PerpsDeployment,
+    config: Config,
+) {
+    let mut idle_streak: u32 = 0;
+    loop {
+        let outcome = tick(&db, &onchain, &deployment, config.chain_id as i64).await;
+        if outcome.did_work {
+            idle_streak = 0;
+        } else {
+            idle_streak = idle_streak.saturating_add(1);
+        }
+        let interval = if idle_streak >= config.idle_ticks_to_relax {
+            config.tick_idle
+        } else {
+            config.tick_busy
+        };
+        sleep(interval).await;
+    }
+}
+
+fn current_unix_secs() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or(Duration::ZERO)
+        .as_secs() as i64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn busy_interval_picked_when_did_work() {
+        let cfg = make_cfg(1, 5);
+        let interval = pick_interval(0, true, &cfg);
+        assert_eq!(interval, Duration::from_millis(1));
+    }
+
+    #[test]
+    fn idle_interval_picked_only_after_relax_threshold() {
+        let cfg = make_cfg(1, 5);
+        assert_eq!(pick_interval(0, false, &cfg), Duration::from_millis(1));
+        assert_eq!(pick_interval(4, false, &cfg), Duration::from_millis(1));
+        assert_eq!(pick_interval(5, false, &cfg), Duration::from_millis(5));
+        assert_eq!(pick_interval(10, false, &cfg), Duration::from_millis(5));
+    }
+
+    fn make_cfg(busy_ms: u64, idle_ms: u64) -> Config {
+        Config {
+            chain_id: 5_042_002,
+            rpc_url: "http://localhost:0".into(),
+            signer_key_hex: None,
+            db_path: ".bufi/test.sqlite".into(),
+            fx_telarana_deployments_dir: None,
+            tick_busy: Duration::from_millis(busy_ms),
+            tick_idle: Duration::from_millis(idle_ms),
+            idle_ticks_to_relax: 5,
+            event_poll: Duration::from_millis(1),
+            event_confirmations: 0,
+            event_cursor_path: ".bufi/cursor.json".into(),
+        }
+    }
+
+    /// Mirror of the pacing decision inside `run` so it can be unit-tested
+    /// without spinning a real loop.
+    fn pick_interval(idle_streak: u32, did_work: bool, cfg: &Config) -> Duration {
+        let next_streak = if did_work { 0 } else { idle_streak.saturating_add(1) };
+        if next_streak.saturating_sub(1) >= cfg.idle_ticks_to_relax {
+            cfg.tick_idle
+        } else {
+            cfg.tick_busy
+        }
+    }
+}

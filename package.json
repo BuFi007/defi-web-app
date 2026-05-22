@@ -22,7 +22,7 @@
     "dev:complete": "bun run --filter './apps/*' dev",
     "keeper:gateway-signer": "bun run --filter ./apps/keeper-gateway-signer dev",
     "keeper:spot": "bun run --filter ./apps/keeper-spot dev",
-    "keeper:perps-matcher": "bun run --filter ./apps/keeper-perps-matcher dev",
+    "_comment_keeper_perps_matcher": "Rust replacement at services/matcher; build with `cd services/matcher && cargo build -p bufi-matcher-server`",
     "keeper:perps-liquidator": "bun run --filter ./apps/keeper-perps-liquidator dev",
     "keeper:perps-funding": "bun run --filter ./apps/keeper-perps-funding dev",
     "keeper:pyth": "bun run --filter ./apps/keeper-pyth dev",
