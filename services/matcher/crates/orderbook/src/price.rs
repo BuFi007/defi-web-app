@@ -13,6 +13,11 @@
 //! in `i64` (EUR/USD ≈ 1.08e18, USD/JPY ≈ 150e18, all under
 //! `i64::MAX ≈ 9.22e18`), but intermediate `price * size` products do not.
 //! Spec doc amended in the same commit.
+//!
+//! Both `Price` and `Size` serialise to/from JSON as decimal strings because
+//! JSON has no native i128/u128 — preserving full precision across the
+//! goldens corpus, the gRPC boundary, and any other consumer that round-
+//! trips through JSON.
 
 use serde::{Deserialize, Serialize};
 
@@ -23,11 +28,23 @@ pub const PRICE_DECIMALS: u32 = 18;
 pub const SIZE_DECIMALS: u32 = 18;
 
 /// Fixed-point price in 18-decimal WAD.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
-#[serde(transparent)]
+///
+/// Serialised as a decimal string (JSON has no native `i128`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Price(pub i128);
+
+impl Serialize for Price {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.collect_str(&self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for Price {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(d)?;
+        s.parse::<i128>().map(Price).map_err(serde::de::Error::custom)
+    }
+}
 
 impl Price {
     /// Construct from raw fixed-point value.
@@ -51,11 +68,23 @@ impl Price {
 }
 
 /// Fixed-point size in 18-decimal WAD (magnitude of `sizeDeltaE18`).
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
-#[serde(transparent)]
+///
+/// Serialised as a decimal string (JSON has no native `u128`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Size(pub u128);
+
+impl Serialize for Size {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.collect_str(&self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for Size {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(d)?;
+        s.parse::<u128>().map(Size).map_err(serde::de::Error::custom)
+    }
+}
 
 impl Size {
     /// Construct from raw fixed-point value.

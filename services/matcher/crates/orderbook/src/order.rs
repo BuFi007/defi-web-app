@@ -56,6 +56,22 @@ impl Side {
     }
 }
 
+/// Serialise a `u128` as a decimal JSON string. Used for `max_fee` so
+/// `Intent` round-trips through JSON (golden fixtures, gRPC translations,
+/// log streams) without losing precision.
+mod u128_str {
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(v: &u128, s: S) -> Result<S::Ok, S::Error> {
+        s.collect_str(v)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<u128, D::Error> {
+        let s = String::deserialize(d)?;
+        s.parse::<u128>().map_err(serde::de::Error::custom)
+    }
+}
+
 /// Mirrors `FxOrderSettlement.ORDER_TYPE_{MARKET,LIMIT}`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
@@ -98,6 +114,7 @@ pub struct Intent {
     /// `priceE18`. Required for limit orders.
     pub price: Price,
     /// `maxFee` cap in USDC E18; 0 = uncapped.
+    #[serde(with = "u128_str")]
     pub max_fee: u128,
     /// Market vs limit.
     pub order_type: OrderType,
