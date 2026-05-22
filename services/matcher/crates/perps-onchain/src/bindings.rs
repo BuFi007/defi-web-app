@@ -137,6 +137,23 @@ sol! {
         int256  maxFundingRateBpsPerSecond;
     }
 
+    /// `FxFundingEngine` surface — Phase 5 funding poker.
+    /// Mirrors `IFxFundingEngine.pokeFundingRate` + the public `fundingState`
+    /// mapping (which solc auto-generates a view fn for).
+    #[sol(rpc)]
+    contract FxFundingEngine {
+        function pokeFundingRate(bytes32 marketId) external;
+        function fundingState(bytes32 marketId)
+            external
+            view
+            returns (
+                uint64 currentVersion,
+                uint256 lastUpdate,
+                int256 currentRateE18PerSecond,
+                int256 cumulativeFundingE18
+            );
+    }
+
     /// `FxOracle` view surface (Phase 4 — LP backstop).
     /// `publishedAt` is unix seconds; the matcher uses it for invariant 4.
     #[sol(rpc)]

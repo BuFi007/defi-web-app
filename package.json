@@ -24,7 +24,7 @@
     "keeper:spot": "bun run --filter ./apps/keeper-spot dev",
     "_comment_keeper_perps_matcher": "Rust replacement at services/matcher; build with `cd services/matcher && cargo build -p bufi-matcher-server`",
     "keeper:perps-liquidator": "bun run --filter ./apps/keeper-perps-liquidator dev",
-    "keeper:perps-funding": "bun run --filter ./apps/keeper-perps-funding dev",
+    "_comment_keeper_perps_funding": "Rust replacement at services/matcher (Phase 5 funding poker); see services/matcher/README.md",
     "keeper:pyth": "bun run --filter ./apps/keeper-pyth dev",
     "keeper:arcade-settler": "bun run --filter ./apps/keeper-arcade-settler dev",
     "contracts:sync": "bun run scripts/sync-contracts.mjs",

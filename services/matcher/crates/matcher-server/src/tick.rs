@@ -298,6 +298,9 @@ mod tests {
             event_poll: Duration::from_millis(1),
             event_confirmations: 0,
             event_cursor_path: ".bufi/cursor.json".into(),
+            funding_poll: Duration::from_millis(1),
+            funding_poke_min_interval: Duration::from_millis(1),
+            funding_market_ids: Vec::new(),
         }
     }
 

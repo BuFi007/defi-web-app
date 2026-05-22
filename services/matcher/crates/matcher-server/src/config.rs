@@ -59,6 +59,18 @@ pub struct Config {
     pub event_confirmations: u64,
     /// File the event subscriber writes its block cursor to.
     pub event_cursor_path: PathBuf,
+    /// Funding-poker tick cadence. The TS keeper ticked every 5s; we keep
+    /// the same default. Pure-loop interval, not the per-market throttle.
+    pub funding_poll: Duration,
+    /// Minimum interval between consecutive `pokeFundingRate` calls for the
+    /// SAME market. Defaults to 1h to match the on-chain funding interval.
+    /// Per-market state is in-memory; restarts re-derive from the contract's
+    /// `fundingState.lastUpdate` view.
+    pub funding_poke_min_interval: Duration,
+    /// Comma-separated list of bytes32 market ids the funding poker should
+    /// keep awake. Defaults to the three sprint-1 Arc markets — see
+    /// `docs/lp-backstop-design.md` §Locked decisions for the source list.
+    pub funding_market_ids: Vec<[u8; 32]>,
 }
 
 impl Config {
@@ -88,6 +100,15 @@ impl Config {
         let event_cursor_path = env::var("MATCHER_EVENT_CURSOR_PATH")
             .map(PathBuf::from)
             .unwrap_or_else(|_| PathBuf::from(DEFAULT_EVENT_CURSOR_PATH));
+        let funding_poll =
+            Duration::from_millis(parse_env_u64("MATCHER_FUNDING_POLL_MS", 5_000)?);
+        let funding_poke_min_interval = Duration::from_millis(parse_env_u64(
+            "FUNDING_POKE_MIN_INTERVAL_MS",
+            3_600_000,
+        )?);
+        let funding_market_ids = parse_funding_market_ids(
+            env::var("MATCHER_FUNDING_MARKET_IDS").as_deref().ok(),
+        );
         Ok(Self {
             chain_id,
             rpc_url,
@@ -101,6 +122,9 @@ impl Config {
             event_poll,
             event_confirmations,
             event_cursor_path,
+            funding_poll,
+            funding_poke_min_interval,
+            funding_market_ids,
         })
     }
 
@@ -114,6 +138,44 @@ impl Config {
                 reason: "no signer set (PERP_KEEPER_PRIVATE_KEY or DEPLOYER_PRIVATE_KEY)".into(),
             })
     }
+}
+
+/// Parse the env-supplied or fallback list of bytes32 market ids for the
+/// funding poker. Defaults to the three Arc Testnet sprint-1 markets per
+/// `fx-telarana/deployments/perps-config-5042002.json`.
+fn parse_funding_market_ids(raw: Option<&str>) -> Vec<[u8; 32]> {
+    const DEFAULTS: [&str; 3] = [
+        // EURC/USDC perp
+        "0x565a6e2fab61800aa18813603b5b485af5bed7dea1aa0845bdaa61502063cab8",
+        // CIRBTC/USDC perp
+        "0x238aacf17c8d170ad55905cd1c217ae2db8338354b1235059fb0f096e20b777a",
+        // TMXNB/USDC perp
+        "0xb698dfdbcbae088741081a53b9f1da11df8ff7c92c9278b66e15a34077ea5ca3",
+    ];
+    let source: Vec<&str> = match raw {
+        Some(s) => s.split(',').map(|p| p.trim()).filter(|p| !p.is_empty()).collect(),
+        None => DEFAULTS.to_vec(),
+    };
+    let mut out = Vec::with_capacity(source.len());
+    for s in source {
+        if let Some(b) = parse_b256_hex(s) {
+            out.push(b);
+        }
+    }
+    out
+}
+
+fn parse_b256_hex(s: &str) -> Option<[u8; 32]> {
+    let stripped = s.strip_prefix("0x").unwrap_or(s);
+    if stripped.len() != 64 {
+        return None;
+    }
+    let mut out = [0u8; 32];
+    for (i, chunk) in stripped.as_bytes().chunks(2).enumerate() {
+        let hex = std::str::from_utf8(chunk).ok()?;
+        out[i] = u8::from_str_radix(hex, 16).ok()?;
+    }
+    Some(out)
 }
 
 fn parse_env_u64(name: &'static str, default: u64) -> Result<u64, ConfigError> {

@@ -727,6 +727,52 @@ Workspace test count: 71 active + 2 ignored live.
 
 ---
 
+## Phase 5 amendment (2026-05-22) — funding poker + mark-price safety
+
+The matcher absorbs the third TS keeper (`apps/keeper-perps-funding`,
+deleted) and ships a Rust funding poker module alongside the existing
+tick + event subscriber + IF watchdog. Mark-price safety in Phase 5 is
+documentation only — the matcher already uses the lenient `_priceView`
+path correctly; the verified path (`unrealizedPnlVerified` /
+`_priceViewVerified`) is reserved for liquidation, which lives in
+`FxLiquidationEngine` + `apps/keeper-perps-liquidator` (untouched by
+Phase 5).
+
+What landed:
+
+| Module / change | Role |
+|---|---|
+| `bufi_perps_onchain::bindings::FxFundingEngine` | `pokeFundingRate(bytes32)` + `fundingState(bytes32) returns (uint64, uint256, int256, int256)` auto-generated public-mapping view. |
+| `bufi_perps_onchain::client` | `submit_poke_funding(market_id) -> TxHash` + `funding_last_update_secs(market_id) -> u64`. |
+| `matcher-server::funding_poker` | Async task with per-market in-memory throttle (default 1h). On boot, seeds the throttle map from `FxFundingEngine.fundingState.lastUpdate` so a process restart doesn't double-poke. Race-error classifier soft-handles `underpriced` / `already known` / `nonce too low` by bumping the throttle. |
+| `matcher-server::main` | Spawns `funding_poker.run()` under the same `tokio::select!` as the tick + event subscriber + IF watchdog. |
+| `apps/keeper-perps-funding/` | **Deleted.** Replaced by the Rust funding poker. Workspace `keeper:perps-funding` script removed from root `package.json`. |
+
+New env vars:
+
+| Var | Default | Purpose |
+|---|---|---|
+| `MATCHER_FUNDING_POLL_MS` | `5_000` | Loop cadence (matches the TS keeper's 5s liveness tick). |
+| `FUNDING_POKE_MIN_INTERVAL_MS` | `3_600_000` (1h) | Per-market throttle; matches the on-chain funding interval. |
+| `MATCHER_FUNDING_MARKET_IDS` | EURC/USDC + CIRBTC/USDC + TMXNB/USDC | Comma-separated `bytes32` market ids to keep awake. Defaults to the three sprint-1 Arc markets. TJPYC + others can be added once they're listed on-chain. |
+
+Mark-price safety status:
+
+| Surface | Path used | Why correct |
+|---|---|---|
+| Matching (CLOB walk) | n/a — matcher uses limit price from intents only | No oracle dependency on the hot path |
+| LP gating (invariants 1, 4) | `oracle_snapshot` via `FxOracle.getMid` (lenient) + 30s freshness gate | Lenient is the right choice; if the oracle is stale the freshness gate trips. Verified would require RedStone payload in calldata tail, which keeper txs don't carry. |
+| Liquidation | Not in the matcher; handled by `FxLiquidationEngine` + `apps/keeper-perps-liquidator` (untouched by Phase 5) | Contract enforces verified-path mid via `_priceVerified`; the liquidator keeper wraps calldata with the RedStone payload. |
+| PnL realisation on liquidation | Same — `unrealizedPnlVerified` is called by the liquidation path | Same — RedStone-wrapped at the keeper. |
+
+No matcher-side code change needed for mark-price safety in Phase 5;
+this row is documentation-only. **Phase 6** picks up the matcher's
+mainnet-readiness checklist, including hardening the oracle-stale gate's
+ceiling for production markets and the canary keeper (the 4th slot in
+`FX_PERP_KEEPER_COMPONENTS` that's still unimplemented).
+
+---
+
 ## Phasing
 
 | Phase | Scope | Calendar weeks | Gates before next |

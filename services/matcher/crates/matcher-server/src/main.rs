@@ -23,12 +23,14 @@ use tracing::{error, info};
 use bufi_perps_db::PerpsDb;
 use bufi_perps_onchain::{PerpsDeployment, PerpsOnchain};
 
+use crate::funding_poker::FundingPoker;
 use crate::insurance_fund::InsuranceFundWatchdog;
 use crate::lp_signer::LpSigner;
 use crate::lp_state::PathALpStateView;
 
 mod config;
 mod event_subscriber;
+mod funding_poker;
 mod insurance_fund;
 mod intent_translator;
 mod lp_router;
@@ -131,6 +133,12 @@ async fn main() -> ExitCode {
         tokio::spawn(async move { wd.run().await })
     };
 
+    // ---------- Funding poker (Phase 5) ----------
+    let funding_handle = {
+        let poker = FundingPoker::new(onchain.clone(), &cfg);
+        tokio::spawn(async move { poker.run().await })
+    };
+
     // ---------- Tick loop ----------
     let tick_cfg = cfg.clone();
     let tick_db = db.clone();
@@ -161,6 +169,9 @@ async fn main() -> ExitCode {
         }
         res = if_handle => {
             error!(result = ?res, "insurance fund watchdog exited unexpectedly");
+        }
+        res = funding_handle => {
+            error!(result = ?res, "funding poker exited unexpectedly");
         }
     }
     info!("BUFI matcher server stopped");

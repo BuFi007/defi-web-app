@@ -14,7 +14,7 @@ use thiserror::Error;
 #[allow(unused_imports)] // alloy_contract::CallBuilder is in scope via the macro
 use alloy_contract as _;
 
-use crate::bindings::{FxOrderSettlement, FxPerpClearinghouse, SignedOrder};
+use crate::bindings::{FxFundingEngine, FxOrderSettlement, FxPerpClearinghouse, SignedOrder};
 use crate::deployment::{DeploymentLoadError, PerpsDeployment};
 use crate::env::{arc_rpc_url, keeper_private_key, ARC_CHAIN_ID};
 
@@ -112,6 +112,65 @@ impl PerpsOnchain {
     /// FxPerpClearinghouse address.
     pub fn clearinghouse(&self) -> Address {
         self.deployment.contracts.fx_perp_clearinghouse
+    }
+
+    /// FxFundingEngine address (Phase 5 funding poker target).
+    pub fn funding_engine(&self) -> Address {
+        self.deployment.contracts.fx_funding_engine
+    }
+
+    /// Read `lastUpdate` (unix seconds) for `market_id` from `FxFundingEngine`.
+    /// Phase 5 funding poker uses this to decide whether the on-chain
+    /// state has already advanced past our throttle.
+    pub async fn funding_last_update_secs(
+        &self,
+        market_id: B256,
+    ) -> Result<u64, PerpsOnchainError> {
+        let signer: PrivateKeySigner = self.signer_key_hex.parse().map_err(
+            |e: alloy_signer_local::LocalSignerError| {
+                PerpsOnchainError::InvalidSignerKey(e.to_string())
+            },
+        )?;
+        let wallet = EthereumWallet::from(signer);
+        let url: reqwest::Url = self
+            .rpc_url
+            .parse()
+            .map_err(|e| PerpsOnchainError::InvalidRpcUrl(format!("{e}")))?;
+        let provider = ProviderBuilder::new().wallet(wallet).on_http(url);
+        let engine = FxFundingEngine::new(self.funding_engine(), &provider);
+        let state = engine
+            .fundingState(market_id)
+            .call()
+            .await
+            .map_err(|e| PerpsOnchainError::Rpc(format!("fundingState: {e}")))?;
+        Ok(state.lastUpdate.try_into().unwrap_or(0))
+    }
+
+    /// Submit `FxFundingEngine.pokeFundingRate(market_id)` and wait for
+    /// the receipt. Returns the tx hash on success.
+    pub async fn submit_poke_funding(
+        &self,
+        market_id: B256,
+    ) -> Result<B256, PerpsOnchainError> {
+        let signer: PrivateKeySigner = self.parse_signer()?;
+        let wallet = EthereumWallet::from(signer);
+        let url = self.parse_url()?;
+        let provider = ProviderBuilder::new().wallet(wallet).on_http(url);
+        let engine = FxFundingEngine::new(self.funding_engine(), &provider);
+        let pending = engine
+            .pokeFundingRate(market_id)
+            .send()
+            .await
+            .map_err(|e| PerpsOnchainError::Rpc(format!("pokeFundingRate send: {e}")))?;
+        let receipt = pending
+            .get_receipt()
+            .await
+            .map_err(|e| PerpsOnchainError::Rpc(format!("pokeFundingRate receipt: {e}")))?;
+        let tx_hash = receipt.transaction_hash;
+        if !receipt.status() {
+            return Err(PerpsOnchainError::SettlementReverted { tx: tx_hash });
+        }
+        Ok(tx_hash)
     }
 
     /// Read `(openInterestLong, openInterestShort, maxOpenInterest)` for a market.
