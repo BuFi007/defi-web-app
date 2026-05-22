@@ -7,6 +7,7 @@ members = [
     "crates/matcher-reconciler",
     "crates/matcher-test-harness",
     "crates/perps-db",
+    "crates/perps-onchain",
 ]
 
 [workspace.package]
@@ -41,9 +42,21 @@ redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
 # --- sqlite via sqlx (matches @bufi/db's bun:sqlite store) ---
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "macros"] }
 
-# --- EIP-712 signing (matcher-types only) ---
+# --- alloy stack ---
+# matcher-types pulls only sol-types + primitives (zero-dep ABI math);
+# perps-onchain pulls the network stack (provider, signer, contract codec)
+# behind a tokio runtime.
 alloy-sol-types = { version = "0.8", default-features = false }
 alloy-primitives = { version = "0.8", default-features = false }
+alloy-provider = { version = "0.8", default-features = false, features = ["reqwest"] }
+alloy-signer = { version = "0.8", default-features = false }
+alloy-signer-local = { version = "0.8", default-features = false }
+alloy-network = { version = "0.8", default-features = false }
+alloy-rpc-types-eth = { version = "0.8", default-features = false }
+alloy-transport-http = { version = "0.8", default-features = false, features = ["reqwest"] }
+alloy-contract = { version = "0.8", default-features = false }
+alloy-consensus = { version = "0.8", default-features = false }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 
 # --- observability ---
 tracing = "0.1"

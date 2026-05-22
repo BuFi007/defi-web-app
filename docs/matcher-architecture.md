@@ -166,12 +166,21 @@ three locked decisions live in:
   `openInterestLong/Short` per market. Matcher-side gate is now defence in
   depth, not the only guard.
 
-**Market ids:**
+**Market ids (Arc Testnet, chainId 5_042_002):**
 
-- M1 (EURC/USDC on Fuji): `0x7d99088a9fe61331c49a92eb16fa3794b0bc2862b211f5a70f31a64cef25029e`
-- M2 (USDC/EURC on Fuji): `0x1700104cf29eceb113e01a1bcdc913e5e10d3d37314cee235752aa88bf153197`
-- Arc + perp market ids: TBD, documented in
-  `fx-telarana/docs/BUFX_INTEGRATION.md` as deployments land.
+Source of truth: `fx-telarana/deployments/perps-config-5042002.json`.
+**Earlier versions of this doc quoted the Morpho lending market ids
+(`0x7d99…` / `0x1700…`) by mistake — those are from the SPOT money-market
+stack via `FxMarketRegistry`, not the PERP stack via
+`FxPerpClearinghouse._marketConfig`.** Corrected:
+
+- EURC/USDC perp: `0x565a6e2fab61800aa18813603b5b485af5bed7dea1aa0845bdaa61502063cab8`
+- CIRBTC/USDC perp: `0x238aacf17c8d170ad55905cd1c217ae2db8338354b1235059fb0f096e20b777a`
+- TCHFC/USDC perp: `0x992a2a93cd7a43a9ca827907f708a00ef88e9757e8aadab780ec4f58b161c7dd`
+
+The matcher loads these via `bufi-perps-onchain::MarketConfigSet` from
+`fx-telarana/deployments/perps-config-{chainId}.json`. Fuji perp ids will
+land in the same file when those markets deploy.
 
 ---
 
