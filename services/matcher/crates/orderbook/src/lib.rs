@@ -13,11 +13,16 @@
 
 pub mod book;
 pub mod invariants;
+pub mod lp;
 pub mod match_engine;
 pub mod order;
 pub mod price;
 
 pub use book::{OrderBook, OrderBookSide};
+pub use lp::{
+    check_basic_gate, check_delta_cap, quote_price, spread_bps, LpConfig, LpDeny, LpSnapshot,
+    LpStateView,
+};
 pub use match_engine::{
     cancel_intent, match_intent, peek_match, CancelOutcome, CancelStatus, MatchOutcome,
     MatchStatus, RejectReason,

@@ -270,36 +270,20 @@ To keep the doc small and the gate clear:
 
 ---
 
-## Open questions — answer before code
+## Locked decisions (2026-05-22)
 
-These are blockers for starting Phase 4 implementation. They are NOT
-blockers for finalising this design doc — but resolving them turns the
-doc from "design" into "implementation spec".
+Locked at the end of Phase 4a kickoff. Strawman defaults below are the
+values code is built against; tunable per market via `LpConfig` once the
+lp_router lands.
 
-1. **Topology: A, B, or C?** This is the big one.
-2. **`lp_delta_limit` default.** Drift sets this implicitly via share
-   rebasing; we want an explicit number. Strawman: 25% of LP TVL per
-   market, configurable per market.
-3. **Oracle source for invariants 2 / 4 / 9.** Today the matcher doesn't
-   read oracle data directly — `FxPerpClearinghouse._priceVerified` is
-   strict (needs RedStone payload) and `_priceView` is lenient. The LP
-   router probably needs a third path: a matcher-side oracle adapter that
-   reads `FxOracle.latestAnswer()` or the Pyth feed directly via the
-   `bufi-perps-onchain` crate. Strawman: a new `OracleSnapshot` type +
-   `PerpsOnchain::oracle_snapshot(market_id) -> OracleSnapshot` view that
-   pulls (last_update_ms, mark_e18, twap_5min_e18, confidence_bps).
-4. **`max_lp_fill_per_intent` default.** Strawman: 10% of LP TVL per
-   market.
-5. **Reserve price** (invariant 9). Only meaningful if Path B has an AMM
-   reserve. Path A's "reserve" is the matcher's synthetic LP position
-   relative to spread quote; invariant 9 collapses into the spread
-   function (invariant 7) under Path A.
-6. **Insurance fund threshold** (invariant 6). Drift fires IF on any LP
-   loss; we want a noise floor. Strawman: `if (lp_pnl_loss_in_window >
-   max(0.01 * lp_tvl, $10_000_USDC)) burn_if(loss)`.
-
-Strawman answers above are non-binding suggestions; the user/operator
-locks each before the implementation PR.
+| # | Decision | Locked value |
+|---|---|---|
+| 1 | Topology | **Option C — hybrid.** Path A (synthetic in-matcher LP) ships on testnet for rapid invariant iteration; Path B (on-chain `FxPerpLpVault`) lands in parallel on fx-telarana. Matcher's `lp_router` is built behind the `LpStateView` trait so the swap is a one-line change to the impl. |
+| 2 | `lp_delta_limit` (per market) | **25 % of LP TVL.** Conservative anchor matching Drift's effective directional cap under typical share rebasing. Per-market override via `LpConfig.delta_limit_bps`. |
+| 3 | Oracle source for invariants 2 / 4 / 9 | New `OracleSnapshot { last_update_ms, mark_e18, twap_5min_e18, confidence_bps }` type + `PerpsOnchain::oracle_snapshot(market_id)` method. Phase 4 pulls from `FxPerpClearinghouse._priceView` (lenient); Phase 5+ can move to a direct `FxOracle.latestAnswer()` read once we wire the FxOracle bindings. |
+| 4 | `max_lp_fill_per_intent` (per market) | **10 % of LP TVL.** JELLY's >50 %-of-24h-volume single order is the canonical attack; 10 % of TVL bounds it. Larger intents partial (IOC) or rest on book (GTC) for replacement. |
+| 5 | Reserve price (invariant 9) | Under Path A, **collapses into invariant 7**. Path A has no AMM reserve — the spread function IS the reserve. Invariant 9 becomes "live" once Path B `FxPerpLpVault` deploys; until then it's a no-op in the router with a `TODO: enable on Path B` marker. |
+| 6 | Insurance fund threshold (invariant 6) | **`burn_if = max(0.01 × lp_tvl, 10_000 USDC)`.** Drift fires IF on any loss; we add a noise floor to avoid burning IF shares on dust. Configurable via `LpConfig.if_burn_floor_usdc_e6`. |
 
 ---
 
