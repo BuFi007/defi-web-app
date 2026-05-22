@@ -97,6 +97,84 @@ Cargo workspace lives next to TS services as a peer, not under them.
 
 ---
 
+## Phase 2a amendment (2026-05-22) — wire format pinned to live contract
+
+The Phase 0 reading produced a draft proto that assumed an abstract `Intent`
+shape. Cross-referencing `fx-telarana/main` showed the deployed
+`FxOrderSettlement` contract has a fixed `SignedOrder` typehash that the
+matcher MUST produce bytes-for-bytes if signatures are to verify on-chain.
+The proto + EIP-712 are now pinned to the contract. Drift findings + the
+three locked decisions live in:
+
+- `docs/matcher-reading-notes.md` §Source 4 + the 16-row drift table from
+  the Phase 2a kickoff (commit history).
+- The proto at `services/matcher/proto/matcher.v1.proto`.
+- The EIP-712 mirror at `services/matcher/crates/matcher-types/src/eip712.rs`.
+- The orderbook `Intent` type at
+  `services/matcher/crates/orderbook/src/order.rs`.
+
+**Locked decisions:**
+
+1. **Wire format:** matcher's `SignedOrder` mirrors
+   `FxOrderSettlement.SignedOrder` field-for-field. Fields 1-9 are
+   EIP-712-hashed; fields 10+ (`signature`, `tif`, `client_tag`) are
+   matcher-only and NOT in the typehash.
+2. **Integration shape (Phase 3):** the Rust matcher replaces
+   `apps/keeper-perps-matcher` outright — owns DB polling, EIP-712
+   verification, matching, on-chain `settleMatch` calls (via `alloy-rs`),
+   replacement-needed events.
+3. **OI gating:** defence in depth — matcher gates an intent before
+   accepting it (read-side query to `FxPerpClearinghouse`); contract is the
+   backstop via `OpenInterestCapExceeded` / `SkewCapExceeded` reverts.
+
+**Type widenings from spec original:**
+
+- `Price` was `i64`, now `i128`. FX rates at E18 fit in `i64` individually
+  (EUR/USD ≈ 1.08e18 < `i64::MAX ≈ 9.22e18`) but `price * size` products
+  blow `i64`. `i128` is the smallest type that holds them with headroom
+  and costs nothing on aarch64.
+- `Size` decimals: 6 (USDC quantums) → 18 (matches `sizeDeltaE18` E18).
+- `Side` is derived from the sign of `sizeDeltaE18` at the validator
+  boundary; the orderbook still works with `Side::Long | Side::Short` +
+  unsigned `magnitude` (`u128` E18).
+
+**Nonce model swap:**
+
+- Spec original: per-account monotonic `u64` nonce + a recent-nonce set.
+- Contract truth (Permit2-style): `nonceBitmap[trader][nonce >> 8]`,
+  bit `(nonce & 0xff)`. Nonces are NOT monotonic; up to 256 may coexist
+  per word; collisions revert with `NonceAlreadyUsed`. Matcher-side
+  validator must mirror this exact semantic.
+
+**Time unit swap:**
+
+- Spec original: `expires_at_ms` (unix milliseconds).
+- Contract truth: `deadline` in unix **seconds** (matches `block.timestamp`).
+  Field renamed `deadline_secs` throughout.
+
+**Self-trade prevention:**
+
+- Spec deferred STP to Phase 5+.
+- Contract enforces `maker.trader != taker.trader` at
+  `FxOrderSettlement.sol:78`. Matcher SHOULD still filter (avoid wasted
+  txs) but the contract is the backstop.
+
+**On-chain OI cap (LP invariant 1):**
+
+- Already enforced on-chain via
+  `FxPerpClearinghouse._marketConfig.maxOpenInterestUsd` +
+  `openInterestLong/Short` per market. Matcher-side gate is now defence in
+  depth, not the only guard.
+
+**Market ids:**
+
+- M1 (EURC/USDC on Fuji): `0x7d99088a9fe61331c49a92eb16fa3794b0bc2862b211f5a70f31a64cef25029e`
+- M2 (USDC/EURC on Fuji): `0x1700104cf29eceb113e01a1bcdc913e5e10d3d37314cee235752aa88bf153197`
+- Arc + perp market ids: TBD, documented in
+  `fx-telarana/docs/BUFX_INTEGRATION.md` as deployments land.
+
+---
+
 ## The interface — gRPC via tonic
 
 **Decision: gRPC, not REST.**

@@ -18,6 +18,9 @@ pub mod order;
 pub mod price;
 
 pub use book::{OrderBook, OrderBookSide};
-pub use match_engine::{match_intent, peek_match, MatchOutcome, RejectReason};
-pub use order::{Fill, Intent, IntentId, MarketId, Order, OrderType, Side, TimeInForce};
+pub use match_engine::{match_intent, peek_match, MatchOutcome, MatchStatus, RejectReason};
+pub use order::{
+    Fill, Intent, IntentId, MarketId, Order, OrderType, Side, TimeInForce, FLAG_POST_ONLY,
+    FLAG_REDUCE_ONLY,
+};
 pub use price::{Price, Size, PRICE_DECIMALS, SIZE_DECIMALS};
