@@ -773,6 +773,38 @@ ceiling for production markets and the canary keeper (the 4th slot in
 
 ---
 
+## Phase 6 amendment (2026-05-22) — invariant hardening + mainnet-readiness gate
+
+Phase 6 is the ongoing-hardening phase per the original spec. This
+amendment captures what landed in the first 6.x commit:
+
+| What | Where | Why |
+|---|---|---|
+| `FxOracle` address now optionally loaded from `fx-telarana/deployments/perp-oracle-{chainId}.json` | `bufi_perps_onchain::oracle::resolve_oracle_address` | Sprint-1 broadcast started publishing this file; promote it from env-only to JSON-with-env-override. Same precedence pattern as `perp-stack-{chainId}.json`. |
+| Pure-compute LP gate refactored out of `lp_router` into the orderbook crate | `bufi_orderbook::lp_gate::pure_check(snapshot, cfg, oracle, oi, taker, residual, now_secs) -> Result<LpQuote, LpGateDeny>` | Lets the orderbook crate proptest the LP gate's determinism + invariant boundaries without the network. Phase 6 audit surface. |
+| LP determinism + boundary proptests | `crates/orderbook/src/lp_gate.rs` `#[cfg(test)] mod tests` | New properties: `pure_check_is_deterministic` (same inputs → same output), `spread_monotone_in_size` (invariant 7 property), `oracle_freshness_boundary` (invariant 4 precise at the edge). |
+| Mainnet-readiness checklist | `docs/matcher-mainnet-readiness.md` | New gate doc per the original spec's "before any mainnet touch" rule. 9 sections, 30+ checkable rows, audit-scope map, sign-off table. |
+
+`OracleView` / `OiView` types added to the orderbook crate as pure
+in-process mirrors of `bufi_perps_onchain::OracleSnapshot` /
+`bufi_perps_onchain::OiSnapshot`. The matcher-server side converts at
+the call site; the orderbook crate keeps zero alloy/network deps.
+
+Workspace test count: **81 active + 2 ignored** (Phase 5 left it at 73 + 2).
+
+What Phase 6 explicitly does NOT yet ship (Phase 7 work):
+
+- **Canary keeper** — 4th slot in `FX_PERP_KEEPER_COMPONENTS`. Needs a
+  third signing key + a pre-funded margin account; surfaced in
+  `docs/matcher-mainnet-readiness.md` §7 as deferred.
+- **`PROPTEST_CASES=10_000` hardening sweep** — listed as ⬜ in §2.5 of
+  the readiness doc. Runs at default 256 today; bump as part of the
+  audit-prep PR.
+- **Sign-off signatures** in §9 of the readiness doc — wait for the
+  three reviewers.
+
+---
+
 ## Phasing
 
 | Phase | Scope | Calendar weeks | Gates before next |

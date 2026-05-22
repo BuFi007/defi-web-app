@@ -14,6 +14,7 @@
 pub mod book;
 pub mod invariants;
 pub mod lp;
+pub mod lp_gate;
 pub mod match_engine;
 pub mod order;
 pub mod price;
@@ -23,6 +24,7 @@ pub use lp::{
     check_basic_gate, check_delta_cap, quote_price, spread_bps, LpConfig, LpDeny, LpSnapshot,
     LpStateView,
 };
+pub use lp_gate::{pure_check, LpGateDeny, LpQuote, OiView, OracleView, ORACLE_MAX_AGE_SECS};
 pub use match_engine::{
     cancel_intent, match_intent, peek_match, CancelOutcome, CancelStatus, MatchOutcome,
     MatchStatus, RejectReason,

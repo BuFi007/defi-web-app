@@ -7,22 +7,26 @@
 //!
 //! Address sources:
 //!   - `baseToken` comes from `FxPerpClearinghouse.marketConfig(market_id).baseToken`.
-//!   - `oracle` address lives in `FX_ORACLE_ADDRESS` env (sprint-1 broadcast
-//!     doesn't include it in `perp-stack-{id}.json` yet; we'll move it to
-//!     the JSON loader once the deployer publishes it there).
+//!   - `oracle` address: env `FX_ORACLE_ADDRESS` wins. If unset, fall back to
+//!     `fx-telarana/deployments/perp-oracle-{chainId}.json` (Phase 6 — sprint-1
+//!     began publishing this file; env override is kept for staging/forks).
 //!   - `usdc` address lives in `USDC_ADDRESS` env (defaults to Arc Testnet
 //!     USDC: `0x3600000000000000000000000000000000000000`).
 
 use std::env;
+use std::fs;
+use std::path::Path;
 
 use alloy_network::EthereumWallet;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::ProviderBuilder;
 use alloy_signer_local::PrivateKeySigner;
+use serde::Deserialize;
 
 use crate::bindings::{FxPerpClearinghouse, IFxOracle};
 use crate::client::PerpsOnchain;
 use crate::client::PerpsOnchainError;
+use crate::env::fx_telarana_deployments_dir;
 
 /// Default Arc Testnet USDC (per `fx-telarana/docs/INTEGRATION_HANDOFF.md`).
 pub const DEFAULT_ARC_USDC: &str = "0x3600000000000000000000000000000000000000";
@@ -42,7 +46,7 @@ pub struct OracleSnapshot {
 impl PerpsOnchain {
     /// Read `(mark_e18, published_at)` for `market_id` via the FxOracle path.
     pub async fn oracle_snapshot(&self, market_id: B256) -> Result<OracleSnapshot, PerpsOnchainError> {
-        let oracle_address = oracle_address_from_env()?;
+        let oracle_address = resolve_oracle_address(self.deployment().chain_id)?;
         let usdc_address = usdc_address_from_env()?;
 
         // Build the provider + clearinghouse + oracle handles together so a
@@ -85,18 +89,88 @@ impl PerpsOnchain {
     }
 }
 
-fn oracle_address_from_env() -> Result<Address, PerpsOnchainError> {
-    let raw = env::var("FX_ORACLE_ADDRESS").map_err(|_| {
-        PerpsOnchainError::Rpc(
-            "FX_ORACLE_ADDRESS env var not set (Arc sprint-1: 0xf9b0356A31BC7125e2eD0DADf8b5957860d42c78)".into(),
-        )
-    })?;
-    raw.parse::<Address>()
-        .map_err(|e| PerpsOnchainError::Rpc(format!("FX_ORACLE_ADDRESS parse: {e}")))
+/// Resolve the oracle address for `chain_id`. Order:
+///   1. `FX_ORACLE_ADDRESS` env (override path — used for staging + forks)
+///   2. `perp-oracle-{chain_id}.json` under `FX_TELARANA_DEPLOYMENTS`
+///   3. error
+pub(crate) fn resolve_oracle_address(chain_id: u64) -> Result<Address, PerpsOnchainError> {
+    if let Ok(raw) = env::var("FX_ORACLE_ADDRESS") {
+        return raw
+            .parse::<Address>()
+            .map_err(|e| PerpsOnchainError::Rpc(format!("FX_ORACLE_ADDRESS parse: {e}")));
+    }
+    let dir = fx_telarana_deployments_dir();
+    let path = dir.join(format!("perp-oracle-{chain_id}.json"));
+    load_oracle_address_from_json(&path).ok_or_else(|| {
+        PerpsOnchainError::Rpc(format!(
+            "no FxOracle address: set FX_ORACLE_ADDRESS env OR drop a {} \
+             (FX_TELARANA_DEPLOYMENTS={})",
+            path.display(),
+            dir.display(),
+        ))
+    })
+}
+
+fn load_oracle_address_from_json(path: &Path) -> Option<Address> {
+    let raw = fs::read_to_string(path).ok()?;
+    let parsed: PerpOracleManifest = serde_json::from_str(&raw).ok()?;
+    parsed.fx_oracle.parse::<Address>().ok()
+}
+
+/// Minimal slice of `perp-oracle-{chainId}.json`. The rest of the file
+/// (maxConfidenceBps, maxDeviationBps, maxOracleAge, pyth) is read by the
+/// liquidator keeper, not the matcher — captured here for future use only.
+#[derive(Debug, Deserialize)]
+struct PerpOracleManifest {
+    #[serde(rename = "FxOracle")]
+    fx_oracle: String,
 }
 
 fn usdc_address_from_env() -> Result<Address, PerpsOnchainError> {
     let raw = env::var("USDC_ADDRESS").unwrap_or_else(|_| DEFAULT_ARC_USDC.to_string());
     raw.parse::<Address>()
         .map_err(|e| PerpsOnchainError::Rpc(format!("USDC_ADDRESS parse: {e}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn write_temp(contents: &str, name: &str) -> PathBuf {
+        let mut path = std::env::temp_dir();
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        path.push(format!("bufi-oracle-test-{stamp}-{name}"));
+        std::fs::write(&path, contents).unwrap();
+        path
+    }
+
+    const ARC_ORACLE_JSON: &str = r#"{
+  "FxOracle": "0xf9b0356A31BC7125e2eD0DADf8b5957860d42c78",
+  "chainId": 5042002,
+  "deployer": "0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69",
+  "maxConfidenceBps": 30,
+  "maxDeviationBps": 50,
+  "maxOracleAge": 300,
+  "pyth": "0x2880aB155794e7179c9eE2e38200202908C17B43"
+}"#;
+
+    #[test]
+    fn json_loader_parses_canonical_arc_manifest() {
+        let path = write_temp(ARC_ORACLE_JSON, "perp-oracle-5042002.json");
+        let addr = load_oracle_address_from_json(&path).expect("parse");
+        assert_eq!(
+            format!("{:#x}", addr).to_lowercase(),
+            "0xf9b0356a31bc7125e2ed0dadf8b5957860d42c78"
+        );
+    }
+
+    #[test]
+    fn json_loader_returns_none_on_missing_file() {
+        let path = PathBuf::from("/nonexistent/perp-oracle-5042002.json");
+        assert!(load_oracle_address_from_json(&path).is_none());
+    }
 }
