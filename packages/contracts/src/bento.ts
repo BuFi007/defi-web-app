@@ -130,13 +130,26 @@ export const BENTO_ARC_TESTNET_DEPLOYMENT: BentoDeploymentArtifact = {
     // PoolManager swap path so a single tx can pull liquidity from a
     // remote chain and execute the swap atomically.
     TelaranaGatewayHubHook: "0xe895CB461AFF6E98167a7FA0Db252ba906714088",
-    // Canonical Uniswap v4 PoolSwapTest from lib/v4-core/src/test/.
-    // Satisfies IUnlockCallback so EOAs can drive PoolManager.swap via
-    // the unlock/callback dance. Wave N2a deploy on Arc Testnet, tx
-    // 0xfcc77cb2…d39f. Closes the M4 Phase-D CCTP demo blocker. The
-    // env-var fallback (V4_SWAP_ROUTER_5042002) still works as an
-    // override for ops experimenting with a custom router.
-    V4SwapRouter: "0x60004B08372Ea953762fCD5cb4D0c723F32311fa",
+    // fx-telarana FxV4RouterHarness (contracts/test/utils/FxV4RouterHarness.sol).
+    // PMM-aware: settles user input BEFORE manager.swap, which is what
+    // FxSwapHook's PMM custom-accounting shape requires — beforeSwap
+    // pulls the specified input out of PoolManager via
+    // inputCurrency.take(POOL_MANAGER, hook, amountIn) at FxSwapHook.sol L731,
+    // so the input MUST already be settled into PoolManager before
+    // manager.swap fires.
+    //
+    // Replaces the Wave N2a PoolSwapTest pin (0x60004B…11fa, tx
+    // 0xfcc77cb2…d39f) which settled AFTER manager.swap — incompatible
+    // with FxSwapHook, verified by N3's reverted swap artefact
+    // 0xde83acb7…62f6. PoolSwapTest is kept on-chain (and surfaced in
+    // fx-telarana arc-testnet.json under PoolSwapTest_deprecated) for
+    // v4-LP-shape pools without PMM hooks.
+    //
+    // Wave N4 deploy on Arc Testnet, tx 0xedf26e79…17c4. Closes N3's
+    // swap-leg revert. The env-var fallback (V4_SWAP_ROUTER_5042002)
+    // still works as an override for ops experimenting with a custom
+    // router.
+    V4SwapRouter: "0x7cfc449B9A6777F740b2F8F7BA87351B15A4B3b6",
   },
 } as const;
 

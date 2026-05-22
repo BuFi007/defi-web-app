@@ -25,16 +25,21 @@
     "TelaranaGatewayHubHook": "0xe895CB461AFF6E98167a7FA0Db252ba906714088"
   },
   "v4Periphery": {
-    "_notes": "Wave M1 hooks (deployed 2026-05-21) + v4 swap router. FxSwapHook permissionFlagsLow14Bits 0xAC8 (beforeAddLiquidity | beforeRemoveLiquidity | beforeSwap | afterSwap | beforeSwapReturnDelta). TelaranaGatewayHubHook 0x88 (beforeSwap | beforeSwapReturnDelta). V4SwapRouter pinned by Wave N2a (canonical PoolSwapTest from lib/v4-core/src/test/, deployed 2026-05-21 tx 0xfcc77cb2…d39f). Universal Router still not on Arc Testnet — PoolSwapTest is the testnet path until Uniswap deploys it. Source manifests: fx-telarana@feat/wave-m1-deploy-arc-hooks + feat/wk1n2a-deploy-poolswaptest-arc.",
+    "_notes": "Wave M1 hooks (deployed 2026-05-21) + v4 swap router. FxSwapHook permissionFlagsLow14Bits 0xAC8 (beforeAddLiquidity | beforeRemoveLiquidity | beforeSwap | afterSwap | beforeSwapReturnDelta). TelaranaGatewayHubHook 0x88 (beforeSwap | beforeSwapReturnDelta). V4SwapRouter re-pinned by Wave N4 to FxV4RouterHarness (deployed 2026-05-22 tx 0xedf26e79…17c4) — PMM-aware, settles user input BEFORE manager.swap, which is required by FxSwapHook's beforeSwap (it takes input from PoolManager inside the hook at FxSwapHook.sol L731). Replaces the Wave N2a PoolSwapTest pin (0x60004B…11fa, kept on-chain under V4SwapRouter_deprecated below) which settled AFTER manager.swap — verified incompatible by N3's reverted swap artefact 0xde83acb7…62f6. Source manifests: fx-telarana@feat/wave-m1-deploy-arc-hooks + feat/wk1n4-deploy-fxv4routerharness-arc.",
     "FxSwapHook": "0xC6F894f30d0D28972C876B4af58C02A4E88A0aC8",
     "FxSwapHookDeployTx": "0x016e2d483852c19e5dab5eb0338b80d73f7321ad3ee2593ee49876ee3332edb7",
     "FxSwapHookSalt": "0x0000000000000000000000000000000000000000000000000000000000000122",
     "TelaranaGatewayHubHook": "0xe895CB461AFF6E98167a7FA0Db252ba906714088",
     "TelaranaGatewayHubHookDeployTx": "0x53eca2cddbc9618941038a37166799da8d666db3cc10d42fd4b4bf9ed0601bde",
     "TelaranaGatewayHubHookSalt": "0x00000000000000000000000000000000000000000000000000000000000001a6",
-    "V4SwapRouter": "0x60004B08372Ea953762fCD5cb4D0c723F32311fa",
-    "V4SwapRouterDeployTx": "0xfcc77cb2085aaded899b8d0a7c8c822eb49b3f8fdd0ab9c2eee34b6f94e3d39f",
-    "V4SwapRouterEnvVar": "V4_SWAP_ROUTER_5042002"
+    "V4SwapRouter": "0x7cfc449B9A6777F740b2F8F7BA87351B15A4B3b6",
+    "V4SwapRouterDeployTx": "0xedf26e793f8117482f01df92273204864b6bf0fa86e37b9e02dc177df3e417c4",
+    "V4SwapRouterContract": "FxV4RouterHarness",
+    "V4SwapRouterEnvVar": "V4_SWAP_ROUTER_5042002",
+    "V4SwapRouter_deprecated": "0x60004B08372Ea953762fCD5cb4D0c723F32311fa",
+    "V4SwapRouter_deprecatedDeployTx": "0xfcc77cb2085aaded899b8d0a7c8c822eb49b3f8fdd0ab9c2eee34b6f94e3d39f",
+    "V4SwapRouter_deprecatedContract": "PoolSwapTest",
+    "V4SwapRouter_deprecatedNote": "PoolSwapTest from lib/v4-core/src/test/. Settles input AFTER manager.swap → breaks FxSwapHook PMM beforeSwap. Kept on-chain for v4-LP-shape pools without PMM custom-accounting hooks."
   },
   "deprecated": {
     "V1FxHubMessageReceiver": "0x07db64fb19C6c4a1eBB1B7bfdaFd4676b43Cf276",
