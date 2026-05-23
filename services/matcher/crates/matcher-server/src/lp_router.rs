@@ -307,26 +307,29 @@ fn oracle_snapshot_to_view(snap: &OracleSnapshot) -> Result<OracleView, String> 
     })
 }
 
-/// Lift an `OiSnapshot` (alloy `U256` long/short/cap, USDC quantums) into
-/// the pure-compute `OiView` (`u128`). Fails on overflow — Arc markets
-/// today cap OI well under 2^127, so this only trips on a misconfig.
+/// Lift an `OiSnapshot` (alloy `U256` long/short/cap) into the pure-compute
+/// `OiView` (`u128`). The contract stores all three as USDC notional in
+/// 6-dec quantums (see `FxPerpClearinghouse._applyIncrease`'s
+/// `notional = priceE18 * sizeDeltaE18 / 1e18` then USDC-rounded). The
+/// LP gate handles the unit conversion against the matcher's base-WAD
+/// residual size internally via `base_wad_to_usdc_e6`.
 fn oi_snapshot_to_view(snap: &OiSnapshot) -> Result<OiView, String> {
-    let long_e18: u128 = snap
+    let long_usdc_e6: u128 = snap
         .long
         .try_into()
         .map_err(|_| format!("long {} too large for u128", snap.long))?;
-    let short_e18: u128 = snap
+    let short_usdc_e6: u128 = snap
         .short
         .try_into()
         .map_err(|_| format!("short {} too large for u128", snap.short))?;
-    let cap_e18: u128 = snap
+    let cap_usdc_e6: u128 = snap
         .cap
         .try_into()
         .map_err(|_| format!("cap {} too large for u128", snap.cap))?;
     Ok(OiView {
-        long_e18,
-        short_e18,
-        cap_e18,
+        long_usdc_e6,
+        short_usdc_e6,
+        cap_usdc_e6,
     })
 }
 

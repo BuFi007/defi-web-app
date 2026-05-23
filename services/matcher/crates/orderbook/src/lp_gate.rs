@@ -30,15 +30,23 @@ pub struct OracleView {
 }
 
 /// OI snapshot in pure-compute form — mirrors `bufi_perps_onchain::OiSnapshot`.
-/// Stored as u128 since 6-dec USDC + 18-dec WAD both fit comfortably.
+///
+/// Unit note: the on-chain `FxPerpClearinghouse.openInterest{Long,Short}`
+/// and `maxOpenInterest` are stored as **USDC notional in 6-decimal
+/// quantums** (`notional = priceE18 * sizeDeltaE18 / 1e18` per
+/// `FxPerpClearinghouse._applyIncrease`), NOT base-token WAD. The
+/// earlier field names (`*_e18`) lied about this and caused the LP
+/// gate's invariant 1 comparison to be off by ~1e12 — caught during
+/// the Step 3 dogfood when a 0.1-EUR fill (1e17 base WAD) tripped a
+/// 1000-USDC cap (1e9 quantums) as if it were 1e17 USDC notional.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OiView {
-    /// `openInterestLong`, 18-dec WAD.
-    pub long_e18: u128,
-    /// `openInterestShort`, 18-dec WAD.
-    pub short_e18: u128,
-    /// `maxOpenInterest`, 18-dec WAD.
-    pub cap_e18: u128,
+    /// `openInterestLong`, USDC notional in 6-dec quantums.
+    pub long_usdc_e6: u128,
+    /// `openInterestShort`, USDC notional in 6-dec quantums.
+    pub short_usdc_e6: u128,
+    /// `maxOpenInterest`, USDC notional in 6-dec quantums.
+    pub cap_usdc_e6: u128,
 }
 
 /// Maximum seconds the oracle may lag before invariant 4 trips. Locked at
@@ -105,14 +113,20 @@ pub fn pure_check(
         });
     }
 
-    // 3. Invariant 1 (OI cap).
-    let larger = oi.long_e18.max(oi.short_e18);
-    if larger.saturating_add(residual_size.raw()) > oi.cap_e18 {
+    // 3. Invariant 1 (OI cap). The on-chain `openInterest{Long,Short}`
+    // and `maxOpenInterest` are stored as USDC notional in 6-dec
+    // quantums — the matcher's `residual_size` is base-token WAD
+    // (18-dec). Convert the residual to USDC notional using the
+    // oracle mark before comparing.
+    let mark_u128: u128 = oracle.mark_e18.max(0) as u128;
+    let fill_notional_usdc_e6 = base_wad_to_usdc_e6(residual_size.raw(), mark_u128);
+    let larger = oi.long_usdc_e6.max(oi.short_usdc_e6);
+    if larger.saturating_add(fill_notional_usdc_e6) > oi.cap_usdc_e6 {
         return Err(LpGateDeny::OiCapBreach {
-            long: oi.long_e18,
-            short: oi.short_e18,
-            size: residual_size.raw(),
-            cap: oi.cap_e18,
+            long: oi.long_usdc_e6,
+            short: oi.short_usdc_e6,
+            size: fill_notional_usdc_e6,
+            cap: oi.cap_usdc_e6,
         });
     }
 
@@ -127,6 +141,30 @@ pub fn pure_check(
         price,
         spread_bps: bps,
     })
+}
+
+/// Convert a base-token magnitude in 18-dec WAD + a mark price in 18-dec
+/// WAD into USDC notional in 6-dec quantums:
+///
+///   `notional_usdc_e6 = size_e18 * mark_e18 / 1e30`
+///
+/// (`/ 1e18` to consume the mark's WAD scaling, then `/ 1e12` to drop
+/// from 18-dec to 6-dec USDC.)
+///
+/// We can't `size * mark` directly into u128 — the product overflows
+/// above ~3.4e8 USDC notional. Split each operand by 1e15 first so the
+/// intermediate product stays in u128. The precision floor is 1e-3 of
+/// a base unit × 1e-3 of the mark, which is well below USDC's own 1e-6
+/// precision — no meaningful loss for any realistic intent size.
+///
+/// Saturating semantics — overflow returns `u128::MAX` and trips the
+/// OI cap, which is the conservative direction (block the fill rather
+/// than silently shrink it). Matches `FxPerpClearinghouse._applyIncrease`'s
+/// `notional = priceE18 * sizeDeltaE18 / 1e18` (then USDC-rounded).
+fn base_wad_to_usdc_e6(size_e18: u128, mark_e18: u128) -> u128 {
+    let s = size_e18 / 1_000_000_000_000_000u128; // /1e15
+    let m = mark_e18 / 1_000_000_000_000_000u128; // /1e15
+    s.saturating_mul(m)
 }
 
 #[cfg(test)]
@@ -150,11 +188,13 @@ mod tests {
 
     fn oi(long: u128, short: u128, cap: u128) -> OiView {
         OiView {
-            long_e18: long,
-            short_e18: short,
-            cap_e18: cap,
+            long_usdc_e6: long,
+            short_usdc_e6: short,
+            cap_usdc_e6: cap,
         }
     }
+
+    const USDC: u128 = 1_000_000; // 6-dec USDC quantums
 
     fn fresh_oracle() -> OracleView {
         OracleView {
@@ -165,18 +205,22 @@ mod tests {
 
     const NOW: u64 = 1_700_000_000;
 
+    // With fresh_oracle (mark=1.0 WAD) the conversion is:
+    //   notional_usdc_e6 = size_e18 / 1e12 = 1 USDC quantum per 1e12 base WAD
+    // So 1 unit base (1e18 WAD) → 1_000_000 quantums = 1 USDC notional.
+
     #[test]
     fn fresh_path_accepts() {
         let r = pure_check(
             &snap(0, 0, true),
             &LpConfig::default(),
             &fresh_oracle(),
-            &oi(0, 0, 100 * E18),
+            &oi(0, 0, 100 * USDC), // 100 USDC cap
             Side::Long,
-            Size::new(E18),
+            Size::new(E18), // 1 unit base @ mark 1.0 = 1 USDC notional
             NOW,
         );
-        assert!(r.is_ok());
+        assert!(r.is_ok(), "expected accept; got {r:?}");
     }
 
     #[test]
@@ -187,7 +231,7 @@ mod tests {
             &snap(0, 0, true),
             &LpConfig::default(),
             &o,
-            &oi(0, 0, 100 * E18),
+            &oi(0, 0, 100 * USDC),
             Side::Long,
             Size::new(E18),
             NOW,
@@ -201,12 +245,28 @@ mod tests {
             &snap(0, 0, true),
             &LpConfig::default(),
             &fresh_oracle(),
-            &oi(99 * E18, 0, 100 * E18),
+            // Cap 100 USDC, 99 USDC long already, adding 2 USDC → 101 > 100.
+            &oi(99 * USDC, 0, 100 * USDC),
             Side::Long,
             Size::new(2 * E18),
             NOW,
         );
         assert!(matches!(r, Err(LpGateDeny::OiCapBreach { .. })));
+    }
+
+    #[test]
+    fn base_wad_to_usdc_e6_at_unit_mark() {
+        // mark=1.0 (1e18 WAD), 1 base unit (1e18) → 1 USDC (1e6 quantums).
+        assert_eq!(base_wad_to_usdc_e6(E18, E18), USDC);
+        // 0.1 base @ 1.0 → 0.1 USDC.
+        assert_eq!(base_wad_to_usdc_e6(E18 / 10, E18), USDC / 10);
+    }
+
+    #[test]
+    fn base_wad_to_usdc_e6_at_non_unit_mark() {
+        // mark=1.15 EUR/USD, 100 EUR → 115 USDC notional.
+        let mark_115 = 1_150_000_000_000_000_000u128; // 1.15 WAD
+        assert_eq!(base_wad_to_usdc_e6(100 * E18, mark_115), 115 * USDC);
     }
 
     proptest! {

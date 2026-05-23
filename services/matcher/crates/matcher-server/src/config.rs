@@ -220,13 +220,20 @@ impl Config {
 /// funding poker. Defaults to the three Arc Testnet sprint-1 markets per
 /// `fx-telarana/deployments/perps-config-5042002.json`.
 fn parse_funding_market_ids(raw: Option<&str>) -> Vec<[u8; 32]> {
-    const DEFAULTS: [&str; 3] = [
+    // All 4 live Arc sprint-1 perp markets per
+    // ~/coding-dojo/fx-telarana/deployments/perps-config-5042002.json.
+    // tCHFC is registered in the SDK but `enabled=false` on-chain, so it's
+    // excluded here — adding it would just produce wasted funding-poke
+    // failures every tick.
+    const DEFAULTS: [&str; 4] = [
         // EURC/USDC perp
         "0x565a6e2fab61800aa18813603b5b485af5bed7dea1aa0845bdaa61502063cab8",
+        // tJPYC/USDC perp
+        "0x9ccad283db415085bf69329b696bfc7a34bff2d476f5cf7b1d4a3ba9bc0b70ab",
+        // tMXNB/USDC perp
+        "0xb698dfdbcbae088741081a53b9f1da11df8ff7c92c9278b66e15a34077ea5ca3",
         // CIRBTC/USDC perp
         "0x238aacf17c8d170ad55905cd1c217ae2db8338354b1235059fb0f096e20b777a",
-        // TMXNB/USDC perp
-        "0xb698dfdbcbae088741081a53b9f1da11df8ff7c92c9278b66e15a34077ea5ca3",
     ];
     let source: Vec<&str> = match raw {
         Some(s) => s.split(',').map(|p| p.trim()).filter(|p| !p.is_empty()).collect(),

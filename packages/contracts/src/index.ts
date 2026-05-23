@@ -424,6 +424,15 @@ const ARC_PERP_DEFAULT_FUNDING_CONFIG = {
 } as const;
 
 // Source: ../fx-telarana/reports/CONFIG_ARC_PHASE_B_E_PERP_MARKETS.md.
+//
+// Live on Arc (sprint-1 broadcast 2026-05-21,
+// ~/coding-dojo/fx-telarana/deployments/perps-config-5042002.json):
+//   EURC/USDC, tJPYC/USDC, tMXNB/USDC, CIRBTC/USDC.
+// tCHFC/USDC is kept here for SDK shape but is `enabled=false` on-chain
+// (the matcher's marketConfig read returns enabled=false; useMarketList
+// filters it out). CIRBTC/USDC is intentionally NOT here yet — it's a
+// BTC-perp not an FX pair, and adding it requires the cirbtc token in
+// TokenRegistry + a btcUsd Pyth feed id; tracked as a follow-up.
 export const ARC_PERP_MARKETS: Record<ArcPerpMarketSymbol, ArcPerpMarket> = {
   "EURC/USDC": {
     chainId: 5042002,
