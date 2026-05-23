@@ -140,23 +140,150 @@ privacyRoutes.get("/pool", async (c) => {
 /**
  * GET /privacy/assets?chain=arc|fuji
  *
- * Static listing of which assets have shielded pools on the requested
- * chain. Wraps the address registry so the UI can render the Ghost
- * Mode asset picker without parsing the deployments JSON itself.
+ * Full per-asset privacy registry. Mirrors the `registry` array in
+ * `fx-telarana/deployments/privacy-hook-{network}.json`. Includes:
+ *   - Live pools (status="live") with their on-chain pool address +
+ *     minimumDeposit + maxRelayFeeBPS from the deployment registry.
+ *   - Pending pools (status="pending") for issued tokens that don't
+ *     yet have a shielded pool deployed — the UI shows them as
+ *     "coming soon" rather than hiding the surface.
+ *   - Cross-currency routes (`routes` array) — pairs the swap adapter
+ *     supports today (`USDC ↔ EURC` on Arc, none on Fuji). UI uses
+ *     this to render the cross-currency relay selector.
  */
+interface PrivacyAssetEntry {
+  symbol: string;
+  token: Hex | undefined;
+  pool: Hex | undefined;
+  status: "live" | "pending";
+  minimumDeposit?: string;
+  minimumDepositHumanReadable?: string;
+  maxRelayFeeBPS?: string;
+  vettingFeeBPS?: string;
+}
+
+interface PrivacyRouteEntry {
+  from: string;
+  to: string;
+  rate: string;
+  rateHumanReadable: string;
+}
+
+const ARC_PRIVACY_REGISTRY: PrivacyAssetEntry[] = [
+  {
+    symbol: "USDC",
+    token: "0x3600000000000000000000000000000000000000",
+    pool: "0xc11c216c9c7a36848b1d4276d223160c8b51988f",
+    status: "live",
+    minimumDeposit: "1000000",
+    minimumDepositHumanReadable: "1 USDC",
+    vettingFeeBPS: "0",
+    maxRelayFeeBPS: "500",
+  },
+  {
+    symbol: "EURC",
+    token: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
+    pool: "0x7B4582CDE65c8cC00fE24B16dBA60472242d234c",
+    status: "live",
+    minimumDeposit: "1000000",
+    minimumDepositHumanReadable: "1 EURC",
+    vettingFeeBPS: "0",
+    maxRelayFeeBPS: "500",
+  },
+  // Issued issuer tokens with no shielded pool deployed yet. The
+  // entries are kept so the UI surface "see all issuables I'd
+  // eventually shield" — flip status to "live" + populate `pool`
+  // when fx-telarana deploys the per-asset pool.
+  {
+    symbol: "MXNB",
+    token: "0x836F73Fbc370A9329Ba4957E47912DfDBA6BA461",
+    pool: undefined,
+    status: "pending",
+  },
+  {
+    symbol: "QCAD",
+    token: "0x23d7CFFd0876f3ABb6B074287ba2aeefBc83825d",
+    pool: undefined,
+    status: "pending",
+  },
+  {
+    symbol: "cirBTC",
+    token: "0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF",
+    pool: undefined,
+    status: "pending",
+  },
+  {
+    symbol: "AUDF",
+    token: "0xd2a530170D71a9Cfe1651Fb468E2B98F7Ed7456b",
+    pool: undefined,
+    status: "pending",
+  },
+];
+
+const ARC_PRIVACY_ROUTES: PrivacyRouteEntry[] = [
+  {
+    from: "USDC",
+    to: "EURC",
+    rate: "920000000000000000",
+    rateHumanReadable: "1 USDC → 0.92 EURC",
+  },
+  {
+    from: "EURC",
+    to: "USDC",
+    rate: "1080000000000000000",
+    rateHumanReadable: "1 EURC → 1.08 USDC",
+  },
+];
+
+const FUJI_PRIVACY_REGISTRY: PrivacyAssetEntry[] = [
+  {
+    symbol: "USDC",
+    token: "0x5425890298aed601595a70AB815c96711a31Bc65",
+    pool: "0xc490be46d2b87b92f146ab4dd907784d9658ec7f",
+    status: "live",
+    minimumDeposit: "1000000",
+    minimumDepositHumanReadable: "1 USDC",
+    vettingFeeBPS: "0",
+    maxRelayFeeBPS: "500",
+  },
+  // EURC + MXNB privacy pools are deferred on Fuji per the
+  // privacy-hook-fuji.json notes ("EURC deferred (MockEURC not
+  // user-acquirable). MXNB deferred (privacy branch lineage pre-Stage 6)").
+  {
+    symbol: "EURC",
+    token: undefined,
+    pool: undefined,
+    status: "pending",
+  },
+  {
+    symbol: "MXNB",
+    token: undefined,
+    pool: undefined,
+    status: "pending",
+  },
+];
+
 privacyRoutes.get("/assets", (c) => {
   const chain = parseChain(c.req.query("chain") ?? "arc");
   const chainId = CHAIN_BY_KEY[chain];
-  const contracts = getContracts(chainId);
-  const privacy = contracts.privacy;
-  const assets: Array<{ symbol: string; token: Hex | undefined; pool: Hex | undefined }> = [];
-  if (privacy.poolUSDC && contracts.tokens.usdc) {
-    assets.push({ symbol: "USDC", token: contracts.tokens.usdc, pool: privacy.poolUSDC });
-  }
-  if (privacy.poolEURC && contracts.tokens.eurc) {
-    assets.push({ symbol: "EURC", token: contracts.tokens.eurc, pool: privacy.poolEURC });
-  }
-  return c.json({ chain, chainId, assets, crossCurrencyEnabled: Boolean(privacy.swapAdapter) });
+  const contracts = getContracts(chainId).privacy;
+  const assets = chain === "arc" ? ARC_PRIVACY_REGISTRY : FUJI_PRIVACY_REGISTRY;
+  const routes = chain === "arc" ? ARC_PRIVACY_ROUTES : [];
+  const livePoolCount = assets.filter((a) => a.status === "live").length;
+  const pendingPoolCount = assets.length - livePoolCount;
+  return c.json({
+    chain,
+    chainId,
+    assets,
+    routes,
+    crossCurrencyEnabled: Boolean(contracts.swapAdapter),
+    crossCurrencyAdapter: contracts.swapAdapter ?? null,
+    summary: {
+      live: livePoolCount,
+      pending: pendingPoolCount,
+      total: assets.length,
+    },
+  });
 });
 
 export { privacyRoutes };

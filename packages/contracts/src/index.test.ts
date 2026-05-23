@@ -3,18 +3,18 @@ import { describe, expect, test } from "bun:test";
 import { ARC_PERP_MARKETS, CONTRACTS, loadContracts } from "./index";
 
 describe("contract address registry", () => {
-  test("includes the Arc Phase B-E perp stack", () => {
+  test("includes the Arc sprint-1 perp stack (2026-05-21 broadcast)", () => {
     expect(CONTRACTS[5042002].perps).toMatchObject({
-      clearinghouse: "0x25cDf2ad4Fd446e85273c4D7C77a03F22C742865",
-      marginAccount: "0x1869D0253286dF29ce0AB8d29207772C7fD9dc35",
-      fundingEngine: "0x725822e8BC6edbcBa52914149e25f2671290C6D2",
-      healthChecker: "0x9cc0D71e2Af1532e74C2Af8aE7248ACB501039d5",
-      liquidationEngine: "0x01f71c1E74350633bBC9d554ca35DA40412DCFB7",
-      orderSettlement: "0x49ad97Fa2b67252373f4683bD4a4B49AA3AF5565",
+      clearinghouse: "0x39dc43E2133CF860c1d17d4DB75Ef4204eebD46A",
+      marginAccount: "0x4EB6018F988301417B93cb2b8899D74D42273e96",
+      fundingEngine: "0x859bA11A3693895f8B03C31C6AE3b8F04992115B",
+      healthChecker: "0xA00Be167609c02F3879138dA8530BC31527c02b8",
+      liquidationEngine: "0xF579e265EF1D5E67EfDbb1F20863465E94a9d3eA",
+      orderSettlement: "0x93C3d831D6F0657479d7Fb6Cf0D06e75aA05E4CC",
     });
   });
 
-  test("includes the configured Arc Phase B-E perp markets", () => {
+  test("includes the configured Arc sprint-1 perp markets (no t-prefix)", () => {
     expect(ARC_PERP_MARKETS).toMatchObject({
       "EURC/USDC": {
         marketId: "0x565a6e2fab61800aa18813603b5b485af5bed7dea1aa0845bdaa61502063cab8",
@@ -23,11 +23,11 @@ describe("contract address registry", () => {
       "tJPYC/USDC": {
         marketId: "0x9ccad283db415085bf69329b696bfc7a34bff2d476f5cf7b1d4a3ba9bc0b70ab",
       },
-      "tMXNB/USDC": {
+      "MXNB/USDC": {
         marketId: "0xb698dfdbcbae088741081a53b9f1da11df8ff7c92c9278b66e15a34077ea5ca3",
       },
-      "tCHFC/USDC": {
-        marketId: "0x992a2a93cd7a43a9ca827907f708a00ef88e9757e8aadab780ec4f58b161c7dd",
+      "CIRBTC/USDC": {
+        marketId: "0x238aacf17c8d170ad55905cd1c217ae2db8338354b1235059fb0f096e20b777a",
       },
     });
   });

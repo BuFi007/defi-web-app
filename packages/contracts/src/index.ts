@@ -115,17 +115,19 @@ export const CIRCLE_GATEWAY = {
 
 // Canonical Pyth Hermes feed IDs. Source of truth:
 // ~/coding-dojo/fx-telarana/packages/sdk/src/addresses/index.ts.
-// `btcUsd` added for the CIRBTC/USDC perp market (cirBTC tracks BTC/USD
-// 1:1). `cadUsd` added for the QCAD Morpho market. `audUsd` reserved
-// for AUDF when it deploys.
+//
+// Five live feeds: usdUsdc (peg sanity), eurUsd (EURC perp), jpyUsd
+// (JPYC perp), mxnUsd (MXNB perp), btcUsd (CIRBTC perp), cadUsd
+// (QCAD Morpho), audUsd (AUDF — perp listing pending). chfUsd
+// dropped — CHFC was inert on Arc and the surface is fully removed.
 export const PYTH_FEED_IDS = {
   usdUsdc: "0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
   eurUsd: "0x76fa85158bf14ede77087fe3ae472f66213f6ea2f5b411cb2de472794990fa5c",
   jpyUsd: "0xef2c98c804ba503c6a707e38be4dfbb16683775f195b091252bf24693042fd52",
   mxnUsd: "0xe13b1c1ffb32f34e1be9545583f01ef385fde7f42ee66049d30570dc866b77ca",
-  chfUsd: "0x0b1e3297e69f162877b577b0d6a47a0d63b2392bc8499e6540da4187a63e28f8",
   btcUsd: "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
   cadUsd: "0x3112b03a41c910ed446852aacf67118cb1bec67b2cd0b9a214c58cc0eaa2ecca",
+  audUsd: "0x67a6f93030420c1c9e3fe37c1ab6b77966af82f995944a9fefce357a22854a80",
 } as const satisfies Record<string, Hex>;
 
 export const LIVE_ROUTE_IDS = {
@@ -139,19 +141,24 @@ export const LIVE_ROUTE_IDS = {
     "0xda73657812ef2aa4a59ca67e8d757ac98155cf6aac04e6c0a1723b6f2799a47b",
   fujiToArcSpotFxMxnb:
     "0x4e26b194dd0f03e769ec58a34bcd4bbbe88f27d2aa1c502eb50dc20d4569512c",
-  fujiToArcSpotFxChfc:
-    "0x84d69f49ece767181be6ee9d8706e5007bc8dda02fed481bb21446760d3c3e4f",
 } as const satisfies Record<string, Hex>;
 
-export type SpotFxSymbol = "EURC" | "JPYC" | "MXNB" | "CHFC";
-export type BuFxPerpMarketSymbol = "FX-USD-JPY" | "FX-USD-MXN" | "FX-USD-CHF";
-// CHFC removed: on-chain `enabled=false` for the perp; UI surface dropped
-// per fx-telarana integration handoff ("tCHFC unlisted, market entry
-// inert on-chain"). CIRBTC added: live on Arc sprint-1 + matcher tracks it.
+export type SpotFxSymbol = "EURC" | "JPYC" | "MXNB";
+export type BuFxPerpMarketSymbol = "FX-USD-JPY" | "FX-USD-MXN";
+// User-facing labels carry NO `t` prefix once the real issuer asset
+// exists. The MXNB/USDC perp's on-chain base is still the test
+// synthetic at 0xe8F76f90… until fx-telarana migrates the market to
+// the real MXNB issuer; the label reflects user intent. CHFC dropped
+// entirely (no real CHFC token on Arc; spot + perp surfaces both
+// removed).
+// tJPYC keeps its t-prefix: there's only one JPYC contract on Arc
+// (0xB176f6E0…) and it's the test issuance; the label reflects that
+// no canonical JPYC token has been deployed yet. MXNB and CIRBTC have
+// real issuer tokens so they don't carry the prefix.
 export type ArcPerpMarketSymbol =
   | "EURC/USDC"
   | "tJPYC/USDC"
-  | "tMXNB/USDC"
+  | "MXNB/USDC"
   | "CIRBTC/USDC";
 
 export interface TokenRegistry {
@@ -159,18 +166,13 @@ export interface TokenRegistry {
   eurc?: Address;
   jpyc?: Address;
   // `mxnb` is the live issuer-token (0x836F73Fb…) on Arc per the
-  // sprint-1 broadcast; `tmxnb` is the perp's test base-token
-  // (0xe8F76f90…). Two distinct contracts — keep both registries
-  // until the perp migrates to the real issuer token.
+  // sprint-1 broadcast. The MXNB/USDC perp's on-chain base is still
+  // the test synthetic (0xe8F76f90…); the UI references the issuer
+  // for balance/transfer flows and the perp redeployment will close
+  // the small mismatch.
   mxnb?: Address;
-  tmxnb?: Address;
   qcad?: Address;
   cirbtc?: Address;
-  // CHFC kept for the cross-chain spot FX route (fujiToArcSpotFxChfc);
-  // the tCHFC perp is `enabled=false` on-chain so it's dropped from
-  // ArcPerpMarketSymbol but the token slot stays so spot still works.
-  chfc?: Address;
-  /** Reserved for the future AUDF stablecoin — not yet deployed. */
   audf?: Address;
 }
 
@@ -236,7 +238,7 @@ export interface BuFxProtocolPerpMarket {
   marketId: Hex;
   routeId: Hex;
   baseToken: "usdc";
-  quoteToken: "jpyc" | "mxnb" | "chfc";
+  quoteToken: "jpyc" | "mxnb";
   pythFeedId: Hex;
   feeConfig: {
     spotFeeBps: number;
@@ -251,7 +253,7 @@ export interface BuFxProtocolPerpMarket {
 export interface ArcPerpMarket {
   chainId: 5042002;
   marketId: Hex;
-  baseToken: "eurc" | "jpyc" | "tmxnb" | "cirbtc";
+  baseToken: "eurc" | "jpyc" | "mxnb" | "cirbtc";
   quoteToken: "usdc";
   pythFeedId: Hex;
   config: {
@@ -354,10 +356,9 @@ export const CONTRACTS: Record<ChainId, ChainContracts> = {
       eurc: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
       jpyc: "0xB176f6E0c8ecc2be208F72Ad34c54e5F10F1882a",
       mxnb: "0x836F73Fbc370A9329Ba4957E47912DfDBA6BA461",
-      tmxnb: "0xe8F76f90553F50E76731afbeF1ac83a9152fFBEb",
       qcad: "0x23d7CFFd0876f3ABb6B074287ba2aeefBc83825d",
       cirbtc: "0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF",
-      chfc: "0x249DBFd4ac17247Cf10098F6C3937F90570b5750",
+      audf: "0xd2a530170D71a9Cfe1651Fb468E2B98F7Ed7456b",
     },
     telarana: {
       fxSpotExecutor: "0x37ccDa89628Fd3Cc1f8ef5e45D8725c4e3a59542",
@@ -444,14 +445,6 @@ export const SPOT_FX_ROUTES: Record<
     tokenOut: CONTRACTS[5042002].tokens.mxnb!,
     pythFeedId: PYTH_FEED_IDS.mxnUsd,
   },
-  CHFC: {
-    sourceChainId: 43113,
-    destinationChainId: 5042002,
-    routeId: LIVE_ROUTE_IDS.fujiToArcSpotFxChfc,
-    action: "SPOT_FX",
-    tokenOut: CONTRACTS[5042002].tokens.chfc!,
-    pythFeedId: PYTH_FEED_IDS.chfUsd,
-  },
 };
 
 // Source: ../BUFX/deployments/testnet/bufx-telarana-router.generated.json.
@@ -487,24 +480,6 @@ export const BUFX_PROTOCOL_PERP_MARKETS: Record<BuFxPerpMarketSymbol, BuFxProtoc
       spotFeeBps: 8,
       rfqFeeBps: 5,
       perpLiquidityFeeBps: 10,
-      referralDiscountBps: 1000,
-      referralShareBps: 2000,
-      enabled: true,
-    },
-  },
-  "FX-USD-CHF": {
-    sourceChainId: 43113,
-    chainId: 5042002,
-    hubId: "arc-testnet",
-    marketId: "0xd9e93a29607ef7c3b40aa9421d7c2e018ac99f932ae857a01db69ba0a7587d26",
-    routeId: LIVE_ROUTE_IDS.fujiToArcMintToHubUsdc,
-    baseToken: "usdc",
-    quoteToken: "chfc",
-    pythFeedId: PYTH_FEED_IDS.chfUsd,
-    feeConfig: {
-      spotFeeBps: 5,
-      rfqFeeBps: 3,
-      perpLiquidityFeeBps: 8,
       referralDiscountBps: 1000,
       referralShareBps: 2000,
       enabled: true,
@@ -563,10 +538,10 @@ export const ARC_PERP_MARKETS: Record<ArcPerpMarketSymbol, ArcPerpMarket> = {
     },
     fundingConfig: ARC_PERP_DEFAULT_FUNDING_CONFIG,
   },
-  "tMXNB/USDC": {
+  "MXNB/USDC": {
     chainId: 5042002,
     marketId: "0xb698dfdbcbae088741081a53b9f1da11df8ff7c92c9278b66e15a34077ea5ca3",
-    baseToken: "tmxnb",
+    baseToken: "mxnb",
     quoteToken: "usdc",
     pythFeedId: PYTH_FEED_IDS.mxnUsd,
     config: {
