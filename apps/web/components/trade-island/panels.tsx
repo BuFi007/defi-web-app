@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAccount, useBalance, useChainId } from "wagmi";
 import { formatUnits } from "viem";
 
@@ -13,7 +13,8 @@ import { CandleChart } from "./chart";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/components/ui/use-toast";
 import { errMsg } from "@/utils";
-import { useMarkets, usePlaceOrder } from "@/lib/perps/hooks";
+import { useIntentStatusStream, useMarkets, usePlaceOrder } from "@/lib/perps/hooks";
+import type { PerpsIntentStatus } from "@/lib/perps/client";
 import { useMarketStats } from "@/lib/perps/use-market-stats";
 import { usePendingIntents } from "@/lib/perps/use-pending-intents";
 import { getPerpsReplacementDevWallet } from "@/lib/perps/dev-mock-wallet";
@@ -243,6 +244,39 @@ export function OrderPanelCard({
   const liveMarket = useMemo(() => resolveLiveMarket(market.sym, markets), [market.sym, markets]);
   const usdc = useUsdcBalance(address);
 
+  // Step 3: subscribe to the last-submitted intent's status stream so the
+  // panel shows live transitions (pending → matched → settled) without a
+  // refresh. `lastIntentId` is the DB row id (== the EIP-712 digest used
+  // as the perp_order_intents primary key); cleared once we observe a
+  // terminal status, so the indicator hides itself.
+  const [lastIntentId, setLastIntentId] = useState<string | null>(null);
+  const lastStatusRef = useRef<PerpsIntentStatus | null>(null);
+  const { intent: liveIntent, status: liveStatus, isTerminal: liveTerminal } =
+    useIntentStatusStream(lastIntentId);
+  useEffect(() => {
+    if (!liveStatus) return;
+    const previous = lastStatusRef.current;
+    if (previous === liveStatus) return;
+    lastStatusRef.current = liveStatus;
+    if (previous === null) return; // first observation is the snapshot, not a transition
+    if (liveStatus === "filled") {
+      toast({ title: "Order settled", description: `Intent ${shortDigest(liveIntent?.intentId ?? "")} → filled on-chain.` });
+    } else if (liveStatus === "partially_filled") {
+      toast({ title: "Partial fill", description: `Intent ${shortDigest(liveIntent?.intentId ?? "")} — residual still resting.` });
+    } else if (liveStatus === "rejected") {
+      toast({ variant: "destructive", title: "Order rejected", description: `Intent ${shortDigest(liveIntent?.intentId ?? "")} rejected by the matcher.` });
+    } else if (liveStatus === "expired") {
+      toast({ variant: "destructive", title: "Order expired", description: `Intent ${shortDigest(liveIntent?.intentId ?? "")} hit its deadline before matching.` });
+    }
+  }, [liveStatus, liveIntent?.intentId, toast]);
+  useEffect(() => {
+    if (liveTerminal) {
+      // Keep the indicator visible for ~5s after terminal, then clear.
+      const t = setTimeout(() => setLastIntentId(null), 5_000);
+      return () => clearTimeout(t);
+    }
+  }, [liveTerminal]);
+
   const canTrade = Boolean(isConnected || devWallet);
   const hasSize = sizeV > 0;
   const needsLimitPrice = orderType === "limit" && (!price || parseFloat(price) <= 0);
@@ -295,6 +329,10 @@ export function OrderPanelCard({
         title: `${verb} submitted`,
         description: `${liveMarket.symbol} · ${apiKind.toUpperCase()} · intent ${shortDigest(result.digest)}`,
       });
+      // Subscribe to live status — the SSE hook fires toasts on every
+      // transition until the intent reaches a terminal state.
+      lastStatusRef.current = null;
+      setLastIntentId(result.intent.intentId);
     } catch (error) {
       toast({ variant: "destructive", title: "Order failed", description: errMsg(error) });
     }
@@ -551,6 +589,15 @@ export function OrderPanelCard({
           <Icon name="sparkle" size={14} /> {placeOrder.isPending ? "Signing..." : sideBLabel}
         </button>
       </div>
+      {lastIntentId && (
+        <div className="intent-status-pill" data-status={liveStatus ?? "pending"}>
+          <span className="dot" aria-hidden />
+          <span className="label">
+            Intent {shortDigest(lastIntentId)} ·{" "}
+            <strong>{statusLabel(liveStatus)}</strong>
+          </span>
+        </div>
+      )}
       <div className="avail-line">
         {address ? (
           <>
@@ -703,6 +750,23 @@ function priceToE18(value: string): string {
 
 function shortDigest(value: string): string {
   return value.length > 12 ? `${value.slice(0, 8)}...${value.slice(-4)}` : value;
+}
+
+function statusLabel(status: PerpsIntentStatus | undefined): string {
+  switch (status) {
+    case undefined:
+      return "submitting…";
+    case "pending":
+      return "pending";
+    case "partially_filled":
+      return "partially filled";
+    case "filled":
+      return "settled";
+    case "rejected":
+      return "rejected";
+    case "expired":
+      return "expired";
+  }
 }
 
 function shortAddress(value: string): string {

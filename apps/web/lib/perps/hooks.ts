@@ -14,7 +14,7 @@
 
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useMutation,
   useQuery,
@@ -37,6 +37,7 @@ import { HUBS } from "@bufi/location/hubs";
 import {
   fetchPerpsCandles,
   fetchPerpsFunding,
+  fetchPerpsIntent,
   fetchPerpsLiquidationCandidates,
   fetchPerpsMarkets,
   fetchPerpsOrderbook,
@@ -46,7 +47,9 @@ import {
   submitPerpsIntent,
   type PerpsCandlesResponseDto,
   type PerpsFundingDto,
+  type PerpsIntentDto,
   type PerpsIntentResponseDto,
+  type PerpsIntentStatus,
   type PerpsMarketDto,
   type PerpsOrderbookDto,
   type PerpsPositionDto,
@@ -56,6 +59,7 @@ import {
 } from "./client";
 import {
   buildWalletSessionTypedData,
+  bufxApiUrl,
   freshReplacementNonce,
   readCachedWalletSession,
   writeCachedWalletSession,
@@ -655,4 +659,192 @@ function useSessionSigner(): (
     (address, chainId) => ref.current!(address, chainId),
     [],
   );
+}
+
+// ---------------------------------------------------------------------------
+// Intent status streaming (Step 3 — matcher ↔ UI loop)
+//
+// `useIntentStatusStream(intentId)` opens an EventSource against
+// `/perps/intents/:id/stream` and surfaces the latest known status +
+// the full intent snapshot. Drops back to React Query polling if SSE
+// fails (older browsers, hostile middleboxes). Cleans up on unmount
+// or when the intent reaches a terminal status (filled/rejected/expired).
+//
+// The server-side endpoint polls `perpsService.getIntent()` every 1s
+// and only emits on change, so the wire bandwidth is one diff event
+// per matcher tick. See `apps/api/src/routes/perps.ts:/intents/:id/stream`.
+// ---------------------------------------------------------------------------
+
+const TERMINAL_INTENT_STATUSES: ReadonlyArray<PerpsIntentStatus> = [
+  "filled",
+  "rejected",
+  "expired",
+];
+
+function isTerminalIntentStatus(status: PerpsIntentStatus | undefined): boolean {
+  return status !== undefined && TERMINAL_INTENT_STATUSES.includes(status);
+}
+
+export interface UseIntentStatusStreamResult {
+  /** Latest intent snapshot; `null` until the first event arrives. */
+  intent: PerpsIntentDto | null;
+  /** Convenience accessor — `intent?.status`. */
+  status: PerpsIntentStatus | undefined;
+  /** True once a terminal status has been observed. */
+  isTerminal: boolean;
+  /** Stream transport state — `sse` once open, `polling` on fallback. */
+  transport: "idle" | "sse" | "polling";
+  /** Last error from the stream (network failure, parse error). */
+  error: string | null;
+}
+
+const STREAM_POLL_FALLBACK_MS = 2_000;
+
+/**
+ * Subscribe to a single intent's status stream. Pass `null` to disable.
+ *
+ * Server emits these SSE event names:
+ *   - `connected` — initial snapshot on open
+ *   - `status`    — diff event whenever a field changes
+ *   - `terminal`  — final snapshot on terminal status; stream closes
+ *   - `timeout`   — server-side keepalive window elapsed; reconnect to continue
+ *   - `not_found` — intent doesn't exist; stream closes
+ *
+ * On `terminal` / `not_found`, the hook stops re-subscribing.
+ * On `timeout` or transport error, the hook reconnects (up to terminal).
+ */
+export function useIntentStatusStream(
+  intentId: string | null,
+): UseIntentStatusStreamResult {
+  const queryClient = useQueryClient();
+  const [intent, setIntent] = useState<PerpsIntentDto | null>(null);
+  const [transport, setTransport] = useState<UseIntentStatusStreamResult["transport"]>(
+    "idle",
+  );
+  const [error, setError] = useState<string | null>(null);
+  const terminalRef = useRef(false);
+
+  useEffect(() => {
+    if (!intentId) {
+      setIntent(null);
+      setTransport("idle");
+      setError(null);
+      terminalRef.current = false;
+      return;
+    }
+    terminalRef.current = false;
+    setIntent(null);
+    setTransport("idle");
+    setError(null);
+
+    let cancelled = false;
+    let eventSource: EventSource | null = null;
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+    const cacheKey = ["perps", "intent", intentId] as const;
+
+    const apply = (next: PerpsIntentDto) => {
+      if (cancelled) return;
+      setIntent(next);
+      queryClient.setQueryData(cacheKey, next);
+      if (isTerminalIntentStatus(next.status)) {
+        terminalRef.current = true;
+        cleanup();
+      }
+    };
+
+    const cleanup = () => {
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    };
+
+    const startPolling = () => {
+      if (terminalRef.current || pollTimer) return;
+      setTransport("polling");
+      const tick = async () => {
+        if (cancelled || terminalRef.current) return;
+        try {
+          const fresh = await fetchPerpsIntent({ intentId });
+          apply(fresh);
+        } catch (err) {
+          if (cancelled) return;
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      };
+      void tick();
+      pollTimer = setInterval(tick, STREAM_POLL_FALLBACK_MS);
+    };
+
+    const startSse = () => {
+      if (terminalRef.current || cancelled) return;
+      if (typeof window === "undefined" || typeof window.EventSource === "undefined") {
+        startPolling();
+        return;
+      }
+      try {
+        eventSource = new window.EventSource(
+          bufxApiUrl(`/perps/intents/${intentId}/stream`),
+        );
+      } catch {
+        startPolling();
+        return;
+      }
+      eventSource.addEventListener("open", () => {
+        if (cancelled) return;
+        setTransport("sse");
+        setError(null);
+      });
+      const onSnapshot = (event: MessageEvent) => {
+        if (cancelled) return;
+        try {
+          const parsed = JSON.parse(event.data) as PerpsIntentDto;
+          apply(parsed);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      };
+      eventSource.addEventListener("connected", onSnapshot);
+      eventSource.addEventListener("status", onSnapshot);
+      eventSource.addEventListener("terminal", onSnapshot);
+      eventSource.addEventListener("not_found", () => {
+        if (cancelled) return;
+        terminalRef.current = true;
+        setError("intent not found");
+        cleanup();
+      });
+      eventSource.addEventListener("timeout", () => {
+        // Server bounded the keepalive window — reconnect to continue.
+        if (cancelled || terminalRef.current) return;
+        cleanup();
+        startSse();
+      });
+      eventSource.addEventListener("error", () => {
+        if (cancelled || terminalRef.current) return;
+        // Transport failed (network, server restart). Drop to polling.
+        cleanup();
+        startPolling();
+      });
+    };
+
+    startSse();
+
+    return () => {
+      cancelled = true;
+      cleanup();
+    };
+  }, [intentId, queryClient]);
+
+  return {
+    intent,
+    status: intent?.status,
+    isTerminal: terminalRef.current,
+    transport,
+    error,
+  };
 }

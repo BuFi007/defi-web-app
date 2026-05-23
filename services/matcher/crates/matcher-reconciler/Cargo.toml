@@ -1,0 +1,23 @@
+[package]
+name = "bufi-matcher-reconciler"
+description = "Diffs matcher fills against Ponder on-chain settlements; emits OTel alerts on drift."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "bufi-matcher-reconciler"
+path = "src/main.rs"
+
+[dependencies]
+bufi-matcher-types = { path = "../matcher-types" }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+thiserror = { workspace = true }
+
+[lints.rust]
+unsafe_code = "forbid"

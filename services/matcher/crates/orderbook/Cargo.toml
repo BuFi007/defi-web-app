@@ -1,0 +1,33 @@
+[package]
+name = "bufi-orderbook"
+description = "BUFI matcher pure orderbook core — no IO, no time, no RNG, no floats."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+rust_decimal = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+# Deliberately NO tokio, NO redis, NO reqwest, NO chrono, NO rand, NO tracing.
+# This crate is replayable from a fill log and audited line-by-line.
+# If you reach for any of those, you're in the wrong crate — go to matcher-server.
+
+[dev-dependencies]
+proptest = { workspace = true }
+serde_json = { workspace = true }
+
+[lints.clippy]
+float_arithmetic = "deny"
+float_cmp = "deny"
+# Catch the common ways someone might smuggle non-determinism in.
+disallowed_methods = "deny"
+disallowed_types = "deny"
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"

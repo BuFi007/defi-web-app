@@ -1,0 +1,14 @@
+# Block the obvious ways non-determinism can slip into the matching core.
+disallowed-methods = [
+    { path = "std::time::SystemTime::now", reason = "Pass `now_ms: u64` in. The core never reads the clock." },
+    { path = "std::time::Instant::now", reason = "Pass `now_ms: u64` in. The core never reads the clock." },
+    # `rand` isn't a direct dep of orderbook today — `allow-invalid = true` so
+    # the config tolerates the absent crate. The intent stands: if rand ever
+    # shows up in this crate, clippy yells.
+    { path = "rand::random", reason = "Derive ids deterministically from inputs.", allow-invalid = true },
+    { path = "rand::thread_rng", reason = "No RNG in the matching core.", allow-invalid = true },
+]
+disallowed-types = [
+    { path = "std::collections::HashMap", reason = "HashMap iteration order is randomised — use BTreeMap for determinism." },
+    { path = "std::collections::HashSet", reason = "HashSet iteration order is randomised — use BTreeSet for determinism." },
+]

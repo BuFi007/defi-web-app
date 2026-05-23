@@ -1,0 +1,15 @@
+# Proptest config for `bufi-orderbook`.
+#
+# Phase 7c — bump the default case count from upstream's 256 → 1_024 so
+# CI exercises the matcher invariants harder than the proptest default
+# (which is tuned for "fast feedback during development"). Audit-prep runs
+# bump further to 10_000 via the env var:
+#
+#   PROPTEST_CASES=10000 cargo test -p bufi-orderbook --release
+#
+# That invocation is documented in `docs/matcher-mainnet-readiness.md` §2.5.
+#
+# Other knobs intentionally left at default; tune only with a paired entry
+# in the readiness doc explaining *why* the default isn't strict enough.
+
+cases = 1024

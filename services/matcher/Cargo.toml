@@ -1,0 +1,78 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/orderbook",
+    "crates/matcher-types",
+    "crates/matcher-server",
+    "crates/matcher-reconciler",
+    "crates/matcher-test-harness",
+    "crates/perps-db",
+    "crates/perps-onchain",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "Apache-2.0"
+repository = "https://github.com/BuFi007/defi-web-app"
+authors = ["BUFI matcher team"]
+
+[workspace.dependencies]
+# --- numeric / serialization ---
+rust_decimal = "1.36"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+
+# --- proto + grpc ---
+prost = "0.13"
+prost-types = "0.13"
+tonic = { version = "0.12", features = ["transport", "tls", "prost"] }
+tonic-build = "0.12"
+
+# --- async runtime (matcher-server only) ---
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+futures = "0.3"
+
+# --- redis fan-out (matcher-server only) ---
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
+
+# --- sqlite via sqlx (matches @bufi/db's bun:sqlite store) ---
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "macros"] }
+
+# --- alloy stack ---
+# matcher-types pulls only sol-types + primitives (zero-dep ABI math);
+# perps-onchain pulls the network stack (provider, signer, contract codec)
+# behind a tokio runtime.
+alloy-sol-types = { version = "0.8", default-features = false }
+alloy-primitives = { version = "0.8", default-features = false }
+alloy-provider = { version = "0.8", default-features = false, features = ["reqwest"] }
+alloy-signer = { version = "0.8", default-features = false }
+alloy-signer-local = { version = "0.8", default-features = false }
+alloy-network = { version = "0.8", default-features = false }
+alloy-rpc-types-eth = { version = "0.8", default-features = false }
+alloy-transport-http = { version = "0.8", default-features = false, features = ["reqwest"] }
+alloy-contract = { version = "0.8", default-features = false }
+alloy-consensus = { version = "0.8", default-features = false }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+
+# --- observability ---
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+opentelemetry = "0.27"
+
+# --- testing ---
+proptest = "1"
+insta = { version = "1", features = ["json"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+debug = "line-tables-only"
+panic = "abort"
+
+[profile.bench]
+inherits = "release"
+debug = true

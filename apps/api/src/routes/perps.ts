@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
 
 import {
   PERPS_REPLACEMENT_NEEDED_EVENT,
@@ -351,6 +352,82 @@ perpsRoutes.get("/intents/:id", async (c) => {
   if (!intent) return c.json({ error: "intent not found" }, 404);
   return c.json(jsonSafe({ intent }));
 });
+
+// GET /perps/intents/:id/stream — Server-Sent Events feed of status
+// transitions for a single intent. Polls perpsService.getIntent() every
+// `STATUS_POLL_MS` (1s) and emits a `status` event whenever the status
+// field changes (or the filled/remaining magnitudes change). Closes the
+// stream when the intent reaches a terminal status (filled / rejected /
+// expired) OR when `MAX_STREAM_SECS` elapses (60s) — clients reconnect
+// for longer-lived intents. Heartbeat every 15s keeps middlebox
+// keepalives happy.
+//
+// Wire format (one event per transition):
+//   event: status
+//   data: { "intent_id": "0x...", "status": "filled", "filled_size_delta": "...", "remaining_size_delta": "...", "updated_at": 1234567890 }
+//
+// On open: a `connected` event with the current snapshot. On 404:
+// `not_found` then stream closes. On terminal: `terminal` then stream closes.
+perpsRoutes.get("/intents/:id/stream", (c) => {
+  const id = c.req.param("id");
+  const STATUS_POLL_MS = 1_000;
+  const HEARTBEAT_MS = 15_000;
+  const MAX_STREAM_SECS = 60;
+  return streamSSE(c, async (stream) => {
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    let lastSerialised: string | null = null;
+    const start = Date.now();
+    let lastHeartbeat = start;
+    let isTerminal = false;
+
+    const initial = await perpsService.getIntent(id);
+    if (!initial) {
+      await stream.writeSSE({ event: "not_found", data: JSON.stringify({ intent_id: id }) });
+      return;
+    }
+    lastSerialised = JSON.stringify(jsonSafe(initial));
+    await stream.writeSSE({ event: "connected", data: lastSerialised });
+    if (isTerminalStatus(initial.status)) {
+      await stream.writeSSE({ event: "terminal", data: lastSerialised });
+      return;
+    }
+
+    while (!stream.aborted) {
+      if ((Date.now() - start) / 1000 >= MAX_STREAM_SECS) {
+        await stream.writeSSE({ event: "timeout", data: JSON.stringify({ intent_id: id }) });
+        return;
+      }
+      await sleep(STATUS_POLL_MS);
+      if (stream.aborted) return;
+      const next = await perpsService.getIntent(id);
+      if (!next) {
+        await stream.writeSSE({ event: "not_found", data: JSON.stringify({ intent_id: id }) });
+        return;
+      }
+      const serialised = JSON.stringify(jsonSafe(next));
+      if (serialised !== lastSerialised) {
+        await stream.writeSSE({ event: "status", data: serialised });
+        lastSerialised = serialised;
+      }
+      if (isTerminalStatus(next.status)) {
+        await stream.writeSSE({ event: "terminal", data: serialised });
+        isTerminal = true;
+        return;
+      }
+      if (Date.now() - lastHeartbeat >= HEARTBEAT_MS) {
+        await stream.writeSSE({ event: "ping", data: String(Date.now()) });
+        lastHeartbeat = Date.now();
+      }
+    }
+    if (!isTerminal) {
+      // Client disconnected; nothing more to do.
+    }
+  });
+});
+
+function isTerminalStatus(status: string): boolean {
+  return status === "filled" || status === "rejected" || status === "expired";
+}
 
 perpsRoutes.get("/positions/:address", async (c) => {
   const s = getSession(c);

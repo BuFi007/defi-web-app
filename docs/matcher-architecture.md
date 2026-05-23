@@ -97,6 +97,130 @@ Cargo workspace lives next to TS services as a peer, not under them.
 
 ---
 
+## Phase 2a amendment (2026-05-22) — wire format pinned to live contract
+
+The Phase 0 reading produced a draft proto that assumed an abstract `Intent`
+shape. Cross-referencing `fx-telarana/main` showed the deployed
+`FxOrderSettlement` contract has a fixed `SignedOrder` typehash that the
+matcher MUST produce bytes-for-bytes if signatures are to verify on-chain.
+The proto + EIP-712 are now pinned to the contract. Drift findings + the
+three locked decisions live in:
+
+- `docs/matcher-reading-notes.md` §Source 4 + the 16-row drift table from
+  the Phase 2a kickoff (commit history).
+- The proto at `services/matcher/proto/matcher.v1.proto`.
+- The EIP-712 mirror at `services/matcher/crates/matcher-types/src/eip712.rs`.
+- The orderbook `Intent` type at
+  `services/matcher/crates/orderbook/src/order.rs`.
+
+**Locked decisions:**
+
+1. **Wire format:** matcher's `SignedOrder` mirrors
+   `FxOrderSettlement.SignedOrder` field-for-field. Fields 1-9 are
+   EIP-712-hashed; fields 10+ (`signature`, `tif`, `client_tag`) are
+   matcher-only and NOT in the typehash.
+2. **Integration shape (Phase 3):** the Rust matcher replaces
+   `apps/keeper-perps-matcher` outright — owns DB polling, EIP-712
+   verification, matching, on-chain `settleMatch` calls (via `alloy-rs`),
+   replacement-needed events.
+3. **OI gating:** defence in depth — matcher gates an intent before
+   accepting it (read-side query to `FxPerpClearinghouse`); contract is the
+   backstop via `OpenInterestCapExceeded` / `SkewCapExceeded` reverts.
+
+**Type widenings from spec original:**
+
+- `Price` was `i64`, now `i128`. FX rates at E18 fit in `i64` individually
+  (EUR/USD ≈ 1.08e18 < `i64::MAX ≈ 9.22e18`) but `price * size` products
+  blow `i64`. `i128` is the smallest type that holds them with headroom
+  and costs nothing on aarch64.
+- `Size` decimals: 6 (USDC quantums) → 18 (matches `sizeDeltaE18` E18).
+- `Side` is derived from the sign of `sizeDeltaE18` at the validator
+  boundary; the orderbook still works with `Side::Long | Side::Short` +
+  unsigned `magnitude` (`u128` E18).
+
+**Nonce model swap:**
+
+- Spec original: per-account monotonic `u64` nonce + a recent-nonce set.
+- Contract truth (Permit2-style): `nonceBitmap[trader][nonce >> 8]`,
+  bit `(nonce & 0xff)`. Nonces are NOT monotonic; up to 256 may coexist
+  per word; collisions revert with `NonceAlreadyUsed`. Matcher-side
+  validator must mirror this exact semantic.
+
+**Time unit swap:**
+
+- Spec original: `expires_at_ms` (unix milliseconds).
+- Contract truth: `deadline` in unix **seconds** (matches `block.timestamp`).
+  Field renamed `deadline_secs` throughout.
+
+**Self-trade prevention:**
+
+- Spec deferred STP to Phase 5+.
+- Contract enforces `maker.trader != taker.trader` at
+  `FxOrderSettlement.sol:78`. Matcher SHOULD still filter (avoid wasted
+  txs) but the contract is the backstop.
+
+**On-chain OI cap (LP invariant 1):**
+
+- Already enforced on-chain via
+  `FxPerpClearinghouse._marketConfig.maxOpenInterestUsd` +
+  `openInterestLong/Short` per market. Matcher-side gate is now defence in
+  depth, not the only guard.
+
+**Market ids (Arc Testnet, chainId 5_042_002):**
+
+Source of truth: `fx-telarana/deployments/perps-config-5042002.json` at
+HEAD `c0ff0d3` (sprint-1 broadcast 2026-05-21).
+
+| Symbol | Perp market id | On-chain status |
+|---|---|---|
+| EURC/USDC | `0x565a6e2fab61800aa18813603b5b485af5bed7dea1aa0845bdaa61502063cab8` | listed |
+| CIRBTC/USDC | `0x238aacf17c8d170ad55905cd1c217ae2db8338354b1235059fb0f096e20b777a` | listed |
+| TJPYC/USDC | `0x9ccad283db415085bf69329b696bfc7a34bff2d476f5cf7b1d4a3ba9bc0b70ab` | listed (NEW sprint-1) |
+| TMXNB/USDC | `0xb698dfdbcbae088741081a53b9f1da11df8ff7c92c9278b66e15a34077ea5ca3` | listed (NEW sprint-1) |
+| TCHFC/USDC | `0x992a2a93cd7a43a9ca827907f708a00ef88e9757e8aadab780ec4f58b161c7dd` | **unlisted on-chain**, kept in JSON — `marketConfig(id)` will revert. Filter on the on-chain enable state before consuming. |
+
+**Earlier versions of this doc quoted the Morpho lending market ids
+(`0x7d99…` / `0x1700…`) by mistake — those are from the SPOT money-market
+stack via `FxMarketRegistry`, not the PERP stack via
+`FxPerpClearinghouse._marketConfig`.**
+
+The matcher loads these via `bufi-perps-onchain::MarketConfigSet` from
+`fx-telarana/deployments/perps-config-{chainId}.json`. Fuji perp ids will
+land in the same file when those markets deploy.
+
+**Sprint-1 addresses (Arc Testnet, broadcast 2026-05-21 — supersede prior):**
+
+| Contract | Address |
+|---|---|
+| `FxOrderSettlement` | `0x93C3d831D6F0657479d7Fb6Cf0D06e75aA05E4CC` |
+| `FxPerpClearinghouse` | `0x39dc43E2133CF860c1d17d4DB75Ef4204eebD46A` |
+| `FxMarginAccount` | `0x4EB6018F988301417B93cb2b8899D74D42273e96` |
+| `FxFundingEngine` | `0x859bA11A3693895f8B03C31C6AE3b8F04992115B` |
+| `FxHealthChecker` | `0xA00Be167609c02F3879138dA8530BC31527c02b8` |
+| `FxLiquidationEngine` | `0xF579e265EF1D5E67EfDbb1F20863465E94a9d3eA` |
+| `FxOracle` | `0xf9b0356A31BC7125e2eD0DADf8b5957860d42c78` |
+
+Deployer / keeper EOA: `0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69` — flagged
+for rotation per `fx-telarana/docs/INTEGRATION_HANDOFF.md` §Security note;
+non-blocking for testnet development.
+
+The matcher loader prefers `perp-stack-{chainId}.json` (sprint-1 file),
+falling back to the legacy `perps-{chainId}.json` only when the new file
+is absent. The fallback exists so the loader keeps working in dev
+environments that haven't synced the latest fx-telarana clone.
+
+**Reference TS signing recipe** for the secp256k1 EIP-712 path is in
+`fx-telarana/packages/sdk/scripts/perp-arc-trading-smoke.ts`:
+
+- `signOrder(account, signedOrder)` at **lines 472-490** — the actual
+  `account.signTypedData(...)` call with the `TelaranaFxOrderSettlement`
+  domain (line 475).
+- Lines 215-260 are the *call site* of `settleMatch`, NOT the signing —
+  the integration-handoff doc references this range but the recipe to
+  port to Rust is the function at 472-490.
+
+---
+
 ## The interface — gRPC via tonic
 
 **Decision: gRPC, not REST.**
@@ -115,6 +239,12 @@ code-gen from it. Schema changes require updating the proto first; no TS-side
 or Rust-side type can diverge.
 
 ### Service definition (v1)
+
+> The sketch below is the *summary*. The canonical, machine-checked proto
+> lives at `services/matcher/proto/matcher.v1.proto`. The amendments captured
+> during Phase 0 reading (`docs/matcher-reading-notes.md` §Source 2, rows 1-7)
+> are already applied to the canonical file. Diffs against this summary may
+> exist while the spec catches up.
 
 ```protobuf
 syntax = "proto3";
@@ -509,6 +639,251 @@ Redis fill stream and warms its book state.
 
 ---
 
+## Phase 3c amendment (2026-05-22) — matcher-server replaces the TS keeper
+
+Phase 3 split into 3a/3b/3b1/3c; 3c collapses the original Phase 3d (TS
+keeper deprecation) into the same commit per a Phase-3-kickoff decision.
+
+`apps/keeper-perps-matcher/` deleted; replaced by
+`services/matcher/crates/matcher-server/`. Same `bun:sqlite` DB; same
+`FxOrderSettlement.settleMatch` calldata; same `bufx.perps.replacement_needed`
+domain-event format. Net change for downstream consumers: zero. The TS
+script `keeper:perps-matcher` is removed from `package.json` and a comment
+points operators at the Rust binary build.
+
+Matcher-server modules (`services/matcher/crates/matcher-server/src/`):
+
+| Module | Role |
+|---|---|
+| `config.rs` | Env loader. Honours `ARC_RPC_URL`, `PERP_KEEPER_PRIVATE_KEY` ∥ `DEPLOYER_PRIVATE_KEY`, `BUFI_DB_PATH`, `FX_TELARANA_DEPLOYMENTS`, `MATCHER_TICK_{BUSY,IDLE}_MS`, `MATCHER_IDLE_TICKS_TO_RELAX`, `MATCHER_EVENT_{POLL_MS,CONFIRMATIONS,CURSOR_PATH}`. |
+| `intent_translator.rs` | `bufi_perps_db::PerpIntent` → `bufi_orderbook::Intent`. Parses string-encoded i256s, builds the typed `SignedOrder`, recovers signer via `PrimitiveSignature::recover_address_from_prehash`, rejects on `recovered != trader`. |
+| `price.rs` | One helper for parsing the E18 price string into `bufi_orderbook::Price`. |
+| `oi_gate.rs` | Defence-in-depth: queries `openInterestLong`/`Short`/`maxOpenInterest` via `PerpsOnchain`; rejects fills that would push `max(long, short) + size > cap`. |
+| `replacement_events.rs` | Writes `bufx.perps.replacement_needed` rows into `domain_events` for partial fills. Bytes-equivalent to `@bufi/perps` `buildPerpsReplacementNeededEvent`. Idempotent via `insert or ignore`. |
+| `settlement.rs` | Per fill: gate → wire-format convert → `settleMatch` → `record_fill` on both sides → emit replacement event for any partial side. Failed settlements leave intents `pending` for the next tick to retry. |
+| `event_subscriber.rs` | HTTP-poll `eth_getLogs` at `head - confirmations`; persists a cursor file (`.bufi/matcher-event-cursor.json` by default). Decodes `MatchSettled` / `OrderCancelled` / `PositionIncreased` / `PositionDecreased` / `AccountFlagged` / `AccountFlagRescinded` / `FundingPoked` / `FundingSettled` and emits each as a structured tracing event. WebSocket subs deferred — polling is reorg-safe by construction. |
+| `tick.rs` | Adaptive 1 s busy / 30 s idle pacer (relax after 5 idle ticks). One tick: `list_pending` → expire stale → translate + verify → match per market → `settle_batch`. |
+| `main.rs` | Wires DB + on-chain client + tick loop + event subscriber under `tokio::select!`; handles SIGTERM/SIGINT. |
+
+Live integration test at
+`crates/matcher-server/tests/live_arc_testnet.rs` is `#[ignore]`-gated;
+opt in with `cargo test -p bufi-matcher-server --test live_arc_testnet --
+--ignored --nocapture` plus the three env vars in the test docstring.
+
+---
+
+## Phase 4 amendment (2026-05-22) — LP backstop, Path A synthetic
+
+Per `docs/lp-backstop-design.md` topology lock (Option C hybrid), Phase 4
+ships the synthetic in-matcher LP first; the on-chain `FxPerpLpVault`
+swap happens later via a one-line `LpStateView` impl change.
+
+What landed:
+
+| Module | Role |
+|---|---|
+| `bufi_orderbook::lp` | `LpStateView` trait, `LpConfig`, `LpSnapshot`, `LpDeny`, pure-compute invariants 3 / 5 / 7 / 8 / 10. No IO; the orderbook's determinism contract stays intact. |
+| `bufi_perps_db::lp` | `lp_positions` + `lp_realised_pnl` tables. `record_lp_fill` updates `(long_e18, short_e18, avg_intent_size_e18)` atomically; `add_lp_realised_pnl` is the IF watchdog's write surface. |
+| `bufi_perps_onchain::oracle` | `OracleSnapshot { mark_e18, published_at_secs }` + `PerpsOnchain::oracle_snapshot(market_id)`. Reads via `clearinghouse.marketConfig.baseToken` then `FxOracle.getMid(baseToken, USDC)`. |
+| `matcher-server::lp_state::PathALpStateView` | Bridges `bufi_perps_db::LpPosition` → `bufi_orderbook::LpSnapshot`. Path A impl; Path B's vault-reading impl lives behind the same trait. |
+| `matcher-server::lp_signer::LpSigner` | EIP-712 signs synthetic `SignedOrder`s for the LP_OPERATOR EOA. Nonces are unix-ms (Permit2 bitmap, 256 nonces per word, collisions revert + retry). |
+| `matcher-server::lp_router` | `try_route_residual_to_lp` runs the 9 ordered invariant checks (cheapest pure → RPC → pure → sign). Returns `(lp_intent, taker_intent, fill_with_is_lp_fill_true)`. |
+| `matcher-server::insurance_fund` | Slow watchdog task. Polls `lp_realised_pnl` every 60s; emits `INVARIANT 6 BREACH` tracing warnings when same-day loss past `max(1% × LP TVL, 10_000 USDC)`. Path B swaps the warning for `FxInsuranceFund.burnShares(loss)`. |
+
+Tick-loop wiring (`tick.rs`):
+
+After `match_intent` resolves with a non-zero `residual` AND the matcher
+has an LP signer, the loop calls `try_route_residual_to_lp`. On accept,
+`cancel_intent` removes the GTC-rested residual from the in-memory book
+(IOC residuals are already dropped) and the LP fill is appended to
+`paired_fills` for `settle_batch`.
+
+New env vars (`config.rs`):
+
+| Var | Default | Purpose |
+|---|---|---|
+| `LP_OPERATOR_PRIVATE_KEY` | (unset) | LP_OPERATOR signing key. **Distinct from `PERP_KEEPER_PRIVATE_KEY`** (the contract rejects `maker == taker`). Unset disables LP routing. |
+| `FX_ORACLE_ADDRESS` | (unset; must be set if LP enabled) | Sprint-1 Arc value: `0xf9b0356A31BC7125e2eD0DADf8b5957860d42c78`. Promote to JSON loader once published in `perp-stack-{id}.json`. |
+| `USDC_ADDRESS` | `0x3600000000000000000000000000000000000000` (Arc Testnet) | Quote-side token for `FxOracle.getMid`. |
+
+Invariant coverage status:
+
+| # | Invariant | Status |
+|---|---|---|
+| 1 | Per-market max OI cap | ✅ Phase 4 — `lp_router` step 4 calls `PerpsOnchain::query_oi` |
+| 2 | Mark-oracle divergence | ✅ Trivially holds — fx-telarana uses one oracle source for both mark and reference (no AMM mark distinct from oracle) |
+| 3 | LP delta cap per market | ✅ Phase 4 — `check_delta_cap` |
+| 4 | Oracle freshness gate | ✅ Phase 4 — `oracle_snapshot.published_at_secs` vs `ORACLE_MAX_AGE_SECS = 30` |
+| 5 | Reduce-only on LP-cap breach | ✅ Phase 4 — `check_delta_cap` reduces-only when `\|delta\| ≥ 95% × cap` |
+| 6 | Insurance fund first-loss | 🟡 Phase 4 Path A — watchdog logs `INVARIANT 6 BREACH`; Path B fires `FxInsuranceFund.burnShares` |
+| 7 | Size-dependent LP spread | ✅ Phase 4 — `spread_bps` monotone in size |
+| 8 | Per-intent LP fill size cap | ✅ Phase 4 — `check_basic_gate` |
+| 9 | Reserve-vs-oracle band | 🟡 Path B only — Path A has no AMM reserve; collapses into invariant 7 |
+| 10 | Market-status veto | ✅ Phase 4 — `LpSnapshot.enabled` |
+| 11 | Funding settles before LP unwind | ✅ Contract-side — `FxPerpClearinghouse._settleFunding` runs before any `applyOrderFill`, including LP-side |
+| 12 | LP fills audit trail | ✅ Phase 4 — `Fill.is_lp_fill = true`; `bufx.perps.replacement_needed` replacement events for partials emitted via the same path as CLOB fills |
+
+Workspace test count: 71 active + 2 ignored live.
+
+---
+
+## Phase 5 amendment (2026-05-22) — funding poker + mark-price safety
+
+The matcher absorbs the third TS keeper (`apps/keeper-perps-funding`,
+deleted) and ships a Rust funding poker module alongside the existing
+tick + event subscriber + IF watchdog. Mark-price safety in Phase 5 is
+documentation only — the matcher already uses the lenient `_priceView`
+path correctly; the verified path (`unrealizedPnlVerified` /
+`_priceViewVerified`) is reserved for liquidation, which lives in
+`FxLiquidationEngine` + `apps/keeper-perps-liquidator` (untouched by
+Phase 5).
+
+What landed:
+
+| Module / change | Role |
+|---|---|
+| `bufi_perps_onchain::bindings::FxFundingEngine` | `pokeFundingRate(bytes32)` + `fundingState(bytes32) returns (uint64, uint256, int256, int256)` auto-generated public-mapping view. |
+| `bufi_perps_onchain::client` | `submit_poke_funding(market_id) -> TxHash` + `funding_last_update_secs(market_id) -> u64`. |
+| `matcher-server::funding_poker` | Async task with per-market in-memory throttle (default 1h). On boot, seeds the throttle map from `FxFundingEngine.fundingState.lastUpdate` so a process restart doesn't double-poke. Race-error classifier soft-handles `underpriced` / `already known` / `nonce too low` by bumping the throttle. |
+| `matcher-server::main` | Spawns `funding_poker.run()` under the same `tokio::select!` as the tick + event subscriber + IF watchdog. |
+| `apps/keeper-perps-funding/` | **Deleted.** Replaced by the Rust funding poker. Workspace `keeper:perps-funding` script removed from root `package.json`. |
+
+New env vars:
+
+| Var | Default | Purpose |
+|---|---|---|
+| `MATCHER_FUNDING_POLL_MS` | `5_000` | Loop cadence (matches the TS keeper's 5s liveness tick). |
+| `FUNDING_POKE_MIN_INTERVAL_MS` | `3_600_000` (1h) | Per-market throttle; matches the on-chain funding interval. |
+| `MATCHER_FUNDING_MARKET_IDS` | EURC/USDC + CIRBTC/USDC + TMXNB/USDC | Comma-separated `bytes32` market ids to keep awake. Defaults to the three sprint-1 Arc markets. TJPYC + others can be added once they're listed on-chain. |
+
+Mark-price safety status:
+
+| Surface | Path used | Why correct |
+|---|---|---|
+| Matching (CLOB walk) | n/a — matcher uses limit price from intents only | No oracle dependency on the hot path |
+| LP gating (invariants 1, 4) | `oracle_snapshot` via `FxOracle.getMid` (lenient) + 30s freshness gate | Lenient is the right choice; if the oracle is stale the freshness gate trips. Verified would require RedStone payload in calldata tail, which keeper txs don't carry. |
+| Liquidation | Not in the matcher; handled by `FxLiquidationEngine` + `apps/keeper-perps-liquidator` (untouched by Phase 5) | Contract enforces verified-path mid via `_priceVerified`; the liquidator keeper wraps calldata with the RedStone payload. |
+| PnL realisation on liquidation | Same — `unrealizedPnlVerified` is called by the liquidation path | Same — RedStone-wrapped at the keeper. |
+
+No matcher-side code change needed for mark-price safety in Phase 5;
+this row is documentation-only. **Phase 6** picks up the matcher's
+mainnet-readiness checklist, including hardening the oracle-stale gate's
+ceiling for production markets and the canary keeper (the 4th slot in
+`FX_PERP_KEEPER_COMPONENTS` that's still unimplemented).
+
+---
+
+## Phase 6 amendment (2026-05-22) — invariant hardening + mainnet-readiness gate
+
+Phase 6 is the ongoing-hardening phase per the original spec. This
+amendment captures what landed in the first 6.x commit:
+
+| What | Where | Why |
+|---|---|---|
+| `FxOracle` address now optionally loaded from `fx-telarana/deployments/perp-oracle-{chainId}.json` | `bufi_perps_onchain::oracle::resolve_oracle_address` | Sprint-1 broadcast started publishing this file; promote it from env-only to JSON-with-env-override. Same precedence pattern as `perp-stack-{chainId}.json`. |
+| Pure-compute LP gate refactored out of `lp_router` into the orderbook crate | `bufi_orderbook::lp_gate::pure_check(snapshot, cfg, oracle, oi, taker, residual, now_secs) -> Result<LpQuote, LpGateDeny>` | Lets the orderbook crate proptest the LP gate's determinism + invariant boundaries without the network. Phase 6 audit surface. |
+| LP determinism + boundary proptests | `crates/orderbook/src/lp_gate.rs` `#[cfg(test)] mod tests` | New properties: `pure_check_is_deterministic` (same inputs → same output), `spread_monotone_in_size` (invariant 7 property), `oracle_freshness_boundary` (invariant 4 precise at the edge). |
+| Mainnet-readiness checklist | `docs/matcher-mainnet-readiness.md` | New gate doc per the original spec's "before any mainnet touch" rule. 9 sections, 30+ checkable rows, audit-scope map, sign-off table. |
+
+`OracleView` / `OiView` types added to the orderbook crate as pure
+in-process mirrors of `bufi_perps_onchain::OracleSnapshot` /
+`bufi_perps_onchain::OiSnapshot`. The matcher-server side converts at
+the call site; the orderbook crate keeps zero alloy/network deps.
+
+Workspace test count: **81 active + 2 ignored** (Phase 5 left it at 73 + 2).
+
+What Phase 6 explicitly does NOT yet ship (Phase 7 work):
+
+- **Canary keeper** — 4th slot in `FX_PERP_KEEPER_COMPONENTS`. Needs a
+  third signing key + a pre-funded margin account; surfaced in
+  `docs/matcher-mainnet-readiness.md` §7 as deferred.
+- **`PROPTEST_CASES=10_000` hardening sweep** — listed as ⬜ in §2.5 of
+  the readiness doc. Runs at default 256 today; bump as part of the
+  audit-prep PR.
+- **Sign-off signatures** in §9 of the readiness doc — wait for the
+  three reviewers.
+
+---
+
+## Phase 7 amendment (2026-05-23) — canary keeper + lp_router rewire + proptest hardening
+
+Phase 7 is the audit-prep phase. Three changes land as one atomic commit:
+
+| What | Where | Why |
+|---|---|---|
+| `lp_router::try_route_residual_to_lp` is now a thin RPC + sign + record glue layer | `crates/matcher-server/src/lp_router.rs` | All in-process invariants (1, 3, 4, 5, 7, 8, 10) now delegate to `bufi_orderbook::lp_gate::pure_check`. The router holds two helpers that lift `OracleSnapshot`/`OiSnapshot` into `OracleView`/`OiView` at the network boundary, then the pure gate decides. Removes inlined invariant code that previously duplicated the orderbook-crate gate. |
+| Canary keeper task | `crates/matcher-server/src/canary.rs` | Synthetic-intent liveness probe — signs a tiny `SignedOrder` from a third EOA (`CANARY_TRADER_PRIVATE_KEY`), inserts it into the intent table, polls for terminal status, alerts on timeout. Boot fails fast if the canary key collides with the keeper or LP_OPERATOR key. |
+| `proptest.toml` at the orderbook crate root | `crates/orderbook/proptest.toml` | Bumps `cases` from upstream's 256 → 1_024 so CI exercises invariants harder. Audit-prep sweep is `PROPTEST_CASES=10000 cargo test -p bufi-orderbook --release` (documented in `docs/matcher-mainnet-readiness.md` §2.5). |
+
+New env vars introduced in this phase (all optional; defaults documented
+in `docs/matcher-mainnet-readiness.md` §9):
+
+```text
+  CANARY_TRADER_PRIVATE_KEY        omit ⇒ canary disabled
+  CANARY_INTERVAL_SECS             default 1_800 (30 min)
+  CANARY_TIMEOUT_SECS              default 120   (2 min)
+  CANARY_MARKET_ID                 bytes32 hex (default = EURC/USDC perp)
+  CANARY_NOTIONAL_USDC_E6          default 1_000_000 (= 1 USDC)
+```
+
+Workspace test count: **86 active + 2 ignored** (Phase 6 left it at 81 + 2).
+
+What Phase 7 explicitly does NOT yet ship (Phase 8+ / audit-prep PR work):
+
+- **Sign-off signatures** in §10 of the readiness doc — wait for the
+  three reviewers (matcher lead, fx-telarana owner, operator).
+- **Path B `FxPerpLpVault` contract** — Path A (synthetic in-matcher LP)
+  remains in production; Path B is gated on Solidity work upstream.
+- **§§3.3/3.4/3.5 of the readiness doc** — those rows depend on a
+  mainnet deployment manifest from fx-telarana, which doesn't yet exist.
+
+---
+
+## Phase 7.2 amendment (2026-05-23) — pyth_pusher unblocks F3
+
+The first live Arc Testnet boot of the matcher (post-Phase-7) surfaced
+F3 in the integration runbook: `FxOracle.getMid` reverts with
+`0xe7764c9e CalldataMustHaveValidPayload` when the Pyth feed isn't
+fresh, blocking the LP-backstop's oracle gate (invariant 4). Same root
+cause blocks BUFX `FxSpotExecutor` if/when its cross-chain spot path is
+exercised on Arc.
+
+Phase 7.2 adds a `pyth_pusher` task to `matcher-server` (same crate as
+`funding_poker`) that closes both gaps in one motion.
+
+| What | Where | Why |
+|---|---|---|
+| `IPyth` sol! bindings + `pythFeedOf` / `PYTH()` extension to `IFxOracle` | `crates/perps-onchain/src/bindings.rs` | Minimal surface — `getUpdateFee(bytes[])`, `updatePriceFeeds(bytes[]) payable`, `getPriceUnsafe(bytes32)`. Mirrors `@pythnetwork/pyth-sdk-solidity/IPyth.sol`. |
+| `submit_pyth_update` RPC client method | `crates/perps-onchain/src/client.rs` | Reads `getUpdateFee`, sends `updatePriceFeeds` with the returned fee as `msg.value`. Returns tx hash. |
+| `resolve_pyth_address` JSON loader | `crates/perps-onchain/src/oracle.rs` | `PYTH_ADDRESS` env → `perp-oracle-{chainId}.json` `pyth` field → error. Same precedence pattern as `resolve_oracle_address`. |
+| `pyth_pusher::PythPusher` task | `crates/matcher-server/src/pyth_pusher.rs` | Boots by reading `pythFeedOf(USDC)` + `pythFeedOf(baseToken)` for every market in `MATCHER_FUNDING_MARKET_IDS`. Every `PYTH_PUSH_INTERVAL_MS` (default 5s), checks each feed's on-chain `publishTime` via `getPriceUnsafe`, fetches stale ones from Hermes v2 (`/v2/updates/price/latest?encoding=hex`), pushes in one tx. |
+| Hermes v2 fetcher | same module | `reqwest` against the public Hermes endpoint by default; `PYTH_HERMES_URL` env pins to a private mirror for production reliability. Response parser matches `fx-telarana/packages/sdk/scripts/perp-arc-trading-smoke.ts:514-534`. |
+| Spawned under `tokio::select!` in `main.rs` | `crates/matcher-server/src/main.rs` | Joins the existing 5 long-running tasks (tick / event_subscriber / IF watchdog / funding_poker / canary); brings the total to 6. |
+
+New env vars (all optional; testnet defaults work):
+
+```text
+  PYTH_PUSH_INTERVAL_MS         default 5_000 (5s)
+  PYTH_PUSH_MAX_AGE_SECS        default 30
+  PYTH_HERMES_URL               default https://hermes.pyth.network
+  PYTH_HERMES_TIMEOUT_MS        default 10_000
+  PYTH_ADDRESS                  override for staging/forks
+```
+
+Workspace test count: **93 active + 2 ignored** (Phase 7.1 left it at 86 + 2).
+
+Live verification on Arc Testnet 2026-05-23 — first push tx:
+`0x31c576120745ab32328d82b8967a327ef9918d3b8bf0dfbb6d5151819bb838ff`.
+4 feeds pushed in one call (USDC + EURC + CIRBTC + TMXNB); subsequent
+`oracle_snapshot` calls succeeded. F3 RESOLVED in `docs/matcher-integration-runbook.md` §6.5 + `docs/matcher-mainnet-readiness.md` §5.2.5.
+
+Pre-mainnet follow-ups noted in the readiness doc:
+- Confirm KEEPER USDC headroom for sustained push fees (Arc uses USDC as native gas).
+- Consider splitting `PYTH_PUSHER_PRIVATE_KEY` from `PERP_KEEPER_PRIVATE_KEY` for blast-radius isolation.
+- Pin `PYTH_HERMES_URL` to a private mirror for liveness SLA.
+
+---
+
 ## Phasing
 
 | Phase | Scope | Calendar weeks | Gates before next |
@@ -516,7 +891,7 @@ Redis fill stream and warms its book state.
 | 0 | All 22 PRs land on main | 1-2 | wk1d1 + #39 + #43 + #45 + #56 merged |
 | 1 | Spec, proto, scaffolding | 2 | proto v1 frozen, codegen wired both sides |
 | 2 | Core orderbook + matching (no LP) | 3 | invariants 1-8 tested, golden suite passing |
-| 3 | TS integration (API + keeper + Ponder reconciler) | 2 | end-to-end intent → settled fill via matcher service |
+| 3 | TS integration (API + keeper + Ponder reconciler) — **3a perps-db / 3b perps-onchain / 3b1 sprint-1 align / 3c matcher-server + TS keeper retirement** | 2 | end-to-end intent → settled fill via matcher service |
 | 4 | LP backstop | 4 | invariants 9-10 tested, LP vault audited |
 | 5 | Funding rate + mark price safety | 2 | funding math goldens passing, deviation gate trips on stub oracle drop |
 | 6 | Determinism + invariant suite hardening | ongoing | mainnet readiness doc signed off |

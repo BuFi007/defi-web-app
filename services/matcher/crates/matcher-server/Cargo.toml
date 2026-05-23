@@ -1,0 +1,50 @@
+[package]
+name = "bufi-matcher-server"
+description = "BUFI matcher server binary — Postgres-backed tick loop, on-chain settlement, event subscriber. Replaces apps/keeper-perps-matcher."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "bufi-matcher"
+path = "src/main.rs"
+
+[dependencies]
+bufi-orderbook = { path = "../orderbook" }
+bufi-matcher-types = { path = "../matcher-types" }
+bufi-perps-db = { path = "../perps-db" }
+bufi-perps-onchain = { path = "../perps-onchain" }
+
+sqlx = { workspace = true }
+
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+futures = { workspace = true }
+
+# alloy stack — used for EIP-712 verify + log subscription
+alloy-primitives = { workspace = true }
+alloy-sol-types = { workspace = true }
+alloy-signer = { workspace = true }
+alloy-signer-local = { workspace = true }
+alloy-provider = { workspace = true }
+alloy-rpc-types-eth = { workspace = true }
+alloy-network = { workspace = true }
+alloy-contract = { workspace = true }
+reqwest = { workspace = true }
+url = { version = "2", default-features = false }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+
+[lints.rust]
+unsafe_code = "forbid"
