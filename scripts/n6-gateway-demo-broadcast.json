@@ -1,0 +1,145 @@
+{
+  "wave": "N6",
+  "broadcastAt": "2026-05-22T14:46:36.082Z",
+  "agent": "Wave N6 — Demo B broadcast (Real-Time FX Swap Pool Using Gateway)",
+  "outcome": {
+    "swapLeg": "PROVED LIVE",
+    "realTimeFxSwapPoolUsingGateway": "PROVED LIVE",
+    "evidence": "One Arc Testnet tx (0x66dc22ae835884c9b50641d062a53f8a80e3191a89a9a6337e81c95f2cf9bc09, status=success, gasUsed=21,349,297, block=43521137) where TelaranaGatewayHubHook.beforeSwap pulled 0.1 USDC inline from Circle Gateway and settled it to PoolManager. The single tx emits GatewayHubMintAttested (0x920529b0…), GatewayHubLiquidityReceived (0x9893f54e…), and GatewayRoutedSwap (0x0f0ffd9e…) — confirming the entire intra-hook Gateway USDC liquidity path executed. No CCTP attestation polling. No off-chain settlement loop. The keeper net USDC balance delta is gas-dominated (USDC is the gas token on Arc; the 0.1 USDC swap output is masked by ~0.32 USDC gas cost), but the USDC.Transfer logs prove 100000 USDC moved 0x0→TGH→PoolManager→keeper inside one tx."
+  },
+  "differentiatorNote": "This proves the Hookathon submission's new clause: 'Real-Time FX Swap Pools Using Gateway, rather than relying only on CCTP with shared Hub liquidity across chains.' Demo A (CCTP) requires a multi-block burn → Iris poll → mint cycle; Demo B (Gateway) materialises the USDC inside beforeSwap atomically in one tx.",
+  "preReq": {
+    "fxV4RouterHarnessGateway": "0x72180a231245E06db12b6A77390Ce919fF041f04",
+    "fxV4RouterHarnessGatewayDeployTx": "0x0d615d950cb1ec4d35a1a6a28bffda7e5a566c87f668cbc72d9b1b0de1413ca5",
+    "tgh": "0xe895CB461AFF6E98167a7FA0Db252ba906714088",
+    "poolManager": "0x3FA22b7Aeda9ebBe34732ea394f1711887363B34",
+    "circleGatewayMinter": "0x0022222ABE238Cc2C7Bb1f21003F0a260052475B"
+  },
+  "network": {
+    "chainId": 5042002,
+    "name": "Arc Testnet",
+    "rpc": "https://rpc.testnet.arc.network"
+  },
+  "actor": {
+    "keeper": "0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69"
+  },
+  "poolKey": {
+    "currency0": "0x3600000000000000000000000000000000000000",
+    "currency1": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
+    "fee": 100,
+    "tickSpacing": 1,
+    "hooks": "0xe895CB461AFF6E98167a7FA0Db252ba906714088"
+  },
+  "poolId": "0xf6b13fe5ae3115d159b3a844a56588d1549293fb6725040f01c54ba31827f711",
+  "routeId": "0xf78147c98547731be048740d9d9089e6258e5e712e0c66f7b9d9d57d6af3a968",
+  "attestation": {
+    "requestId": "0xe96771599375d1612f500acac516752887f9df6d3b2e1f7d9fe03bc276fffb9a",
+    "amountUsdc": "100000",
+    "amountUsdcHuman": "0.1",
+    "expirationBlock": "43522329",
+    "transferId": "7429e2e4-9ad3-49de-a0f6-ed7b3e27b2c7",
+    "sourceDomain": 1,
+    "destinationDomain": 26,
+    "circleApiBase": "https://gateway-api-testnet.circle.com/v1",
+    "endpoint": "POST /v1/transfer"
+  },
+  "balances": {
+    "before": {
+      "keeper.usdc": "20.080738",
+      "keeper.eurc": "32.964235",
+      "tgh.usdc": "0"
+    },
+    "after": {
+      "keeper.usdc": "19.752622",
+      "keeper.eurc": "32.964235",
+      "tgh.usdc": "0"
+    },
+    "deltas": {
+      "keeper.usdc": "-0.328116",
+      "keeper.eurc": "0",
+      "tgh.usdc": "0",
+      "_note": "keeper USDC delta is dominated by gas (USDC is native on Arc, gas = 21.3M * 20 Gwei ≈ 0.43 USDC). Inside the tx the keeper received +0.1 USDC via Gateway intra-hook mint (USDC.Transfer logs confirm: 0x0→TGH 100000, TGH→PM 100000, PM→keeper 100000). EURC was pre-settled then refunded since the new pool has no LP yet — 10000 EURC went keeper→PM→keeper net 0."
+    }
+  },
+  "steps": [
+    {
+      "step": "sanity-probes",
+      "status": "ok",
+      "detail": "TGH PR-H8 surface live (getHookPermissions=beforeSwap|beforeSwapReturnDelta); gatewayRoute(routeId) enabled (sourceDomain=1 Fuji, destDomain=26 Arc); gatewayContextProofMode=3 (SIGNED_INTENT_OR_HYPERLANE); keeper holds DEFAULT_ADMIN_ROLE+EXECUTOR_ROLE."
+    },
+    {
+      "step": "v4-pool-initialize",
+      "status": "ok",
+      "txHash": "0x91f605e7556c5aec98fd2a93ea00777321b55cdaf501a371404b708d01ce2921",
+      "explorer": "https://testnet.arcscan.app/tx/0x91f605e7556c5aec98fd2a93ea00777321b55cdaf501a371404b708d01ce2921",
+      "gasUsed": "52615",
+      "blockNumber": "43520507",
+      "detail": "PoolManager.initialize(PoolKey(USDC/EURC/fee=100/spacing=1/hooks=TGH), sqrtPriceX96=0xf52559aa0006380000000000) — NEW pool with TGH as the v4 hooks address (low-14 bits 0x088 = beforeSwap|beforeSwapReturnDelta)."
+    },
+    {
+      "step": "bind-pool-to-gateway-route",
+      "status": "ok",
+      "txHash": "0x1b885470b6a0c862fd31d06ace2a433c5c6912154bf96f38e076383bcb9533a5",
+      "explorer": "https://testnet.arcscan.app/tx/0x1b885470b6a0c862fd31d06ace2a433c5c6912154bf96f38e076383bcb9533a5",
+      "gasUsed": "50680",
+      "blockNumber": "43520512",
+      "detail": "TGH.setPoolGatewayRoute(poolId=0xf6b13fe5…7f711, routeId=0xf78147c9…2a968) — binds the new pool to the Fuji→Arc USDC Gateway route configured in Wave M4."
+    },
+    {
+      "step": "gateway-attestation-mint",
+      "status": "ok",
+      "detail": "POST https://gateway-api-testnet.circle.com/v1/transfer signed by keeper EIP-712 (GatewayWallet domain). Mint authorised 0.1 USDC Fuji→Arc with destinationRecipient=destinationCaller=TGH so beforeSwap can invoke gatewayMint atomically. Server-issued transferId=7429e2e4-9ad3-49de-a0f6-ed7b3e27b2c7."
+    },
+    {
+      "step": "approve-harness",
+      "status": "ok",
+      "txHash": "0xf1f200bb6693dc5447dda1fa95bd7dcd10ffdd3113fa46e23bfe2ae274e29e9b",
+      "explorer": "https://testnet.arcscan.app/tx/0xf1f200bb6693dc5447dda1fa95bd7dcd10ffdd3113fa46e23bfe2ae274e29e9b",
+      "gasUsed": "55437",
+      "blockNumber": "43520518",
+      "detail": "EURC.approve(harness, 1_000_000) — pre-funds harness to settle EURC input; the input is refunded since the new pool has no LP yet."
+    },
+    {
+      "step": "v4-swap-with-gateway-hookdata",
+      "status": "ok",
+      "txHash": "0x66dc22ae835884c9b50641d062a53f8a80e3191a89a9a6337e81c95f2cf9bc09",
+      "explorer": "https://testnet.arcscan.app/tx/0x66dc22ae835884c9b50641d062a53f8a80e3191a89a9a6337e81c95f2cf9bc09",
+      "gasUsed": "21349297",
+      "blockNumber": "43521137",
+      "detail": "harness.swapExactInputSingleWithHookData(poolKey, zeroForOne=false, amountIn=10000 EURC, amountOutMinimum=0, recipient=keeper, hookData=encode(attestation,signature,GatewayMintContext)). Inside one tx: TGH.beforeSwap → GatewayMinter.gatewayMint (Circle attestation verified onchain via ecrecover) → USDC.mint(TGH, 100000) → TGH.USDC.transfer(PoolManager, 100000) → PoolManager.settle → BeforeSwapDelta(0, -100000) → PoolManager.swap nets out → harness.take(USDC, keeper, 100000)."
+    }
+  ],
+  "events": {
+    "GatewayHubMintAttested": {
+      "topic": "0x920529b00873d5f45b7ccceb4508b0dc48660de39003e70e8b4c5214fd19954d",
+      "fired": true,
+      "logIndex": 48
+    },
+    "GatewayHubLiquidityReceived": {
+      "topic": "0x9893f54e3814c6144a4c022a741999e804ec295b78e9d371777b377134e7df7d",
+      "fired": true,
+      "logIndex": 49
+    },
+    "GatewayRoutedSwap": {
+      "topic": "0x0f0ffd9e1d85290ecb4294cfbb6e7fcd895288058d43059b7e11aa50efa13769",
+      "fired": true,
+      "logIndex": 52
+    }
+  },
+  "usdcFlowInSingleTx": [
+    "USDC.mint     0x0000…0000 -> TGH         amount=100000 (Circle GatewayMinter inlined the cross-chain transfer)",
+    "USDC.transfer TGH         -> PoolManager amount=100000 (TGH settled the minted USDC to the v4 PM)",
+    "USDC.transfer PoolManager -> keeper      amount=100000 (harness.take delivered USDC to the recipient)"
+  ],
+  "eurcFlowInSingleTx": [
+    "EURC.transferFrom keeper      -> PoolManager amount=10000 (harness._settleFrom)",
+    "EURC.transfer     PoolManager -> keeper      amount=10000 (harness drained residual input delta since new pool has no LP; user gets EURC back, retains the +0.1 USDC from Gateway)"
+  ],
+  "remainingForFullProductionDemo": [
+    "Seed the new pool with USDC/EURC liquidity (currently empty; the Gateway-routed-swap demo works without LP because BeforeSwapDelta supplies the entire output, but a real FX swap should consume the user's input via AMM swap math against LP).",
+    "Extend the FxV4RouterHarnessGateway tests (Foundry) to lock in the no-LP path + LP path side-by-side.",
+    "Pin FxV4RouterHarnessGateway in fx-telarana/deployments/arc-testnet.json + defi-web-app/packages/contracts/src/bento.ts so the web app can drive the same flow.",
+    "Author keeper-gateway-signer task that auto-mints fresh attestations against the BurnIntent skeleton + posts to Circle /v1/transfer on a cron so the demo works without manual mint.",
+    "After re-attempting, the same pool re-broadcast hits PriceLimitAlreadyExceeded — the no-LP swap moves the price to MAX_SQRT_PRICE. To re-broadcast against the same pool, either (a) seed LP first, or (b) init a sibling pool with a different fee tier to get a fresh sqrtPriceX96."
+  ]
+}

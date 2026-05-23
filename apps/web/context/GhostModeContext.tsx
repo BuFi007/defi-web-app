@@ -13,14 +13,19 @@ import {
 /**
  * GhostMode — global privacy state for BUFI.
  *
- * Ghost Mode = the user has opted into private trading. It's currently
- * 1:1 with dark theme (the theme button toggles both) but the privacy
- * flag is the canonical state. Treat theme as a visual side-effect of
- * Ghost Mode, not the other way around.
+ * Ghost Mode = the user has opted into private trading. The flag is
+ * the canonical user intent; the theme toggle is a visual side-effect
+ * of it, NOT the other way around.
  *
- * Future consumers (trade routing, RPC selection, KYC gating) read
- * `useGhostMode().isGhostMode` to decide between public and private
- * code paths. The state survives reloads via `localStorage`.
+ * Trade routing reads `useGhostMode().isGhostMode` to decide between
+ * public and private code paths. State survives reloads via
+ * localStorage. Cross-tab sync via the storage event.
+ *
+ * On-chain privacy availability is a SEPARATE concern from user intent:
+ * a user may toggle Ghost Mode on while the Privacy Hook is paused or
+ * not yet wired for the user's chain. Use `usePrivacyState()` /
+ * `usePrivacyAssets()` from `@/lib/privacy/hooks` to read what's
+ * actually deployed.
  */
 export type GhostModeContextValue = {
   /** True when private trading is enabled. */

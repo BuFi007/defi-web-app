@@ -1,0 +1,220 @@
+{
+  "wave": "N8",
+  "broadcastAt": "2026-05-22T15:40:45.412Z",
+  "agent": "Wave N8 — bidirectional TGH-hooked pool with balanced LP",
+  "base": {
+    "branch": "feat/wk1n7a-tgh-pool-lp-seed",
+    "prevWave": "N7a"
+  },
+  "network": {
+    "chainId": 5042002,
+    "name": "Arc Testnet",
+    "rpc": "https://rpc.testnet.arc.network"
+  },
+  "actor": {
+    "keeper": "0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69"
+  },
+  "newPool": {
+    "poolKey": {
+      "currency0": "0x3600000000000000000000000000000000000000",
+      "currency1": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
+      "fee": 500,
+      "tickSpacing": 10,
+      "hooks": "0xe895CB461AFF6E98167a7FA0Db252ba906714088"
+    },
+    "poolId": "0x18626d33058be9504c8f3ba36550bca1408213a248390b41fc5a4871f0372dd3",
+    "initialSqrtPriceX96": "0xf51a6fb3448c180000000000",
+    "initialTickTarget": -870,
+    "initialTickActual": -870,
+    "initTxHash": "0xb85d39a80f0890b50b2201a4d790190c90fd4c88cc7a5d1f749513b9e1802cb4",
+    "initExplorer": "https://testnet.arcscan.app/tx/0xb85d39a80f0890b50b2201a4d790190c90fd4c88cc7a5d1f749513b9e1802cb4"
+  },
+  "gatewayRoute": {
+    "routeId": "0xf78147c98547731be048740d9d9089e6258e5e712e0c66f7b9d9d57d6af3a968",
+    "setPoolGatewayRouteTxHash": "0xc3c933dd86c8caa7fd183c8652df8cd464f63df7df56dd9f3e2ac2b7d0469eff",
+    "setPoolGatewayRouteExplorer": "https://testnet.arcscan.app/tx/0xc3c933dd86c8caa7fd183c8652df8cd464f63df7df56dd9f3e2ac2b7d0469eff"
+  },
+  "liquiditySeed": {
+    "tickLower": -920,
+    "tickUpper": -820,
+    "liquidityDelta": "383471919",
+    "salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "targetAmounts": {
+      "usdc": "1000000",
+      "eurc": "917000"
+    },
+    "actualDeltas": {
+      "usdc": "-1005794",
+      "eurc": "-916682",
+      "_note": "Deltas are net of gas (gas paid in native USDC on Arc). The pure LP outflow is ~1.0 USDC + ~0.917 EURC against PoolManager; native gas (~0.02 USDC for modifyLiquidity at 240k gas) is in the USDC delta."
+    },
+    "approveUsdcTxHash": null,
+    "approveEurcTxHash": null,
+    "modifyLiquidityTxHash": "0x8ef10e8e791f6f01d54b9428d4f8178b740f31db4a177def015e6c6c71a0309f",
+    "modifyLiquidityExplorer": "https://testnet.arcscan.app/tx/0x8ef10e8e791f6f01d54b9428d4f8178b740f31db4a177def015e6c6c71a0309f",
+    "lpHarness": "0x10a2eea3db2a4549f9cc3ac5aeaea4ac924b184e"
+  },
+  "bidirectionalSwaps": {
+    "usdcToEurc": {
+      "zeroForOne": true,
+      "amountIn": "50000",
+      "txHash": "0x4eb5287b9f76c6ce55d92372267de2dda93ea868268bc78b7055f687d53b2892",
+      "explorer": "https://testnet.arcscan.app/tx/0x4eb5287b9f76c6ce55d92372267de2dda93ea868268bc78b7055f687d53b2892",
+      "status": "error",
+      "gasUsed": "112899",
+      "usdcDelta": "-0.002258",
+      "eurcDelta": "0",
+      "revertReason": "tx reverted on-chain — TGH hook rejected USDC→EURC direction (UnsupportedSwapDirection)",
+      "expectedToRevert": true,
+      "rationale": "TelaranaGatewayHubHook.beforeSwap reverts UnsupportedSwapDirection() when !userReceivesUsdc. With usdcIsCurrency0=true, USDC→EURC (zeroForOne=true) yields userReceivesUsdc=false → revert. This is the hook's intentional design (one-way Gateway-mint injection)."
+    },
+    "eurcToUsdc": {
+      "zeroForOne": false,
+      "amountIn": "50000",
+      "txHash": "0x64bfde6170f413142b7ff7bd39c77a14561edaa4bdbe5a621d8da2e018cf9619",
+      "explorer": "https://testnet.arcscan.app/tx/0x64bfde6170f413142b7ff7bd39c77a14561edaa4bdbe5a621d8da2e018cf9619",
+      "status": "ok",
+      "gasUsed": "471067",
+      "usdcDelta": "+0.095087",
+      "eurcDelta": "-0.05",
+      "gatewayRoutedSwapEventFired": true,
+      "attestation": {
+        "requestId": "0x15f84923a12d7ad052965e3984a890c6a949e749a3eeffb2ce159c514dec8df6",
+        "transferId": "ac0dd5a1-6577-433d-ba1c-d38c257eb844",
+        "expirationBlock": "43527558",
+        "circleApiBase": "https://gateway-api-testnet.circle.com/v1",
+        "endpoint": "POST /v1/transfer",
+        "sourceDomain": 1,
+        "destinationDomain": 26
+      },
+      "revertReason": null
+    }
+  },
+  "balanceDeltas": {
+    "before": {
+      "keeper.usdc": "19.72506",
+      "keeper.eurc": "32.047278",
+      "tgh.usdc": "0"
+    },
+    "afterPhaseA_B": {
+      "keeper.usdc": "18.716084",
+      "keeper.eurc": "31.130596",
+      "_deltaFromPreBalance": {
+        "keeper.usdc": "-1.008976",
+        "keeper.eurc": "-0.916682"
+      }
+    },
+    "afterSwapA": {
+      "keeper.usdc": "18.713826",
+      "keeper.eurc": "31.130596",
+      "_deltaFromAB": {
+        "keeper.usdc": "-0.002258",
+        "keeper.eurc": "0"
+      }
+    },
+    "afterSwapB": {
+      "keeper.usdc": "18.808913",
+      "keeper.eurc": "31.080596",
+      "_deltaFromSwapA": {
+        "keeper.usdc": "+0.095087",
+        "keeper.eurc": "-0.05"
+      }
+    }
+  },
+  "finalPoolState": {
+    "sqrtPriceX96": "75866112175375524193117149936",
+    "tick": -868,
+    "globalLiquidity": "383471919",
+    "withinLpBand": true,
+    "band": {
+      "tickLower": -920,
+      "tickUpper": -820
+    }
+  },
+  "steps": [
+    {
+      "step": "phaseA-initialize-pool",
+      "status": "ok",
+      "txHash": "0xb85d39a80f0890b50b2201a4d790190c90fd4c88cc7a5d1f749513b9e1802cb4",
+      "explorer": "https://testnet.arcscan.app/tx/0xb85d39a80f0890b50b2201a4d790190c90fd4c88cc7a5d1f749513b9e1802cb4",
+      "gasUsed": "52653",
+      "blockNumber": "43526314",
+      "detail": "PoolManager.initialize(PoolKey(USDC, EURC, fee=500, spacing=10, hooks=TGH), sqrtPriceX96=0xf51a6fb3448c180000000000)",
+      "durationMs": 4615
+    },
+    {
+      "step": "phaseB-bind-pool-to-route",
+      "status": "ok",
+      "txHash": "0xc3c933dd86c8caa7fd183c8652df8cd464f63df7df56dd9f3e2ac2b7d0469eff",
+      "explorer": "https://testnet.arcscan.app/tx/0xc3c933dd86c8caa7fd183c8652df8cd464f63df7df56dd9f3e2ac2b7d0469eff",
+      "gasUsed": "50680",
+      "blockNumber": "43526323",
+      "detail": "TGH.setPoolGatewayRoute(0x18626d33058be9504c8f3ba36550bca1408213a248390b41fc5a4871f0372dd3, 0xf78147c98547731be048740d9d9089e6258e5e712e0c66f7b9d9d57d6af3a968)",
+      "durationMs": 4616
+    },
+    {
+      "step": "phaseB-approve-usdc-lp",
+      "status": "skipped",
+      "detail": "pre-existing allowance 115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "durationMs": 92
+    },
+    {
+      "step": "phaseB-approve-eurc-lp",
+      "status": "skipped",
+      "detail": "pre-existing allowance 115792089237316195423570985008687907853269984665640564039457584007913128722978",
+      "durationMs": 179
+    },
+    {
+      "step": "phaseB-modify-liquidity",
+      "status": "ok",
+      "txHash": "0x8ef10e8e791f6f01d54b9428d4f8178b740f31db4a177def015e6c6c71a0309f",
+      "explorer": "https://testnet.arcscan.app/tx/0x8ef10e8e791f6f01d54b9428d4f8178b740f31db4a177def015e6c6c71a0309f",
+      "gasUsed": "289656",
+      "blockNumber": "43526332",
+      "detail": "modifyLiquidity({tickLower=-920, tickUpper=-820, liquidityDelta=383471919, salt=0}) — USDC delta=-1.005794, EURC delta=-0.916682 (gas-inclusive)",
+      "durationMs": 4875
+    },
+    {
+      "step": "phaseC-approve-usdc-swap",
+      "status": "ok",
+      "txHash": "0x3e71517a2b8ac03f168cc5f0caa68f72c4201315a635c87759f482bf7f60d641",
+      "explorer": "https://testnet.arcscan.app/tx/0x3e71517a2b8ac03f168cc5f0caa68f72c4201315a635c87759f482bf7f60d641",
+      "gasUsed": "55786",
+      "blockNumber": "43526342",
+      "durationMs": 4608
+    },
+    {
+      "step": "phaseC-swap-A-usdc-to-eurc",
+      "status": "error",
+      "txHash": "0x4eb5287b9f76c6ce55d92372267de2dda93ea868268bc78b7055f687d53b2892",
+      "explorer": "https://testnet.arcscan.app/tx/0x4eb5287b9f76c6ce55d92372267de2dda93ea868268bc78b7055f687d53b2892",
+      "gasUsed": "112899",
+      "blockNumber": "43526352",
+      "detail": "EXPECTED revert (one-directional hook): tx reverted on-chain — TGH hook rejected USDC→EURC direction (UnsupportedSwapDirection)",
+      "durationMs": 5023
+    },
+    {
+      "step": "phaseC-swap-B-eurc-to-usdc",
+      "status": "ok",
+      "txHash": "0x64bfde6170f413142b7ff7bd39c77a14561edaa4bdbe5a621d8da2e018cf9619",
+      "explorer": "https://testnet.arcscan.app/tx/0x64bfde6170f413142b7ff7bd39c77a14561edaa4bdbe5a621d8da2e018cf9619",
+      "gasUsed": "471067",
+      "blockNumber": "43526362",
+      "detail": "swapExactInputSingleWithHookData(zeroForOne=false, amount=50000 EURC, recipient=keeper) — TGH.beforeSwap injects 50000 USDC via Gateway, PoolManager.swap walks price from -870 against real LP in [-920,-820]",
+      "durationMs": 4827
+    }
+  ],
+  "outcome": {
+    "newPoolInitialised": true,
+    "balancedLpSeeded": true,
+    "swapAUsdcToEurcExecuted": false,
+    "swapBEurcToUsdcExecuted": true,
+    "gatewayRoutedSwapEventOnSwapB": true,
+    "bidirectionalProductionReady": false,
+    "honestVerdict": "NO — TelaranaGatewayHubHook is one-directional by design (TelaranaGatewayHubHook.sol L478-L479: reverts UnsupportedSwapDirection() when !userReceivesUsdc). Swap A (USDC→EURC) reverts at the hook boundary; Swap B (EURC→USDC) executes against real LP-backed AMM math + Gateway USDC injection. Production-bidirectional support requires either (a) a non-hooked v4 pool (plain AMM) for the USDC→EURC leg, OR (b) extending TGH to forward non-USDC-receiving swaps to plain AMM. The hook's intent (Gateway-mint-injected USDC liquidity) is correctly proven for the EURC→USDC direction only.",
+    "evidence": {
+      "eurcToUsdc": "tx 0x64bfde6170f413142b7ff7bd39c77a14561edaa4bdbe5a621d8da2e018cf9619 (block 43526362, gas 471067) — TGH.beforeSwap pulled 50000 USDC via Circle Gateway, PoolManager.swap walked price against the [-920,-820] LP. GatewayRoutedSwap event fired=true. Keeper balance deltas: USDC=+0.095087, EURC=-0.05.",
+      "usdcToEurc": "BLOCKED at hook boundary — tx reverted on-chain — TGH hook rejected USDC→EURC direction (UnsupportedSwapDirection)"
+    }
+  }
+}

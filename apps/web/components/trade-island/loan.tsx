@@ -65,7 +65,7 @@ export interface LoanHub extends HubChain {
   address: `0x${string}`;
 }
 
-export type LoanMarketStatus = "live" | "paused" | "stale";
+export type LoanMarketStatus = "live" | "paused" | "stale" | "pending";
 
 export interface LoanMarket {
   id: string;
@@ -203,12 +203,21 @@ export const hubRegistryAddress = (hubId: string): `0x${string}` | null =>
 // "supply / borrow" numbers were invented, and (c) we can't ever
 // promise the user an APY we can't prove on-chain.
 const LOAN_MARKETS: LoanMarket[] = [
-  // Arc Testnet — M1 + M2 (EURC/USDC), M3 + M4 (AUDF/USDC).
-  // Deployed in fx-telarana#feat/mxnb-fuji-markets.
-  { id: "arc-usdc-eurc", hub: "arc", loan: "USDC", coll: "EURC", supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
-  { id: "arc-eurc-usdc", hub: "arc", loan: "EURC", coll: "USDC", supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
-  { id: "arc-audf-usdc", hub: "arc", loan: "AUDF", coll: "USDC", supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
-  { id: "arc-usdc-audf", hub: "arc", loan: "USDC", coll: "AUDF", supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
+  // Arc Testnet — sprint-1 broadcast 2026-05-21 (canonical MorphoBlue
+  // 0x65f435eB…, AdaptiveCurveIrm 0xBD583cc9…, LLTV 86%). Market IDs
+  // resolved by the API from `~/coding-dojo/fx-telarana/docs/INTEGRATION_HANDOFF.md`.
+  // EURC pair predates sprint-1 and is kept; AUDF rows are placeholders
+  // pending issuer-token deployment.
+  { id: "arc-usdc-eurc",   hub: "arc", loan: "USDC", coll: "EURC",   supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
+  { id: "arc-eurc-usdc",   hub: "arc", loan: "EURC", coll: "USDC",   supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
+  { id: "arc-usdc-mxnb",   hub: "arc", loan: "USDC", coll: "MXNB",   supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
+  { id: "arc-mxnb-usdc",   hub: "arc", loan: "MXNB", coll: "USDC",   supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
+  { id: "arc-usdc-qcad",   hub: "arc", loan: "USDC", coll: "QCAD",   supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
+  { id: "arc-qcad-usdc",   hub: "arc", loan: "QCAD", coll: "USDC",   supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
+  { id: "arc-usdc-cirbtc", hub: "arc", loan: "USDC", coll: "cirBTC", supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
+  { id: "arc-cirbtc-usdc", hub: "arc", loan: "cirBTC", coll: "USDC", supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
+  { id: "arc-audf-usdc",   hub: "arc", loan: "AUDF", coll: "USDC",   supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "pending", trend: "up" },
+  { id: "arc-usdc-audf",   hub: "arc", loan: "USDC", coll: "AUDF",   supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "pending", trend: "up" },
   // Avalanche Fuji — M1 + M2 (EURC/USDC), M3 + M4 (MXNB/USDC).
   // Deployed in fx-telarana#feat/mxnb-fuji-markets.
   { id: "fuji-usdc-eurc", hub: "fuji", loan: "USDC", coll: "EURC", supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
@@ -468,6 +477,7 @@ export function StatusTag({ status }: { status: LoanMarketStatus }) {
   if (status === "live") return <span className="lo-st lo-st-live">Live</span>;
   if (status === "paused") return <span className="lo-st lo-st-paused">Paused</span>;
   if (status === "stale") return <span className="lo-st lo-st-stale">Stale</span>;
+  if (status === "pending") return <span className="lo-st lo-st-pending">Pending</span>;
   return null;
 }
 
