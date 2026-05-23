@@ -276,6 +276,16 @@ pub async fn run<L: LpStateView + Send + Sync>(
                 .store(match_seq, std::sync::atomic::Ordering::Relaxed);
         }
         let grpc_ref = grpc_state.as_deref();
+        // Phase 8d — when the gRPC server is up, both this loop and
+        // `submit_order` must serialize on `matching_lock` so
+        // concurrent match+settle passes can't double-match the same
+        // pending intent. Held only across the tick body; released
+        // before the sleep so SubmitOrder can grab it during idle
+        // intervals.
+        let _guard = match grpc_state.as_ref() {
+            Some(state) => Some(state.matching_lock.lock().await),
+            None => None,
+        };
         let outcome = match (&lp_signer, &lp_state) {
             (Some(s), Some(v)) => {
                 tick(
@@ -300,6 +310,7 @@ pub async fn run<L: LpStateView + Send + Sync>(
                 .await
             }
         };
+        drop(_guard);
         if outcome.did_work {
             idle_streak = 0;
         } else {

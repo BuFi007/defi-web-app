@@ -5,33 +5,63 @@
 //! `apps/api` over HTTP. Bind address comes from `MATCHER_GRPC_BIND`
 //! (default `127.0.0.1:3005` — loopback only). Set to empty to disable.
 //!
-//! ## Surface (Phase 8a — this commit)
+//! ## Surface
 //!
-//! Foundation only. The full `Matcher` trait is implemented but every
-//! RPC except `Health` returns `Unimplemented` with a clear message
-//! pointing at the HTTP API (`apps/api`) for clients that need the
-//! behaviour today. Phases 8b-8d fill in:
-//!   - 8b: `StreamTrades` via a tokio broadcast tapped from `settle_one`
-//!   - 8c: `GetBook` + `StreamBook` via shared OrderBook state
-//!   - 8d: `SubmitOrder` + `CancelOrder` via synchronous in-thread match
+//! All six RPCs are wired:
+//!   - 8a: Health
+//!   - 8b: StreamTrades (broadcast tap from `settle_one`)
+//!   - 8c: GetBook + StreamBook (shared per-market book store)
+//!   - 8d: SubmitOrder + CancelOrder (synchronous in-thread match
+//!     under a shared matching mutex with the tick loop)
 //!
-//! Keeping the trait fully populated from day one means clients can
-//! generate stubs against the canonical proto immediately and just
-//! gracefully handle `UNIMPLEMENTED` for the not-yet-built RPCs.
+//! ## SubmitOrder concurrency model
+//!
+//! `GrpcState::matching_lock` is a `tokio::sync::Mutex<()>` shared
+//! between the tick loop (`tick::run`) and `submit_order`. Both
+//! acquire it before invoking `tick::tick`, so:
+//!
+//!   * Only one match/settle pass runs at a time, eliminating
+//!     double-match races on the same pending intent.
+//!   * `submit_order` inserts the new intent into the DB **before**
+//!     acquiring the lock; whichever party (this call or a
+//!     concurrent tick) gets the lock next matches the intent.
+//!   * `submit_order` subscribes to the trade broadcast **before**
+//!     inserting so it never misses a fill on its own intent, and
+//!     filters drained trades by `intent_id` so concurrent fills on
+//!     other intents stay out of its `MatchResult.fills`.
+//!
+//! Latency budget: in the happy path a SubmitOrder costs one tick
+//! iteration (list_pending + build_book + match + settleMatch on
+//! Arc Testnet). On testnet that is 300–800 ms — exceeds the
+//! proto's 200 ms target but is the same envelope as the canary
+//! keeper experiences today.
 
 use std::time::Instant;
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
+use alloy_primitives::{Address, PrimitiveSignature, B256, I256, U256};
+use alloy_sol_types::SolStruct;
+use bufi_matcher_types::eip712::{domain as eip712_domain, SignedOrder as TypedSignedOrder};
 use bufi_matcher_types::proto::matcher::v1::{
     health_response::Status as HealthStatus,
     matcher_server::{Matcher as MatcherSvc, MatcherServer},
-    BookSnapshot, BookSubscription, BookUpdate, CancelResult, HealthRequest, HealthResponse,
-    IntentRef, MarketRef, MatchResult, PriceLevel, Side, SignedOrder, Trade, TradeSubscription,
+    BookSnapshot, BookSubscription, BookUpdate, CancelResult, CancelStatus,
+    Fill as ProtoFill, HealthRequest, HealthResponse, IntentRef, MarketRef, MatchResult,
+    MatchStatus, OrderType as ProtoOrderType, PriceLevel, Side, SignedOrder, Trade,
+    TradeSubscription,
 };
-use tokio::sync::{broadcast, RwLock};
+use bufi_perps_db::{
+    PerpIntent, PerpIntentStatus, PerpOrderType, PerpSide, PerpsDb,
+};
+use bufi_perps_onchain::{PerpsDeployment, PerpsOnchain};
+use tokio::sync::{broadcast, Mutex, RwLock};
 use tokio_stream::{wrappers::BroadcastStream, Stream, StreamExt};
 use tonic::{Request, Response, Status};
+
+use crate::lp_signer::LpSigner;
+use crate::lp_state::PathALpStateView;
 
 /// Per-market book snapshot the tick loop publishes after every match
 /// pass. Aggregated price levels (bids + asks) so gRPC consumers don't
@@ -79,6 +109,11 @@ pub struct GrpcState {
     /// so StreamBook subscribers see updates without polling. Bounded
     /// at 64 (smaller than trade_tx because book updates are larger).
     pub book_tx: broadcast::Sender<BookUpdate>,
+    /// Phase 8d — serializes match+settle between `tick::run` and
+    /// `submit_order`. Both must acquire this before invoking
+    /// `tick::tick`. `tokio::sync::Mutex` (not parking_lot) so it
+    /// can be held across `.await` points.
+    pub matching_lock: Mutex<()>,
 }
 
 impl GrpcState {
@@ -96,6 +131,7 @@ impl GrpcState {
             trade_tx,
             book_store: RwLock::new(BTreeMap::new()),
             book_tx,
+            matching_lock: Mutex::new(()),
         }
     }
 
@@ -139,16 +175,51 @@ impl GrpcState {
     }
 }
 
+/// Chain-side handle the service needs in order to actually run
+/// SubmitOrder + CancelOrder end-to-end. Optional so unit tests can
+/// construct a `MatcherService` with just an `Arc<GrpcState>` (the
+/// read-only RPCs — Health, GetBook, StreamBook, StreamTrades — don't
+/// need any of this).
+///
+/// In production, `main.rs` builds this from the same DB + onchain +
+/// deployment the tick loop uses, so a synchronous SubmitOrder runs
+/// against the same state the keeper would settle from on the next
+/// tick anyway.
+#[derive(Clone)]
+pub struct ChainBackend {
+    pub db: PerpsDb,
+    pub onchain: PerpsOnchain,
+    pub deployment: PerpsDeployment,
+    pub chain_id: i64,
+}
+
 /// The tonic service implementation. Holds an `Arc<GrpcState>` so
 /// multiple clones (one per inbound connection) share the same hot
-/// counters without contention.
+/// counters without contention. `chain` is `None` only in unit tests
+/// — production always plumbs it in.
 pub struct MatcherService {
-    state: std::sync::Arc<GrpcState>,
+    state: Arc<GrpcState>,
+    chain: Option<ChainBackend>,
 }
 
 impl MatcherService {
-    pub fn new(state: std::sync::Arc<GrpcState>) -> Self {
-        Self { state }
+    /// State-only constructor used by unit tests of the read-only
+    /// RPCs. Production code paths must use `with_chain` so
+    /// SubmitOrder + CancelOrder have the DB/onchain handle they
+    /// need.
+    #[cfg(test)]
+    pub fn new(state: Arc<GrpcState>) -> Self {
+        Self { state, chain: None }
+    }
+
+    /// Production constructor — wires the chain backend so SubmitOrder
+    /// and CancelOrder can run end-to-end against the matcher's DB
+    /// and the deployed FxOrderSettlement contract.
+    pub fn with_chain(state: Arc<GrpcState>, chain: ChainBackend) -> Self {
+        Self {
+            state,
+            chain: Some(chain),
+        }
     }
 
     /// Build a tower-compatible service for `Server::builder().add_service(...)`.
@@ -168,26 +239,177 @@ type BoxStream<T> =
 impl MatcherSvc for MatcherService {
     async fn submit_order(
         &self,
-        _req: Request<SignedOrder>,
+        req: Request<SignedOrder>,
     ) -> Result<Response<MatchResult>, Status> {
-        // Phase 8d — wires through intent_translator + match_intent.
-        // Until then, point callers at the existing HTTP path.
-        Err(Status::unimplemented(
-            "SubmitOrder lands in Phase 8d. Use `POST /perps/intents` on \
-             apps/api today (same wire-format SignedOrder + session-signed \
-             request headers).",
-        ))
+        let chain = self.chain.as_ref().ok_or_else(|| {
+            Status::failed_precondition(
+                "MatcherService constructed without ChainBackend — SubmitOrder requires \
+                 the production wiring (db + onchain + deployment + chain_id). \
+                 Use `MatcherService::with_chain` in main.rs.",
+            )
+        })?;
+        let proto_order = req.into_inner();
+
+        // 1. Parse + verify signature. The recovered address must match
+        //    the trader field on the wire — same invariant the on-chain
+        //    `settleMatch` enforces.
+        let parsed = parse_and_verify(&proto_order, &chain.deployment)?;
+        let intent_id_hex = format!("0x{}", alloy_primitives::hex::encode(parsed.intent_id));
+
+        let now_secs = current_unix_secs();
+        if (parsed.typed.deadline as i64) <= now_secs {
+            return Err(Status::failed_precondition(format!(
+                "deadline {} has passed (now = {now_secs})",
+                parsed.typed.deadline
+            )));
+        }
+
+        // 2. Build the DB row and subscribe to the trade broadcast
+        //    BEFORE inserting. Subscribing first means we never miss a
+        //    fill produced by the very tick that picks up this intent
+        //    — broadcast::Sender::subscribe() positions the receiver at
+        //    the current tail, so only fills emitted after this point
+        //    can land in our drain.
+        let perp_intent =
+            build_perp_intent_row(&parsed, &proto_order, &intent_id_hex, now_secs, chain.chain_id);
+        let mut trade_rx = self.state.trade_tx.subscribe();
+
+        // 3. Persist + acquire matching lock. The lock is shared with
+        //    tick::run so only one match/settle pass runs at a time.
+        chain
+            .db
+            .put(&perp_intent)
+            .await
+            .map_err(|e| Status::internal(format!("db put: {e}")))?;
+        let _guard = self.state.matching_lock.lock().await;
+
+        // 4. Run a tick. This matches every pending intent in the
+        //    deployment's chain, including ours, then settles
+        //    sequentially via settleMatch on Arc. We pass `None` for
+        //    LP routing because the production wiring path that
+        //    plumbs LpSigner into the gRPC handler isn't built yet —
+        //    a residual under GTC simply rests on the book and a
+        //    future tick will route it once the LP wiring lands.
+        let _outcome = crate::tick::tick(
+            &chain.db,
+            &chain.onchain,
+            &chain.deployment,
+            chain.chain_id,
+            None::<(&LpSigner, &PathALpStateView)>,
+            Some(self.state.as_ref()),
+        )
+        .await;
+        drop(_guard);
+
+        // 5. Drain trade_rx and keep only the fills involving OUR
+        //    intent_id. Other intents may have been matched in the
+        //    same tick — those go on the StreamTrades tap but not in
+        //    this caller's MatchResult.
+        let intent_id_vec = parsed.intent_id.to_vec();
+        let mut my_fills: Vec<ProtoFill> = Vec::new();
+        while let Ok(trade) = trade_rx.try_recv() {
+            if trade.maker_intent_id == intent_id_vec || trade.taker_intent_id == intent_id_vec {
+                my_fills.push(trade_to_proto_fill(trade));
+            }
+        }
+
+        // 6. Look up the post-match DB row to derive MatchStatus from
+        //    the canonical state (filled_size_delta + status).
+        let post = chain
+            .db
+            .get(&intent_id_hex)
+            .await
+            .map_err(|e| Status::internal(format!("db get: {e}")))?
+            .ok_or_else(|| Status::internal("intent vanished from DB between put and read"))?;
+
+        let status = match post.status {
+            PerpIntentStatus::Filled => MatchStatus::Filled,
+            PerpIntentStatus::PartiallyFilled => MatchStatus::Partial,
+            PerpIntentStatus::Pending => MatchStatus::Resting,
+            PerpIntentStatus::Canceled
+            | PerpIntentStatus::Expired
+            | PerpIntentStatus::Rejected => MatchStatus::Rejected,
+        };
+        let reject_reason = if matches!(status, MatchStatus::Rejected) {
+            Some(format!("post-tick status = {:?}", post.status))
+        } else {
+            None
+        };
+
+        Ok(Response::new(MatchResult {
+            intent_ref: Some(IntentRef {
+                intent_id: intent_id_vec,
+                market_id: proto_order.market_id.clone(),
+            }),
+            fills: my_fills,
+            status: status as i32,
+            reject_reason,
+        }))
     }
 
     async fn cancel_order(
         &self,
-        _req: Request<IntentRef>,
+        req: Request<IntentRef>,
     ) -> Result<Response<CancelResult>, Status> {
-        Err(Status::unimplemented(
-            "CancelOrder lands in Phase 8d alongside SubmitOrder. Today \
-             cancellations come from the on-chain OrderCancelled event \
-             (Permit2 nonce burn) the matcher's event_subscriber picks up.",
-        ))
+        let chain = self.chain.as_ref().ok_or_else(|| {
+            Status::failed_precondition(
+                "MatcherService constructed without ChainBackend — CancelOrder requires \
+                 the production wiring (db + chain_id). Use `MatcherService::with_chain` \
+                 in main.rs.",
+            )
+        })?;
+        let intent_ref = req.into_inner();
+        if intent_ref.intent_id.len() != 32 {
+            return Err(Status::invalid_argument("intent_id must be 32 bytes"));
+        }
+        let intent_id_hex = format!("0x{}", alloy_primitives::hex::encode(&intent_ref.intent_id));
+
+        // Take the matching lock so we don't race a concurrent tick
+        // that's mid-matching this intent. Once we hold the lock the
+        // DB row is stable until we release.
+        let _guard = self.state.matching_lock.lock().await;
+
+        let row = chain
+            .db
+            .get(&intent_id_hex)
+            .await
+            .map_err(|e| Status::internal(format!("db get: {e}")))?;
+
+        match row {
+            None => Ok(Response::new(CancelResult {
+                intent_ref: Some(intent_ref),
+                status: CancelStatus::NotFound as i32,
+                residual_size: vec![0u8; 32],
+            })),
+            Some(row) => match row.status {
+                PerpIntentStatus::Filled => Ok(Response::new(CancelResult {
+                    intent_ref: Some(intent_ref),
+                    status: CancelStatus::AlreadyFilled as i32,
+                    residual_size: vec![0u8; 32],
+                })),
+                PerpIntentStatus::Canceled
+                | PerpIntentStatus::Expired
+                | PerpIntentStatus::Rejected => Ok(Response::new(CancelResult {
+                    intent_ref: Some(intent_ref),
+                    status: CancelStatus::NotFound as i32,
+                    residual_size: vec![0u8; 32],
+                })),
+                PerpIntentStatus::Pending | PerpIntentStatus::PartiallyFilled => {
+                    let now_secs = current_unix_secs();
+                    chain
+                        .db
+                        .update_status(&intent_id_hex, PerpIntentStatus::Canceled, now_secs)
+                        .await
+                        .map_err(|e| Status::internal(format!("db update_status: {e}")))?;
+                    let residual_e18 = residual_magnitude_e18(&row);
+                    Ok(Response::new(CancelResult {
+                        intent_ref: Some(intent_ref),
+                        status: CancelStatus::Canceled as i32,
+                        residual_size: u128_to_be32(residual_e18),
+                    }))
+                }
+            },
+        }
     }
 
     async fn get_book(
@@ -500,6 +722,249 @@ pub fn extract_book_levels(
     (bids, ask_levels)
 }
 
+// ---------------------------------------------------------------------------
+// SubmitOrder / CancelOrder helpers (Phase 8d)
+// ---------------------------------------------------------------------------
+
+/// Output of `parse_and_verify`. Carries the typed (sol!) order, the
+/// 32-byte intent_id (EIP-712 hash) and the trader recovered from the
+/// signature. Returned together so the caller doesn't need to re-derive
+/// any of these.
+#[derive(Debug)]
+struct ParsedOrder {
+    typed: TypedSignedOrder,
+    intent_id: [u8; 32],
+    trader: Address,
+    /// Raw signature bytes (65 = r || s || v). Stored straight on the
+    /// PerpIntent row as `0x…130 hex chars`.
+    signature: Vec<u8>,
+}
+
+/// Parse a proto `SignedOrder` into the sol! `TypedSignedOrder`,
+/// compute the EIP-712 digest (= intent_id), verify the signature
+/// recovers to the wire-stated trader. Returns a single bundle so the
+/// caller doesn't re-parse or re-hash.
+///
+/// All `Status::invalid_argument` errors so the client knows it's a
+/// malformed request, not a server-side fault.
+#[allow(clippy::result_large_err)]
+fn parse_and_verify(
+    proto: &SignedOrder,
+    deployment: &PerpsDeployment,
+) -> Result<ParsedOrder, Status> {
+    let trader = parse_address_bytes(&proto.trader)?;
+    let market_id = parse_bytes32(&proto.market_id, "market_id")?;
+    let size_delta = parse_int256(&proto.size_delta_e18, "size_delta_e18")?;
+    if size_delta == I256::ZERO {
+        return Err(Status::invalid_argument("size_delta_e18 must be nonzero"));
+    }
+    let price_e18 = parse_uint256(&proto.price_e18, "price_e18")?;
+    let max_fee = parse_uint256(&proto.max_fee, "max_fee")?;
+
+    let order_type_u8 = match ProtoOrderType::try_from(proto.order_type) {
+        Ok(ProtoOrderType::Market) => 0u8,
+        Ok(ProtoOrderType::Limit) => 1u8,
+        Err(_) => {
+            return Err(Status::invalid_argument(format!(
+                "order_type {} not in {{MARKET, LIMIT}}",
+                proto.order_type
+            )))
+        }
+    };
+    if proto.flags > u8::MAX as u32 {
+        return Err(Status::invalid_argument(
+            "flags must fit in uint8 (on-chain narrows to uint8)",
+        ));
+    }
+    let flags = proto.flags as u8;
+
+    let typed = TypedSignedOrder {
+        trader,
+        marketId: market_id,
+        sizeDeltaE18: size_delta,
+        priceE18: price_e18,
+        maxFee: max_fee,
+        orderType: order_type_u8,
+        flags,
+        nonce: proto.nonce,
+        deadline: proto.deadline_secs,
+    };
+    let domain = eip712_domain(deployment.chain_id, deployment.contracts.fx_order_settlement);
+    let digest: B256 = typed.eip712_signing_hash(&domain);
+
+    if proto.signature.len() != 65 {
+        return Err(Status::invalid_argument(format!(
+            "signature must be 65 bytes (r||s||v), got {}",
+            proto.signature.len()
+        )));
+    }
+    let sig = PrimitiveSignature::try_from(proto.signature.as_slice())
+        .map_err(|e| Status::invalid_argument(format!("signature parse: {e}")))?;
+    let recovered = sig
+        .recover_address_from_prehash(&digest)
+        .map_err(|e| Status::invalid_argument(format!("signature recovery failed: {e}")))?;
+    if recovered != trader {
+        return Err(Status::invalid_argument(format!(
+            "signature recovers to {recovered:#x}, expected trader {trader:#x}"
+        )));
+    }
+
+    Ok(ParsedOrder {
+        typed,
+        intent_id: digest.0,
+        trader,
+        signature: proto.signature.clone(),
+    })
+}
+
+/// Convert the parsed order + the original proto request into a
+/// `PerpIntent` DB row. Same shape the canary keeper builds in
+/// `canary::Canary::build_perp_intent`; kept here so SubmitOrder is
+/// self-contained and the two paths can drift independently.
+fn build_perp_intent_row(
+    parsed: &ParsedOrder,
+    proto: &SignedOrder,
+    intent_id_hex: &str,
+    now_secs: i64,
+    chain_id: i64,
+) -> PerpIntent {
+    let size_delta_str = parsed.typed.sizeDeltaE18.to_string();
+    let side = if parsed.typed.sizeDeltaE18.is_negative() {
+        PerpSide::Short
+    } else {
+        PerpSide::Long
+    };
+    let order_type = match parsed.typed.orderType {
+        0 => PerpOrderType::Market,
+        _ => PerpOrderType::Limit,
+    };
+    let reduce_only = (parsed.typed.flags & 0x01) != 0;
+    let post_only = (parsed.typed.flags & 0x02) != 0;
+
+    PerpIntent {
+        intent_id: intent_id_hex.to_string(),
+        replacement_of: None,
+        chain_id,
+        trader: format!("{:#x}", parsed.trader),
+        market_id: format!("0x{}", alloy_primitives::hex::encode(proto.market_id.as_slice())),
+        side,
+        // size_usdc is a UI-echo field (see lp_router.rs:109). 0 is
+        // safe; consumers that want the real notional re-derive from
+        // size_delta * price.
+        size_usdc: "0".to_string(),
+        size_delta: size_delta_str.clone(),
+        filled_size_delta: "0".to_string(),
+        remaining_size_delta: size_delta_str,
+        // Leverage is a UI-only field today; the matcher doesn't
+        // consume it. 1 is a safe default.
+        leverage: 1,
+        order_type,
+        price_e18: parsed.typed.priceE18.to_string(),
+        limit_price: None,
+        reduce_only,
+        post_only,
+        flags: parsed.typed.flags as i64,
+        digest: intent_id_hex.to_string(),
+        signature: format!("0x{}", alloy_primitives::hex::encode(&parsed.signature)),
+        nonce: parsed.typed.nonce.to_string(),
+        deadline: parsed.typed.deadline as i64,
+        status: PerpIntentStatus::Pending,
+        created_at: now_secs,
+        updated_at: now_secs,
+    }
+}
+
+/// Adapter: the broadcast tap publishes `Trade`s, but MatchResult
+/// carries the (lighter) `Fill` shape. We shed the cumulative-filled
+/// and is_liquidation fields and ship the rest.
+fn trade_to_proto_fill(trade: Trade) -> ProtoFill {
+    ProtoFill {
+        fill_id: trade.fill_id,
+        maker_intent_id: trade.maker_intent_id,
+        taker_intent_id: trade.taker_intent_id,
+        market_id: trade.market_id,
+        taker_side: trade.taker_side,
+        price: trade.price,
+        size: trade.size,
+        timestamp_ms: trade.timestamp_ms,
+        is_lp_fill: trade.is_lp_fill,
+    }
+}
+
+/// |size_delta| - |filled_size_delta| as a u128. Both columns are
+/// signed-decimal strings; we operate on |x| because the sign just
+/// encodes the side, not the magnitude. Returns 0 if either parse
+/// fails (defensive — the matcher should never write malformed rows).
+fn residual_magnitude_e18(row: &PerpIntent) -> u128 {
+    let size: i128 = row.size_delta.parse().unwrap_or(0);
+    let filled: i128 = row.filled_size_delta.parse().unwrap_or(0);
+    size.unsigned_abs().saturating_sub(filled.unsigned_abs())
+}
+
+// Tonic's Status is large (~176 bytes) and Result<small, Status>
+// trips clippy::result_large_err in the small helpers below. They're
+// only called from `parse_and_verify` which already returns
+// Result<ParsedOrder, Status>, so the lint doesn't materially help
+// here — the size disparity is structural to the tonic API.
+#[allow(clippy::result_large_err)]
+fn parse_address_bytes(bytes: &[u8]) -> Result<Address, Status> {
+    if bytes.len() != 20 {
+        return Err(Status::invalid_argument(format!(
+            "trader must be 20 bytes, got {}",
+            bytes.len()
+        )));
+    }
+    let mut arr = [0u8; 20];
+    arr.copy_from_slice(bytes);
+    Ok(Address::from(arr))
+}
+
+#[allow(clippy::result_large_err)]
+fn parse_bytes32(bytes: &[u8], field: &str) -> Result<B256, Status> {
+    if bytes.len() != 32 {
+        return Err(Status::invalid_argument(format!(
+            "{field} must be 32 bytes, got {}",
+            bytes.len()
+        )));
+    }
+    let mut arr = [0u8; 32];
+    arr.copy_from_slice(bytes);
+    Ok(B256::from(arr))
+}
+
+#[allow(clippy::result_large_err)]
+fn parse_int256(bytes: &[u8], field: &str) -> Result<I256, Status> {
+    if bytes.len() != 32 {
+        return Err(Status::invalid_argument(format!(
+            "{field} must be 32 bytes (i256 BE two's-complement), got {}",
+            bytes.len()
+        )));
+    }
+    let mut arr = [0u8; 32];
+    arr.copy_from_slice(bytes);
+    Ok(I256::from_be_bytes(arr))
+}
+
+#[allow(clippy::result_large_err)]
+fn parse_uint256(bytes: &[u8], field: &str) -> Result<U256, Status> {
+    if bytes.len() != 32 {
+        return Err(Status::invalid_argument(format!(
+            "{field} must be 32 bytes (u256 BE), got {}",
+            bytes.len()
+        )));
+    }
+    let mut arr = [0u8; 32];
+    arr.copy_from_slice(bytes);
+    Ok(U256::from_be_bytes(arr))
+}
+
+fn current_unix_secs() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -522,15 +987,28 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn submit_order_returns_unimplemented_with_pointer() {
+    async fn submit_order_without_chain_returns_failed_precondition() {
         let svc = MatcherService::new(Arc::new(GrpcState::new()));
         let err = svc
             .submit_order(Request::new(SignedOrder::default()))
             .await
-            .expect_err("must be Unimplemented");
-        assert_eq!(err.code(), tonic::Code::Unimplemented);
-        assert!(err.message().contains("Phase 8d"));
-        assert!(err.message().contains("POST /perps/intents"));
+            .expect_err("must fail because no ChainBackend was supplied");
+        assert_eq!(err.code(), tonic::Code::FailedPrecondition);
+        assert!(err.message().contains("with_chain"));
+    }
+
+    #[tokio::test]
+    async fn cancel_order_without_chain_returns_failed_precondition() {
+        let svc = MatcherService::new(Arc::new(GrpcState::new()));
+        let err = svc
+            .cancel_order(Request::new(IntentRef {
+                intent_id: vec![0u8; 32],
+                market_id: vec![0u8; 32],
+            }))
+            .await
+            .expect_err("must fail because no ChainBackend was supplied");
+        assert_eq!(err.code(), tonic::Code::FailedPrecondition);
+        assert!(err.message().contains("with_chain"));
     }
 
     #[test]
@@ -784,5 +1262,243 @@ mod tests {
         assert_eq!(received.market_id, target_market);
         // Sanity: the other_market message was filtered out, not just delayed.
         let _ = other_market;
+    }
+
+    // ---------------------------------------------------------------
+    // Phase 8d — submit/cancel helper tests
+    // ---------------------------------------------------------------
+
+    use alloy_signer::SignerSync;
+    use alloy_signer_local::PrivateKeySigner;
+    use bufi_perps_onchain::deployment::LiquidationParams;
+    use bufi_perps_onchain::{PerpsContracts, PerpsDeployment};
+
+    fn fake_deployment() -> PerpsDeployment {
+        PerpsDeployment {
+            chain_id: 5_042_002,
+            deployer: Address::ZERO,
+            keeper: Address::ZERO,
+            contracts: PerpsContracts {
+                fx_order_settlement: Address::ZERO,
+                fx_perp_clearinghouse: Address::ZERO,
+                fx_funding_engine: Address::ZERO,
+                fx_health_checker: Address::ZERO,
+                fx_liquidation_engine: Address::ZERO,
+                fx_margin_account: Address::ZERO,
+            },
+            liquidation: LiquidationParams::default(),
+        }
+    }
+
+    /// Sign + return a proto SignedOrder ready to round-trip through
+    /// parse_and_verify against `fake_deployment()`. Marketing-Id is
+    /// caller-supplied so tests can pin specific intents.
+    fn signed_proto_order(
+        signer: &PrivateKeySigner,
+        market_id: [u8; 32],
+        size_delta: i128,
+        price_e18: u128,
+        deadline_secs: u64,
+        nonce: u64,
+    ) -> SignedOrder {
+        let deployment = fake_deployment();
+        let domain = eip712_domain(deployment.chain_id, deployment.contracts.fx_order_settlement);
+        let typed = TypedSignedOrder {
+            trader: signer.address(),
+            marketId: B256::from(market_id),
+            sizeDeltaE18: I256::try_from(size_delta).unwrap(),
+            priceE18: U256::from(price_e18),
+            maxFee: U256::ZERO,
+            orderType: 1,
+            flags: 0,
+            nonce,
+            deadline: deadline_secs,
+        };
+        let digest: B256 = typed.eip712_signing_hash(&domain);
+        let sig = signer.sign_hash_sync(&digest).expect("sign");
+        let mut sig_bytes = Vec::with_capacity(65);
+        sig_bytes.extend_from_slice(&sig.r().to_be_bytes::<32>());
+        sig_bytes.extend_from_slice(&sig.s().to_be_bytes::<32>());
+        sig_bytes.push(if sig.v() { 28 } else { 27 });
+
+        SignedOrder {
+            trader: signer.address().as_slice().to_vec(),
+            market_id: market_id.to_vec(),
+            size_delta_e18: i256_to_be32(size_delta),
+            price_e18: u128_to_be32(price_e18),
+            max_fee: u128_to_be32(0),
+            order_type: ProtoOrderType::Limit as i32,
+            flags: 0,
+            nonce,
+            deadline_secs,
+            signature: sig_bytes,
+            tif: 0,
+            client_tag: String::new(),
+        }
+    }
+
+    fn i256_to_be32(v: i128) -> Vec<u8> {
+        // i128 → i256 → 32B BE. Sign-extend across the upper 16 bytes.
+        I256::try_from(v).unwrap().to_be_bytes::<32>().to_vec()
+    }
+
+    #[test]
+    fn parse_and_verify_round_trips_a_signed_order() {
+        let signer = PrivateKeySigner::random();
+        let market = [0x42u8; 32];
+        let proto = signed_proto_order(&signer, market, 1_000_000_000_000_000_000, 5, 9_999_999_999, 1);
+        let parsed = parse_and_verify(&proto, &fake_deployment()).expect("verify");
+        assert_eq!(parsed.trader, signer.address());
+        assert_eq!(parsed.typed.nonce, 1);
+        assert_eq!(parsed.typed.deadline, 9_999_999_999);
+        // Intent id is deterministic from the EIP-712 hash — same
+        // request twice gives the same id.
+        let parsed2 = parse_and_verify(&proto, &fake_deployment()).expect("verify");
+        assert_eq!(parsed.intent_id, parsed2.intent_id);
+    }
+
+    #[test]
+    fn parse_and_verify_rejects_zero_size() {
+        let signer = PrivateKeySigner::random();
+        let proto = signed_proto_order(&signer, [0u8; 32], 0, 1, 9_999_999_999, 1);
+        let err = parse_and_verify(&proto, &fake_deployment()).expect_err("zero size");
+        assert_eq!(err.code(), tonic::Code::InvalidArgument);
+        assert!(err.message().contains("nonzero"));
+    }
+
+    #[test]
+    fn parse_and_verify_rejects_signature_signed_by_other_key() {
+        let real = PrivateKeySigner::random();
+        let imposter = PrivateKeySigner::random();
+        // Build the proto by signing with `imposter`, then rewrite
+        // the trader bytes to `real`'s address — sigVerify should
+        // catch the mismatch and reject.
+        let mut proto =
+            signed_proto_order(&imposter, [0u8; 32], 1_000, 1, 9_999_999_999, 1);
+        proto.trader = real.address().as_slice().to_vec();
+        let err = parse_and_verify(&proto, &fake_deployment()).expect_err("must reject");
+        assert_eq!(err.code(), tonic::Code::InvalidArgument);
+        assert!(err.message().contains("recovers"));
+    }
+
+    #[test]
+    fn parse_and_verify_rejects_wrong_field_lengths() {
+        // 19-byte trader (one short of an address) must reject.
+        let signer = PrivateKeySigner::random();
+        let mut proto = signed_proto_order(&signer, [0u8; 32], 1, 1, 9_999_999_999, 1);
+        proto.trader = vec![0u8; 19];
+        let err = parse_and_verify(&proto, &fake_deployment()).expect_err("bad trader");
+        assert_eq!(err.code(), tonic::Code::InvalidArgument);
+        assert!(err.message().contains("20 bytes"));
+    }
+
+    #[tokio::test]
+    async fn cancel_order_returns_not_found_for_unknown_intent() {
+        use bufi_perps_db::PerpsDb;
+        let state = Arc::new(GrpcState::new());
+        let db = PerpsDb::open_in_memory().await.expect("open in-memory db");
+        let onchain = bufi_perps_onchain::PerpsOnchain::new(
+            "http://127.0.0.1:0",
+            "0x0000000000000000000000000000000000000000000000000000000000000001",
+            fake_deployment(),
+        )
+        .expect("build PerpsOnchain");
+        let svc = MatcherService::with_chain(
+            state,
+            ChainBackend {
+                db,
+                onchain,
+                deployment: fake_deployment(),
+                chain_id: 5_042_002,
+            },
+        );
+        let resp = svc
+            .cancel_order(Request::new(IntentRef {
+                intent_id: vec![0xDE; 32],
+                market_id: vec![0xAB; 32],
+            }))
+            .await
+            .expect("cancel should succeed for not-found");
+        let body = resp.into_inner();
+        assert_eq!(body.status, CancelStatus::NotFound as i32);
+        assert_eq!(body.residual_size, vec![0u8; 32]);
+    }
+
+    #[tokio::test]
+    async fn cancel_order_marks_pending_intent_canceled_with_residual() {
+        use bufi_perps_db::PerpsDb;
+        let state = Arc::new(GrpcState::new());
+        let db = PerpsDb::open_in_memory().await.expect("open in-memory db");
+        let onchain = bufi_perps_onchain::PerpsOnchain::new(
+            "http://127.0.0.1:0",
+            "0x0000000000000000000000000000000000000000000000000000000000000001",
+            fake_deployment(),
+        )
+        .expect("build PerpsOnchain");
+
+        // Seed one pending intent.
+        let size_delta_e18: i128 = 2_000_000_000_000_000_000; // 2.0
+        let intent_id_hex =
+            "0xabababababababababababababababababababababababababababababababab".to_string();
+        let row = PerpIntent {
+            intent_id: intent_id_hex.clone(),
+            replacement_of: None,
+            chain_id: 5_042_002,
+            trader: "0x0000000000000000000000000000000000000001".to_string(),
+            market_id:
+                "0x0000000000000000000000000000000000000000000000000000000000000042".to_string(),
+            side: PerpSide::Long,
+            size_usdc: "0".to_string(),
+            size_delta: size_delta_e18.to_string(),
+            filled_size_delta: "0".to_string(),
+            remaining_size_delta: size_delta_e18.to_string(),
+            leverage: 1,
+            order_type: PerpOrderType::Limit,
+            price_e18: "1000000000000000000".to_string(),
+            limit_price: None,
+            reduce_only: false,
+            post_only: false,
+            flags: 0,
+            digest: intent_id_hex.clone(),
+            signature: "0x".to_string() + &"00".repeat(65),
+            nonce: "1".to_string(),
+            deadline: 9_999_999_999,
+            status: PerpIntentStatus::Pending,
+            created_at: 0,
+            updated_at: 0,
+        };
+        db.put(&row).await.expect("seed");
+
+        let svc = MatcherService::with_chain(
+            state,
+            ChainBackend {
+                db: db.clone(),
+                onchain,
+                deployment: fake_deployment(),
+                chain_id: 5_042_002,
+            },
+        );
+
+        let mut intent_id_bytes = [0u8; 32];
+        intent_id_bytes.copy_from_slice(
+            &alloy_primitives::hex::decode(intent_id_hex.trim_start_matches("0x"))
+                .expect("hex decode"),
+        );
+        let resp = svc
+            .cancel_order(Request::new(IntentRef {
+                intent_id: intent_id_bytes.to_vec(),
+                market_id: vec![0x42; 32],
+            }))
+            .await
+            .expect("cancel should succeed");
+        let body = resp.into_inner();
+        assert_eq!(body.status, CancelStatus::Canceled as i32);
+        // Residual_size is the full 2e18 magnitude as 32-byte BE u256.
+        let expected = u128_to_be32(2_000_000_000_000_000_000);
+        assert_eq!(body.residual_size, expected);
+
+        // Confirm DB row is now Canceled.
+        let post = db.get(&intent_id_hex).await.expect("re-read").expect("row");
+        assert_eq!(post.status, PerpIntentStatus::Canceled);
     }
 }
