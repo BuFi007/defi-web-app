@@ -16,12 +16,20 @@ export const PERPS_ORDER_DOMAIN = {
   version: "1",
 } as const;
 
+// Field order + types must match `SIGNED_ORDER_TYPEHASH` in
+// fx-telarana/contracts/src/perp/FxOrderSettlement.sol:33-34 byte for
+// byte. Drift here → on-chain signature recovery returns the wrong
+// address → settleMatch reverts with `InvalidSignature(trader)`.
+// Specifically, `maxFee` is the 5th field on the contract and on the
+// Rust matcher (crates/matcher-types/src/eip712.rs); omitting it is a
+// silent integration bug.
 export const SIGNED_ORDER_TYPES = {
   SignedOrder: [
     { name: "trader", type: "address" },
     { name: "marketId", type: "bytes32" },
     { name: "sizeDeltaE18", type: "int256" },
     { name: "priceE18", type: "uint256" },
+    { name: "maxFee", type: "uint256" },
     { name: "orderType", type: "uint8" },
     { name: "flags", type: "uint8" },
     { name: "nonce", type: "uint64" },
@@ -55,6 +63,10 @@ export interface SignedOrderMessage {
   marketId: Hex;
   sizeDeltaE18: bigint;
   priceE18: bigint;
+  // 0n today — keeper hard-codes maxFee=0 on settleMatch (uncapped fee).
+  // Kept in the typed-data so the digest matches the on-chain typehash
+  // even when the upstream order shape gains a real fee cap.
+  maxFee: bigint;
   orderType: number;
   flags: number;
   nonce: bigint;
@@ -97,6 +109,12 @@ export function buildSignedOrderMessage(req: PerpsOrderTypedDataInput): SignedOr
     marketId: req.marketId as Hex,
     sizeDeltaE18: signedSizeDelta(req),
     priceE18: BigInt(req.priceE18 ?? req.limitPrice ?? "0"),
+    // Hard-coded 0n — the matcher's intent_translator (Rust) and the
+    // existing TS keeper both reconstruct with maxFee=0; the on-chain
+    // contract treats 0 as "no cap." When upstream gains a real fee
+    // cap, plumb it through PerpsOrderTypedDataInput and update both
+    // sides simultaneously.
+    maxFee: 0n,
     orderType: orderTypeCode(req.orderType),
     flags: orderFlags(req),
     nonce,
