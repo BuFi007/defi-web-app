@@ -195,23 +195,27 @@ This is glue, not new work. Likely 4–6 hours.
 **Exit:** a user-submitted intent visibly transitions through statuses
 in the UI without a page refresh.
 
-### Step 4 — BUFX `BuFxPerpLiquidityAccepted` consumer (OPTIONAL, 2–3 days)
+### Step 4 — BUFX `BuFxPerpLiquidityAccepted` consumer (DEFERRED — see design audit)
 
-**Owner:** matcher lead + BUFX owner.
+**Owner:** matcher lead + BUFX owner + fx-telarana owner.
 
-This is the "perp-liquidity injection" surface BUFX promises. It's
-already indexed (Ponder); nothing consumes it. Whether to build the
-consumer NOW or defer depends on whether anyone's submitting
-`BuFxPerpLiquidityAccepted` requests today.
+Step 4 design audit (`docs/bufx-perp-liquidity-bridge-design.md`)
+surfaced that the matcher isn't the missing piece. The on-chain BUFX
+perp-liq flow today completes at `MINT_TO_HUB` and stops — there's
+no `FxPerpExecutor` analog to `FxSpotExecutor` to decode the metadata
+and call `FxPerpClearinghouse.openOrIncrease`.
 
-If yes: build the consumer (matcher reads `bufxRequest` rows where
-`status = 'perp_accepted'`, translates to `perp_order_intents`, tick loop
-picks them up).
+The right work is a new Solidity contract (Fork A in the design doc)
+on the BUFX + fx-telarana side. The matcher does NOT consume BUFX
+requests because (a) the BUFX `data` field has no locked schema and
+(b) introducing a relay-signing EOA would break the matcher's EIP-712
+verifier's guarantee that recovered signer == intent.trader.
 
-If no: defer until a real user shows up wanting that path.
-
-**Recommendation:** defer until a stakeholder asks for it. The Trade UI
-serves spot + perp without needing this bridge.
+**Status:** deferred. The Trade UI's existing direct-to-matcher path
+serves spot + perp without needing this bridge; BUFX cross-chain
+perp-liq is a separate product surface waiting on stakeholder demand.
+File issues in BUFX + fx-telarana repos when a real user journey
+forces the build.
 
 ---
 
