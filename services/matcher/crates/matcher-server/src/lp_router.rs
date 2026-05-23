@@ -27,8 +27,9 @@ use tracing::{debug, info};
 
 use bufi_orderbook::{
     lp_gate::{pure_check, LpGateDeny, OiView, OracleView},
-    Fill, LpDeny, LpStateView, Size,
+    Fill, LpDeny, LpStateView, Side, Size,
 };
+use bufi_perps_db::{PerpIntent, PerpIntentStatus, PerpOrderType, PerpSide};
 use bufi_perps_onchain::{OiSnapshot, OracleSnapshot, PerpsOnchain};
 
 use crate::intent_translator::TranslatedIntent;
@@ -74,6 +75,58 @@ pub struct LpRoutedFill {
     pub taker_intent: TranslatedIntent,
     /// The fill itself — `is_lp_fill: true` per invariant 12.
     pub fill: Fill,
+    /// Chain id the LP order was signed under — needed to build a DB row
+    /// that mirrors the on-chain SignedOrder one-for-one.
+    pub chain_id: u64,
+}
+
+impl LpRoutedFill {
+    /// Build the `PerpIntent` row that must be inserted into the DB BEFORE
+    /// `settlement::settle_one` runs, so the maker-side `record_fill` finds
+    /// a row to update instead of returning `NotFound` and orphaning the
+    /// taker (Phase 7.1 fix — see commit log for the desync this prevents).
+    pub fn to_lp_perp_intent_row(&self, lp_operator: alloy_primitives::Address, now_secs: i64) -> PerpIntent {
+        let side = match self.lp_intent.orderbook_intent.side {
+            Side::Long => PerpSide::Long,
+            Side::Short => PerpSide::Short,
+        };
+        // Signed size_delta = magnitude × side-sign. Matches the contract's
+        // sizeDeltaE18 (positive = long, negative = short).
+        let magnitude = self.lp_intent.orderbook_intent.magnitude.raw() as i128;
+        let size_delta: i128 = match self.lp_intent.orderbook_intent.side {
+            Side::Long => magnitude,
+            Side::Short => -magnitude,
+        };
+        let intent_id_hex = self.lp_intent.db_intent_id.clone();
+        PerpIntent {
+            intent_id: intent_id_hex.clone(),
+            replacement_of: None,
+            chain_id: self.chain_id as i64,
+            trader: format!("{:#x}", lp_operator),
+            market_id: format!("0x{}", hex_bytes(&self.lp_intent.orderbook_intent.market_id)),
+            side,
+            // The matcher tracks LP positions in `lp_positions`; the row's
+            // `size_usdc` is only used by the API for UI echo, so 0 is fine.
+            size_usdc: "0".to_string(),
+            size_delta: size_delta.to_string(),
+            filled_size_delta: "0".to_string(),
+            remaining_size_delta: size_delta.to_string(),
+            leverage: 1,
+            order_type: PerpOrderType::Limit,
+            price_e18: U256::from(self.fill.price.raw().unsigned_abs()).to_string(),
+            limit_price: None,
+            reduce_only: false,
+            post_only: false,
+            flags: 0,
+            digest: intent_id_hex,
+            signature: format!("0x{}", hex_bytes(&self.lp_intent.signature)),
+            nonce: self.lp_intent.signed_order.nonce.to_string(),
+            deadline: self.lp_intent.signed_order.deadline as i64,
+            status: PerpIntentStatus::Pending,
+            created_at: now_secs,
+            updated_at: now_secs,
+        }
+    }
 }
 
 /// Maximum age (seconds) before an oracle reading is considered stale.
@@ -174,8 +227,15 @@ pub async fn try_route_residual_to_lp<L: LpStateView>(
     )?;
 
     // Synthetic IntentId for the LP side: derive from the SignedOrder
-    // digest (matches what the contract stores as `orderStatus` key).
-    let lp_intent_id = derive_intent_id(&signed_order, onchain.deployment().chain_id);
+    // digest under the SAME EIP-712 domain the signer used. The contract's
+    // `orderStatus` key is keccak256 of the typed-data hash with the real
+    // `verifyingContract`, so this id is byte-equal to what the chain stores
+    // and can later be looked up by the reconciler.
+    let lp_intent_id = derive_intent_id(
+        &signed_order,
+        onchain.deployment().chain_id,
+        onchain.deployment().contracts.fx_order_settlement,
+    );
     let lp_db_id = format!("0x{}", hex_bytes(&lp_intent_id));
 
     let lp_intent = TranslatedIntent {
@@ -229,6 +289,7 @@ pub async fn try_route_residual_to_lp<L: LpStateView>(
         lp_intent,
         taker_intent: taker.clone(),
         fill,
+        chain_id: onchain.deployment().chain_id,
     }))
 }
 
@@ -277,21 +338,17 @@ fn hex_bytes(b: &[u8]) -> String {
     out
 }
 
-/// Derive a deterministic IntentId for the synthetic LP order. Matches
-/// the contract's `orderStatus` key by recomputing the EIP-712 digest
-/// (the contract uses the same digest as the intent id).
+/// Derive the on-chain `orderStatus` key for the synthetic LP order.
+/// MUST be called with the same `(chain_id, verifying_contract)` the signer
+/// used — otherwise the locally-derived id diverges from what the contract
+/// stores and any future reconciler lookup against `orderStatus` will miss.
 fn derive_intent_id(
     order: &bufi_matcher_types::eip712::SignedOrder,
     chain_id: u64,
+    verifying_contract: alloy_primitives::Address,
 ) -> [u8; 32] {
     use alloy_sol_types::SolStruct;
-    let domain = bufi_matcher_types::eip712::domain(
-        chain_id,
-        // verifyingContract — match the same domain used by the signer.
-        // The chain_id alone gives us enough entropy to derive a stable id;
-        // the verifying-contract address is filled by the signer call site.
-        alloy_primitives::Address::ZERO,
-    );
+    let domain = bufi_matcher_types::eip712::domain(chain_id, verifying_contract);
     let digest: B256 = order.eip712_signing_hash(&domain);
     digest.0
 }

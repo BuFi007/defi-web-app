@@ -176,15 +176,33 @@ pub async fn tick<L: LpStateView>(
                     .await;
                     match route {
                         Ok(Some(routed)) => {
-                            // GTC rested its residual on the book; remove it
-                            // so we don't double-count the trade.
-                            let _ = cancel_intent(&mut book, t.orderbook_intent.id);
-                            paired_fills.push((
-                                routed.lp_intent,
-                                routed.taker_intent,
-                                routed.fill,
-                            ));
-                            match_seq = match_seq.wrapping_add(1);
+                            // Persist the synthetic LP intent BEFORE settle_batch
+                            // runs. settle_one calls `record_fill(maker_id, ...)`
+                            // which expects a DB row; without this insert the
+                            // maker-side record_fill returns NotFound, the `?`
+                            // short-circuits, and the taker's record_fill never
+                            // runs — leaving the chain settled but the DB taker
+                            // row pending, causing repeated Permit2 nonce-reuse
+                            // reverts on the next tick. (Phase 7.1 fix.)
+                            let lp_row =
+                                routed.to_lp_perp_intent_row(signer.address(), now_secs);
+                            if let Err(e) = db.put(&lp_row).await {
+                                warn!(
+                                    intent_id = routed.lp_intent.db_intent_id,
+                                    error = ?e,
+                                    "LP intent DB insert failed; skipping route"
+                                );
+                            } else {
+                                // GTC rested its residual on the book; remove it
+                                // so we don't double-count the trade.
+                                let _ = cancel_intent(&mut book, t.orderbook_intent.id);
+                                paired_fills.push((
+                                    routed.lp_intent,
+                                    routed.taker_intent,
+                                    routed.fill,
+                                ));
+                                match_seq = match_seq.wrapping_add(1);
+                            }
                         }
                         Ok(None) => {
                             // LP not configured for this market — leave the
