@@ -220,6 +220,15 @@ pub async fn tick<L: LpStateView>(
                 }
             }
         }
+
+        // Phase 8c — publish the post-match book snapshot for gRPC
+        // consumers (GetBook + StreamBook). Done per-market so each
+        // subscriber sees state aligned with the market that
+        // triggered the update.
+        if let Some(state) = grpc_state {
+            let (bids, asks) = crate::grpc::extract_book_levels(&book);
+            state.publish_book_snapshot(market_id_bytes, bids, asks).await;
+        }
     }
 
     let settled = if paired_fills.is_empty() {
