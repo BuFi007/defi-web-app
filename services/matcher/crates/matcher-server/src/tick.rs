@@ -328,6 +328,7 @@ mod tests {
             pyth_push_max_age: Duration::from_secs(30),
             pyth_hermes_url: "https://hermes.pyth.network".into(),
             pyth_hermes_timeout: Duration::from_secs(10),
+            grpc_bind: String::new(), // disabled in tick unit tests
         }
     }
 

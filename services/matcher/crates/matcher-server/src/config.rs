@@ -105,6 +105,11 @@ pub struct Config {
     pub pyth_hermes_url: String,
     /// HTTP timeout for Hermes fetches. Default 10s.
     pub pyth_hermes_timeout: Duration,
+    /// gRPC server bind address. Default `127.0.0.1:3005` (loopback —
+    /// container or multi-host deployments override to `0.0.0.0:<port>`).
+    /// Set to empty string via `MATCHER_GRPC_BIND=` to disable the
+    /// server entirely. Phase 8.
+    pub grpc_bind: String,
 }
 
 impl Config {
@@ -176,6 +181,8 @@ impl Config {
             .unwrap_or_else(|_| "https://hermes.pyth.network".to_string());
         let pyth_hermes_timeout =
             Duration::from_millis(parse_env_u64("PYTH_HERMES_TIMEOUT_MS", 10_000)?);
+        let grpc_bind = env::var("MATCHER_GRPC_BIND")
+            .unwrap_or_else(|_| "127.0.0.1:3005".to_string());
         Ok(Self {
             chain_id,
             rpc_url,
@@ -201,6 +208,7 @@ impl Config {
             pyth_push_max_age,
             pyth_hermes_url,
             pyth_hermes_timeout,
+            grpc_bind,
         })
     }
 

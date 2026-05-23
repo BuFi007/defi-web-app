@@ -32,6 +32,7 @@ mod canary;
 mod config;
 mod event_subscriber;
 mod funding_poker;
+mod grpc;
 mod insurance_fund;
 mod intent_translator;
 mod lp_router;
@@ -186,6 +187,33 @@ async fn main() -> ExitCode {
         }
     };
 
+    // ---------- gRPC server (Phase 8) ----------
+    let grpc_state = std::sync::Arc::new(grpc::GrpcState::new());
+    let grpc_handle = if cfg.grpc_bind.is_empty() {
+        info!("gRPC server disabled (MATCHER_GRPC_BIND empty)");
+        None
+    } else {
+        match cfg.grpc_bind.parse::<std::net::SocketAddr>() {
+            Ok(addr) => {
+                info!(bind = %addr, version = env!("CARGO_PKG_VERSION"), "gRPC server starting (Phase 8)");
+                let svc = grpc::MatcherService::new(grpc_state.clone());
+                Some(tokio::spawn(async move {
+                    if let Err(e) = tonic::transport::Server::builder()
+                        .add_service(svc.into_server())
+                        .serve(addr)
+                        .await
+                    {
+                        error!(error = ?e, "gRPC server exited with error");
+                    }
+                }))
+            }
+            Err(e) => {
+                error!(bind = %cfg.grpc_bind, error = ?e, "MATCHER_GRPC_BIND parse: aborting");
+                return ExitCode::FAILURE;
+            }
+        }
+    };
+
     // ---------- Tick loop ----------
     let tick_cfg = cfg.clone();
     let tick_db = db.clone();
@@ -230,6 +258,18 @@ async fn main() -> ExitCode {
         }
     };
     tokio::pin!(pyth_future);
+    let grpc_future = async {
+        match grpc_handle {
+            Some(h) => {
+                let res = h.await;
+                error!(result = ?res, "gRPC server exited unexpectedly");
+            }
+            None => {
+                std::future::pending::<()>().await;
+            }
+        }
+    };
+    tokio::pin!(grpc_future);
     tokio::select! {
         _ = shutdown_signal() => {
             info!("shutdown signal received");
@@ -248,6 +288,7 @@ async fn main() -> ExitCode {
         }
         _ = &mut canary_future => {}
         _ = &mut pyth_future => {}
+        _ = &mut grpc_future => {}
     }
     info!("BUFI matcher server stopped");
     ExitCode::SUCCESS
