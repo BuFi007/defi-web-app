@@ -62,19 +62,6 @@
         "typescript": "5",
       },
     },
-    "apps/keeper-perps-funding": {
-      "name": "@bufi/keeper-perps-funding",
-      "version": "0.1.0",
-      "dependencies": {
-        "@bufi/contracts": "workspace:*",
-        "@bufi/keeper-runtime": "workspace:*",
-        "@bufi/perps": "workspace:*",
-      },
-      "devDependencies": {
-        "@types/node": "20",
-        "typescript": "5",
-      },
-    },
     "apps/keeper-perps-liquidator": {
       "name": "@bufi/keeper-perps-liquidator",
       "version": "0.1.0",
@@ -82,22 +69,6 @@
         "@bufi/contracts": "workspace:*",
         "@bufi/db": "workspace:*",
         "@bufi/keeper-runtime": "workspace:*",
-      },
-      "devDependencies": {
-        "@types/node": "20",
-        "typescript": "5",
-      },
-    },
-    "apps/keeper-perps-matcher": {
-      "name": "@bufi/keeper-perps-matcher",
-      "version": "0.1.0",
-      "dependencies": {
-        "@bufi/contracts": "workspace:*",
-        "@bufi/db": "workspace:*",
-        "@bufi/keeper-runtime": "workspace:*",
-        "@bufi/perps": "workspace:*",
-        "@bufi/shared-types": "workspace:*",
-        "viem": "2.45.3",
       },
       "devDependencies": {
         "@types/node": "20",
@@ -457,6 +428,10 @@
         "typescript": "5",
       },
     },
+    "services/matcher": {
+      "name": "@bufi/matcher",
+      "version": "0.1.0",
+    },
   },
   "overrides": {
     "@base-org/account": "2.5.6",
@@ -762,11 +737,7 @@
 
     "@bufi/keeper-gateway-signer": ["@bufi/keeper-gateway-signer@workspace:apps/keeper-gateway-signer"],
 
-    "@bufi/keeper-perps-funding": ["@bufi/keeper-perps-funding@workspace:apps/keeper-perps-funding"],
-
     "@bufi/keeper-perps-liquidator": ["@bufi/keeper-perps-liquidator@workspace:apps/keeper-perps-liquidator"],
-
-    "@bufi/keeper-perps-matcher": ["@bufi/keeper-perps-matcher@workspace:apps/keeper-perps-matcher"],
 
     "@bufi/keeper-pyth": ["@bufi/keeper-pyth@workspace:apps/keeper-pyth"],
 
@@ -783,6 +754,8 @@
     "@bufi/logger": ["@bufi/logger@workspace:packages/logger"],
 
     "@bufi/market-data": ["@bufi/market-data@workspace:packages/market-data"],
+
+    "@bufi/matcher": ["@bufi/matcher@workspace:services/matcher"],
 
     "@bufi/mcp": ["@bufi/mcp@workspace:packages/mcp"],
 

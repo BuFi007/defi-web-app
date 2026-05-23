@@ -32,20 +32,25 @@ services/matcher/
 
 ## Building & testing
 
+From the monorepo root (uses the `@bufi/matcher` workspace shim):
+
 ```bash
-# From this directory:
+bun run matcher:build              # release build of the matcher binary
+bun run matcher:test               # 86 active + 2 ignored
+bun run matcher:clippy             # all-targets, -D warnings
+bun run matcher:test:audit-prep    # PROPTEST_CASES=10000 (before mainnet sign-off)
+```
+
+From inside `services/matcher/` (direct cargo):
+
+```bash
 cargo check --workspace
 cargo build --release --workspace
-cargo test --workspace            # 86 active + 2 ignored
+cargo test --workspace
 cargo clippy --all-targets -- -D warnings
 ```
 
 `tonic-build` needs a `protoc` binary on PATH. On macOS: `brew install protobuf`.
-
-Audit-prep proptest sweep (run before any mainnet sign-off):
-```bash
-PROPTEST_CASES=10000 cargo test -p bufi-orderbook --release
-```
 
 ## Running against Arc Testnet
 
@@ -86,13 +91,40 @@ CANARY_TIMEOUT_SECS=120
 CANARY_NOTIONAL_USDC_E6=1000000
 ```
 
-Boot:
+Boot (three options, ordered most-integrated to most-direct):
+
 ```bash
+# 1. Full stack — matcher + web + api + ponder + TS keepers together.
+#    `.env.local` at the monorepo root is auto-loaded by bun.
+bun run dev:complete
+
+# 2. Matcher only, via the workspace shim. Reads `.env.local` from the
+#    monorepo root that bun sources for every workspace subprocess.
+bun run matcher:dev
+
+# 3. Direct cargo invocation. Source `.env.local` yourself first.
+cd services/matcher
+set -a && source ../../.env.local && set +a
 cargo run --release -p bufi-matcher-server --bin bufi-matcher
 ```
 
 The matcher will log both keeper + LP operator addresses on boot. Confirm
 they match what's funded on Arc before submitting real intents.
+
+### Env-var name resolution
+
+The matcher honours both the canonical names and the names already in
+the monorepo's `.env.local`, so a fresh `bun run dev:complete` works
+without renaming. Resolution order (first hit wins):
+
+| Matcher field | Env var precedence |
+|---|---|
+| Keeper signer | `PERP_KEEPER_PRIVATE_KEY` → `KEEPER_PRIVATE_KEY` → `DEPLOYER_PRIVATE_KEY` |
+| LP operator | `LP_OPERATOR_PRIVATE_KEY` (optional — disables LP backstop if unset) |
+| Canary trader | `CANARY_TRADER_PRIVATE_KEY` (optional — disables canary if unset) |
+| DB path | `BUFI_DB_PATH` → `TRADING_MACHINE_DB_PATH` → `.bufi/trading-machine.sqlite` |
+| Deployments | `FX_TELARANA_DEPLOYMENTS` → `../../fx-telarana/deployments` relative to cwd |
+| RPC | `ARC_RPC_URL` → `https://rpc.testnet.arc.network` |
 
 ## Coordinating with apps/api + frontend
 

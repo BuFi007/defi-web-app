@@ -100,7 +100,14 @@ impl Config {
         let chain_id = parse_env_u64("MATCHER_CHAIN_ID", ARC_CHAIN_ID)?;
         let rpc_url =
             env::var("ARC_RPC_URL").unwrap_or_else(|_| DEFAULT_ARC_RPC_URL.to_string());
+        // Resolution order matches the established defi-web-app keeper
+        // conventions: PERP_KEEPER_PRIVATE_KEY (most explicit) →
+        // KEEPER_PRIVATE_KEY (the name the .env.local at the monorepo root
+        // already uses for the TS keepers) → DEPLOYER_PRIVATE_KEY (legacy
+        // fallback). The matcher signs settleMatch + funding poke + Pyth
+        // push txs from this EOA.
         let signer_key_hex = env::var("PERP_KEEPER_PRIVATE_KEY")
+            .or_else(|_| env::var("KEEPER_PRIVATE_KEY"))
             .or_else(|_| env::var("DEPLOYER_PRIVATE_KEY"))
             .ok()
             .map(|s| s.trim_start_matches("0x").to_string());
@@ -179,7 +186,7 @@ impl Config {
             .as_deref()
             .ok_or(ConfigError::InvalidNumber {
                 name: "PERP_KEEPER_PRIVATE_KEY",
-                reason: "no signer set (PERP_KEEPER_PRIVATE_KEY or DEPLOYER_PRIVATE_KEY)".into(),
+                reason: "no signer set (set PERP_KEEPER_PRIVATE_KEY, KEEPER_PRIVATE_KEY, or DEPLOYER_PRIVATE_KEY in .env.local)".into(),
             })
     }
 }
