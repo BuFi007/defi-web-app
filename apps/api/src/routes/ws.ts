@@ -217,7 +217,7 @@ function snapshotLastCandle(ctx: WsCtx, mark: number): TickMessage["lastCandle"]
 // We accept whatever loose identifier the WS client provides and try to map
 // it to a known Pyth feed. The canonical helper `pythFeedForSpotSymbol` only
 // accepts SpotFxSymbol literals, so this wrapper does the broader matching.
-const SPOT_FX_SYMBOLS: ReadonlyArray<SpotFxSymbol> = ["EURC", "JPYC", "MXNB", "CHFC"];
+const SPOT_FX_SYMBOLS: ReadonlyArray<SpotFxSymbol> = ["EURC", "JPYC", "MXNB"];
 
 export function resolvePythFeed(marketId: string): Hex | null {
   const upper = marketId.toUpperCase();
@@ -232,7 +232,9 @@ export function resolvePythFeed(marketId: string): Hex | null {
   if (upper.includes("EURC") || upper.includes("EUR")) return PYTH_FEED_IDS.eurUsd;
   if (upper.includes("JPYC") || upper.includes("JPY")) return PYTH_FEED_IDS.jpyUsd;
   if (upper.includes("MXNB") || upper.includes("MXN")) return PYTH_FEED_IDS.mxnUsd;
-  if (upper.includes("CHFC") || upper.includes("CHF")) return PYTH_FEED_IDS.chfUsd;
+  if (upper.includes("CIRBTC") || upper.includes("BTC")) return PYTH_FEED_IDS.btcUsd;
+  if (upper.includes("QCAD") || upper.includes("CAD")) return PYTH_FEED_IDS.cadUsd;
+  if (upper.includes("AUDF") || upper.includes("AUD")) return PYTH_FEED_IDS.audUsd;
 
   return null;
 }

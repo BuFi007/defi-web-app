@@ -206,8 +206,8 @@ const LOAN_MARKETS: LoanMarket[] = [
   // Arc Testnet — sprint-1 broadcast 2026-05-21 (canonical MorphoBlue
   // 0x65f435eB…, AdaptiveCurveIrm 0xBD583cc9…, LLTV 86%). Market IDs
   // resolved by the API from `~/coding-dojo/fx-telarana/docs/INTEGRATION_HANDOFF.md`.
-  // EURC pair predates sprint-1 and is kept; AUDF rows are placeholders
-  // pending issuer-token deployment.
+  // EURC pair predates sprint-1 and is kept; AUDF flipped to live now
+  // that the issuer token is deployed at 0xd2a530170D71a9Cfe1651Fb468E2B98F7Ed7456b.
   { id: "arc-usdc-eurc",   hub: "arc", loan: "USDC", coll: "EURC",   supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
   { id: "arc-eurc-usdc",   hub: "arc", loan: "EURC", coll: "USDC",   supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
   { id: "arc-usdc-mxnb",   hub: "arc", loan: "USDC", coll: "MXNB",   supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
@@ -216,8 +216,8 @@ const LOAN_MARKETS: LoanMarket[] = [
   { id: "arc-qcad-usdc",   hub: "arc", loan: "QCAD", coll: "USDC",   supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
   { id: "arc-usdc-cirbtc", hub: "arc", loan: "USDC", coll: "cirBTC", supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
   { id: "arc-cirbtc-usdc", hub: "arc", loan: "cirBTC", coll: "USDC", supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
-  { id: "arc-audf-usdc",   hub: "arc", loan: "AUDF", coll: "USDC",   supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "pending", trend: "up" },
-  { id: "arc-usdc-audf",   hub: "arc", loan: "USDC", coll: "AUDF",   supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "pending", trend: "up" },
+  { id: "arc-audf-usdc",   hub: "arc", loan: "AUDF", coll: "USDC",   supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
+  { id: "arc-usdc-audf",   hub: "arc", loan: "USDC", coll: "AUDF",   supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },
   // Avalanche Fuji — M1 + M2 (EURC/USDC), M3 + M4 (MXNB/USDC).
   // Deployed in fx-telarana#feat/mxnb-fuji-markets.
   { id: "fuji-usdc-eurc", hub: "fuji", loan: "USDC", coll: "EURC", supply: null, borrow: null, util: null, lltv: null, tvl: null, status: "live", trend: "up" },

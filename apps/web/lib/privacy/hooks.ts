@@ -24,16 +24,31 @@ import { bufxApiUrl } from "@/lib/perps/replacement-agent";
 export type PrivacyChainKey = "arc" | "fuji";
 
 export interface PrivacyAssetDto {
-  symbol: "USDC" | "EURC";
-  token: Address;
-  pool: Address;
+  symbol: string;
+  token: Address | undefined;
+  pool: Address | undefined;
+  status: "live" | "pending";
+  minimumDeposit?: string;
+  minimumDepositHumanReadable?: string;
+  maxRelayFeeBPS?: string;
+  vettingFeeBPS?: string;
+}
+
+export interface PrivacyRouteDto {
+  from: string;
+  to: string;
+  rate: string;
+  rateHumanReadable: string;
 }
 
 export interface PrivacyAssetsDto {
   chain: PrivacyChainKey;
   chainId: number;
   assets: PrivacyAssetDto[];
+  routes: PrivacyRouteDto[];
   crossCurrencyEnabled: boolean;
+  crossCurrencyAdapter: Address | null;
+  summary: { live: number; pending: number; total: number };
 }
 
 export interface PrivacyStateDto {

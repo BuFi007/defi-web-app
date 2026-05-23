@@ -109,8 +109,6 @@ export function pythFeedForSpotSymbol(symbol: SpotFxSymbol): Hex {
       return PYTH_FEED_IDS.jpyUsd;
     case "MXNB":
       return PYTH_FEED_IDS.mxnUsd;
-    case "CHFC":
-      return PYTH_FEED_IDS.chfUsd;
   }
 }
 
