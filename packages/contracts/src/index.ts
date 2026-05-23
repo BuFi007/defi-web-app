@@ -277,7 +277,7 @@ export const CONTRACTS: Record<ChainId, ChainContracts> = {
       telaranaGatewayHubHook: "0x74E894aFf25c89d707873347cd2554d30E0541fa",
       fxHubMessageReceiver: "0x44B50E93eCC7775aF99bcd04c30e1A00da80F63C",
       fxGatewayHook: "0x2931C50745334d6DFf9eC4E3106fE05b49717DF1",
-      fxOracle: "0x77b3A3B420dB98B01085b8C46a753Ed9879e2865",
+      fxOracle: "0xf9b0356A31BC7125e2eD0DADf8b5957860d42c78",
       fxMarketRegistry: "0x813232259c9b922e7571F15220617C80581f1464",
       fxLiquidator: "0xa50f7D4D4a1A0D3CF418515973545b80E037B379",
       fxReceiptUsdc: "0xdd22365Bba7330BE537c9BC26da9b1b4Db9aC431",
@@ -289,13 +289,18 @@ export const CONTRACTS: Record<ChainId, ChainContracts> = {
       feeConfig: "0x746e727E3aa25050c24a80E27E3bAEd9Ec6DdF6C",
       feeCollector: "0x27DbdA42aDb904115cAdE37C949bBF670E0FF09d",
     },
+    // Sprint-1 broadcast on Arc Testnet (2026-05-21). Source of truth:
+    // ~/coding-dojo/fx-telarana/deployments/perp-stack-5042002.json.
+    // Drift here was the second EIP-712 verifyingContract drift surfaced
+    // during the Step 3 dogfood — UI signs against this address, matcher
+    // verifies against the deployment manifest; mismatch → SignerMismatch.
     perps: {
-      clearinghouse: "0x25cDf2ad4Fd446e85273c4D7C77a03F22C742865",
-      marginAccount: "0x1869D0253286dF29ce0AB8d29207772C7fD9dc35",
-      fundingEngine: "0x725822e8BC6edbcBa52914149e25f2671290C6D2",
-      healthChecker: "0x9cc0D71e2Af1532e74C2Af8aE7248ACB501039d5",
-      liquidationEngine: "0x01f71c1E74350633bBC9d554ca35DA40412DCFB7",
-      orderSettlement: "0x49ad97Fa2b67252373f4683bD4a4B49AA3AF5565",
+      clearinghouse: "0x39dc43E2133CF860c1d17d4DB75Ef4204eebD46A",
+      marginAccount: "0x4EB6018F988301417B93cb2b8899D74D42273e96",
+      fundingEngine: "0x859bA11A3693895f8B03C31C6AE3b8F04992115B",
+      healthChecker: "0xA00Be167609c02F3879138dA8530BC31527c02b8",
+      liquidationEngine: "0xF579e265EF1D5E67EfDbb1F20863465E94a9d3eA",
+      orderSettlement: "0x93C3d831D6F0657479d7Fb6Cf0D06e75aA05E4CC",
     },
     bento: {},
   },
