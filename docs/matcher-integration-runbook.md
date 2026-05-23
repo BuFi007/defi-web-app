@@ -262,7 +262,7 @@ that field ORDER + TYPES are alloy-decoded against the on-chain layout.
 `#[ignore]`) that round-trips every contract view through a live Arc
 RPC. Would have caught this in CI.
 
-### F3 — `FxOracle.getMid` requires RedStone payload on Arc (UNRESOLVED)
+### F3 — `FxOracle.getMid` requires RedStone payload on Arc (RESOLVED in Phase 7.2)
 
 **Symptom:** LP routing succeeds the gate, calls `oracle_snapshot`,
 gets revert `0xe7764c9e` = `CalldataMustHaveValidPayload()`.
@@ -277,22 +277,29 @@ to the calldata tail.
 read getMid. CLOB matches don't gate on oracle freshness — only LP
 backstop does (Phase 4 invariant 4). The TS keeper had no LP backstop.
 
-**Status:** not blocking CLOB integration. Blocks Path A LP backstop
-end-to-end on Arc Testnet until one of these lands:
-- (a) A Pyth-update keeper runs alongside the matcher to push fresh
-  Hermes payloads via `pyth.updatePriceFeeds(...)` before each tick.
-  Matches the TS `perp-arc-trading-smoke.ts:380-420` pattern.
-- (b) The matcher gains RedStone payload wrap support (port the TS
-  `writeWithRedstone` helper to Rust). Significant work — the RedStone
-  SDK is TS-only today.
-- (c) The oracle gains a "permissioned read" path for trusted keepers
-  that skips the payload requirement. Contract change upstream.
+**Status:** RESOLVED in Phase 7.2 (commit on `rust-matcher` branch).
+New module `crates/matcher-server/src/pyth_pusher.rs` mirrors the
+funding_poker pattern: per-feed throttle, in-memory state, fetches
+Hermes VAAs every `PYTH_PUSH_INTERVAL_MS` (default 5s), calls
+`IPyth.updatePriceFeeds{value: getUpdateFee(updateData)}`. Boot
+auto-resolves the feed set from every market in
+`MATCHER_FUNDING_MARKET_IDS` via `FxOracle.pythFeedOf(baseToken)` plus
+`pythFeedOf(USDC)` for the shared quote-side feed.
 
-**Recommended next:** option (a) — add a `pyth_pusher` task to
-matcher-server that fetches Hermes payloads and calls
-`pyth.updatePriceFeeds` every ~5s for the markets in
-`MATCHER_FUNDING_MARKET_IDS`. Mirrors the existing funding_poker pattern.
-File as Phase 7.2.
+Verified live on Arc 2026-05-23: first tick after boot pushed 4 feeds
+(USDC + EURC + CIRBTC + TMXNB) in one tx
+(`0x31c576120745ab32328d82b8967a327ef9918d3b8bf0dfbb6d5151819bb838ff`).
+Subsequent LP-router invocations got past `oracle_snapshot`; the canary's
+intent then tripped invariant 8 (per-intent fill cap) as expected for a
+1 USDC intent against a 1.5 USDC LP-position seed — that's seed config,
+not code.
+
+New env vars (defaults work for testnet smoke):
+- `PYTH_PUSH_INTERVAL_MS=5000` — cadence
+- `PYTH_PUSH_MAX_AGE_SECS=30` — skip push if on-chain freshness within window
+- `PYTH_HERMES_URL=https://hermes.pyth.network` — pin to private mirror for prod
+- `PYTH_HERMES_TIMEOUT_MS=10000` — per-fetch timeout
+- `PYTH_ADDRESS` — override; defaults to the `pyth` field in `perp-oracle-{chainId}.json`
 
 ---
 

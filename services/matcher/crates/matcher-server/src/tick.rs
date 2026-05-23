@@ -324,6 +324,10 @@ mod tests {
             canary_timeout: Duration::from_secs(1),
             canary_market_id: [0u8; 32],
             canary_notional_usdc_e6: 1,
+            pyth_push_interval: Duration::from_millis(1),
+            pyth_push_max_age: Duration::from_secs(30),
+            pyth_hermes_url: "https://hermes.pyth.network".into(),
+            pyth_hermes_timeout: Duration::from_secs(10),
         }
     }
 

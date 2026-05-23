@@ -14,7 +14,7 @@ use thiserror::Error;
 #[allow(unused_imports)] // alloy_contract::CallBuilder is in scope via the macro
 use alloy_contract as _;
 
-use crate::bindings::{FxFundingEngine, FxOrderSettlement, FxPerpClearinghouse, SignedOrder};
+use crate::bindings::{FxFundingEngine, FxOrderSettlement, FxPerpClearinghouse, IPyth, SignedOrder};
 use crate::deployment::{DeploymentLoadError, PerpsDeployment};
 use crate::env::{arc_rpc_url, keeper_private_key, ARC_CHAIN_ID};
 
@@ -210,6 +210,49 @@ impl PerpsOnchain {
         Ok(OiSnapshot { long, short, cap })
     }
 
+    /// Phase 7.2 — push fresh Pyth update VAAs on-chain.
+    ///
+    /// Calls `IPyth.updatePriceFeeds{value: fee}(updateData)` after reading
+    /// `IPyth.getUpdateFee(updateData)`. `pyth_address` is resolved by the
+    /// caller (typically via `oracle::resolve_pyth_address(chain_id)`) so
+    /// the client stays stateless about which Pyth deployment it's talking
+    /// to. Returns the tx hash on success.
+    pub async fn submit_pyth_update(
+        &self,
+        pyth_address: Address,
+        update_data: Vec<Bytes>,
+    ) -> Result<B256, PerpsOnchainError> {
+        let signer: PrivateKeySigner = self.parse_signer()?;
+        let wallet = EthereumWallet::from(signer);
+        let url = self.parse_url()?;
+        let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .wallet(wallet)
+            .on_http(url);
+        let pyth = IPyth::new(pyth_address, &provider);
+        let fee = pyth
+            .getUpdateFee(update_data.clone())
+            .call()
+            .await
+            .map_err(|e| PerpsOnchainError::Rpc(format!("getUpdateFee: {e}")))?
+            .feeAmount;
+        let pending = pyth
+            .updatePriceFeeds(update_data)
+            .value(fee)
+            .send()
+            .await
+            .map_err(|e| PerpsOnchainError::Rpc(format!("updatePriceFeeds send: {e}")))?;
+        let receipt = pending
+            .get_receipt()
+            .await
+            .map_err(|e| PerpsOnchainError::Rpc(format!("updatePriceFeeds receipt: {e}")))?;
+        let tx_hash = receipt.transaction_hash;
+        if !receipt.status() {
+            return Err(PerpsOnchainError::SettlementReverted { tx: tx_hash });
+        }
+        Ok(tx_hash)
+    }
+
     /// Submit `settleMatch` and wait for the receipt. Returns the tx hash.
     pub async fn submit_settle_match(
         &self,
@@ -254,12 +297,16 @@ impl PerpsOnchain {
 
     /// Accessor used by sibling modules (e.g. `oracle.rs`) that need to
     /// rebuild a provider with the same signer/url.
-    pub(crate) fn signer_key_hex(&self) -> &str {
+    /// Accessor used by sibling modules + matcher-server (pyth_pusher
+    /// needs to construct a fresh provider for read-only paths). Returns
+    /// the hex-encoded private key with no `0x` prefix.
+    pub fn signer_key_hex(&self) -> &str {
         &self.signer_key_hex
     }
 
     /// Accessor used by sibling modules.
-    pub(crate) fn rpc_url(&self) -> &str {
+    /// Accessor — same rationale as `signer_key_hex`. Returns the JSON-RPC URL.
+    pub fn rpc_url(&self) -> &str {
         &self.rpc_url
     }
 

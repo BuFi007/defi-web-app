@@ -39,6 +39,7 @@ mod lp_signer;
 mod lp_state;
 mod oi_gate;
 mod price;
+mod pyth_pusher;
 mod replacement_events;
 mod settlement;
 mod tick;
@@ -140,6 +141,22 @@ async fn main() -> ExitCode {
         tokio::spawn(async move { poker.run().await })
     };
 
+    // ---------- Pyth pusher (Phase 7.2 — unblocks LP oracle gate) ----------
+    let pyth_handle = match pyth_pusher::PythPusher::new(onchain.clone(), &cfg) {
+        Ok(Some(pusher)) => {
+            info!("pyth pusher enabled (Phase 7.2)");
+            Some(tokio::spawn(async move { pusher.run().await }))
+        }
+        Ok(None) => {
+            info!("pyth pusher disabled (no MATCHER_FUNDING_MARKET_IDS configured)");
+            None
+        }
+        Err(e) => {
+            error!(error = ?e, "pyth pusher boot: aborting");
+            return ExitCode::FAILURE;
+        }
+    };
+
     // ---------- Canary keeper (Phase 7) ----------
     let canary_handle = match canary::Canary::new(
         db.clone(),
@@ -201,6 +218,18 @@ async fn main() -> ExitCode {
         }
     };
     tokio::pin!(canary_future);
+    let pyth_future = async {
+        match pyth_handle {
+            Some(h) => {
+                let res = h.await;
+                error!(result = ?res, "pyth pusher exited unexpectedly");
+            }
+            None => {
+                std::future::pending::<()>().await;
+            }
+        }
+    };
+    tokio::pin!(pyth_future);
     tokio::select! {
         _ = shutdown_signal() => {
             info!("shutdown signal received");
@@ -218,6 +247,7 @@ async fn main() -> ExitCode {
             error!(result = ?res, "funding poker exited unexpectedly");
         }
         _ = &mut canary_future => {}
+        _ = &mut pyth_future => {}
     }
     info!("BUFI matcher server stopped");
     ExitCode::SUCCESS

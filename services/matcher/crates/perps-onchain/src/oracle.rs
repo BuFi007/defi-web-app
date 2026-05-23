@@ -44,6 +44,35 @@ pub struct OracleSnapshot {
 }
 
 impl PerpsOnchain {
+    /// Read `FxOracle.pythFeedOf(token)` for the given token address.
+    /// Phase 7.2 — the pyth_pusher uses this at boot to build the set of
+    /// Hermes feed ids it needs to refresh for every configured market.
+    pub async fn pyth_feed_of(&self, token: Address) -> Result<B256, PerpsOnchainError> {
+        let oracle_address = resolve_oracle_address(self.deployment().chain_id)?;
+        let signer: PrivateKeySigner = self
+            .signer_key_hex()
+            .parse()
+            .map_err(|e: alloy_signer_local::LocalSignerError| {
+                PerpsOnchainError::InvalidSignerKey(e.to_string())
+            })?;
+        let wallet = EthereumWallet::from(signer);
+        let url: reqwest::Url = self
+            .rpc_url()
+            .parse()
+            .map_err(|e: url::ParseError| PerpsOnchainError::InvalidRpcUrl(e.to_string()))?;
+        let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .wallet(wallet)
+            .on_http(url);
+        let oracle = crate::bindings::IFxOracle::new(oracle_address, &provider);
+        let feed = oracle
+            .pythFeedOf(token)
+            .call()
+            .await
+            .map_err(|e| PerpsOnchainError::Rpc(format!("pythFeedOf: {e}")))?;
+        Ok(feed._0)
+    }
+
     /// Read `(mark_e18, published_at)` for `market_id` via the FxOracle path.
     pub async fn oracle_snapshot(&self, market_id: B256) -> Result<OracleSnapshot, PerpsOnchainError> {
         let oracle_address = resolve_oracle_address(self.deployment().chain_id)?;
@@ -120,13 +149,44 @@ fn load_oracle_address_from_json(path: &Path) -> Option<Address> {
     parsed.fx_oracle.parse::<Address>().ok()
 }
 
-/// Minimal slice of `perp-oracle-{chainId}.json`. The rest of the file
-/// (maxConfidenceBps, maxDeviationBps, maxOracleAge, pyth) is read by the
-/// liquidator keeper, not the matcher — captured here for future use only.
+/// Minimal slice of `perp-oracle-{chainId}.json`. `pyth` is the on-chain
+/// `IPyth` contract the matcher's pyth_pusher pushes Hermes payloads to.
+/// `maxConfidenceBps`, `maxDeviationBps`, and `maxOracleAge` are used by
+/// the liquidator keeper, not the matcher — captured here for future use.
 #[derive(Debug, Deserialize)]
 struct PerpOracleManifest {
     #[serde(rename = "FxOracle")]
     fx_oracle: String,
+    #[serde(default, rename = "pyth")]
+    pyth: Option<String>,
+}
+
+/// Resolve the on-chain `IPyth` address for `chain_id`. Order:
+///   1. `PYTH_ADDRESS` env (override path)
+///   2. `perp-oracle-{chain_id}.json` `pyth` field
+///   3. error
+pub fn resolve_pyth_address(chain_id: u64) -> Result<Address, PerpsOnchainError> {
+    if let Ok(raw) = env::var("PYTH_ADDRESS") {
+        return raw
+            .parse::<Address>()
+            .map_err(|e| PerpsOnchainError::Rpc(format!("PYTH_ADDRESS parse: {e}")));
+    }
+    let dir = fx_telarana_deployments_dir();
+    let path = dir.join(format!("perp-oracle-{chain_id}.json"));
+    load_pyth_address_from_json(&path).ok_or_else(|| {
+        PerpsOnchainError::Rpc(format!(
+            "no Pyth address: set PYTH_ADDRESS env OR add `pyth` to {} \
+             (FX_TELARANA_DEPLOYMENTS={})",
+            path.display(),
+            dir.display(),
+        ))
+    })
+}
+
+fn load_pyth_address_from_json(path: &Path) -> Option<Address> {
+    let raw = fs::read_to_string(path).ok()?;
+    let parsed: PerpOracleManifest = serde_json::from_str(&raw).ok()?;
+    parsed.pyth?.parse::<Address>().ok()
 }
 
 fn usdc_address_from_env() -> Result<Address, PerpsOnchainError> {
@@ -175,5 +235,22 @@ mod tests {
     fn json_loader_returns_none_on_missing_file() {
         let path = PathBuf::from("/nonexistent/perp-oracle-5042002.json");
         assert!(load_oracle_address_from_json(&path).is_none());
+    }
+
+    #[test]
+    fn json_loader_parses_pyth_address_from_canonical_arc_manifest() {
+        let path = write_temp(ARC_ORACLE_JSON, "perp-oracle-pyth-5042002.json");
+        let addr = load_pyth_address_from_json(&path).expect("pyth field");
+        assert_eq!(
+            format!("{:#x}", addr).to_lowercase(),
+            "0x2880ab155794e7179c9ee2e38200202908c17b43"
+        );
+    }
+
+    #[test]
+    fn json_loader_returns_none_for_pyth_when_field_missing() {
+        let no_pyth = r#"{"FxOracle":"0xf9b0356A31BC7125e2eD0DADf8b5957860d42c78"}"#;
+        let path = write_temp(no_pyth, "perp-oracle-nopyth.json");
+        assert!(load_pyth_address_from_json(&path).is_none());
     }
 }

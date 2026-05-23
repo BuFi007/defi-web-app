@@ -839,6 +839,51 @@ What Phase 7 explicitly does NOT yet ship (Phase 8+ / audit-prep PR work):
 
 ---
 
+## Phase 7.2 amendment (2026-05-23) — pyth_pusher unblocks F3
+
+The first live Arc Testnet boot of the matcher (post-Phase-7) surfaced
+F3 in the integration runbook: `FxOracle.getMid` reverts with
+`0xe7764c9e CalldataMustHaveValidPayload` when the Pyth feed isn't
+fresh, blocking the LP-backstop's oracle gate (invariant 4). Same root
+cause blocks BUFX `FxSpotExecutor` if/when its cross-chain spot path is
+exercised on Arc.
+
+Phase 7.2 adds a `pyth_pusher` task to `matcher-server` (same crate as
+`funding_poker`) that closes both gaps in one motion.
+
+| What | Where | Why |
+|---|---|---|
+| `IPyth` sol! bindings + `pythFeedOf` / `PYTH()` extension to `IFxOracle` | `crates/perps-onchain/src/bindings.rs` | Minimal surface — `getUpdateFee(bytes[])`, `updatePriceFeeds(bytes[]) payable`, `getPriceUnsafe(bytes32)`. Mirrors `@pythnetwork/pyth-sdk-solidity/IPyth.sol`. |
+| `submit_pyth_update` RPC client method | `crates/perps-onchain/src/client.rs` | Reads `getUpdateFee`, sends `updatePriceFeeds` with the returned fee as `msg.value`. Returns tx hash. |
+| `resolve_pyth_address` JSON loader | `crates/perps-onchain/src/oracle.rs` | `PYTH_ADDRESS` env → `perp-oracle-{chainId}.json` `pyth` field → error. Same precedence pattern as `resolve_oracle_address`. |
+| `pyth_pusher::PythPusher` task | `crates/matcher-server/src/pyth_pusher.rs` | Boots by reading `pythFeedOf(USDC)` + `pythFeedOf(baseToken)` for every market in `MATCHER_FUNDING_MARKET_IDS`. Every `PYTH_PUSH_INTERVAL_MS` (default 5s), checks each feed's on-chain `publishTime` via `getPriceUnsafe`, fetches stale ones from Hermes v2 (`/v2/updates/price/latest?encoding=hex`), pushes in one tx. |
+| Hermes v2 fetcher | same module | `reqwest` against the public Hermes endpoint by default; `PYTH_HERMES_URL` env pins to a private mirror for production reliability. Response parser matches `fx-telarana/packages/sdk/scripts/perp-arc-trading-smoke.ts:514-534`. |
+| Spawned under `tokio::select!` in `main.rs` | `crates/matcher-server/src/main.rs` | Joins the existing 5 long-running tasks (tick / event_subscriber / IF watchdog / funding_poker / canary); brings the total to 6. |
+
+New env vars (all optional; testnet defaults work):
+
+```text
+  PYTH_PUSH_INTERVAL_MS         default 5_000 (5s)
+  PYTH_PUSH_MAX_AGE_SECS        default 30
+  PYTH_HERMES_URL               default https://hermes.pyth.network
+  PYTH_HERMES_TIMEOUT_MS        default 10_000
+  PYTH_ADDRESS                  override for staging/forks
+```
+
+Workspace test count: **93 active + 2 ignored** (Phase 7.1 left it at 86 + 2).
+
+Live verification on Arc Testnet 2026-05-23 — first push tx:
+`0x31c576120745ab32328d82b8967a327ef9918d3b8bf0dfbb6d5151819bb838ff`.
+4 feeds pushed in one call (USDC + EURC + CIRBTC + TMXNB); subsequent
+`oracle_snapshot` calls succeeded. F3 RESOLVED in `docs/matcher-integration-runbook.md` §6.5 + `docs/matcher-mainnet-readiness.md` §5.2.5.
+
+Pre-mainnet follow-ups noted in the readiness doc:
+- Confirm KEEPER USDC headroom for sustained push fees (Arc uses USDC as native gas).
+- Consider splitting `PYTH_PUSHER_PRIVATE_KEY` from `PERP_KEEPER_PRIVATE_KEY` for blast-radius isolation.
+- Pin `PYTH_HERMES_URL` to a private mirror for liveness SLA.
+
+---
+
 ## Phasing
 
 | Phase | Scope | Calendar weeks | Gates before next |

@@ -92,6 +92,19 @@ pub struct Config {
     /// 1_000_000 (= 1 USDC). The canary is intentionally tiny so a single
     /// bad day doesn't burn the canary's margin.
     pub canary_notional_usdc_e6: u64,
+    /// How often the pyth_pusher polls Hermes + pushes on-chain. Default
+    /// 5_000ms (5s) — matches the funding_poker cadence. Tighter means
+    /// fresher oracle, more gas burn. Phase 7.2.
+    pub pyth_push_interval: Duration,
+    /// Skip the push if the on-chain `publishTime + this > now`. Default
+    /// 30s. This keeps gas burn near-zero in quiet markets while still
+    /// guaranteeing the LP-backstop oracle gate (also 30s) never trips.
+    pub pyth_push_max_age: Duration,
+    /// Hermes endpoint base URL. Default `https://hermes.pyth.network`.
+    /// Pin to a private mirror for production reliability.
+    pub pyth_hermes_url: String,
+    /// HTTP timeout for Hermes fetches. Default 10s.
+    pub pyth_hermes_timeout: Duration,
 }
 
 impl Config {
@@ -155,6 +168,14 @@ impl Config {
                 .expect("hard-coded canary market id is valid")
             });
         let canary_notional_usdc_e6 = parse_env_u64("CANARY_NOTIONAL_USDC_E6", 1_000_000)?;
+        let pyth_push_interval =
+            Duration::from_millis(parse_env_u64("PYTH_PUSH_INTERVAL_MS", 5_000)?);
+        let pyth_push_max_age =
+            Duration::from_secs(parse_env_u64("PYTH_PUSH_MAX_AGE_SECS", 30)?);
+        let pyth_hermes_url = env::var("PYTH_HERMES_URL")
+            .unwrap_or_else(|_| "https://hermes.pyth.network".to_string());
+        let pyth_hermes_timeout =
+            Duration::from_millis(parse_env_u64("PYTH_HERMES_TIMEOUT_MS", 10_000)?);
         Ok(Self {
             chain_id,
             rpc_url,
@@ -176,6 +197,10 @@ impl Config {
             canary_timeout,
             canary_market_id,
             canary_notional_usdc_e6,
+            pyth_push_interval,
+            pyth_push_max_age,
+            pyth_hermes_url,
+            pyth_hermes_timeout,
         })
     }
 

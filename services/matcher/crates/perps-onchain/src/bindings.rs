@@ -155,14 +155,31 @@ sol! {
             );
     }
 
-    /// `FxOracle` view surface (Phase 4 — LP backstop).
+    /// `FxOracle` view surface (Phase 4 — LP backstop + Phase 7.2 — Pyth push).
     /// `publishedAt` is unix seconds; the matcher uses it for invariant 4.
+    /// `pythFeedOf` resolves the Hermes feed id for a token, used by the
+    /// pyth_pusher to know which feeds to refresh for each market.
     #[sol(rpc)]
     contract IFxOracle {
         function getMid(address base, address quote)
             external
             view
             returns (uint256 midE18, uint256 publishedAt);
+        function pythFeedOf(address token) external view returns (bytes32);
+        function PYTH() external view returns (address);
+    }
+
+    /// `IPyth` — minimal surface for the matcher's pyth_pusher.
+    /// Mirrors `@pythnetwork/pyth-sdk-solidity/IPyth.sol`. The fee in
+    /// `updatePriceFeeds` is paid in native gas (USDC on Arc).
+    #[sol(rpc)]
+    contract IPyth {
+        function getUpdateFee(bytes[] updateData) external view returns (uint256 feeAmount);
+        function updatePriceFeeds(bytes[] updateData) external payable;
+        function getPriceUnsafe(bytes32 id)
+            external
+            view
+            returns (int64 price, uint64 conf, int32 expo, uint256 publishTime);
     }
 
     /// Clearinghouse view surface used by Phase 3c+ (OI gate + position state).
