@@ -9,14 +9,14 @@ describe("live perps markets", () => {
     expect(markets.map((market) => market.symbol)).toEqual([
       "EURC/USDC",
       "tJPYC/USDC",
-      "tMXNB/USDC",
-      "tCHFC/USDC",
+      "MXNB/USDC",
+      "CIRBTC/USDC",
     ]);
     expect(markets.map((market) => market.marketId)).toEqual([
       "0x565a6e2fab61800aa18813603b5b485af5bed7dea1aa0845bdaa61502063cab8",
       "0x9ccad283db415085bf69329b696bfc7a34bff2d476f5cf7b1d4a3ba9bc0b70ab",
       "0xb698dfdbcbae088741081a53b9f1da11df8ff7c92c9278b66e15a34077ea5ca3",
-      "0x992a2a93cd7a43a9ca827907f708a00ef88e9757e8aadab780ec4f58b161c7dd",
+      "0x238aacf17c8d170ad55905cd1c217ae2db8338354b1235059fb0f096e20b777a",
     ]);
     expect(markets.every((market) => market.chainId === 5042002)).toBe(true);
     expect(markets.every((market) => market.source === "pyth")).toBe(true);
@@ -43,7 +43,7 @@ describe("live perps markets", () => {
         "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "0x9ccad283db415085bf69329b696bfc7a34bff2d476f5cf7b1d4a3ba9bc0b70ab",
         "0xb698dfdbcbae088741081a53b9f1da11df8ff7c92c9278b66e15a34077ea5ca3",
-        "0x992a2a93cd7a43a9ca827907f708a00ef88e9757e8aadab780ec4f58b161c7dd",
+        "0x238aacf17c8d170ad55905cd1c217ae2db8338354b1235059fb0f096e20b777a",
       ]);
     } finally {
       if (previous === undefined) {
