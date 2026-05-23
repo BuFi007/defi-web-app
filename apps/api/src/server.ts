@@ -16,6 +16,7 @@ import { liveblocksRoutes } from "./routes/liveblocks";
 import { marketsRoutes } from "./routes/markets";
 import { mcpRoutes } from "./routes/mcp";
 import { perpsRoutes } from "./routes/perps";
+import { privacyRoutes } from "./routes/privacy";
 import { spotRoutes } from "./routes/spot";
 import {
   makeUpgradeData,
@@ -123,6 +124,7 @@ app.route("/liveblocks", liveblocksRoutes);
 app.route("/markets", marketsRoutes);
 app.route("/perps", perpsRoutes);
 app.route("/spot", spotRoutes);
+app.route("/privacy", privacyRoutes);
 app.route("/fx-bento", fxBentoRoutes);
 app.route("/fx-telarana", fxTelaranaRoutes);
 app.route("/mcp", mcpRoutes);

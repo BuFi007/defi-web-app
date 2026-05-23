@@ -52,6 +52,9 @@ export {
   FxOracleAbi,
 } from "./abis/FxOracle";
 export {
+  fxPrivacyEntrypointAbi,
+} from "./abis/FxPrivacyEntrypoint";
+export {
   FxPerpClearinghouseAbi,
 } from "./abis/FxPerpClearinghouse";
 export {
@@ -110,12 +113,19 @@ export const CIRCLE_GATEWAY = {
   testnetApiBaseUrl: "https://gateway-api-testnet.circle.com/v1",
 } as const satisfies Record<string, Address | string>;
 
+// Canonical Pyth Hermes feed IDs. Source of truth:
+// ~/coding-dojo/fx-telarana/packages/sdk/src/addresses/index.ts.
+// `btcUsd` added for the CIRBTC/USDC perp market (cirBTC tracks BTC/USD
+// 1:1). `cadUsd` added for the QCAD Morpho market. `audUsd` reserved
+// for AUDF when it deploys.
 export const PYTH_FEED_IDS = {
   usdUsdc: "0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
   eurUsd: "0x76fa85158bf14ede77087fe3ae472f66213f6ea2f5b411cb2de472794990fa5c",
   jpyUsd: "0xef2c98c804ba503c6a707e38be4dfbb16683775f195b091252bf24693042fd52",
   mxnUsd: "0xe13b1c1ffb32f34e1be9545583f01ef385fde7f42ee66049d30570dc866b77ca",
   chfUsd: "0x0b1e3297e69f162877b577b0d6a47a0d63b2392bc8499e6540da4187a63e28f8",
+  btcUsd: "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
+  cadUsd: "0x3112b03a41c910ed446852aacf67118cb1bec67b2cd0b9a214c58cc0eaa2ecca",
 } as const satisfies Record<string, Hex>;
 
 export const LIVE_ROUTE_IDS = {
@@ -135,14 +145,33 @@ export const LIVE_ROUTE_IDS = {
 
 export type SpotFxSymbol = "EURC" | "JPYC" | "MXNB" | "CHFC";
 export type BuFxPerpMarketSymbol = "FX-USD-JPY" | "FX-USD-MXN" | "FX-USD-CHF";
-export type ArcPerpMarketSymbol = "EURC/USDC" | "tJPYC/USDC" | "tMXNB/USDC" | "tCHFC/USDC";
+// CHFC removed: on-chain `enabled=false` for the perp; UI surface dropped
+// per fx-telarana integration handoff ("tCHFC unlisted, market entry
+// inert on-chain"). CIRBTC added: live on Arc sprint-1 + matcher tracks it.
+export type ArcPerpMarketSymbol =
+  | "EURC/USDC"
+  | "tJPYC/USDC"
+  | "tMXNB/USDC"
+  | "CIRBTC/USDC";
 
 export interface TokenRegistry {
   usdc?: Address;
   eurc?: Address;
   jpyc?: Address;
+  // `mxnb` is the live issuer-token (0x836F73Fb…) on Arc per the
+  // sprint-1 broadcast; `tmxnb` is the perp's test base-token
+  // (0xe8F76f90…). Two distinct contracts — keep both registries
+  // until the perp migrates to the real issuer token.
   mxnb?: Address;
+  tmxnb?: Address;
+  qcad?: Address;
+  cirbtc?: Address;
+  // CHFC kept for the cross-chain spot FX route (fujiToArcSpotFxChfc);
+  // the tCHFC perp is `enabled=false` on-chain so it's dropped from
+  // ArcPerpMarketSymbol but the token slot stays so spot still works.
   chfc?: Address;
+  /** Reserved for the future AUDF stablecoin — not yet deployed. */
+  audf?: Address;
 }
 
 export interface TelaranaContracts {
@@ -162,6 +191,42 @@ export interface BuFxContracts {
   venueRequestRouter?: Address;
   feeConfig?: Address;
   feeCollector?: Address;
+}
+
+/**
+ * Privacy Hook v1 (sprint shipped 2026-05-18). Shielded ERC-20 pools
+ * with cross-currency atomic relay via FxFixedRateSwapAdapter. Deployer
+ * + scopes are pinned in `fx-telarana/deployments/privacy-hook-{network}.json`;
+ * those JSON files are the source of truth and these fields are a
+ * subset for runtime consumers.
+ *
+ * - `entrypoint` is the UUPS proxy (`FxPrivacyEntrypoint`); always
+ *   prefer this over the impl address for `deposit / relay /
+ *   relayCrossCurrency` calls.
+ * - `swapAdapter` is the owner-operated fixed-rate swap that the
+ *   entrypoint authorizes for `relayCrossCurrency` (Track B v2, after
+ *   the codex round-11 fix). Arc only today; Fuji has same-currency
+ *   pools but no swap adapter yet.
+ * - `poolUSDC` / `poolEURC` are the per-asset shielded pools; the
+ *   entrypoint resolves them via `scopeToPool(scope)` but having them
+ *   here lets the UI render pool TVL without an RPC roundtrip.
+ * - `commitmentVerifier` / `withdrawalVerifier` are the Groth16 verify
+ *   contracts; the SDK uses them transparently via the entrypoint, but
+ *   they're listed for completeness + ABI ref.
+ *
+ * See `@bufi/fx-telarana-sdk/privacy` (PrivacyTradeClient) for the
+ * canonical client wrapper around these addresses.
+ */
+export interface PrivacyContracts {
+  entrypoint?: Address;
+  entrypointImpl?: Address;
+  swapAdapter?: Address;
+  poolUSDC?: Address;
+  poolEURC?: Address;
+  commitmentVerifier?: Address;
+  withdrawalVerifier?: Address;
+  poseidonT3?: Address;
+  poseidonT4?: Address;
 }
 
 export interface BuFxProtocolPerpMarket {
@@ -186,7 +251,7 @@ export interface BuFxProtocolPerpMarket {
 export interface ArcPerpMarket {
   chainId: 5042002;
   marketId: Hex;
-  baseToken: "eurc" | "jpyc" | "mxnb" | "chfc";
+  baseToken: "eurc" | "jpyc" | "tmxnb" | "cirbtc";
   quoteToken: "usdc";
   pythFeedId: Hex;
   config: {
@@ -229,6 +294,7 @@ export interface ChainContracts {
   bufx: BuFxContracts;
   perps: PerpsContracts;
   bento: BentoContracts;
+  privacy: PrivacyContracts;
 }
 
 export const CONTRACTS: Record<ChainId, ChainContracts> = {
@@ -251,6 +317,18 @@ export const CONTRACTS: Record<ChainId, ChainContracts> = {
     },
     perps: {},
     bento: {},
+    // Privacy Hook v1 (Option A) on Fuji — shielded USDC pool only;
+    // cross-currency relay NOT wired (Track B v2 lives on Arc only).
+    // Source: ~/coding-dojo/fx-telarana/deployments/privacy-hook-fuji.json.
+    privacy: {
+      entrypoint: "0x6d5e3d5be0be2b29d48eda2fa35fa8d787d3c953",
+      entrypointImpl: "0xcd04c6e2277a50c93368da77a28ba917083c205a",
+      poolUSDC: "0xc490be46d2b87b92f146ab4dd907784d9658ec7f",
+      commitmentVerifier: "0x4c4e1ec5dae12a8cbac7ff4187e2c3e5719ac71b",
+      withdrawalVerifier: "0x18bd44dd57661ed746e127b378bf1d8e2ae64bf1",
+      poseidonT3: "0x3333333C0A88F9BE4fd23ed0536F9B6c427e3B93",
+      poseidonT4: "0x4443338EF595F44e0121df4C21102677B142ECF0",
+    },
   },
   919: {
     name: "Mode Sepolia",
@@ -260,16 +338,25 @@ export const CONTRACTS: Record<ChainId, ChainContracts> = {
     bufx: {},
     perps: {},
     bento: {},
+    privacy: {},
   },
   5042002: {
     name: "Arc Testnet",
     chainId: 5042002,
     gatewayDomain: 26,
+    // Sprint-1 issuer tokens (broadcast 2026-05-21). `mxnb` is now the
+    // REAL issuer-token at 0x836F73Fb… per the fx-telarana integration
+    // handoff; the previous mxnb slot held the perp's tMXNB test base
+    // (0xe8F76f90…), which now lives under `tmxnb` so both are
+    // reachable. `chfc` removed — perp is `enabled=false` on-chain.
     tokens: {
       usdc: "0x3600000000000000000000000000000000000000",
       eurc: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
       jpyc: "0xB176f6E0c8ecc2be208F72Ad34c54e5F10F1882a",
-      mxnb: "0xe8F76f90553F50E76731afbeF1ac83a9152fFBEb",
+      mxnb: "0x836F73Fbc370A9329Ba4957E47912DfDBA6BA461",
+      tmxnb: "0xe8F76f90553F50E76731afbeF1ac83a9152fFBEb",
+      qcad: "0x23d7CFFd0876f3ABb6B074287ba2aeefBc83825d",
+      cirbtc: "0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF",
       chfc: "0x249DBFd4ac17247Cf10098F6C3937F90570b5750",
     },
     telarana: {
@@ -303,6 +390,22 @@ export const CONTRACTS: Record<ChainId, ChainContracts> = {
       orderSettlement: "0x93C3d831D6F0657479d7Fb6Cf0D06e75aA05E4CC",
     },
     bento: {},
+    // Privacy Hook v1 on Arc (sprint 2026-05-18) — shielded USDC + EURC
+    // pools + Track B v2 fixed-rate swap adapter for atomic cross-currency
+    // relay. `swapAdapter` is the v2 (codex round-11 patched) variant;
+    // the deprecated v1 adapter at 0xA1930d3c… is drained + disabled.
+    // Source: ~/coding-dojo/fx-telarana/deployments/privacy-hook-arc.json.
+    privacy: {
+      entrypoint: "0xd11cddd1f04e850d3810a71608a49907c80f2736",
+      entrypointImpl: "0x4506441df7960b2cb2b600b0d37dfd3ea79fa92a",
+      swapAdapter: "0x3Fa1AcC89DFd52f6692F20b7E49cD58A306C27f2",
+      poolUSDC: "0xc11c216c9c7a36848b1d4276d223160c8b51988f",
+      poolEURC: "0x7B4582CDE65c8cC00fE24B16dBA60472242d234c",
+      commitmentVerifier: "0x9056facd889a94e4acba8cbc4c8a81ed47ba8ea0",
+      withdrawalVerifier: "0x7f0326cea0796e31ed38f01b1e8660faad7bb6ee",
+      poseidonT3: "0x3333333C0A88F9BE4fd23ed0536F9B6c427e3B93",
+      poseidonT4: "0x4443338EF595F44e0121df4C21102677B142ECF0",
+    },
   },
 };
 
@@ -463,7 +566,7 @@ export const ARC_PERP_MARKETS: Record<ArcPerpMarketSymbol, ArcPerpMarket> = {
   "tMXNB/USDC": {
     chainId: 5042002,
     marketId: "0xb698dfdbcbae088741081a53b9f1da11df8ff7c92c9278b66e15a34077ea5ca3",
-    baseToken: "mxnb",
+    baseToken: "tmxnb",
     quoteToken: "usdc",
     pythFeedId: PYTH_FEED_IDS.mxnUsd,
     config: {
@@ -473,16 +576,18 @@ export const ARC_PERP_MARKETS: Record<ArcPerpMarketSymbol, ArcPerpMarket> = {
     },
     fundingConfig: ARC_PERP_DEFAULT_FUNDING_CONFIG,
   },
-  "tCHFC/USDC": {
+  "CIRBTC/USDC": {
     chainId: 5042002,
-    marketId: "0x992a2a93cd7a43a9ca827907f708a00ef88e9757e8aadab780ec4f58b161c7dd",
-    baseToken: "chfc",
+    marketId: "0x238aacf17c8d170ad55905cd1c217ae2db8338354b1235059fb0f096e20b777a",
+    baseToken: "cirbtc",
     quoteToken: "usdc",
-    pythFeedId: PYTH_FEED_IDS.chfUsd,
+    pythFeedId: PYTH_FEED_IDS.btcUsd,
     config: {
       ...ARC_PERP_DEFAULT_CONFIG,
-      maxOpenInterestUsd: "500000000",
-      maxSkewUsd: "500000000",
+      // 250 USDC on-chain (ultra-safe testnet). Operator raises via
+      // docs/operator-raise-oi-caps.md before live dogfooding.
+      maxOpenInterestUsd: "250000000",
+      maxSkewUsd: "250000000",
     },
     fundingConfig: ARC_PERP_DEFAULT_FUNDING_CONFIG,
   },
