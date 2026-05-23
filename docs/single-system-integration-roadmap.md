@@ -3,335 +3,291 @@
 **Goal:** One `bun run dev:complete` boots the whole stack (apps/api,
 apps/web, apps/ponder, Rust matcher, all keepers) on a developer's
 localhost, talking to live Arc Testnet + Fuji contracts. End-user-visible
-surfaces: spot FX (BUFX) + perp orderbook (matcher). One shared SQLite +
-Ponder DB. One `.env.local`. Three signing-key EOAs (keeper / lp_operator /
-canary), one shared Pyth oracle pusher.
+surfaces: spot FX (in-Trade-UI lev=1 + BUFX cross-chain) + perp orderbook +
+lend/borrow + arcade.
 
-**Audience:** matcher lead + fx-telarana owner + frontend owner. Read
-top-to-bottom; each phase has a single owner and a single concrete exit
-criterion.
+**Audience:** matcher lead + fx-telarana owner + BUFX owner + frontend owner.
 
-**Status:** Draft v1, 2026-05-23. Locks the sequence; phase-by-phase
-detail lands in companion design docs.
+**Status:** Draft v2 — corrected 2026-05-23 after reading the actual
+frontend + API code. v1 incorrectly assumed the Trade UI didn't exist;
+it does, and most integration surfaces are already wired.
 
 ---
 
-## 0 — Where we are today (post-PR #107)
+## 0 — What's actually built (audited 2026-05-23)
 
-| Surface | State | Owner | Notes |
-|---|---|---|---|
-| **Matcher (Rust)** | PR #107 open against `defi-web-app:main` | matcher lead | Phases 0–7.1 shipped, runs against Arc, blocked on F3 for LP-backstop end-to-end |
-| `services/matcher/` in monorepo | ✅ (in PR #107) | matcher lead | Already at `services/matcher/`; lands on merge |
-| fx-telarana sprint-1 perp stack | ✅ live on Fuji + Arc | fx-telarana owner | Addresses pinned in `~/coding-dojo/fx-telarana/deployments/perp-stack-*.json` |
-| BUFX venue + telarana routers | ✅ live on Fuji + Arc | BUFX owner | `BuFxVenueRequestRouter`, `BuFxTelaranaRequestRouter` deployed both chains; v0.1 audit-fix smoke passed |
-| Ponder indexes BUFX | ✅ wired | ponder owner | `apps/ponder/src/handlers/bufx.ts` — venue + telarana events flow to `bufxRequest` table |
-| Ponder indexes perp settlement | ✅ wired | ponder owner | `apps/ponder/src/handlers/perps.ts` (existing) |
-| BUFX SDK + ABIs | ✅ vendored | BUFX owner | `packages/contracts/src/abis/BuFx*.ts` exported |
-| `apps/api/bufx` routes | ❌ not built | api owner | no HTTP surface for BUFX spot intent submission yet |
-| `apps/web` spot FX UI | ❌ not built | frontend owner | no user-facing spot FX page; perp UI exists partial |
-| BUFX → matcher bridge | ❌ not built | matcher lead + BUFX owner | `BuFxPerpLiquidityAccepted` event indexed but no consumer; this is the "perp-liquidity request layer" BUFX promises |
-| `apps/keeper-pyth` | 🟡 stub | infra owner | Fetches Hermes payloads, never pushes. Has to be filled before BUFX FxSpotExecutor + matcher LP backstop work on Arc |
-| Rust matcher in `bun run dev:complete` | ❌ | matcher lead | turbo `--filter` only sees `package.json`; matcher has none today |
+| Surface | State | Notes |
+|---|---|---|
+| **Trade UI** (Spot + Perp) | ✅ `apps/web/components/trade-island/panels.tsx` | One panel, leverage slider Spot→100x. "Spot" = `leverage=1`. Buy/Sell labels swap to Long/Short above lev=1. |
+| **`usePlaceOrder` hook** | ✅ `apps/web/lib/perps/hooks.ts` | wagmi `useSignTypedData` over EIP-712 (`TelaranaFxOrderSettlement` domain), POSTs to `/perps/intents`. |
+| **`/perps/intents` API route** | ✅ `apps/api/src/routes/perps.ts` | Handles BOTH spot (lev=1) AND perp (lev≥2). Writes to `perp_order_intents` SQLite table. |
+| **`/spot/intents` API route** | ✅ `apps/api/src/routes/spot.ts` | Separate cross-chain BUFX venue flow via `@bufi/fx-spot`. Builds `BuFxVenueRequestRouter` calldata. NOT used by the Trade UI panel. |
+| **MCP tool surface** | ✅ `apps/api/src/routes/mcp.ts` | `bufx.intent.spot` / `bufx.intent.perp.open` / `bufx.intent.perp.replace` / `bufx.quote.*` / `bufx.preview.borrow` / `bufx.bento.room.create` |
+| **Loan/Borrow UI** | ✅ Morpho markets on Fuji (EURC/USDC, MXNB/USDC, etc.) | Visible in the Loan/Borrow tab |
+| **Positions / Leaderboard / History / ARCADE** | ✅ Built | Per the screenshots |
+| **BUFX venue + telarana routers** | ✅ Live on Fuji + Arc | Phase A v0.1 audit-fix smoke passed (`fuji-usdc-to-arc-eurc`, applied mid 0.860746) |
+| **BUFX SDK + ABIs vendored** | ✅ `packages/contracts/src/abis/BuFx*.ts` | Already exported |
+| **Ponder indexes BUFX events** | ✅ `apps/ponder/src/handlers/bufx.ts` | `bufxRequest` table fed by venue + telarana router events |
+| **Ponder indexes perp settlement** | ✅ existing | `perp_fills` etc |
+| **fx-telarana sprint-1 perp stack** | ✅ live on Fuji + Arc | Addresses in `~/coding-dojo/fx-telarana/deployments/perp-stack-*.json` |
+| **Rust matcher (Phases 0–7.1)** | ✅ PR #107 open | Verified live boot on Arc Testnet 2026-05-23 |
+| **Rust matcher in `bun run dev:complete`** | ❌ no `package.json` shim | turbo `--filter` only sees workspace members |
+| **F3 — Pyth pusher (LP gate + BUFX FxSpotExecutor)** | 🔴 unresolved | `apps/keeper-pyth` exists as TS stub but never pushes; Rust pyth_pusher chosen for Phase 7.2 |
 
-**F3 unification:** the missing Pyth pusher is the same gap on both sides.
-`FxOracle.getMid` (matcher LP) and `FxSpotExecutor` (BUFX) both depend on
-fresh Pyth feeds. Solving it once unblocks both.
+### The integration is mostly already done
+
+Trade UI → API → matcher works end-to-end. I verified live: matcher
+booted, picked up an intent (canary's), exercised the LP route, tried
+to read FxOracle (hit F3). The only path-of-execution gaps are:
+
+1. **F3 / Phase 7.2** — `FxOracle.getMid` reverts on Arc when Pyth feeds
+   aren't fresh. Blocks matcher LP-backstop end-to-end. Same root cause
+   blocks BUFX `FxSpotExecutor` when someone tries to settle a BUFX
+   cross-chain spot request without the smoke script's manual Pyth push.
+2. **Monorepo boot** — `bun run dev:complete` doesn't include the
+   matcher, so a fresh checkout developer can't see the system run end
+   to end without manually launching the Rust binary.
+3. **Trade UI ↔ live matcher status loop** — UI submits intents and the
+   matcher settles them, but the UI's "Pending Intents" column doesn't
+   yet show post-match transitions (matched/settled/expired) because the
+   replacement-events stream hasn't been hooked into the UI subscription.
+
+Everything else (BUFX UI, BUFX routes, MCP, Ponder, lending) is already
+wired and works on its own surface today.
 
 ---
 
-## 1 — Architecture target
+## 1 — Architecture (current reality)
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                     defi-web-app monorepo                             │
-│                                                                       │
-│  apps/web ────► apps/api ─────────┬──► perp_order_intents (SQLite)   │
-│  (spot UI +   (bufx + perps      │     ↑                              │
-│   perp UI)     routes)            │     │ poll                        │
-│                                   │     ▼                              │
-│                                   │   services/matcher (Rust binary)  │
-│                                   │     │                              │
-│                                   │     ├─► settleMatch ──► FxOrderSettlement
-│                                   │     ├─► funding poke ──► FxFundingEngine
-│                                   │     └─► canary keeper              │
-│                                   │                                    │
-│                                   └──► BuFxVenueRequestRouter ──► CCTP/Hyperlane
-│                                              │                         │
-│                                              ▼                         │
-│                                      BuFxTelaranaRequestRouter         │
-│                                              │                         │
-│                                              ▼                         │
-│                                      FxSpotExecutor (executes spot FX) │
-│                                                                       │
-│  apps/ponder ──► indexes BOTH BUFX + perp settlement events           │
-│                  (writes to bufxRequest + perp_fills tables)          │
-│                                                                       │
-│  apps/keeper-liquidator ──► FxLiquidationEngine (TS, kept)            │
-│  services/matcher::pyth_pusher ──► Pyth.updatePriceFeeds (NEW)        │
-│      ↑ unblocks both BUFX (FxSpotExecutor) and matcher (LP gate)      │
-└──────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────── defi-web-app monorepo ────────────────────────────┐
+│                                                                              │
+│  apps/web Trade UI ──► usePlaceOrder ──► /perps/intents ──► perp_order_intents
+│  (Spot + Perp,                                                       │       │
+│   leverage slider)                                                   │       │
+│                                                                      ▼       │
+│                                                       Rust matcher (services/)
+│                                                          │  (PR #107)        │
+│                                                          ├─► settleMatch     │
+│                                                          ├─► funding poke    │
+│                                                          ├─► canary          │
+│                                                          └─► [Phase 7.2]    │
+│                                                              pyth_pusher     │
+│                                                                              │
+│  apps/web (other surfaces) ──► /spot/intents ──► BuFxVenueRequestRouter      │
+│                                                  │                           │
+│                                                  ▼ CCTP / Hyperlane          │
+│                                            BuFxTelaranaRequestRouter         │
+│                                                  │                           │
+│                                                  ▼ on destination chain      │
+│                                            FxSpotExecutor (reads Pyth) ──────┘
+│                                                  ▲
+│                                                  │ needs fresh Pyth
+│                                                  │
+│  services/matcher::pyth_pusher (Phase 7.2) ──► Pyth.updatePriceFeeds         │
+│      ↑ unblocks BOTH matcher LP gate AND BUFX FxSpotExecutor                 │
+│                                                                              │
+│  apps/ponder ──► indexes BUFX request events + perp settlement events        │
+│  apps/keeper-perps-liquidator ──► FxLiquidationEngine (TS, kept)             │
+│  apps/keeper-pyth ──► TS stub, decommission after Phase 7.2 lands            │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Three signing-key EOAs, one optional fourth:
-- `PERP_KEEPER_PRIVATE_KEY` — settleMatch + funding poke + Pyth push (Phase 7.2 can reuse)
-- `LP_OPERATOR_PRIVATE_KEY` — synthetic LP signed orders
-- `CANARY_TRADER_PRIVATE_KEY` — liveness probe
-- (`BUFX_KEEPER_PRIVATE_KEY` — if BUFX's executor wants its own EOA, future)
+**Key insight:** in the Trade UI, "Spot" is just `leverage=1` through the
+perp orderbook/clearinghouse path. The position has no funding cost (no
+leverage means no leveraged-funding accrual) but otherwise uses the same
+matcher + settleMatch + clearinghouse flow as a leveraged perp. The
+matcher doesn't need to know whether it's "spot" or "perp" — same code
+path.
 
-One shared SQLite, one shared Postgres (for Ponder), one shared `.env.local`.
+The **separate** BUFX `BuFxVenueRequestRouter` flow is for **cross-chain
+spot FX** (Fuji USDC → Arc EURC) where the user originates a request on
+the home chain and gets the destination asset delivered after CCTP +
+Telarana hub execution. This is a different surface (not the Trade
+panel), and it already works.
 
 ---
 
-## 2 — Sequencing (calendar weeks)
+## 2 — Sequencing (revised — much smaller than v1 claimed)
 
-### Week 1 — F3 unblock + matcher monorepo integration
+### Step 1 — `bun run dev:complete` boots the matcher (1 day)
 
-**Owner: matcher lead.** No frontend work; no contract changes. Pure
-backend + DevOps.
+**Owner:** matcher lead.
 
-#### 1.1 — Phase 7.2: `pyth_pusher` in matcher-server
+#### 1.1 — `services/matcher/package.json` workspace shim
 
-- **Goal:** make `FxOracle.getMid` reliably return fresh data on Arc, so
-  both the matcher's LP gate AND BUFX's `FxSpotExecutor` can read it
-  without `CalldataMustHaveValidPayload` reverts.
-- **Where:** new `crates/matcher-server/src/pyth_pusher.rs` module,
-  spawned alongside `funding_poker` under `tokio::select!` in `main.rs`.
-- **Pattern:** mirror `funding_poker` — per-market throttle, in-memory
-  state, `seed_from_chain()` reads the current Pyth on-chain `publishTime`
-  at boot so we don't re-push immediately after restart.
-- **Hermes client:** vendor or call directly via `reqwest` against
-  `https://hermes.pyth.network/api/latest_vaas?ids[]=<feed_id>`. Returns
-  base64 VAAs; concatenate + ABI-encode for `Pyth.updatePriceFeeds`.
-- **Feeds to push:** read from `MATCHER_FUNDING_MARKET_IDS` env (already
-  wired); resolve each market → baseToken → `FxOracle.pythFeedOf` →
-  Hermes feed id. Cache the (market_id → feed_id) map at boot.
-- **Cadence:** every `PYTH_PUSH_INTERVAL_MS` (default 5_000 = 5s). Skip
-  push if on-chain `publishTime + 30s > now`.
-- **Cost:** Pyth charges a small fee in native gas per feed update. Arc
-  uses USDC as native gas — confirm the keeper has USDC headroom.
-- **Tests:** unit-test the Hermes payload parser; integration-test the
-  per-market throttle (no double-push within window).
-- **Exit:** `cargo test --workspace` green; matcher boots; oracle gate
-  succeeds on Arc; the LP-backstop smoke from
-  `docs/matcher-integration-runbook.md` §5.6 passes end-to-end.
-
-#### 1.2 — Add matcher to `bun run dev:complete`
-
-- **Goal:** one `bun run dev:complete` launches the matcher alongside
-  apps/api, apps/web, apps/ponder, and the kept TS keepers.
-- **Approach:** add `services/matcher/package.json` (workspace shim):
-  ```json
-  {
-    "name": "@bufi/matcher",
-    "private": true,
-    "scripts": {
-      "dev": "cargo run --release -p bufi-matcher-server --bin bufi-matcher",
-      "build": "cargo build --release --workspace",
-      "test": "cargo test --workspace"
-    }
+```json
+{
+  "name": "@bufi/matcher",
+  "private": true,
+  "scripts": {
+    "dev": "cargo run --release -p bufi-matcher-server --bin bufi-matcher",
+    "build": "cargo build --release --workspace",
+    "test": "cargo test --workspace",
+    "clippy": "cargo clippy --all-targets -- -D warnings"
   }
-  ```
-- Update root `package.json` `dev:complete` to include the matcher (or
-  rely on `bun run --filter './apps/*' --filter './services/*' dev`).
-- Add a `prebuild` step that confirms `cargo` is on PATH and runs
-  `cargo build --release` once before the first `dev` invocation.
-- **Operator note:** the matcher binary takes ~30-60s to first-build on
-  a clean checkout. Cache it in CI; surface a `bun run setup` script
-  that builds it once.
-- **Exit:** fresh clone + `bun install && bun run setup && bun run dev:complete`
-  boots the whole stack; matcher logs interleave with TS app logs in
-  the same terminal.
+}
+```
 
-#### 1.3 — Decommission `apps/keeper-pyth` (or scope-cut it)
+#### 1.2 — Root `package.json` updates
 
-- The TS stub at `apps/keeper-pyth/src/index.ts` is a placeholder for
-  exactly the Rust pyth_pusher we're building. After 1.1 lands, either:
-  - **Delete** `apps/keeper-pyth/` (and the root `keeper:pyth` script), or
-  - **Repurpose** as a TS Hermes-only fallback for the BUFX team (no
-    on-chain push).
-- Decision: matcher lead + BUFX owner pick at end of week 1.
+- Add `services/matcher` to the bun workspace `workspaces` array (or the
+  root `bun --filter` pattern in `dev:complete`).
+- Add `bun run setup` script that runs `cd services/matcher && cargo build --release` once. Document in README.
 
-**Week 1 exit criteria:**
-- ✅ F3 resolved on Arc — both matcher LP-backstop and BUFX FxSpotExecutor work without manual Pyth pushes
-- ✅ `bun run dev:complete` boots the matcher
-- ✅ PR #107 merged; matcher lives at `services/matcher/` on main
-- ✅ `apps/keeper-pyth` decision committed
+#### 1.3 — Operator note (logging interleave)
 
----
+Rust matcher emits JSON logs; TS apps emit pretty logs. Either:
+- Add a `--log-format=pretty` flag to matcher-server, or
+- Document piping through `jq` in the README.
 
-### Week 2 — BUFX → matcher bridge + frontend surface
+**Exit:** fresh clone → `bun install && bun run setup && bun run dev:complete`
+boots the whole stack including the matcher; an intent submitted via the
+Trade UI shows up in the matcher logs and reaches `filled` status (for a
+non-LP CLOB match).
 
-**Owners: matcher lead + BUFX owner + frontend owner (parallel).** This
-is where BUFX and the matcher become a **single perp-liquidity venue**
-instead of two independent systems.
+### Step 2 — Phase 7.2 pyth_pusher (1–2 days)
 
-#### 2.1 — BUFX `BuFxPerpLiquidityAccepted` → matcher consumer
+**Owner:** matcher lead.
 
-- **Goal:** when BUFX accepts a "perp liquidity injection" request
-  (`BuFxPerpLiquidityAccepted` event), the matcher picks it up and
-  routes it through the orderbook + LP backstop, instead of just
-  indexing it into `bufxRequest` for the dashboard.
-- **Decision needed first (BUFX owner):** does the BUFX perp-liquidity
-  request:
-  - (a) carry its own EIP-712 SignedOrder that the matcher just settles, OR
-  - (b) carry the trader + market + size, and the matcher synthesizes a
-    SignedOrder on its behalf using a 5th EOA (`BUFX_RELAY_PRIVATE_KEY`)?
-  - Recommendation: (a) — keeps the matcher dumb, BUFX owns the trader-
-    intent shape, no new signing key.
-- **Where (matcher side):** new poller in `matcher-server` that reads
-  rows from the Ponder DB (Postgres) `bufx_request` table where
-  `status = 'perp_accepted'`, translates to `perp_order_intents` (same
-  table the API uses), and lets the existing tick loop pick them up.
-- **Where (BUFX side):** confirm `BuFxPerpLiquidityAccepted` emits enough
-  data to reconstruct an EIP-712 SignedOrder. If not, contract amendment
-  needed first.
-- **Exit:** a BUFX perp-liquidity request submitted via
-  `BuFxVenueRequestRouter` on Arc gets matched + settled by the matcher
-  within one tick, observable in both the matcher logs and the perp UI.
+#### 2.1 — `crates/matcher-server/src/pyth_pusher.rs`
 
-#### 2.2 — `apps/api/bufx/*` routes
+Mirror `funding_poker` pattern:
+- Per-market throttle (default push every 5s)
+- `seed_from_chain()` reads current Pyth on-chain `publishTime` at boot
+- Hermes payload fetch via `reqwest` against `https://hermes.pyth.network/api/latest_vaas?ids[]=<feed_id>`
+- Base64 VAA decode → concat → ABI-encode for `Pyth.updatePriceFeeds`
+- Skip push if on-chain `publishTime + 30s > now`
 
-- **Goal:** HTTP surface for the frontend to submit BUFX spot FX
-  intents. Wraps `BuFxVenueRequestRouter.requestSpotFx` via the SDK.
-- **Endpoints:**
-  - `POST /api/bufx/spot-fx` — submit a spot FX intent (signs + relays)
-  - `POST /api/bufx/rfq` — submit an RFQ
-  - `GET /api/bufx/request/:requestId` — read status from Ponder
-  - `GET /api/bufx/quotes?pair=EURC/USDC` — read latest Pyth-based quote
-- **Reuse:** the BUFX SDK at `packages/contracts/` already has the ABI +
-  helpers. API layer is mostly request validation + relay.
-- **Exit:** `curl POST /api/bufx/spot-fx` from local API submits a Fuji
-  request, indexed by Ponder within 30s, reaches `gateway_prepared`
-  status on Arc within 5 minutes.
-
-#### 2.3 — `apps/web` spot FX UI
-
-- **Goal:** user-facing spot FX swap page. Pair selector (EURC/USDC, etc),
-  amount input, quote preview (live Pyth via the API), submit button.
-- **Reuses:** Dynamic.xyz wallet connection (already wired); BUFX SDK
-  for request construction; new `useBufxQuote` hook calling
-  `/api/bufx/quotes`.
-- **Layout:** new `/app/spot` route alongside the existing `/app/perps`.
-  Top-level nav shows both venues with the user's open positions per side.
-- **Exit:** Connect wallet → select EURC/USDC pair → enter 1 USDC →
-  preview shows ~0.86 EURC → submit → tx appears in MetaMask → request
-  shows up in the dashboard within 30s.
-
-#### 2.4 — Unified perp UI status events
-
-- **Goal:** the perp UI currently inserts intents but doesn't show
-  matcher-side state (matched, settled, rejected, replacement-needed).
-  Hook into the matcher's emit-event surface.
-- **Reuse:** the matcher already emits `bufx.perps.replacement_needed`
-  domain events to a Postgres table; API exposes via SSE; web subscribes.
-  Most of this exists — wire the consumer.
-- **Exit:** a user submitting a perp intent sees status transitions
-  (`pending → matched → settled` or `pending → expired`) within 10s.
-
-**Week 2 exit criteria:**
-- ✅ BUFX perp-liquidity requests reach the matcher and settle
-- ✅ Spot FX UI submits real Fuji→Arc swaps
-- ✅ Perp UI shows real-time matcher status
-- ✅ One user wallet can use both spot + perp on one logged-in session
-
----
-
-### Week 3+ — Hardening + audit-prep (out of scope for this roadmap)
-
-Below the line, captured here so the reader sees what's NOT in week 1-2:
-
-- **Mainnet-readiness rows** still ⬜ in `docs/matcher-mainnet-readiness.md`
-  (e.g. §3.5 fill durability, §4.3 LP TVL reconciliation, §4.5 IF burn
-  floor, §6.2 OTEL exporter).
-- **Audit-prep proptest sweep** (`PROPTEST_CASES=10000`).
-- **Sign-off signatures** (§10).
-- **Path B `FxPerpLpVault`** Solidity work and audit.
-- **Cross-margin** between perp markets (explicitly out of v1 per spec).
-- **Mobile / responsive UI** for the spot + perp surfaces.
-
----
-
-## 3 — Risks + sequencing rationale
-
-### Why F3 first
-The Pyth pusher unblocks BOTH the matcher's LP backstop AND BUFX's spot
-FX execution. Without it, neither can run autonomously on Arc. Anything
-else built on top hides the same bug. Highest leverage.
-
-### Why bridge before frontend
-The BUFX → matcher bridge proves the "single venue" hypothesis. If
-`BuFxPerpLiquidityAccepted` can't reconstruct a SignedOrder (contract
-amendment needed), the frontend's "perp liquidity via BUFX" surface
-doesn't exist yet — better to know in week 2 than week 4.
-
-### Why monorepo integration in week 1
-A developer who can't `bun run dev:complete` to see the matcher running
-will silently skip integration testing. Putting the matcher on the same
-dev launcher as everything else makes "I broke the matcher" an obvious
-red banner, not a discovered-three-days-later regression.
-
-### Risk: Pyth fee on Arc Testnet
-Arc uses USDC as native gas. The Pyth push fee is small but accumulates
-over 5-second cadence × N markets. Confirm KEEPER USDC headroom before
-shipping 1.1.
-
-### Risk: BUFX `BuFxPerpLiquidityAccepted` event shape
-If the event doesn't carry enough data to reconstruct a SignedOrder
-(specifically: nonce, deadline, maxFee, signature), week 2.1 stalls on a
-contract amendment. **Mitigation:** matcher lead + BUFX owner read the
-event ABI together in week 1 to confirm before week 2 starts.
-
-### Risk: SQLite under cross-process write contention
-matcher + apps/api + Ponder reconciler all write the same SQLite file
-today. SQLite's WAL handles concurrent reads fine but write-write
-conflicts return `BUSY` errors. Mitigation already in matcher's
-`record_fill` (uses transactions); confirm Ponder + apps/api do the
-same. If contention shows up, the Phase 5+ Postgres migration is the
-real fix (already on a branch per `feat/wk1j-db-postgres-ready`).
-
----
-
-## 4 — Single-system .env.local (target)
-
-After week 1, one file at `~/coding-dojo/defi-web-app/.env.local`
-configures everything:
+#### 2.2 — Env config
 
 ```bash
-# --- Chains + RPCs ---
-ARC_RPC_URL=https://rpc.testnet.arc.network
-AVALANCHE_FUJI_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
-
-# --- Three signing EOAs (boot fails fast on collision) ---
-PERP_KEEPER_PRIVATE_KEY=0x...    # SETTLER_ROLE on FxOrderSettlement, also pushes Pyth
-LP_OPERATOR_PRIVATE_KEY=0x...    # synthetic LP signed orders
-CANARY_TRADER_PRIVATE_KEY=0x...  # liveness probe
-
-# --- Shared DB ---
-BUFI_DB_PATH=/Users/<you>/coding-dojo/defi-web-app/.bufi/trading-machine.sqlite
-
-# --- Deployment manifest source ---
-FX_TELARANA_DEPLOYMENTS=/Users/<you>/coding-dojo/fx-telarana/deployments
-BUFX_DEPLOYMENTS=/Users/<you>/coding-dojo/BUFX/deployments/testnet
-
-# --- Frontend ---
-NEXT_PUBLIC_API_URL=http://localhost:3001
-NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID=<your dynamic env id>
-
-# --- Ponder (Postgres) ---
-DATABASE_URL=postgres://postgres@localhost:5432/bufi
-PONDER_BUFX_START_BLOCK_FUJI=<sprint-1 deploy block>
-PONDER_BUFX_START_BLOCK_ARC=<sprint-1 deploy block>
-
-# --- Matcher tunables (defaults work for testnet) ---
-MATCHER_CHAIN_ID=5042002
-PYTH_PUSH_INTERVAL_MS=5000
-CANARY_INTERVAL_SECS=1800
-FUNDING_POKE_MIN_INTERVAL_MS=3600000
+PYTH_PUSH_INTERVAL_MS=5000         # cadence
+PYTH_PUSH_MAX_AGE_SECS=30          # skip if fresh
+PYTH_PUSHER_PRIVATE_KEY=<optional> # defaults to PERP_KEEPER_PRIVATE_KEY
 ```
+
+#### 2.3 — Tests
+
+- Unit-test Hermes payload parser
+- Integration-test the per-market throttle (no double-push)
+- Live-arc-testnet `#[ignore]` test that exercises one real push
+
+#### 2.4 — Decommission `apps/keeper-pyth`
+
+After Phase 7.2 ships, delete the TS stub or repurpose as a Hermes-only
+mirror for the BUFX team. matcher lead + BUFX owner pick.
+
+**Exit:** matcher's LP-backstop smoke (runbook §5.6) succeeds end-to-end
+on Arc without manual Pyth pushes.
+
+### Step 3 — Trade UI ↔ matcher status loop (1 day)
+
+**Owner:** frontend owner.
+
+The matcher already emits `bufx.perps.replacement_needed` domain events
+when a partial fill needs a replacement intent. The API can serve these
+via SSE; the Trade UI's `usePlaceOrder` result page should subscribe and
+show transitions: `pending → matched → settled` or `pending → expired`.
+
+This is glue, not new work. Likely 4–6 hours.
+
+**Exit:** a user-submitted intent visibly transitions through statuses
+in the UI without a page refresh.
+
+### Step 4 — BUFX `BuFxPerpLiquidityAccepted` consumer (OPTIONAL, 2–3 days)
+
+**Owner:** matcher lead + BUFX owner.
+
+This is the "perp-liquidity injection" surface BUFX promises. It's
+already indexed (Ponder); nothing consumes it. Whether to build the
+consumer NOW or defer depends on whether anyone's submitting
+`BuFxPerpLiquidityAccepted` requests today.
+
+If yes: build the consumer (matcher reads `bufxRequest` rows where
+`status = 'perp_accepted'`, translates to `perp_order_intents`, tick loop
+picks them up).
+
+If no: defer until a real user shows up wanting that path.
+
+**Recommendation:** defer until a stakeholder asks for it. The Trade UI
+serves spot + perp without needing this bridge.
 
 ---
 
-## 5 — Sign-off
+## 3 — Risk + sequencing rationale (revised)
+
+### Why monorepo boot first
+Without `bun run dev:complete` including the matcher, every other
+integration step needs the developer to remember to manually launch the
+matcher binary. That's the kind of friction that silently breaks
+integration testing. Putting it on the same dev launcher as everything
+else is highest leverage per hour.
+
+### Why Phase 7.2 second
+Unblocks the matcher's LP-backstop on Arc. Also unblocks BUFX
+`FxSpotExecutor` if/when the BUFX cross-chain spot flow is exercised on
+Arc (today it's a smoke-script-driven flow).
+
+### Why Trade UI status loop third
+Visible quality win for users. Without it, the UI shows "submitted" but
+no progress; the matcher silently settles in the background. Trivial work.
+
+### Why BUFX bridge is optional
+The Trade UI's spot + perp already work end-to-end without it.
+`BuFxPerpLiquidityAccepted` is for a different user journey (BUFX-side
+request → matcher-side liquidity injection) that may or may not be a
+real product need.
+
+### Risk: Pyth fee on Arc
+Arc uses USDC as native gas. Pyth push fee is small but accumulates over
+5s cadence × N markets. Confirm KEEPER USDC headroom before Phase 7.2 ships.
+
+### Risk: matcher build time blocks `bun run dev:complete`
+First `cargo build --release` takes ~90s on a clean checkout. Cache
+target/ in CI; surface `bun run setup` script + README note so devs know
+to expect it once.
+
+---
+
+## 4 — Steady-state ops (after all steps land)
+
+Three signing-key EOAs (boot fails fast on collision):
+- `PERP_KEEPER_PRIVATE_KEY` — settleMatch + funding poke + Pyth push
+- `LP_OPERATOR_PRIVATE_KEY` — synthetic LP signed orders
+- `CANARY_TRADER_PRIVATE_KEY` — liveness probe
+
+One `.env.local` at the monorepo root (see `services/matcher/README.md`
+for the matcher-specific block, already documented).
+
+Five long-running processes under `bun run dev:complete`:
+- `apps/web` (Next.js)
+- `apps/api` (Hono)
+- `apps/ponder` (Ponder indexer)
+- `services/matcher` (Rust matcher; tick loop + LP + canary + funding + pyth)
+- `apps/keeper-perps-liquidator` (TS, kept — separate concern from matcher)
+
+Decommissioned by this work:
+- `apps/keeper-perps-matcher` (TS) — replaced by Rust matcher
+- `apps/keeper-perps-funding` (TS) — replaced by Rust matcher's funding_poker
+- `apps/keeper-pyth` (TS) — replaced by Rust matcher's pyth_pusher (Phase 7.2)
+
+---
+
+## 5 — Total effort
+
+Revised from v1's 2-week ambition: **~3–4 days total** for the
+monorepo-boot + Phase 7.2 + UI status loop trio, deferring the BUFX
+bridge until product demand surfaces.
+
+Owner allocation:
+- Matcher lead: 2–3 days (Phase 7.2 + monorepo shim)
+- Frontend owner: 1 day (status loop)
+- BUFX owner: 0 days unless step 4 is prioritized
+
+---
+
+## 6 — Sign-off
 
 Three reviewers needed before this roadmap is treated as committed:
 
@@ -341,4 +297,26 @@ Three reviewers needed before this roadmap is treated as committed:
 | BUFX owner | TBD | ⬜ |
 | Frontend owner | TBD | ⬜ |
 
-Once all three sign off, week 1 work begins.
+Once all three sign off, work begins.
+
+---
+
+## 7 — What changed from v1 (audit trail)
+
+v1 of this roadmap (commit `8187755`) claimed:
+- ❌ "apps/api/bufx routes — NOT BUILT" → reality: `/spot/intents` +
+  MCP tool surface are built
+- ❌ "apps/web spot FX UI — NOT BUILT" → reality: Trade UI handles
+  spot via leverage=1 in the same panel; BUFX-specific UI may exist
+  in other surfaces (verify with frontend owner)
+- ❌ "Build apps/web /app/spot route" → reality: spot is in the Trade
+  panel; no separate route needed for the perp-clearinghouse path
+- ✅ "Phase 7.2 pyth_pusher" → still correct, kept
+- ✅ "BUFX → matcher bridge for BuFxPerpLiquidityAccepted" → still
+  correct, downgraded to optional pending stakeholder demand
+- ✅ "matcher in `bun run dev:complete`" → still correct, kept
+
+The user corrected v1 by sharing screenshots showing the live Trade UI
++ Loan/Borrow UI on `localhost:3001`. v2 is built from the actual
+`apps/web/components/trade-island/panels.tsx` + `apps/api/src/routes/perps.ts`
++ `/spot/routes.ts` source.
