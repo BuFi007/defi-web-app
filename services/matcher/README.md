@@ -135,14 +135,30 @@ writes to. Make sure:
    processes would race to settle the same intent.
 2. `apps/keeper-perps-funding` (TS) is **NOT running** alongside — the
    Rust matcher's `funding_poker` task replaces it.
-3. `BUFI_DB_PATH` in `.env.local` for the matcher matches what the API
-   resolves to (default `.bufi/trading-machine.sqlite` relative to the
-   monorepo root).
+3. **`BUFI_DB_PATH` must point at the same file from BOTH apps/api and
+   the matcher.** The default `.bufi/trading-machine.sqlite` is
+   resolved relative to each process's working directory, which means
+   if you launch `apps/api` from `apps/api/` and the matcher from
+   `services/matcher/`, they'll silently create two DIFFERENT
+   `.bufi/trading-machine.sqlite` files and nothing will work. Set
+   `BUFI_DB_PATH` to an absolute path in `.env.local` at the monorepo
+   root and `bun run dev:complete` will pass it to every workspace.
 4. `FX_TELARANA_DEPLOYMENTS` points at the live sprint-1 manifest
    (verified addresses in `~/coding-dojo/fx-telarana/docs/INTEGRATION_HANDOFF.md`).
 
 The TS keeper `apps/keeper-perps-liquidator` is **separate** from the
 matcher and should keep running — it's out of scope for this service.
+
+### Live intent status (Step 3, 2026-05-23)
+
+The API ships an SSE endpoint at `GET /perps/intents/:id/stream` that
+the Trade UI's `useIntentStatusStream` hook subscribes to after a user
+submits an intent. The matcher's existing `record_fill` + status
+updates land in `perp_order_intents.status`, the API SSE handler polls
+that row every 1s and pushes a `status` event on change, and the UI
+shows a live `pending → partially_filled → settled` pill in the Trade
+panel. No new matcher code — the matcher's existing tick-loop writes
+ARE the upstream signal.
 
 ## Determinism contract
 

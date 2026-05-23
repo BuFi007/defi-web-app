@@ -807,6 +807,34 @@ input:focus { outline: none; }
 .long-short .short { background: var(--loss); color: var(--loss-ink); box-shadow: 0 4px 12px rgba(254, 173, 236, .45); }
 .long-short button:hover { transform: translateY(-1px); }
 
+.intent-status-pill {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin: 10px 16px 0; padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 11px; font-weight: 700;
+  background: var(--card-2, rgba(168, 156, 232, 0.08));
+  color: var(--ink-2, currentColor);
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.05));
+  transition: background 200ms ease, color 200ms ease;
+}
+.intent-status-pill .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--profit, #a89ce8);
+  animation: intent-pulse 1.4s ease-in-out infinite;
+}
+.intent-status-pill .label { letter-spacing: 0.02em; }
+.intent-status-pill[data-status="filled"] { background: rgba(80, 200, 120, 0.12); color: #1e7a3a; }
+.intent-status-pill[data-status="filled"] .dot { background: #1e7a3a; animation: none; }
+.intent-status-pill[data-status="rejected"],
+.intent-status-pill[data-status="expired"] { background: rgba(254, 173, 236, 0.18); color: #8a1840; }
+.intent-status-pill[data-status="rejected"] .dot,
+.intent-status-pill[data-status="expired"] .dot { background: #8a1840; animation: none; }
+.intent-status-pill[data-status="partially_filled"] { background: rgba(168, 156, 232, 0.18); color: #4a3f9d; }
+@keyframes intent-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50%      { opacity: 1;   transform: scale(1.2); }
+}
+
 .avail-line {
   text-align: center; font-size: 11px; font-weight: 700;
   color: var(--ink-3); padding: 0 16px 14px;
