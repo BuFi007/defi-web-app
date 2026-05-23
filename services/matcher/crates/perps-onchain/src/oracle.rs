@@ -62,7 +62,10 @@ impl PerpsOnchain {
             .rpc_url()
             .parse()
             .map_err(|e: url::ParseError| PerpsOnchainError::InvalidRpcUrl(e.to_string()))?;
-        let provider = ProviderBuilder::new().wallet(wallet).on_http(url);
+        let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .wallet(wallet)
+            .on_http(url);
 
         let clearinghouse = FxPerpClearinghouse::new(self.clearinghouse(), &provider);
         let cfg = clearinghouse

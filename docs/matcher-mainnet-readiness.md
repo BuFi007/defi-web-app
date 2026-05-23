@@ -75,6 +75,7 @@ Mainnet target list (each row of this doc applies):
 |---|---|---|
 | 5.1 | `FX_ORACLE_ADDRESS` or `perp-oracle-{chainId}.json` resolves to the mainnet `FxOracle`. | ⬜ — mainnet manifest TBD |
 | 5.2 | Oracle freshness gate ceiling (`ORACLE_MAX_AGE_SECS`) is tuned for mainnet liveness. Default 30s on Arc; mainnet may need looser per chain finality. | ⬜ |
+| 5.2.5 | Matcher can read `FxOracle.getMid` without revert. On Arc Testnet `getMid` falls through to RedStone (`0xe7764c9e CalldataMustHaveValidPayload`) when the Pyth feed isn't fresh — blocks Path A LP backstop end-to-end. See `docs/matcher-integration-runbook.md` §6.5 F3. Fix: add Pyth pusher task (Phase 7.2). | 🔴 — blocks LP backstop on Arc until Phase 7.2 lands |
 | 5.3 | Funding poker (`MATCHER_FUNDING_MARKET_IDS`) includes every enabled mainnet market. | ⬜ |
 | 5.4 | `FUNDING_POKE_MIN_INTERVAL_MS` matches the on-chain funding interval. Arc = 1h; mainnet TBD. | ⬜ |
 | 5.5 | Liquidation keeper (untouched by Phase 5) is independently mainnet-ready or explicitly disabled. | ⬜ — out of matcher scope |

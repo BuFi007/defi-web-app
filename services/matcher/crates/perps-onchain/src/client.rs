@@ -136,7 +136,10 @@ impl PerpsOnchain {
             .rpc_url
             .parse()
             .map_err(|e| PerpsOnchainError::InvalidRpcUrl(format!("{e}")))?;
-        let provider = ProviderBuilder::new().wallet(wallet).on_http(url);
+        let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .wallet(wallet)
+            .on_http(url);
         let engine = FxFundingEngine::new(self.funding_engine(), &provider);
         let state = engine
             .fundingState(market_id)
@@ -155,7 +158,10 @@ impl PerpsOnchain {
         let signer: PrivateKeySigner = self.parse_signer()?;
         let wallet = EthereumWallet::from(signer);
         let url = self.parse_url()?;
-        let provider = ProviderBuilder::new().wallet(wallet).on_http(url);
+        let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .wallet(wallet)
+            .on_http(url);
         let engine = FxFundingEngine::new(self.funding_engine(), &provider);
         let pending = engine
             .pokeFundingRate(market_id)
@@ -178,7 +184,10 @@ impl PerpsOnchain {
         let signer: PrivateKeySigner = self.parse_signer()?;
         let wallet = EthereumWallet::from(signer);
         let url = self.parse_url()?;
-        let provider = ProviderBuilder::new().wallet(wallet).on_http(url);
+        let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .wallet(wallet)
+            .on_http(url);
         let clearinghouse = FxPerpClearinghouse::new(self.clearinghouse(), &provider);
         let long = clearinghouse
             .openInterestLong(market_id)
@@ -214,7 +223,10 @@ impl PerpsOnchain {
         let signer: PrivateKeySigner = self.parse_signer()?;
         let wallet = EthereumWallet::from(signer);
         let url = self.parse_url()?;
-        let provider = ProviderBuilder::new().wallet(wallet).on_http(url);
+        let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .wallet(wallet)
+            .on_http(url);
         let order_settlement = FxOrderSettlement::new(self.order_settlement(), &provider);
         let pending = order_settlement
             .settleMatch(

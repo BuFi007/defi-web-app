@@ -221,6 +221,81 @@ Key fields to grep when something looks wrong:
 
 ---
 
+## 6.5 — First-run findings (2026-05-23, this branch)
+
+Three integration issues surfaced on the first live Arc Testnet boot.
+All three have fixes landed in this branch except F3, which is captured
+as a TODO for the next branch.
+
+### F1 — alloy 0.8 `ProviderBuilder::new()` doesn't auto-fill gas/nonce
+
+**Symptom:** every send tx (funding_poker, settleMatch) failed with
+`local usage error: missing properties: [Wallet, [nonce, gas_limit,
+max_fee_per_gas, max_priority_fee_per_gas]]`. Read calls (query_oi,
+oracle_snapshot) were unaffected.
+
+**Root cause:** alloy 0.8's `ProviderBuilder::new()` is a BARE builder
+without the recommended fillers. The matcher needs gas + nonce +
+chainId auto-fill on every send path.
+
+**Fix:** added `.with_recommended_fillers()` to all 5 ProviderBuilder
+sites in `crates/perps-onchain/src/{client.rs,oracle.rs}`. Verified
+funding_poker tick succeeds post-fix.
+
+### F2 — `MarketConfig` sol! struct drifted from live contract
+
+**Symptom:** `oracle_snapshot` panic-equivalent: `marketConfig: ABI
+decoding failed: buffer overrun while deserializing`.
+
+**Root cause:** matcher's `MarketConfig` had 11 fields; live
+`IFxPerpClearinghouse.MarketConfig` has 8. Field types also drifted
+(matcher used `uint32` for fee/margin bps; live uses `uint16`). This
+drift dates from before Phase 3b1 alignment — the verification step
+missed `marketConfig` because no test path exercises it under live RPC.
+
+**Fix:** rewrote `MarketConfig` + `Position` structs in
+`crates/perps-onchain/src/bindings.rs` to match
+`IFxPerpClearinghouse.sol:5-21` byte-for-byte. Added a docstring noting
+that field ORDER + TYPES are alloy-decoded against the on-chain layout.
+
+**Spec audit follow-up:** add a `tests/abi_decode_live.rs` (gated on
+`#[ignore]`) that round-trips every contract view through a live Arc
+RPC. Would have caught this in CI.
+
+### F3 — `FxOracle.getMid` requires RedStone payload on Arc (UNRESOLVED)
+
+**Symptom:** LP routing succeeds the gate, calls `oracle_snapshot`,
+gets revert `0xe7764c9e` = `CalldataMustHaveValidPayload()`.
+
+**Root cause:** `getMid(base, quote)` tries Pyth first via try/catch.
+On Arc Testnet, the Pyth feed for EURC isn't fresh enough (no one's
+pushing updates), so the try/catch falls through to
+`_getMidFromRedstone(...)` which mandates a RedStone payload appended
+to the calldata tail.
+
+**Why the TS keepers worked:** `apps/keeper-perps-matcher` (TS) never
+read getMid. CLOB matches don't gate on oracle freshness — only LP
+backstop does (Phase 4 invariant 4). The TS keeper had no LP backstop.
+
+**Status:** not blocking CLOB integration. Blocks Path A LP backstop
+end-to-end on Arc Testnet until one of these lands:
+- (a) A Pyth-update keeper runs alongside the matcher to push fresh
+  Hermes payloads via `pyth.updatePriceFeeds(...)` before each tick.
+  Matches the TS `perp-arc-trading-smoke.ts:380-420` pattern.
+- (b) The matcher gains RedStone payload wrap support (port the TS
+  `writeWithRedstone` helper to Rust). Significant work — the RedStone
+  SDK is TS-only today.
+- (c) The oracle gains a "permissioned read" path for trusted keepers
+  that skips the payload requirement. Contract change upstream.
+
+**Recommended next:** option (a) — add a `pyth_pusher` task to
+matcher-server that fetches Hermes payloads and calls
+`pyth.updatePriceFeeds` every ~5s for the markets in
+`MATCHER_FUNDING_MARKET_IDS`. Mirrors the existing funding_poker pattern.
+File as Phase 7.2.
+
+---
+
 ## 7 — Known gaps (not blockers)
 
 These are documented in `docs/matcher-mainnet-readiness.md` and don't

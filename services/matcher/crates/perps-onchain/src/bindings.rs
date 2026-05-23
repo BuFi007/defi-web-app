@@ -113,28 +113,29 @@ sol! {
         ) external;
     }
 
-    /// Per-trader position. Mirrors `FxPerpClearinghouse.Position`.
+    /// Per-trader position. Mirrors `IFxPerpClearinghouse.Position` exactly
+    /// (live contract at fx-telarana sprint-1). Field order + types match
+    /// the on-chain struct byte-for-byte for alloy ABI decoding.
     struct Position {
         int256  sizeE18;
         uint256 entryPriceE18;
-        uint256 marginReservedUsdc;
-        int256  fundingIndexAtEntryE18;
+        uint256 marginReserved;
+        uint64  lastFundingVersion;
     }
 
-    /// Per-market config. Mirrors `FxPerpClearinghouse.MarketConfig`.
-    /// Field order MUST match the contract struct — keep in sync if upstream changes.
+    /// Per-market config. Mirrors `IFxPerpClearinghouse.MarketConfig`.
+    /// Verified against `fx-telarana/contracts/src/perp/interfaces/IFxPerpClearinghouse.sol`
+    /// — field ORDER, TYPES, and SIZES are alloy-decoded against the on-chain
+    /// layout, so any drift here surfaces as "buffer overrun while deserializing".
     struct MarketConfig {
-        bool    enabled;
-        bool    fundingEnabled;
         address baseToken;
+        bool    enabled;
+        uint16  initialMarginBps;
+        uint16  maintenanceMarginBps;
+        uint16  tradingFeeBps;
+        uint32  maxLeverageBps;
         uint256 maxOpenInterestUsd;
         uint256 maxSkewUsd;
-        uint32  initialMarginBps;
-        uint32  maintenanceMarginBps;
-        uint32  tradingFeeBps;
-        uint32  maxLeverageBps;
-        int256  fundingVelocityBps;
-        int256  maxFundingRateBpsPerSecond;
     }
 
     /// `FxFundingEngine` surface — Phase 5 funding poker.
