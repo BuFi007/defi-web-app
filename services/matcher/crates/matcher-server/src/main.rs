@@ -219,6 +219,7 @@ async fn main() -> ExitCode {
     let tick_db = db.clone();
     let tick_onchain = onchain.clone();
     let tick_deployment = deployment;
+    let tick_grpc_state = grpc_handle.as_ref().map(|_| grpc_state.clone());
     let tick_handle = tokio::spawn(async move {
         tick::run(
             tick_db,
@@ -227,6 +228,7 @@ async fn main() -> ExitCode {
             tick_cfg,
             lp_signer,
             lp_state,
+            tick_grpc_state,
         )
         .await
     });

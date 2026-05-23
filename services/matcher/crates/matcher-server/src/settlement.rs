@@ -21,6 +21,7 @@ use bufi_orderbook::{Fill, Side};
 use bufi_perps_db::{PerpIntentStatus, PerpsDb, PerpsDbError};
 use bufi_perps_onchain::{OiSnapshot, PerpsOnchain, PerpsOnchainError};
 
+use crate::grpc::{fill_to_proto_trade, GrpcState};
 use crate::intent_translator::TranslatedIntent;
 use crate::oi_gate::{self, OiGateError};
 use crate::replacement_events::{self, Role};
@@ -75,6 +76,7 @@ pub async fn settle_one(
     taker: &TranslatedIntent,
     fill: &Fill,
     now_secs: i64,
+    grpc_state: Option<&GrpcState>,
 ) -> Result<SettleOutcome, SettleError> {
     // ---------- 1. OI gate ----------
     let oi_before =
@@ -123,6 +125,37 @@ pub async fn settle_one(
         .record_fill(&taker.db_intent_id, taker_delta, now_secs)
         .await?;
 
+    // ---------- 4.5 gRPC trade broadcast (Phase 8b) ----------
+    //
+    // Best-effort fan-out to `StreamTrades` subscribers. The maker /
+    // taker cumulative_filled values come from the post-record_fill
+    // DB rows so subscribers see the full magnitude AFTER this fill
+    // applied. If there are no subscribers (`send` returns 0) we just
+    // drop the message — no error path because the broadcast is
+    // purely informational and the canonical state lives in the DB.
+    if let Some(state) = grpc_state {
+        let maker_cum_e18: i128 = maker_updated.filled_size_delta.parse().unwrap_or(0);
+        let taker_cum_e18: i128 = taker_updated.filled_size_delta.parse().unwrap_or(0);
+        let trade = fill_to_proto_trade(
+            fill,
+            maker_cum_e18,
+            taker_cum_e18,
+            /* is_liquidation */ false,
+        );
+        let receivers = state.publish_trade(trade);
+        // Update last-fill timestamp for the Health RPC.
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        state
+            .last_fill_timestamp_ms
+            .store(now_ms, std::sync::atomic::Ordering::Relaxed);
+        if receivers > 0 {
+            tracing::debug!(receivers, "gRPC trade broadcast delivered");
+        }
+    }
+
     // ---------- 5. Replacement-needed events ----------
     let tx_hex = format!("{tx_hash:#x}");
     if maker_updated.status == PerpIntentStatus::PartiallyFilled {
@@ -169,10 +202,11 @@ pub async fn settle_batch(
     onchain: &PerpsOnchain,
     fills: &[(TranslatedIntent, TranslatedIntent, Fill)],
     now_secs: i64,
+    grpc_state: Option<&GrpcState>,
 ) -> usize {
     let mut succeeded = 0usize;
     for (maker, taker, fill) in fills {
-        match settle_one(db, onchain, maker, taker, fill, now_secs).await {
+        match settle_one(db, onchain, maker, taker, fill, now_secs, grpc_state).await {
             Ok(outcome) => {
                 info!(
                     tx = outcome.tx_hash,

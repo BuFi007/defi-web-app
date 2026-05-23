@@ -64,6 +64,7 @@ pub async fn tick<L: LpStateView>(
     deployment: &PerpsDeployment,
     chain_id: i64,
     lp: Option<(&LpSigner, &L)>,
+    grpc_state: Option<&crate::grpc::GrpcState>,
 ) -> TickOutcome {
     let now_secs = current_unix_secs();
     let pending = match db.list_pending(chain_id, now_secs).await {
@@ -224,7 +225,7 @@ pub async fn tick<L: LpStateView>(
     let settled = if paired_fills.is_empty() {
         0
     } else {
-        settlement::settle_batch(db, onchain, &paired_fills, now_secs).await
+        settlement::settle_batch(db, onchain, &paired_fills, now_secs, grpc_state).await
     };
 
     let did_work = settled > 0 || expired > 0 || rejected > 0;
@@ -243,7 +244,10 @@ pub async fn tick<L: LpStateView>(
     }
 }
 
-/// Adaptive pacing loop. Runs forever until cancelled.
+/// Adaptive pacing loop. Runs forever until cancelled. `grpc_state` is
+/// the shared gRPC state — when present, fills are broadcast via its
+/// trade channel and Health's match_sequence_number / last_fill_ts are
+/// updated. Pass `None` if the gRPC server is disabled.
 pub async fn run<L: LpStateView + Send + Sync>(
     db: PerpsDb,
     onchain: PerpsOnchain,
@@ -251,14 +255,41 @@ pub async fn run<L: LpStateView + Send + Sync>(
     config: Config,
     lp_signer: Option<LpSigner>,
     lp_state: Option<L>,
+    grpc_state: Option<std::sync::Arc<crate::grpc::GrpcState>>,
 ) {
     let mut idle_streak: u32 = 0;
+    let mut match_seq: u64 = 0;
     loop {
+        match_seq = match_seq.wrapping_add(1);
+        if let Some(state) = grpc_state.as_ref() {
+            state
+                .match_sequence_number
+                .store(match_seq, std::sync::atomic::Ordering::Relaxed);
+        }
+        let grpc_ref = grpc_state.as_deref();
         let outcome = match (&lp_signer, &lp_state) {
             (Some(s), Some(v)) => {
-                tick(&db, &onchain, &deployment, config.chain_id as i64, Some((s, v))).await
+                tick(
+                    &db,
+                    &onchain,
+                    &deployment,
+                    config.chain_id as i64,
+                    Some((s, v)),
+                    grpc_ref,
+                )
+                .await
             }
-            _ => tick::<L>(&db, &onchain, &deployment, config.chain_id as i64, None).await,
+            _ => {
+                tick::<L>(
+                    &db,
+                    &onchain,
+                    &deployment,
+                    config.chain_id as i64,
+                    None,
+                    grpc_ref,
+                )
+                .await
+            }
         };
         if outcome.did_work {
             idle_streak = 0;
