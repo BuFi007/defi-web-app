@@ -805,6 +805,40 @@ What Phase 6 explicitly does NOT yet ship (Phase 7 work):
 
 ---
 
+## Phase 7 amendment (2026-05-23) — canary keeper + lp_router rewire + proptest hardening
+
+Phase 7 is the audit-prep phase. Three changes land as one atomic commit:
+
+| What | Where | Why |
+|---|---|---|
+| `lp_router::try_route_residual_to_lp` is now a thin RPC + sign + record glue layer | `crates/matcher-server/src/lp_router.rs` | All in-process invariants (1, 3, 4, 5, 7, 8, 10) now delegate to `bufi_orderbook::lp_gate::pure_check`. The router holds two helpers that lift `OracleSnapshot`/`OiSnapshot` into `OracleView`/`OiView` at the network boundary, then the pure gate decides. Removes inlined invariant code that previously duplicated the orderbook-crate gate. |
+| Canary keeper task | `crates/matcher-server/src/canary.rs` | Synthetic-intent liveness probe — signs a tiny `SignedOrder` from a third EOA (`CANARY_TRADER_PRIVATE_KEY`), inserts it into the intent table, polls for terminal status, alerts on timeout. Boot fails fast if the canary key collides with the keeper or LP_OPERATOR key. |
+| `proptest.toml` at the orderbook crate root | `crates/orderbook/proptest.toml` | Bumps `cases` from upstream's 256 → 1_024 so CI exercises invariants harder. Audit-prep sweep is `PROPTEST_CASES=10000 cargo test -p bufi-orderbook --release` (documented in `docs/matcher-mainnet-readiness.md` §2.5). |
+
+New env vars introduced in this phase (all optional; defaults documented
+in `docs/matcher-mainnet-readiness.md` §9):
+
+```text
+  CANARY_TRADER_PRIVATE_KEY        omit ⇒ canary disabled
+  CANARY_INTERVAL_SECS             default 1_800 (30 min)
+  CANARY_TIMEOUT_SECS              default 120   (2 min)
+  CANARY_MARKET_ID                 bytes32 hex (default = EURC/USDC perp)
+  CANARY_NOTIONAL_USDC_E6          default 1_000_000 (= 1 USDC)
+```
+
+Workspace test count: **86 active + 2 ignored** (Phase 6 left it at 81 + 2).
+
+What Phase 7 explicitly does NOT yet ship (Phase 8+ / audit-prep PR work):
+
+- **Sign-off signatures** in §10 of the readiness doc — wait for the
+  three reviewers (matcher lead, fx-telarana owner, operator).
+- **Path B `FxPerpLpVault` contract** — Path A (synthetic in-matcher LP)
+  remains in production; Path B is gated on Solidity work upstream.
+- **§§3.3/3.4/3.5 of the readiness doc** — those rows depend on a
+  mainnet deployment manifest from fx-telarana, which doesn't yet exist.
+
+---
+
 ## Phasing
 
 | Phase | Scope | Calendar weeks | Gates before next |

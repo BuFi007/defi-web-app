@@ -40,7 +40,7 @@ Mainnet target list (each row of this doc applies):
 | 2.2 | All 8 matcher invariants have proptest properties in `crates/orderbook/tests/properties.rs`. | ✅ |
 | 2.3 | Golden replay corpus in `crates/orderbook/tests/golden/*.json` covers simple cross, partial fill, multi-level walk, FOK reject, expired reject. | ✅ — 5 fixtures |
 | 2.4 | `bufi-matcher-replay seed` regenerates the corpus from canonical Rust constructors; no JSON hand-editing required. | ✅ |
-| 2.5 | Replay determinism property (invariant 5) passes under `proptest` with `PROPTEST_CASES=10_000`. | ⬜ — runs at default 256; bump for the audit pass |
+| 2.5 | Replay determinism property (invariant 5) passes under `proptest` with `PROPTEST_CASES=10_000`. | 🟡 — Phase 7c bumped CI default to 1_024 via `crates/orderbook/proptest.toml`; audit-prep MUST run the full sweep via `PROPTEST_CASES=10000 cargo test -p bufi-orderbook --release` |
 
 ---
 
@@ -115,7 +115,7 @@ What we **explicitly deferred**:
 - **Self-trade prevention beyond same-intent** — same trader's two intents CAN match against each other in v1. Polymarket has none either.
 - **Cross-market LP rebalancing** — Phase 4's LP is strictly per-market. Cross-market belongs in a Phase 5+ market-maker layer.
 - **WebSocket event subscription** — HTTP polling at the confirmation buffer is reorg-safe by construction. WS is an optimisation, not a correctness gap.
-- **Canary keeper** — the 4th slot in `FX_PERP_KEEPER_COMPONENTS` is still unimplemented. Phase 7 work.
+- (~~Canary keeper~~ — landed in Phase 7. See §9 below.)
 
 ---
 
@@ -144,7 +144,38 @@ Out of scope (third-party):
 
 ---
 
-## §9 — Sign-off
+## §9 — Canary keeper (Phase 7)
+
+The canary keeper is a synthetic-intent liveness probe. It signs a tiny
+`SignedOrder` from a dedicated EOA (`CANARY_TRADER_PRIVATE_KEY`), inserts
+it into the matcher's intent table, then polls the row until it reaches
+a terminal status (`filled`, `rejected`, `expired`). A row that stays in
+`pending` / `partially_filled` past `CANARY_TIMEOUT_SECS` emits an
+`ERROR` log — operators wire that into alerting.
+
+| Row | Check | Status |
+|---|---|---|
+| 9.1 | `CANARY_TRADER_PRIVATE_KEY` is a distinct EOA from both `PERP_KEEPER_PRIVATE_KEY` and `LP_OPERATOR_PRIVATE_KEY` (boot fails fast on collision). | ✅ — `canary::Canary::new` enforces |
+| 9.2 | Canary EOA is funded with at least 10× `CANARY_NOTIONAL_USDC_E6` margin on the canary market — enough for the LP backstop to take the other side. | ⬜ — operator deploy concern |
+| 9.3 | `CANARY_INTERVAL_SECS` is set in the 600–3_600 range. Default 1_800 (30 min). | ⬜ |
+| 9.4 | `CANARY_TIMEOUT_SECS` matches the matcher's worst-case settle latency at the chain's finality (block time × `MATCHER_EVENT_CONFIRMATIONS` × 4× safety). Default 120 (2 min). | ⬜ |
+| 9.5 | Canary alerts land in the operator's pager. The error string is `canary tick failed; alerting operators` — match on it. | ⬜ |
+| 9.6 | Canary key is rotated alongside the keeper + LP_OPERATOR keys on the operator's rotation cadence. | ⬜ — operator runbook |
+
+Env-var glossary for §9:
+
+```text
+  CANARY_TRADER_PRIVATE_KEY        hex of the canary EOA (no prefix or 0x...)
+                                   omit ⇒ canary disabled
+  CANARY_INTERVAL_SECS             default 1800 (30 min)
+  CANARY_TIMEOUT_SECS              default 120  (2 min)
+  CANARY_MARKET_ID                 bytes32 hex (default = EURC/USDC perp)
+  CANARY_NOTIONAL_USDC_E6          default 1_000_000 (= 1 USDC)
+```
+
+---
+
+## §10 — Sign-off
 
 Three reviewers needed before a mainnet target is added to
 `MATCHER_CHAIN_ID`:

@@ -301,6 +301,11 @@ mod tests {
             funding_poll: Duration::from_millis(1),
             funding_poke_min_interval: Duration::from_millis(1),
             funding_market_ids: Vec::new(),
+            canary_trader_key_hex: None,
+            canary_interval: Duration::from_secs(1),
+            canary_timeout: Duration::from_secs(1),
+            canary_market_id: [0u8; 32],
+            canary_notional_usdc_e6: 1,
         }
     }
 

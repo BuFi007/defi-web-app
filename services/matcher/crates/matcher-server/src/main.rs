@@ -28,6 +28,7 @@ use crate::insurance_fund::InsuranceFundWatchdog;
 use crate::lp_signer::LpSigner;
 use crate::lp_state::PathALpStateView;
 
+mod canary;
 mod config;
 mod event_subscriber;
 mod funding_poker;
@@ -139,6 +140,35 @@ async fn main() -> ExitCode {
         tokio::spawn(async move { poker.run().await })
     };
 
+    // ---------- Canary keeper (Phase 7) ----------
+    let canary_handle = match canary::Canary::new(
+        db.clone(),
+        deployment,
+        cfg.canary_trader_key_hex.as_deref(),
+        cfg.signer_key_hex.as_deref(),
+        cfg.lp_operator_key_hex.as_deref(),
+        cfg.canary_interval,
+        cfg.canary_timeout,
+        cfg.canary_market_id,
+        cfg.canary_notional_usdc_e6,
+    ) {
+        Ok(Some(canary)) => {
+            info!(
+                canary_trader = ?canary.trader_address(),
+                "canary keeper enabled (Phase 7)"
+            );
+            Some(tokio::spawn(async move { canary.run().await }))
+        }
+        Ok(None) => {
+            info!("canary keeper disabled (no CANARY_TRADER_PRIVATE_KEY set)");
+            None
+        }
+        Err(e) => {
+            error!(error = ?e, "canary keeper boot: aborting");
+            return ExitCode::FAILURE;
+        }
+    };
+
     // ---------- Tick loop ----------
     let tick_cfg = cfg.clone();
     let tick_db = db.clone();
@@ -157,6 +187,20 @@ async fn main() -> ExitCode {
     });
 
     // ---------- Shutdown ----------
+    let canary_future = async {
+        match canary_handle {
+            Some(h) => {
+                let res = h.await;
+                error!(result = ?res, "canary keeper exited unexpectedly");
+            }
+            None => {
+                // No canary configured — park forever so this arm never
+                // fires and the other branches drive shutdown.
+                std::future::pending::<()>().await;
+            }
+        }
+    };
+    tokio::pin!(canary_future);
     tokio::select! {
         _ = shutdown_signal() => {
             info!("shutdown signal received");
@@ -173,6 +217,7 @@ async fn main() -> ExitCode {
         res = funding_handle => {
             error!(result = ?res, "funding poker exited unexpectedly");
         }
+        _ = &mut canary_future => {}
     }
     info!("BUFI matcher server stopped");
     ExitCode::SUCCESS

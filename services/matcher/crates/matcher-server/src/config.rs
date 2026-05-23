@@ -71,6 +71,27 @@ pub struct Config {
     /// keep awake. Defaults to the three sprint-1 Arc markets — see
     /// `docs/lp-backstop-design.md` §Locked decisions for the source list.
     pub funding_market_ids: Vec<[u8; 32]>,
+    /// Canary trader signing key (`CANARY_TRADER_PRIVATE_KEY`). Phase 7 —
+    /// third EOA, distinct from the keeper and the LP_OPERATOR. Optional;
+    /// `None` disables the canary loop. MUST be funded with margin on the
+    /// canary market for the synthetic intent to settle.
+    pub canary_trader_key_hex: Option<String>,
+    /// How often the canary inserts + observes one synthetic intent.
+    /// Defaults to 30 minutes per the Phase 7 spec amendment; bump down for
+    /// staging or up for cost-sensitive prod.
+    pub canary_interval: Duration,
+    /// Per-attempt timeout: if the canary intent doesn't reach a terminal
+    /// status (`filled`, `rejected`, `expired`) within this window, the
+    /// canary emits an `ERROR` log. Defaults to 2 minutes.
+    pub canary_timeout: Duration,
+    /// Bytes32 market id the canary trades on. Defaults to the sprint-1
+    /// EURC/USDC perp on Arc — the most liquid market with a known LP
+    /// quote available for the matcher to bounce off.
+    pub canary_market_id: [u8; 32],
+    /// Synthetic intent notional in USDC quantums (6-dec). Defaults to
+    /// 1_000_000 (= 1 USDC). The canary is intentionally tiny so a single
+    /// bad day doesn't burn the canary's margin.
+    pub canary_notional_usdc_e6: u64,
 }
 
 impl Config {
@@ -109,6 +130,24 @@ impl Config {
         let funding_market_ids = parse_funding_market_ids(
             env::var("MATCHER_FUNDING_MARKET_IDS").as_deref().ok(),
         );
+        let canary_trader_key_hex = env::var("CANARY_TRADER_PRIVATE_KEY")
+            .ok()
+            .map(|s| s.trim_start_matches("0x").to_string());
+        let canary_interval =
+            Duration::from_secs(parse_env_u64("CANARY_INTERVAL_SECS", 1_800)?);
+        let canary_timeout =
+            Duration::from_secs(parse_env_u64("CANARY_TIMEOUT_SECS", 120)?);
+        // Default: EURC/USDC perp (same id as the default funding market).
+        let canary_market_id = env::var("CANARY_MARKET_ID")
+            .ok()
+            .and_then(|s| parse_b256_hex(&s))
+            .unwrap_or_else(|| {
+                parse_b256_hex(
+                    "0x565a6e2fab61800aa18813603b5b485af5bed7dea1aa0845bdaa61502063cab8",
+                )
+                .expect("hard-coded canary market id is valid")
+            });
+        let canary_notional_usdc_e6 = parse_env_u64("CANARY_NOTIONAL_USDC_E6", 1_000_000)?;
         Ok(Self {
             chain_id,
             rpc_url,
@@ -125,6 +164,11 @@ impl Config {
             funding_poll,
             funding_poke_min_interval,
             funding_market_ids,
+            canary_trader_key_hex,
+            canary_interval,
+            canary_timeout,
+            canary_market_id,
+            canary_notional_usdc_e6,
         })
     }
 
