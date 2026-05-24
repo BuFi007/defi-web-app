@@ -7,9 +7,11 @@ const workspaceRoot = join(projectRoot, "..", "..");
 
 const config = {
   reactStrictMode: true,
-  // Enables the 'use cache' directive + Partial Prerendering. Replaces the
-  // legacy experimental.ppr flag in Next.js 16.
-  cacheComponents: true,
+  // Disabled for beta: cacheComponents + dynamic({ssr:false}) + Turbopack 16
+  // surfaced a hydration bug where the wallet-provider stack never mounted
+  // CSR-side, leaving /en blank. Re-enable once Next 16 / React 19 fixes
+  // land. See docs/loop-iteration-1/SUMMARY.md (iteration-1 escape hatch).
+  cacheComponents: false,
   turbopack: {
     root: workspaceRoot,
   },

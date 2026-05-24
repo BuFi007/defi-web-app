@@ -1,4 +1,3 @@
-import { cacheLife, cacheTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { CHANNELS } from "@/components/radio/channels";
 
@@ -51,13 +50,6 @@ async function getDiscovery(): Promise<DiscoverResponse> {
 }
 
 async function getDiscoveryCached(): Promise<DiscoverResponse> {
-  "use cache";
-  cacheLife({
-    stale: REVALIDATE_SECONDS,
-    revalidate: REVALIDATE_SECONDS,
-    expire: REVALIDATE_SECONDS * 4,
-  });
-  cacheTag("radio-discovery");
 
   const key = process.env.YOUTUBE_API_KEY;
   const queryChannels = CHANNELS.filter((c) => c.query && !c.videoId);

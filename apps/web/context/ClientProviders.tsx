@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import DynamicProviders from "@/context/DynamicProviders";
 
 // IMPORTANT: import for its module-level side effect (purges Dynamic's
@@ -42,20 +42,10 @@ import "./DynamicSessionPurge";
 // useAccount at the top of its render — see TODO).
 
 export default function ClientProviders({ children }: { children: ReactNode }) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    // SSR + first client paint: render nothing visible. Children include
-    // BlockchainProvider which calls `useAccount()` at render time, and
-    // that throws without WagmiProvider — so we cannot render children
-    // here without the providers. Page renders empty for one tick after
-    // mount.
-    return null;
-  }
-
+  // With cacheComponents disabled (iteration-1 escape hatch) Turbopack no
+  // longer mangles @walletconnect during the SSR pass, so we can render
+  // DynamicProviders eagerly. The mounted gate caused the body to stay
+  // null after hydration (useEffect appeared not to fire under the dynamic
+  // provider tree — see iteration-1/alpha.md).
   return <DynamicProviders>{children}</DynamicProviders>;
 }
