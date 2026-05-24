@@ -190,33 +190,51 @@ const ARC_PRIVACY_REGISTRY: PrivacyAssetEntry[] = [
     vettingFeeBPS: "0",
     maxRelayFeeBPS: "500",
   },
-  // Issued issuer tokens with no shielded pool deployed yet. The
-  // entries are kept so the UI surface "see all issuables I'd
-  // eventually shield" — flip status to "live" + populate `pool`
-  // when fx-telarana deploys the per-asset pool.
+  // Basket expansion broadcast 2026-05-23 — fx-telarana PR #45
+  // shipped MXNB / QCAD / cirBTC / AUDF shielded pools in 100%-hot
+  // mode (no Morpho rehyp; canonical Morpho markets are USDC-loan,
+  // not asset-loan). Source of truth:
+  // ~/coding-dojo/fx-telarana/deployments/privacy-hook-arc.json
+  // (commit a07afbc — `registry[].pool` per asset).
   {
     symbol: "MXNB",
     token: "0x836F73Fbc370A9329Ba4957E47912DfDBA6BA461",
-    pool: undefined,
-    status: "pending",
+    pool: "0x441723FD6212EF7C95D0e04F59b2Eeb59838d4E7",
+    status: "live",
+    minimumDeposit: "1000000",
+    minimumDepositHumanReadable: "1 MXNB",
+    vettingFeeBPS: "0",
+    maxRelayFeeBPS: "500",
   },
   {
     symbol: "QCAD",
     token: "0x23d7CFFd0876f3ABb6B074287ba2aeefBc83825d",
-    pool: undefined,
-    status: "pending",
+    pool: "0xF3bd84bDdaD66a3b1F94dF7de0aD34AB158f2De4",
+    status: "live",
+    minimumDeposit: "1000000",
+    minimumDepositHumanReadable: "1 QCAD",
+    vettingFeeBPS: "0",
+    maxRelayFeeBPS: "500",
   },
   {
     symbol: "cirBTC",
     token: "0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF",
-    pool: undefined,
-    status: "pending",
+    pool: "0x2465806A9293A588867DD94b9A6aB5d47531E928",
+    status: "live",
+    minimumDeposit: "1000000000000000",
+    minimumDepositHumanReadable: "0.001 cirBTC",
+    vettingFeeBPS: "0",
+    maxRelayFeeBPS: "500",
   },
   {
     symbol: "AUDF",
     token: "0xd2a530170D71a9Cfe1651Fb468E2B98F7Ed7456b",
-    pool: undefined,
-    status: "pending",
+    pool: "0x5BC0e0795D5ea842601220bd1f855e60Fad7E3D1",
+    status: "live",
+    minimumDeposit: "1000000",
+    minimumDepositHumanReadable: "1 AUDF",
+    vettingFeeBPS: "0",
+    maxRelayFeeBPS: "500",
   },
 ];
 
