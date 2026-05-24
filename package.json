@@ -21,6 +21,10 @@
     "dev:ponder": "bun run --filter ./apps/ponder dev",
     "dev:core": "bun run --filter ./apps/web --filter ./apps/api --filter ./apps/ponder dev",
     "dev:complete": "bun run --filter './apps/*' --filter './services/*' dev",
+    "dev:up": "bash scripts/dev-up.sh",
+    "dev:down": "bash scripts/dev-down.sh",
+    "dev:logs": "tail -f /tmp/bufi-web.log /tmp/bufi-rest.log",
+    "dev:complete:https": "bash scripts/dev-up.sh",
     "matcher:dev": "bun run --filter @bufi/matcher dev",
     "matcher:build": "bun run --filter @bufi/matcher build",
     "matcher:test": "bun run --filter @bufi/matcher test",
@@ -47,6 +51,7 @@
   },
   "devDependencies": {
     "bun-types": "1.3.10",
+    "concurrently": "^9.2.1",
     "typescript": "5"
   }
 }
