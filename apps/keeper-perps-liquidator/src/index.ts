@@ -5,8 +5,15 @@ import {
   loadContracts,
 } from "@bufi/contracts";
 import { createTradingMachineDbFromEnv } from "@bufi/db";
-import { createKeeperWalletClient, requireKeeperSigner, runKeeper } from "@bufi/keeper-runtime";
+import {
+  createKeeperWalletClient,
+  postPublish,
+  requireKeeperSigner,
+  runKeeper,
+} from "@bufi/keeper-runtime";
+import { mapAccountLiquidatedToPublish } from "@bufi/keeper-runtime/publish-mappers";
 import { withSpan } from "@bufi/observability";
+import { decodeEventLog, type Hex } from "viem";
 
 const ARC_CHAIN_ID = 5042002;
 const db = createTradingMachineDbFromEnv();
@@ -80,6 +87,58 @@ await runKeeper({
             args: [account.marketId as `0x${string}`, account.trader as `0x${string}`, maxClose],
           });
           span.setAttribute("liquidator.max_close", maxClose.toString());
+
+          // Wait for the liquidate receipt + publish analytics post-confirm.
+          // Wrapped in its own try/catch so a publish-side failure can't take
+          // down a successful on-chain liquidation — we still return the
+          // hashes so the outer logger records the liquidation.
+          try {
+            const receipt = await ctx.clients.arc.waitForTransactionReceipt({
+              hash: liquidateHash,
+            });
+            if (receipt.status === "success") {
+              const decoded = decodeAccountLiquidatedFromReceipt({
+                logs: receipt.logs,
+                liquidationEngine,
+                marketId: account.marketId as Hex,
+                trader: account.trader as Hex,
+              });
+              if (decoded) {
+                void postPublish(
+                  mapAccountLiquidatedToPublish(decoded.args, {
+                    txHash: liquidateHash,
+                    blockNumber: receipt.blockNumber,
+                    logIndex: decoded.logIndex,
+                  }),
+                ).catch((err) => {
+                  ctx.log.warn("perps_liquidator.publish_failed", {
+                    error: (err as Error).message,
+                    tx: liquidateHash,
+                  });
+                });
+              } else {
+                ctx.log.warn("perps_liquidator.no_event_in_receipt", {
+                  marketId: account.marketId,
+                  trader: account.trader,
+                  tx: liquidateHash,
+                });
+              }
+            } else {
+              ctx.log.warn("perps_liquidator.liquidate_reverted", {
+                marketId: account.marketId,
+                trader: account.trader,
+                tx: liquidateHash,
+              });
+            }
+          } catch (publishErr) {
+            ctx.log.warn("perps_liquidator.post_receipt_failed", {
+              marketId: account.marketId,
+              trader: account.trader,
+              tx: liquidateHash,
+              error: (publishErr as Error).message,
+            });
+          }
+
           return { flagTx: hash, liquidateTx: liquidateHash };
         },
         {
@@ -129,4 +188,56 @@ function positionSize(position: readonly unknown[] | { sizeE18?: bigint }): bigi
 
 function abs(value: bigint): bigint {
   return value < 0n ? -value : value;
+}
+
+// Walk a receipt's logs for the AccountLiquidated event matching
+// (marketId, trader) emitted by the liquidationEngine contract. Decoded
+// args carry raw bigint reward/socializedLoss; the mapper stringifies for
+// transport. Returns the log index within the receipt so the downstream
+// Tinybird dedupe key `${txHash}-${logIndex}` is stable across retries.
+function decodeAccountLiquidatedFromReceipt(args: {
+  logs: ReadonlyArray<{ address: `0x${string}`; topics: readonly `0x${string}`[]; data: `0x${string}` }>;
+  liquidationEngine: `0x${string}`;
+  marketId: Hex;
+  trader: Hex;
+}): {
+  args: {
+    marketId: `0x${string}`;
+    trader: `0x${string}`;
+    liquidator: `0x${string}`;
+    reward: bigint;
+    socializedLoss: bigint;
+  };
+  logIndex: number;
+} | null {
+  const targetEngine = args.liquidationEngine.toLowerCase();
+  for (let i = 0; i < args.logs.length; i += 1) {
+    const log = args.logs[i]!;
+    if (log.address.toLowerCase() !== targetEngine) continue;
+    try {
+      const decoded = decodeEventLog({
+        abi: FxLiquidationEngineAbi,
+        eventName: "AccountLiquidated",
+        data: log.data,
+        topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+      });
+      const decodedArgs = decoded.args as {
+        marketId: `0x${string}`;
+        trader: `0x${string}`;
+        liquidator: `0x${string}`;
+        reward: bigint;
+        socializedLoss: bigint;
+      };
+      if (
+        decodedArgs.marketId.toLowerCase() !== args.marketId.toLowerCase() ||
+        decodedArgs.trader.toLowerCase() !== args.trader.toLowerCase()
+      ) {
+        continue;
+      }
+      return { args: decodedArgs, logIndex: i };
+    } catch {
+      // Not an AccountLiquidated log; continue scanning.
+    }
+  }
+  return null;
 }
