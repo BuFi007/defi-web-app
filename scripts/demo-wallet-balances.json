@@ -1,0 +1,140 @@
+{
+  "auditedAt": "2026-05-22T00:00:00Z",
+  "wave": "Wk1-N5",
+  "rpc": {
+    "fuji": "https://api.avax-test.network/ext/bc/C/rpc",
+    "arc": "https://rpc.testnet.arc.network"
+  },
+  "chainIds": {
+    "fuji": 43113,
+    "arc": 5042002
+  },
+  "tokens": {
+    "fuji": {
+      "USDC": "0x5425890298aed601595a70AB815c96711a31Bc65"
+    },
+    "arc": {
+      "USDC": "0x3600000000000000000000000000000000000000",
+      "EURC": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a"
+    }
+  },
+  "wallets": {
+    "KEEPER": "0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69",
+    "MAKER": "0xa00b6D3a1C999DEc09EE1178d61EDC520c7d7AB9",
+    "TAKER": "0xca437B03CDb1f2BCddB49dc45e267fc7038291fD"
+  },
+  "balancesBefore": {
+    "fuji": {
+      "KEEPER": { "avax": "5724988122488311618", "usdc": "50000" },
+      "MAKER":  { "avax": "0",                    "usdc": "0" },
+      "TAKER":  { "avax": "0",                    "usdc": "0" }
+    },
+    "arc": {
+      "KEEPER": { "usdcNativeGas": "22198716733909403693", "usdcERC20": "22198716", "eurc": "33955639" },
+      "MAKER":  { "usdcNativeGas": "996997189867000000",   "usdcERC20": "996997",   "eurc": "0" },
+      "TAKER":  { "usdcNativeGas": "996997189867000000",   "usdcERC20": "996997",   "eurc": "0" }
+    }
+  },
+  "balancesAfter": {
+    "fuji": {
+      "KEEPER": { "avax": "5624988122488227618", "usdc": "50000" },
+      "MAKER":  { "avax": "50000000000000000",   "usdc": "0" },
+      "TAKER":  { "avax": "50000000000000000",   "usdc": "0" }
+    },
+    "arc": {
+      "KEEPER": { "usdcERC20": "20195390", "eurc": "32955639" },
+      "MAKER":  { "usdcERC20": "1996997",  "eurc": "500000" },
+      "TAKER":  { "usdcERC20": "1996997",  "eurc": "500000" }
+    }
+  },
+  "decimals": {
+    "USDC_FUJI": 6,
+    "USDC_ARC": 6,
+    "EURC_ARC": 6,
+    "AVAX": 18
+  },
+  "transfersExecuted": [
+    {
+      "from": "KEEPER",
+      "to": "MAKER",
+      "chain": "arc",
+      "asset": "USDC (native gas)",
+      "amountHuman": "1.0",
+      "amountRaw": "1000000",
+      "txHash": "0x60885450309708254620c3248d902fc5adf72307a8f7eaef68641d52a053c80b"
+    },
+    {
+      "from": "KEEPER",
+      "to": "TAKER",
+      "chain": "arc",
+      "asset": "USDC (native gas)",
+      "amountHuman": "1.0",
+      "amountRaw": "1000000",
+      "txHash": "0xd83a823e42032f9af0455ce9681be5214736277845616a535710364ce2044413"
+    },
+    {
+      "from": "KEEPER",
+      "to": "MAKER",
+      "chain": "arc",
+      "asset": "EURC",
+      "amountHuman": "0.5",
+      "amountRaw": "500000",
+      "txHash": "0xf96112a53e798c1f29ac8ab5e8381dc284944c18f7f391032d6514c4edf0196d"
+    },
+    {
+      "from": "KEEPER",
+      "to": "TAKER",
+      "chain": "arc",
+      "asset": "EURC",
+      "amountHuman": "0.5",
+      "amountRaw": "500000",
+      "txHash": "0xa82fc6f214ac833bf0ab4b7a4353df541ee95a77e66eb033ba6e766e096bde92"
+    },
+    {
+      "from": "KEEPER",
+      "to": "MAKER",
+      "chain": "fuji",
+      "asset": "AVAX (gas)",
+      "amountHuman": "0.05",
+      "amountRaw": "50000000000000000",
+      "txHash": "0x25773ac4634ac5d4fbb952f69c60f6f8d02324d018091618946ebd6dec7718a6"
+    },
+    {
+      "from": "KEEPER",
+      "to": "TAKER",
+      "chain": "fuji",
+      "asset": "AVAX (gas)",
+      "amountHuman": "0.05",
+      "amountRaw": "50000000000000000",
+      "txHash": "0x888ebbf088b338695a5b3a9bfccc2686fc0077391faa9f8b097872314d1c5153"
+    }
+  ],
+  "manualFundingNeeded": [
+    {
+      "wallet": "MAKER",
+      "chain": "Fuji",
+      "asset": "USDC",
+      "amount": "1.0",
+      "reason": "Keeper holds only 0.05 USDC on Fuji (50000 raw) — insufficient to fund 2x 1.0 transfers. Faucet required.",
+      "via": "https://faucet.circle.com (select Avalanche Fuji + USDC)"
+    },
+    {
+      "wallet": "TAKER",
+      "chain": "Fuji",
+      "asset": "USDC",
+      "amount": "1.0",
+      "reason": "Keeper holds only 0.05 USDC on Fuji — insufficient. Faucet required.",
+      "via": "https://faucet.circle.com (select Avalanche Fuji + USDC)"
+    }
+  ],
+  "verifications": {
+    "MAKER_Arc_USDC_geq_1": true,
+    "TAKER_Arc_USDC_geq_1": true,
+    "MAKER_Arc_EURC_geq_500000": true,
+    "TAKER_Arc_EURC_geq_500000": true,
+    "MAKER_Fuji_AVAX_geq_0.05": true,
+    "TAKER_Fuji_AVAX_geq_0.05": true,
+    "MAKER_Fuji_USDC_geq_1": false,
+    "TAKER_Fuji_USDC_geq_1": false
+  }
+}
