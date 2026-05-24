@@ -110,6 +110,16 @@ pub struct Config {
     /// Set to empty string via `MATCHER_GRPC_BIND=` to disable the
     /// server entirely. Phase 8.
     pub grpc_bind: String,
+    /// HTTP /health + /ready + /metrics bind address. Default
+    /// `127.0.0.1:3006` (loopback). Separate port from gRPC so k8s
+    /// liveness probes + Prometheus scrapes use vanilla HTTP/1.1
+    /// without negotiating HTTP/2 prior-knowledge. Set to empty
+    /// string via `MATCHER_HTTP_BIND=` to disable. Phase 8.5a.
+    pub http_bind: String,
+    /// /ready threshold — return 503 if no tick has bumped
+    /// `last_tick_ms` within this window. Default 2 × tick_idle.
+    /// Phase 8.5a.
+    pub ready_max_tick_age: Duration,
 }
 
 impl Config {
@@ -183,6 +193,14 @@ impl Config {
             Duration::from_millis(parse_env_u64("PYTH_HERMES_TIMEOUT_MS", 10_000)?);
         let grpc_bind = env::var("MATCHER_GRPC_BIND")
             .unwrap_or_else(|_| "127.0.0.1:3005".to_string());
+        let http_bind = env::var("MATCHER_HTTP_BIND")
+            .unwrap_or_else(|_| "127.0.0.1:3006".to_string());
+        // Default = 2 × tick_idle. Override via
+        // MATCHER_READY_MAX_TICK_AGE_MS for tighter / looser SLAs.
+        let ready_max_tick_age = Duration::from_millis(parse_env_u64(
+            "MATCHER_READY_MAX_TICK_AGE_MS",
+            (tick_idle.as_millis() as u64).saturating_mul(2),
+        )?);
         Ok(Self {
             chain_id,
             rpc_url,
@@ -209,6 +227,8 @@ impl Config {
             pyth_hermes_url,
             pyth_hermes_timeout,
             grpc_bind,
+            http_bind,
+            ready_max_tick_age,
         })
     }
 
