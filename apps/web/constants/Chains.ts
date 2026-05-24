@@ -294,7 +294,10 @@ export const Ethereum = {
     decimals: 18,
     iconUrls: ["/networks/eth.svg"],
   },
-  rpcUrls: ["https://eth.llamarpc.com"],
+  // Cloudflare's public ETH endpoint — CORS-friendly + not commonly
+  // blocked by ad-blockers (llamarpc + eth.merkle.io both get
+  // ERR_BLOCKED_BY_CLIENT or CORS-rejected in browser context).
+  rpcUrls: ["https://cloudflare-eth.com"],
   vanityName: "Ethereum",
   chainName: "Ethereum",
   networkId: 1,
