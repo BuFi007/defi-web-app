@@ -71,7 +71,14 @@ export default function Providers({ children }: { children: ReactNode }) {
       settings={{
         environmentId: DYNAMIC_ENVIRONMENT_ID,
         walletConnectors: [EthereumWalletConnectors],
-        networkValidationMode: "always",
+        // "withoutSigning" defers chain validation until the user actually
+        // tries to sign a tx — auth handshake accepts any chain. Was
+        // "always" which triggered an auto wallet_switchEthereumChain
+        // during login; a dismissed switch on a not-yet-added Arc Testnet
+        // caused MetaMask to revoke eth_accounts (Array(1) → Array(0)) and
+        // surface the misleading "Please unlock your wallet extension"
+        // overlay. See docs/loop-iteration-1/SUMMARY.md.
+        networkValidationMode: "withoutSigning",
         walletConnectPreferredChains,
         social: {
           strategy: "popup",
@@ -106,21 +113,17 @@ export default function Providers({ children }: { children: ReactNode }) {
               stack: err?.stack?.split("\n").slice(0, 4).join("\n"),
               data: err?.data,
             });
-            // Self-heal: purge the cached session pointer so the user
-            // can click Connect again from a clean slate. Without this
-            // a failed connect leaves Dynamic with a stale
-            // `primaryWallet` expectation that triggers the mismatch
-            // overlay on the NEXT attempt.
-            purgeDynamicSession();
+            // Do NOT call purgeDynamicSession() here. The purge wiped the
+            // just-granted MetaMask permission and pushed users into a
+            // self-inflicted Array(1)→Array(0) loop. Let Dynamic handle
+            // its own connect retry state. Purge only on explicit logout.
           },
           onAuthFailure: (data, reason) => {
             console.warn("Dynamic auth failure", {
               method: data?.type,
               reason: typeof reason === "string" ? reason : reason?.error,
             });
-            // Same self-heal — auth failures often leave a half-written
-            // session in localStorage that confuses the next attempt.
-            purgeDynamicSession();
+            // Do NOT purge on auth failure — see onWalletConnectionFailed.
           },
           onLogout: () => {
             // Clean exit. Dynamic's own logout already clears its
