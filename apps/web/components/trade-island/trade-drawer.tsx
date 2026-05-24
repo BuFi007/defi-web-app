@@ -15,11 +15,17 @@
  * drive the morph (slide + fade). The CTA at the bottom is contextual:
  * "Next" while filling fields, "Sign &amp; submit" on the review step.
  *
- * Drawer chrome:
- *   - Backdrop click dismisses
- *   - Drag-handle pill at the top (cosmetic; no drag-to-dismiss yet)
- *   - Progress dots showing current step
- *   - Back arrow on steps 2+
+ * Drawer chrome (Wave J2):
+ *   - Powered by Vaul (`Drawer.Root` / `Portal` / `Overlay` / `Content`).
+ *     Vaul owns the swipe-to-dismiss gesture, body scroll lock, focus
+ *     trap, and overlay fade. We keep the multi-step layout (progress
+ *     dots, back arrow, CTA bar) untouched.
+ *   - Drag-to-dismiss is disabled (`dismissible={!isPending}`) while a
+ *     tx is in flight so the user can't accidentally swipe away mid
+ *     signing prompt.
+ *   - We skip Vaul's built-in `<Drawer.Handle>` because the existing
+ *     visual handle pill is part of the `td-head` layout; the entire
+ *     content surface remains draggable via Vaul's default.
  *
  * Language adapts via the `isSpot` derivation off `lev === 1`:
  *   - Title:  "Place spot order" / "Place perp order"
@@ -27,8 +33,9 @@
  *   - Summary: omits Required Margin + Liq lines in spot mode
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useAccount } from "wagmi";
+import { Drawer } from "vaul";
 
 import { liquidationPriceFloat, requiredMarginFloat } from "@bufi/perps-math";
 
@@ -93,6 +100,11 @@ export function TradeDrawer({
   const [size, setSize] = useState("");
   const [price, setPrice] = useState("");
 
+  // Internal open state so Vaul can play its close animation before the
+  // parent unmounts us. Parent's `onClose` is called from
+  // `onAnimationEnd(false)`, *after* the slide-down has finished.
+  const [open, setOpen] = useState(true);
+
   const isSpot = lev === 1;
   const sideALabel = isSpot ? "Buy" : "Long";
   const sideBLabel = isSpot ? "Sell" : "Short";
@@ -105,15 +117,6 @@ export function TradeDrawer({
     : ["mode", "side", "size", "review"];
   const [stepIndex, setStepIndex] = useState(0);
   const step = steps[stepIndex] ?? "mode";
-
-  // Lock background scroll while the drawer is open.
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
 
   const decimals = market.price < 10 ? 4 : market.price < 1000 ? 2 : 1;
   const sizeV = parseFloat(size) || 0;
@@ -156,6 +159,13 @@ export function TradeDrawer({
     return false;
   })();
 
+  const requestClose = () => {
+    // Don't let the user dismiss mid-signing. Vaul also enforces this
+    // via `dismissible`, but we guard the explicit close button too.
+    if (placeOrder.isPending) return;
+    setOpen(false);
+  };
+
   const advance = () => {
     if (!stepReady) return;
     if (step === "review") {
@@ -196,7 +206,7 @@ export function TradeDrawer({
         title: `${verb} submitted`,
         description: `${liveMarket.symbol} · ${orderType.toUpperCase()} · ${result.digest.slice(0, 10)}…`,
       });
-      onClose();
+      setOpen(false);
     } catch (error) {
       toast({ variant: "destructive", title: "Order failed", description: errMsg(error) });
     }
@@ -216,101 +226,125 @@ export function TradeDrawer({
   const headerTitle = isSpot ? "Spot order" : "Perp order";
 
   return (
-    <div className="td-backdrop" onClick={onClose} role="presentation">
-      <div
-        className="td-sheet"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-label={headerTitle}
-        data-step={step}
-      >
-        <div className="td-head">
-          <button
-            className="td-back"
-            onClick={back}
-            disabled={stepIndex === 0}
-            aria-label="Previous step"
-          >
-            <Icon name="chev_r" size={14} />
-          </button>
-          <div className="td-handle" aria-hidden />
-          <button className="td-close" onClick={onClose} aria-label="Close">
-            <Icon name="plus" size={16} />
-          </button>
-        </div>
+    <Drawer.Root
+      open={open}
+      onOpenChange={(next) => {
+        if (next) return;
+        // Vaul fires this on swipe-down, overlay-tap, ESC. We guard
+        // against accidental dismissal while a tx is pending — the
+        // `dismissible` prop covers gesture/overlay/ESC, but this
+        // double-guards in case Vaul changes behavior.
+        if (placeOrder.isPending) return;
+        setOpen(false);
+      }}
+      onAnimationEnd={(isOpen) => {
+        // Unmount once the slide-down has finished — keeps the
+        // existing parent contract (`orderSide !== null` toggles
+        // mount) intact while still letting Vaul play its close anim.
+        if (!isOpen) onClose();
+      }}
+      dismissible={!placeOrder.isPending}
+    >
+      <Drawer.Portal>
+        <Drawer.Overlay className="td-overlay" />
+        <Drawer.Content className="td-sheet" data-step={step} aria-label={headerTitle}>
+          {/* Vaul requires a Title for a11y. Keep our custom title row
+              visible and put the accessible Title in sr-only. */}
+          <Drawer.Title className="sr-only">{headerTitle}</Drawer.Title>
 
-        <div className="td-progress" role="status" aria-live="polite">
-          {steps.map((s, i) => (
-            <span
-              key={s}
-              className={"td-dot " + (i === stepIndex ? "active" : i < stepIndex ? "done" : "")}
-            />
-          ))}
-        </div>
-
-        <div className="td-title-row">
-          <div className="td-title">{headerTitle}</div>
-          <div className="td-market">
-            <span className="td-sym">{market.sym}</span>
-            <span className="mono td-price">{market.price.toFixed(decimals)}</span>
+          <div className="td-head">
+            <button
+              className="td-back"
+              onClick={back}
+              disabled={stepIndex === 0}
+              aria-label="Previous step"
+            >
+              <Icon name="chev_r" size={14} />
+            </button>
+            <div className="td-handle" aria-hidden />
+            <button
+              className="td-close"
+              onClick={requestClose}
+              disabled={placeOrder.isPending}
+              aria-label="Close"
+            >
+              <Icon name="plus" size={16} />
+            </button>
           </div>
-        </div>
 
-        <div className="td-body">
-          {step === "mode" && (
-            <ModeStep market={market} lev={lev} setLev={setLev} />
-          )}
-          {step === "side" && (
-            <SideStep
-              sideALabel={sideALabel}
-              sideBLabel={sideBLabel}
-              side={side}
-              setSide={setSide}
-              isSpot={isSpot}
-            />
-          )}
-          {step === "size" && (
-            <SizeStep
-              market={market}
-              size={size}
-              setSize={setSize}
-              price={price}
-              setPrice={setPrice}
-              orderType={orderType}
-              setOrderType={setOrderType}
-              decimals={decimals}
-            />
-          )}
-          {step === "review" && (
-            <ReviewStep
-              market={market}
-              isSpot={isSpot}
-              lev={lev}
-              side={side}
-              sideALabel={sideALabel}
-              sideBLabel={sideBLabel}
-              orderType={orderType}
-              notional={notional}
-              reqMargin={reqMargin}
-              liqLong={liqLong}
-              liqShort={liqShort}
-              decimals={decimals}
-            />
-          )}
-        </div>
+          <div className="td-progress" role="status" aria-live="polite">
+            {steps.map((s, i) => (
+              <span
+                key={s}
+                className={"td-dot " + (i === stepIndex ? "active" : i < stepIndex ? "done" : "")}
+              />
+            ))}
+          </div>
 
-        <div className="td-foot">
-          <button
-            className={"td-cta " + (side === "short" ? "loss" : "primary")}
-            disabled={!stepReady || placeOrder.isPending}
-            onClick={advance}
-            aria-busy={placeOrder.isPending}
-          >
-            {ctaLabel}
-          </button>
-        </div>
-      </div>
-    </div>
+          <div className="td-title-row">
+            <div className="td-title">{headerTitle}</div>
+            <div className="td-market">
+              <span className="td-sym">{market.sym}</span>
+              <span className="mono td-price">{market.price.toFixed(decimals)}</span>
+            </div>
+          </div>
+
+          <div className="td-body" data-vaul-no-drag>
+            {step === "mode" && (
+              <ModeStep market={market} lev={lev} setLev={setLev} />
+            )}
+            {step === "side" && (
+              <SideStep
+                sideALabel={sideALabel}
+                sideBLabel={sideBLabel}
+                side={side}
+                setSide={setSide}
+                isSpot={isSpot}
+              />
+            )}
+            {step === "size" && (
+              <SizeStep
+                market={market}
+                size={size}
+                setSize={setSize}
+                price={price}
+                setPrice={setPrice}
+                orderType={orderType}
+                setOrderType={setOrderType}
+                decimals={decimals}
+              />
+            )}
+            {step === "review" && (
+              <ReviewStep
+                market={market}
+                isSpot={isSpot}
+                lev={lev}
+                side={side}
+                sideALabel={sideALabel}
+                sideBLabel={sideBLabel}
+                orderType={orderType}
+                notional={notional}
+                reqMargin={reqMargin}
+                liqLong={liqLong}
+                liqShort={liqShort}
+                decimals={decimals}
+              />
+            )}
+          </div>
+
+          <div className="td-foot" data-vaul-no-drag>
+            <button
+              className={"td-cta " + (side === "short" ? "loss" : "primary")}
+              disabled={!stepReady || placeOrder.isPending}
+              onClick={advance}
+              aria-busy={placeOrder.isPending}
+            >
+              {ctaLabel}
+            </button>
+          </div>
+        </Drawer.Content>
+      </Drawer.Portal>
+    </Drawer.Root>
   );
 }
 

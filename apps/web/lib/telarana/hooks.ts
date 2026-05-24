@@ -75,6 +75,7 @@ import {
   writeCachedSession,
   type TelaranaWalletSessionProof,
 } from "./session";
+import { prettifySimError } from "@/lib/web3/use-simulated-write";
 
 /**
  * Backend errors arrive as `Error` instances annotated with `code`/`status`
@@ -559,15 +560,43 @@ export function useLendingAction(): UseLendingActionResult {
           }
         }
 
-        // 3. Hit the registry. viem narrows args by function name, so
-        //    cast on the call site to silence the union type without
-        //    losing the runtime safety we built into planAction().
-        const tx = (await walletClient.writeContract({
-          address: registry,
-          abi: FxMarketRegistryAbi,
-          functionName: plan.fn,
-          args: plan.args as never,
-        })) as Hex;
+        // 3. Hit the registry. Wrap with simulateContract FIRST so any
+        //    revert (oracle stale, LLTV breach, insufficient liquidity,
+        //    bad market) surfaces inline BEFORE the wallet popup. This
+        //    is the UX trust signal the demo is built around — users
+        //    no longer burn gas to discover a revert. On simulation
+        //    failure we throw a tagged Error so callers can render the
+        //    decoded reason in the existing toast / action-card slot.
+        let tx: Hex;
+        try {
+          // Cast publicClient.simulateContract through `any` to escape
+          // the generic-heavy return-type union (TS2590 otherwise).
+          // viem still validates abi/args at runtime.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const sim = (await (publicClient as any).simulateContract({
+            address: registry,
+            abi: FxMarketRegistryAbi,
+            functionName: plan.fn,
+            args: plan.args,
+            account: address,
+          })) as { request: unknown };
+          tx = (await walletClient.writeContract(
+            // viem narrows the request by function name; passing the
+            // pre-validated shape through `as never` keeps the union
+            // type happy without losing the runtime safety we built
+            // into planAction() + simulateContract.
+            sim.request as never,
+          )) as Hex;
+        } catch (simOrSubmitErr) {
+          const pretty = prettifySimError(simOrSubmitErr);
+          const tagged = new Error(
+            pretty.reason
+              ? `${pretty.short} — ${pretty.reason}`
+              : pretty.short,
+          ) as Error & { simError?: typeof pretty };
+          tagged.simError = pretty;
+          throw tagged;
+        }
 
         return { tx, approveTx };
       } catch (err) {
