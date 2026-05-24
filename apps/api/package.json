@@ -24,6 +24,7 @@
     "@bufi/perps": "workspace:*",
     "@bufi/realtime": "workspace:*",
     "@bufi/shared-types": "workspace:*",
+    "@bufi/webhooks": "workspace:*",
     "@bufi/x402": "workspace:*",
     "@bufinance/logger": "0.1.1",
     "@bufinance/worker-base": "0.1.0",

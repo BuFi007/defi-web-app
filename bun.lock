@@ -26,6 +26,7 @@
         "@bufi/perps": "workspace:*",
         "@bufi/realtime": "workspace:*",
         "@bufi/shared-types": "workspace:*",
+        "@bufi/webhooks": "workspace:*",
         "@bufi/x402": "workspace:*",
         "@bufinance/logger": "0.1.1",
         "@bufinance/worker-base": "0.1.0",
@@ -463,6 +464,20 @@
         "viem": "*",
       },
     },
+    "packages/webhooks": {
+      "name": "@bufi/webhooks",
+      "version": "0.1.0",
+      "dependencies": {
+        "@bufi/db": "workspace:*",
+        "@bufi/logger": "workspace:*",
+        "ioredis": "5.4.1",
+      },
+      "devDependencies": {
+        "@types/node": "20",
+        "bun-types": "1.3.10",
+        "typescript": "5",
+      },
+    },
     "packages/x402": {
       "name": "@bufi/x402",
       "version": "0.1.0",
@@ -816,6 +831,8 @@
     "@bufi/wallet": ["@bufi/wallet@workspace:packages/wallet"],
 
     "@bufi/web": ["@bufi/web@workspace:apps/web"],
+
+    "@bufi/webhooks": ["@bufi/webhooks@workspace:packages/webhooks"],
 
     "@bufi/x402": ["@bufi/x402@workspace:packages/x402"],
 

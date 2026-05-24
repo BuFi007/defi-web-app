@@ -19,6 +19,10 @@ import { perpsRoutes } from "./routes/perps";
 import { realtimeRoutes } from "./routes/realtime";
 import { spotRoutes } from "./routes/spot";
 import {
+  bootWebhookSurface,
+  mountWebhookRoutes,
+} from "./routes/webhooks";
+import {
   makeUpgradeData,
   marketsWebSocketHandler,
   parseMarketsWsPath,
@@ -132,6 +136,21 @@ app.route("/x402", x402Routes);
 // `apps/api/src/routes/realtime.ts` for the envelope shape and
 // `apps/api/src/lib/REALTIME.md` for the channel-naming convention.
 app.route("/internal/realtime", realtimeRoutes);
+
+// Webhook delivery surface (Wave H2). The store + delivery worker boot
+// lazily on first mount; the worker subscribes to PR #56's Redis channels
+// and fans out signed POSTs to registered integrator URLs. Skipped when
+// `BUFI_WEBHOOK_DISABLED=1` so headless tests don't open a SQLite handle.
+if (process.env.BUFI_WEBHOOK_DISABLED !== "1") {
+  void bootWebhookSurface()
+    .then(({ store, worker }) => {
+      mountWebhookRoutes(app, { store, worker });
+      log.info({ workerActive: Boolean(worker) }, "webhook.surface.mounted");
+    })
+    .catch((err) => {
+      log.error({ err: (err as Error).message }, "webhook.surface.boot_failed");
+    });
+}
 
 const port = Number(process.env.PORT ?? 3002);
 
