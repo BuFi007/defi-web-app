@@ -60,10 +60,20 @@ const DEPLOYMENTS: Record<
   // Arc Testnet (5042002) -- hub. USDC is a special precompile at
   // 0x36...0000 (native gas-token bridge); we treat it as a 6-dp ERC-20
   // for balance reads, which works through viem's standard contract path.
+  //
+  // Live on Arc Testnet per @bufi/contracts CONTRACTS[5042002].tokens
+  // (sprint-1 broadcast 2026-05-21, verified by BRAVO iter-1):
+  //   USDC, EURC, tJPYC, MXNB, cirBTC.
+  // AUDF and QCAD are NOT deployed on Arc — they live on Sepolia / Fuji
+  // only. Listing them here made every wallet popover show a permanent
+  // "Pending" row with a misleading address. cirBTC is 8 dp (BTC
+  // satoshi precision), NOT 6 — using 6 here displayed balances 100x
+  // too large.
   5042002: {
     USDC: { address: "0x3600000000000000000000000000000000000000", decimals: 6 },
     EURC: { address: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a", decimals: 6 },
-    AUDF: { address: "0xd2a530170D71a9Cfe1651Fb468E2B98F7Ed7456b", decimals: 6 },
+    MXNB: { address: "0x836F73Fbc370A9329Ba4957E47912DfDBA6BA461", decimals: 6 },
+    CIRBTC: { address: "0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF", decimals: 8 },
   },
   // Ethereum Sepolia (11155111) -- spoke.
   11155111: {

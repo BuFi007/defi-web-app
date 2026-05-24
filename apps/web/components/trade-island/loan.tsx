@@ -266,7 +266,10 @@ export function loanTokenDeployment(
 ): { chainId: number; address: Address; decimals: number } | null {
   if (hub !== "arc" && hub !== "fuji") return null;
   const chainId = chainIdByHubKey(hub);
-  const dep = getDeployment(chainId, symbol as StableTokenType);
+  // StableTokenType keys are uppercase ("CIRBTC", "MXNB", etc.) but the
+  // loan-tab table emits user-facing mixed-case ("cirBTC") for display.
+  // Uppercase here so the lookup hits regardless of casing in the row.
+  const dep = getDeployment(chainId, symbol.toUpperCase() as StableTokenType);
   if (!dep) return null;
   return { chainId, address: dep.address as Address, decimals: dep.decimals };
 }

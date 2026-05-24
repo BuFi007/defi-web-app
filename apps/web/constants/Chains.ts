@@ -263,10 +263,14 @@ export const ArcTestnet = {
   rpcUrls: ["https://rpc.testnet.arc.network"],
   isMainnet: false,
   networkId: 5042002,
+  // Arc gas token IS USDC (precompile at 0x3600...0000) — verified
+  // on-chain `decimals() = 6`. Iter-1 had this as 18 which made MetaMask
+  // / Dynamic register the native balance 1e12x too small in the
+  // wallet UI ("0.0000000000XX USDC" instead of "XX.XX USDC").
   nativeCurrency: {
     name: "USDC",
     symbol: "USDC",
-    decimals: 18,
+    decimals: 6,
     iconUrls: ["/networks/arc.svg"],
   },
   blockExplorerUrls: ["https://testnet.arcscan.app"],
