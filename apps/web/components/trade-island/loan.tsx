@@ -1154,10 +1154,14 @@ export function ActionCard({
     impactMini1 = ["per month", "−$" + monthly.toFixed(2)];
     impactMini2 = ["per day", "−$" + daily.toFixed(2)];
   } else if (action === "withdraw") {
+    // Lead with the asset amount (what actually lands in the wallet),
+    // demote the USDC dollar value to the small line. Previous order
+    // ($0.66 big + "1 AUDF" small) read as "you'll receive 66 cents" —
+    // confusing when the user's input was "1 AUDF".
     impactTitle = "You will receive";
-    impactBig = "$" + usd.toFixed(2);
+    impactBig = `${amt.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${loan.sym}`;
     impactBigClass = "ink";
-    impactMini1 = ["in " + loan.sym, amt.toLocaleString(undefined, { maximumFractionDigits: 2 })];
+    impactMini1 = ["≈ USDC", "$" + usd.toFixed(2)];
     impactMini2 = ["stops earning", "−$" + monthly.toFixed(2) + "/mo"];
   } else {
     // repay action — debt comes from telarana position read. No
@@ -1166,13 +1170,13 @@ export function ActionCard({
     // "—" rather than fake numbers.
     const debt = liveDebt;
     impactTitle = "You will free";
-    impactBig = "$" + usd.toFixed(2);
+    impactBig = `${amt.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${loan.sym}`;
     impactBigClass = "ink";
     impactMini1 = [
       "debt left",
       debt != null ? `−$${Math.max(0, debt - usd).toFixed(2)}` : "—",
     ];
-    impactMini2 = ["interest saved", "−$" + monthly.toFixed(2) + "/mo"];
+    impactMini2 = ["≈ USDC", "$" + usd.toFixed(2)];
   }
 
   // Legacy implicit-submit path. The Confirm popover is the primary CTA
@@ -1226,13 +1230,13 @@ export function ActionCard({
           primary call to action. Keeping MAX rightmost keeps the muscle-
           memory consistent with most DeFi inputs (Aave, Compound). */}
       <div className="lo-amount-quick">
-        <button onClick={() => setAmount((balance / 4).toString())}>25%</button>
-        <button onClick={() => setAmount((balance / 2).toString())}>50%</button>
-        <button onClick={() => setAmount((balance * 0.75).toString())}>75%</button>
+        <button onClick={() => setAmount(formatAmountForInput(balance / 4, tokenDecimals))}>25%</button>
+        <button onClick={() => setAmount(formatAmountForInput(balance / 2, tokenDecimals))}>50%</button>
+        <button onClick={() => setAmount(formatAmountForInput(balance * 0.75, tokenDecimals))}>75%</button>
         <button
           type="button"
           className="lo-amount-max"
-          onClick={() => setAmount(balance.toString())}
+          onClick={() => setAmount(formatAmountForInput(balance, tokenDecimals))}
           aria-label={`Use full balance of ${balance.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${loan.sym}`}
         >
           MAX
@@ -1400,6 +1404,20 @@ function mergeMockAndLiveMarkets(live: LoanMarket[]): LoanMarket[] {
   // still shows the long tail of FX pairs the protocol plans to support.
   const liveIds = new Set(live.map((m) => m.id));
   return [...live, ...LOAN_MARKETS.filter((m) => !liveIds.has(m.id))];
+}
+
+// Format a numeric balance for the amount input field. Strips floating-
+// point noise (0.1 + 0.2 → 0.3, not 0.30000000000000004), caps precision
+// at the token's on-chain decimals (so the parseUnits round-trip never
+// loses bits), and removes trailing zeros / dots for a clean display
+// (9999979 vs "9999979.000000"). Falls back to "" when the value isn't
+// finite — keeps the input empty rather than showing "NaN".
+function formatAmountForInput(value: number, decimals: number): string {
+  if (!Number.isFinite(value) || value <= 0) return "";
+  const cap = Math.max(0, Math.min(decimals, 8));
+  const rounded = Number(value.toFixed(cap));
+  if (Number.isInteger(rounded)) return rounded.toString();
+  return rounded.toString();
 }
 
 export function liveSupplyValueUsd(position: TelaranaPositionSerialized, loanDecimals = 6): number {

@@ -263,14 +263,22 @@ export const ArcTestnet = {
   rpcUrls: ["https://rpc.testnet.arc.network"],
   isMainnet: false,
   networkId: 5042002,
-  // Arc gas token IS USDC (precompile at 0x3600...0000) — verified
-  // on-chain `decimals() = 6`. Iter-1 had this as 18 which made MetaMask
-  // / Dynamic register the native balance 1e12x too small in the
-  // wallet UI ("0.0000000000XX USDC" instead of "XX.XX USDC").
+  // Arc Testnet brands its gas token as USDC (precompile at
+  // 0x3600...0000) but the EVM-level gas accounting is still in
+  // 18-decimal wei — every transaction's gas estimate is returned
+  // as wei. With `decimals: 6` MetaMask/Dynamic decoded the wei
+  // value through the 6-dec USDC formatter and displayed a
+  // ~0.005 USDC gas fee as **5,732,899,778.62 USDC**, which scared
+  // the user into thinking they were about to spend billions.
+  // 18-dec is the correct EVM convention; the symbol still reads
+  // "USDC" so the brand sticks, but the math is now sane.
+  // (If the wallet's native-balance display reads small after this,
+  // that's a separate fix in the balance-rendering code path, not
+  // here in the chain config.)
   nativeCurrency: {
     name: "USDC",
     symbol: "USDC",
-    decimals: 6,
+    decimals: 18,
     iconUrls: ["/networks/arc.svg"],
   },
   blockExplorerUrls: ["https://testnet.arcscan.app"],
