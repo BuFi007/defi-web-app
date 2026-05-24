@@ -42,6 +42,7 @@ mod lp_state;
 mod oi_gate;
 mod price;
 mod pyth_pusher;
+mod realtime;
 mod replacement_events;
 mod settlement;
 mod tick;
@@ -253,6 +254,15 @@ async fn main() -> ExitCode {
         }
     };
 
+    // ---------- Realtime publisher (Phase 8.5b) ----------
+    let realtime_handle = realtime::spawn(
+        grpc_state.clone(),
+        realtime::RealtimeConfig {
+            redis_url: cfg.redis_url.clone(),
+            channel_prefix: cfg.redis_channel_prefix.clone(),
+        },
+    );
+
     // ---------- Tick loop ----------
     let tick_cfg = cfg.clone();
     let tick_db = db.clone();
@@ -323,6 +333,18 @@ async fn main() -> ExitCode {
         }
     };
     tokio::pin!(http_future);
+    let realtime_future = async {
+        match realtime_handle {
+            Some(h) => {
+                let res = h.await;
+                error!(result = ?res, "realtime publisher exited unexpectedly");
+            }
+            None => {
+                std::future::pending::<()>().await;
+            }
+        }
+    };
+    tokio::pin!(realtime_future);
     tokio::select! {
         _ = shutdown_signal() => {
             info!("shutdown signal received");
@@ -343,6 +365,7 @@ async fn main() -> ExitCode {
         _ = &mut pyth_future => {}
         _ = &mut grpc_future => {}
         _ = &mut http_future => {}
+        _ = &mut realtime_future => {}
     }
     info!("BUFI matcher server stopped");
     ExitCode::SUCCESS
