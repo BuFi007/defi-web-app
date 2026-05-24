@@ -1,0 +1,67 @@
+{
+  "iteration": 2,
+  "last_iteration_completed": 1,
+  "last_iteration_at": "2026-05-24T16:50:00Z",
+  "branch": "feat/wk1n14-privacy-pools-live",
+  "head_commit": "47f7286",
+  "cadence_seconds": 2700,
+  "dod_progress": {
+    "render_homepage": "partial-ssr-only",
+    "all_tabs_render": "blocked-on-hydration",
+    "wallet_connect_arc": "blocked-on-hydration-and-missing-cta",
+    "perp_trade_end_to_end": "blocked-on-matcher-fills-and-ui-hydration",
+    "morpho_yield_real": "not-assessed",
+    "privacy_pool_mxnb": "blocked-on-hydration",
+    "onchain_reads_only": "partial-3-deployment-bugs",
+    "onchain_writes_only": "blocked-on-matcher",
+    "ci_green_main": "done-3x-clean",
+    "p0_p1_backlog_le_5": "P0=4 P1=6 — over threshold"
+  },
+  "blockers": [
+    {
+      "id": 1,
+      "title": "React not hydrating on / (welcome card SSRs but DOM has 0 reactFiber keys)",
+      "owner": "ALPHA",
+      "iteration_introduced": 1,
+      "evidence": "docs/loop-iteration-1/echo.md + /tmp/echo-i1-*.png"
+    },
+    {
+      "id": 2,
+      "title": "Matcher orderbook produces 0 fills across 13.9h uptime",
+      "owner": "BRAVO",
+      "iteration_introduced": 1,
+      "candidates": ["intent_translator.rs:282 hardcoded GTC", "MARKET orders priceE18=0 not crossing", "per-tick book rebuild loses state"]
+    },
+    {
+      "id": 3,
+      "title": "NotConnectedHome has no Log-In CTA",
+      "owner": "ALPHA",
+      "iteration_introduced": 1
+    },
+    {
+      "id": 4,
+      "title": "packages/location/src/deployments.ts missing MXNB/QCAD/cirBTC on Arc",
+      "owner": "CHARLIE",
+      "iteration_introduced": 1
+    },
+    {
+      "id": 5,
+      "title": "cirBTC decimals fallback wrong (UI=6, on-chain=8)",
+      "owner": "CHARLIE",
+      "iteration_introduced": 1
+    },
+    {
+      "id": 6,
+      "title": "ArcTestnet.nativeCurrency.decimals=18 (wrong, USDC=6)",
+      "owner": "CHARLIE",
+      "iteration_introduced": 1
+    }
+  ],
+  "wins": [
+    "Iteration 1: SSR render fix (cacheComponents off + drop mounted gate) — welcome card visible",
+    "Iteration 1: PR #119 lands, bun test now ignores Playwright .spec.ts",
+    "Iteration 1: ghost FxOracle address (0xF9D0…) corrected to canonical 0x77b3…2865",
+    "Iteration 1: beta-onboarding + demo-script + blockers triage docs shipped"
+  ],
+  "next_action": "Iteration 2: ALPHA debugs hydration (check console errors in /browse, look at Suspense fallback null hiding errors). BRAVO probes intent_translator.rs:282. Re-dispatch all 6 teams in parallel."
+}
