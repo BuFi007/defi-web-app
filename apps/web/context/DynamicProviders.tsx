@@ -85,14 +85,15 @@ export default function Providers({ children }: { children: ReactNode }) {
         // EthereumWalletConnectors.js:40 — MetaMaskConnector is omitted
         // from the connector list when this flag is false.
         useMetamaskSdk: false,
-        // "withoutSigning" defers chain validation until the user actually
+        // "sign-in" defers chain validation until the user actually
         // tries to sign a tx — auth handshake accepts any chain. Was
         // "always" which triggered an auto wallet_switchEthereumChain
         // during login; a dismissed switch on a not-yet-added Arc Testnet
         // caused MetaMask to revoke eth_accounts (Array(1) → Array(0)) and
         // surface the misleading "Please unlock your wallet extension"
         // overlay. See docs/loop-iteration-1/SUMMARY.md.
-        networkValidationMode: "withoutSigning",
+        // Valid SDK values: 'always' | 'sign-in' | 'never'.
+        networkValidationMode: "sign-in",
         walletConnectPreferredChains,
         social: {
           strategy: "popup",
