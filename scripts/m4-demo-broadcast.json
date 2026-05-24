@@ -1,0 +1,181 @@
+{
+  "wave": "M4",
+  "ranAt": "2026-05-21T12:35Z",
+  "agent": "Wave M4 — live demo broadcasts",
+  "network": {
+    "chainId": 5042002,
+    "name": "Arc Testnet",
+    "rpc": "https://rpc.testnet.arc.network",
+    "explorer": "https://testnet.arcscan.app"
+  },
+  "actors": {
+    "keeper": "0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69",
+    "keeperBalanceBefore": "1442130723250403730",
+    "keeperBalanceAfter": "429094931493403730",
+    "keeperConsumedWei": "1013035791757000000",
+    "keeperConsumedUsdcEquiv": "1.013035791757"
+  },
+  "contracts": {
+    "poolManager": "0x3FA22b7Aeda9ebBe34732ea394f1711887363B34",
+    "fxSwapHook": "0xC6F894f30d0D28972C876B4af58C02A4E88A0aC8",
+    "telaranaGatewayHubHook": "0xe895CB461AFF6E98167a7FA0Db252ba906714088",
+    "usdc": "0x3600000000000000000000000000000000000000",
+    "eurc": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
+    "gatewayMinter": "0x0022222ABE238Cc2C7Bb1f21003F0a260052475B",
+    "gatewayWallet": "0x0077777d7EBA4688BDeF3E311b846F25870A19B9",
+    "fxOracle": "0x77b3A3B420dB98B01085b8C46a753Ed9879e2865"
+  },
+  "phases": {
+    "phaseA_tghAdmin": {
+      "status": "ok",
+      "summary": "TelaranaGatewayHubHook post-deploy admin landed on chain. setGatewayRoute + setGatewayContextProofMode. EXECUTOR_ROLE was already granted at construction (initialAdmin gets DEFAULT_ADMIN+OPERATIONS+EXECUTOR).",
+      "txs": [
+        {
+          "step": "setGatewayRoute",
+          "routeId": "0xf78147c98547731be048740d9d9089e6258e5e712e0c66f7b9d9d57d6af3a968",
+          "routeName": "fujiToArcMintToHubUsdc (LIVE_ROUTE_IDS @bufi/contracts)",
+          "route": {
+            "sourceDomain": 1,
+            "destinationDomain": 26,
+            "sourceUsdc": "0x5425890298aed601595a70AB815c96711a31Bc65",
+            "destinationUsdc": "0x3600000000000000000000000000000000000000",
+            "sourceGatewayWallet": "0x0077777d7EBA4688BDeF3E311b846F25870A19B9",
+            "destinationGatewayMinter": "0x0022222ABE238Cc2C7Bb1f21003F0a260052475B",
+            "destinationHub": "0xe895CB461AFF6E98167a7FA0Db252ba906714088",
+            "whitelistedCaller": "0x0000000000000000000000000000000000000000",
+            "signerMode": 0,
+            "signerModeName": "EOA",
+            "enabled": true,
+            "metadataRef": "0x0000000000000000000000000000000000000000000000000000000000000000"
+          },
+          "txHash": "0x992fb6194ce3a0d70f34fe7d428cc0578cf1616335cd62e05dfd488eccc75d70",
+          "explorer": "https://testnet.arcscan.app/tx/0x992fb6194ce3a0d70f34fe7d428cc0578cf1616335cd62e05dfd488eccc75d70"
+        },
+        {
+          "step": "setGatewayContextProofMode",
+          "routeId": "0xf78147c98547731be048740d9d9089e6258e5e712e0c66f7b9d9d57d6af3a968",
+          "mode": 3,
+          "modeName": "SIGNED_INTENT_OR_HYPERLANE",
+          "txHash": "0x84f37814f1dcf077e99e150561c2b969ddfee7870c7230558f5ad4a60bfeacf6",
+          "explorer": "https://testnet.arcscan.app/tx/0x84f37814f1dcf077e99e150561c2b969ddfee7870c7230558f5ad4a60bfeacf6"
+        },
+        {
+          "step": "grantRole(EXECUTOR_ROLE, keeper)",
+          "status": "noop",
+          "note": "already granted at construction; hasRole(EXECUTOR_ROLE, keeper) verified true via eth_call"
+        }
+      ]
+    },
+    "phaseB_v4PoolInit": {
+      "status": "ok",
+      "summary": "Uniswap v4 PoolManager.initialize for USDC/EURC pool with FxSwapHook attached.",
+      "poolKey": {
+        "currency0": "0x3600000000000000000000000000000000000000",
+        "currency1": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
+        "fee": 100,
+        "tickSpacing": 1,
+        "hooks": "0xC6F894f30d0D28972C876B4af58C02A4E88A0aC8"
+      },
+      "sqrtPriceX96": "75868981088120501468594700288",
+      "sqrtPriceX96Hex": "0xf52559aa0006380000000000",
+      "priceTarget": "0.917 EURC per USDC (~EUR/USD 1.09)",
+      "poolId": "0xd5e4a30d113d293ff50273c0aa3626e66c3a1cb8b6ba2bf22f2420ed4f92a1ef",
+      "initialTick": -867,
+      "txHash": "0xf86f5d37dc9f842c3874077321ad001d0ecd992263bc0c9b82d946ded9f6463e",
+      "explorer": "https://testnet.arcscan.app/tx/0xf86f5d37dc9f842c3874077321ad001d0ecd992263bc0c9b82d946ded9f6463e"
+    },
+    "phaseC_liquiditySeed": {
+      "status": "ok",
+      "summary": "FxSwapHook PMM liquidity seeded via owner-gated first deposit. Hot-reserve set to 100% (no Morpho rehypothecation) because USDC/EURC market params aren't wired through this hook yet.",
+      "txs": [
+        {
+          "step": "setHotReservePct(10000)",
+          "txHash": "0x16ada1bdbfb95b8f1741625e375a394238073a7cd544d6245cda520dec0d92b5",
+          "explorer": "https://testnet.arcscan.app/tx/0x16ada1bdbfb95b8f1741625e375a394238073a7cd544d6245cda520dec0d92b5"
+        },
+        {
+          "step": "USDC.approve(FxSwapHook, 1_000_000)",
+          "txHash": "0xae2605026d312e5a282ca47bd045563ee195929172d2d76465872831d6b33eb4",
+          "explorer": "https://testnet.arcscan.app/tx/0xae2605026d312e5a282ca47bd045563ee195929172d2d76465872831d6b33eb4"
+        },
+        {
+          "step": "EURC.approve(FxSwapHook, 900_000)",
+          "txHash": "0x258cb49f4a674ddf447fc1fd3424c15bddec627e72127856ecb3cff3e3558e27",
+          "explorer": "https://testnet.arcscan.app/tx/0x258cb49f4a674ddf447fc1fd3424c15bddec627e72127856ecb3cff3e3558e27"
+        },
+        {
+          "step": "FxSwapHook.deposit(1_000_000, 900_000)",
+          "amount0Raw": "1000000",
+          "amount0Human": "1.0 USDC",
+          "amount1Raw": "900000",
+          "amount1Human": "0.9 EURC",
+          "sharesMinted": "1898488",
+          "totalShares": "1900000",
+          "minimumLiquidity": "1000",
+          "baseTargetE18": "1000000000000000000",
+          "quoteTargetE18": "900000000000000000",
+          "txHash": "0xf69fccaff9a734ad6675380ffde628a41e00ea8a07cbedc769387a2b6fed5f02",
+          "explorer": "https://testnet.arcscan.app/tx/0xf69fccaff9a734ad6675380ffde628a41e00ea8a07cbedc769387a2b6fed5f02"
+        }
+      ]
+    },
+    "phaseD_demoBroadcasts": {
+      "status": "blocked",
+      "summary": "Live USDC↔EURC swap through FxSwapHook.beforeSwap NOT broadcast. Three pre-flight blockers documented below; none can be unblocked without follow-up work outside the Wave M4 brief.",
+      "blockers": [
+        {
+          "id": "M4-BLOCK-1",
+          "name": "V4_SWAP_TEST_ROUTER not deployed (Wave M3 unmerged)",
+          "detail": "PoolManager.unlock(bytes) re-enters IUnlockCallback(msg.sender).unlockCallback(data). EOAs cannot satisfy this interface. Wave M3 must deploy a PoolSwapTest-equivalent on Arc Testnet — a contract that forwards (poolKey, swapParams, hookData) into PoolManager.swap from inside its unlockCallback.",
+          "fix": "Deploy a router contract that satisfies IUnlockCallback and exposes a single unlock(bytes) external (canonical PoolSwapTest shape). Update CONTRACTS[5042002].bento.poolSwapTest (or equivalent) in @bufi/contracts.",
+          "scriptsAffected": [
+            "scripts/v4-swap-pool-demo-cctp.ts",
+            "scripts/v4-swap-pool-demo-gateway.ts",
+            "scripts/m4-demo-broadcast.json (this file)"
+          ]
+        },
+        {
+          "id": "M4-BLOCK-2",
+          "name": "FxOracle.getMid(USDC,EURC) reverts StalePrice() (0x19abf40e)",
+          "detail": "FxOracle has the Pyth EUR/USD feed wired (PYTH_FEED_IDS.eurUsd=0x76fa85158bf14ede77087fe3ae472f66213f6ea2f5b411cb2de472794990fa5c). No fresh price has been pushed during the M4 window so getMid reverts. FxSwapHook.beforeSwap calls ORACLE.getMid directly — a swap would revert before consuming reserves.",
+          "fix": "Either: (a) wrap each demo swap with an FxOracle.getMidWithUpdatePyth(...) call inside the same v4 router contract — requires the router to accept Hermes update blobs from the offchain caller; OR (b) run a cron (apps/keeper-gateway-signer or a sibling) that posts Pyth updates on Arc on an interval that beats the stale-price window."
+        },
+        {
+          "id": "M4-BLOCK-3",
+          "name": "Circle Gateway attestation env not provisioned",
+          "detail": "Demo B (Gateway) additionally needs V4_SWAP_GATEWAY_ATTESTATION + V4_SWAP_GATEWAY_SIGNATURE. apps/keeper-gateway-signer is the source for these (signs Circle Gateway BurnIntent → POSTs to https://gateway-api-testnet.circle.com/v1/burnIntents → captures attestation + signature) but no live attestation was minted during the M4 window.",
+          "fix": "Run apps/keeper-gateway-signer once with the keeper EOA against a Gateway Wallet deposit on Fuji. Capture the attestation + signature into env. The CLI is ready in fx-telarana — pending operator action.",
+          "circleApiBase": "https://gateway-api-testnet.circle.com/v1"
+        }
+      ],
+      "encodingReference": {
+        "purpose": "Documents the exact calldata shape the demo scripts encode against, so M3 can verify its router contract matches this shape.",
+        "poolKey": {
+          "currency0": "0x3600000000000000000000000000000000000000",
+          "currency1": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
+          "fee": 100,
+          "tickSpacing": 1,
+          "hooks": "0xC6F894f30d0D28972C876B4af58C02A4E88A0aC8"
+        },
+        "swapParams": {
+          "zeroForOne": true,
+          "amountSpecified": "-100000",
+          "amountSpecifiedNote": "Negative = exact-input in v4 semantics; FxSwapHook.beforeSwap reverts on positive amountSpecified.",
+          "sqrtPriceLimitX96": "4295128740 (MIN_SQRT_PRICE+1 for zeroForOne=true)"
+        },
+        "hookData": "0x",
+        "routerCall": "V4_SWAP_TEST_ROUTER.unlock(abi.encode(poolKey, swapParams, hookData))"
+      }
+    }
+  },
+  "downstream": {
+    "m5RunbookFills": {
+      "branch": "feat/wk1m4-fill-runbook-tbds",
+      "basedOn": "feat/wk1m5-hookathon-demo-runbook",
+      "file": "docs/hookathon-demo.md",
+      "status": "ready",
+      "tbdsClosed": "all <TBD-M1> + all live <TBD-M4>",
+      "tbdsRemaining": "<PENDING-M3>, <PENDING-M3-ROUTER>, <PENDING-GATEWAY-ATTESTATION>, <TBD-M1-GHOST>"
+    }
+  }
+}
