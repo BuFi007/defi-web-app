@@ -7,13 +7,20 @@ end to end** with all three canonical flows.
 
 > Environment: **production** at `https://fx.bu.finance`. Tester wallet
 > pre-funded with 100 USDC + 200 MXNB + a sliver of Arc ETH for gas.
+>
+> Operator local-dev fallback: `bun run dev:up` (was `dev:complete`) →
+> web on **`https://localhost:3001`** (mkcert self-signed; run
+> `mkcert -install` once). API dev CORS now allows that origin.
 
 ---
 
 ## Pre-call checklist (operator)
 
 - [ ] Confirm `https://fx.bu.finance/` returns 200 (or 307 to alpha gate).
-- [ ] Confirm matcher is healthy (operator-side: `/health` endpoint OK).
+- [ ] Confirm matcher gRPC is healthy on `127.0.0.1:3005` via
+      `grpcurl -plaintext 127.0.0.1:3005 grpc.health.v1.Health/Check`.
+      (There is **no HTTP `/health` endpoint** on this branch — only
+      gRPC. Don't `curl` it.)
 - [ ] Confirm Arc Testnet RPC is responsive.
 - [ ] Tester has the **alpha password** and the **invite link** in their
       inbox.
@@ -31,24 +38,39 @@ end to end** with all three canonical flows.
 2. Tester types the alpha password and clicks **Continue**.
    - Expected: redirected to `/en` (the homepage). The hero shows the
      welcome / NotConnectedHome layout because no wallet is connected.
-   - `[screenshot: not-connected home]`
+     The welcome card now includes a visible primary **Log in or sign
+     up** button (iter-2 fix `d12e813`) — no more hunting for the
+     hamburger.
+   - Screenshot: `/tmp/echo-i2-01-home.png` — landed Trade tab with
+     EUR/USD chart loaded and **Log in or sign up** CTA visible top-right.
 
 ---
 
 ## Flow 1 — Connect wallet on Arc Testnet (≈ 1 min)
 
-3. Tester clicks **Log in or sign up** (top right, Dynamic widget).
-   - Expected: Dynamic modal opens listing wallet options.
-   - `[screenshot: dynamic modal open]`
+3. Tester clicks **Log in or sign up** (welcome card primary CTA, or
+   the matching header button top-right). Both open the Dynamic widget.
+   - Expected: Dynamic modal opens listing MetaMask, Coinbase,
+     WalletConnect, View-all-wallets (600+), email, GitHub, Google.
+   - Screenshot: `/tmp/echo-i2-02-modal.png` — Dynamic modal open over
+     the welcome card with all three primary wallet rows visible.
 
 4. Tester picks their wallet (e.g. **MetaMask**) and approves the connect.
    - Expected: wallet pops up → tester approves.
+   - **Local-dev fallback** if MetaMask flakes: enter the Dynamic test
+     email `tomas.cordero.esp+dynamic_test@gmail.com`, then OTP
+     `967140` (see `tests/fixtures/dynamic-test-accounts.json`).
+   - Screenshot: `/tmp/echo-i2-03-otp.png` — Dynamic modal with test
+     email pre-filled, OTP step ready. (Note: in dev the Dynamic
+     environment occasionally surfaces a "Request failed — too many
+     requests" banner; retry after ~10 s.)
 
 5. App prompts to **add / switch to Arc Testnet (chain id 5042002)**.
    - Tester approves.
    - Expected: page state changes — `NotConnectedHome` swaps out for
-     **Trade Island**.
-   - `[screenshot: trade island after connect]`
+     **Trade Island** (Trade tab default, EUR/USD chart loaded, Spot
+     Order panel on the right). See `/tmp/echo-i2-01-home.png` for the
+     reference layout.
 
 ---
 
@@ -168,8 +190,8 @@ end to end** with all three canonical flows.
 
 | If this happens | Do this |
 |---|---|
-| Wallet won't connect | Refresh page once; if still bad, try a different wallet. |
+| Wallet won't connect | Refresh page once; if still bad, try a different wallet. On local dev, fall back to Dynamic test login (`+dynamic_test@` email + OTP `967140`, see `tests/fixtures/dynamic-test-accounts.json`). |
 | Submit button doesn't trigger signature | Open devtools console; capture error; switch to a backup wallet. |
-| Order pending > 30s | Operator: check matcher `/ready` endpoint. If down, switch to "look around the UI" mode and reschedule. |
+| Order pending > 30s | Operator: `grpcurl -plaintext 127.0.0.1:3005 matcher.v1.Matcher/GetHealth` (no HTTP `/health` on this branch). If degraded, switch to "look around the UI" mode and reschedule. |
 | Privacy deposit reverts | Likely missing approve — re-trigger; if reverts again, abort flow 3 and continue to flow 4. |
 | Morpho APYs show 0 / placeholders | Skip the borrow action, flag as P0 in blockers, demo the UI only. |

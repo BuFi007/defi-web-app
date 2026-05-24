@@ -28,6 +28,13 @@ You need:
 > team in Slack before continuing — local-dev setup is **not** part of
 > the beta experience.
 
+> 🛠️ **Operators only — local dev:** boot the full stack with
+> `bun run dev:up` (was `bun run dev:complete`). Web serves at
+> **`https://localhost:3001`** under an mkcert self-signed cert — install
+> mkcert + run `mkcert -install` once so your browser trusts it.
+> Logs land in `/tmp/bufi-*.log`. The API dev CORS allow-list already
+> includes `https://localhost:3001`.
+
 ---
 
 ## Step 1 — Open the invite link
@@ -45,10 +52,11 @@ the bug channel (see end of doc) and re-try in 5 minutes.
 
 ## Step 2 — Connect your wallet
 
-On the homepage you'll see a **Log in or sign up** button (top right,
-the Dynamic widget).
+On the homepage welcome card you'll see a primary **Log in or sign up**
+button (and a matching one top-right in the header — both open the
+Dynamic widget).
 
-1. Click **Log in or sign up**.
+1. Click **Log in or sign up** on the welcome card.
 2. Pick your wallet (MetaMask, Rabby, WalletConnect, etc.).
 3. Approve the connect prompt in your wallet.
 4. The app will prompt you to **switch / add Arc Testnet (chain id
@@ -59,6 +67,14 @@ the **Trade Island** (the main trading surface).
 
 > If the page still says "wallet not connected" after a successful
 > connect, refresh once — this is a known Dynamic flake we're tracking.
+
+> 🩹 **Wallet flow flaking on local dev?** Fall back to the **Dynamic
+> test login**: in the modal pick **Enter your email**, paste
+> `tomas.cordero.esp+dynamic_test@gmail.com` (any `+dynamic_test`
+> address works), and use OTP `967140`. Full credential set lives at
+> `tests/fixtures/dynamic-test-accounts.json`. This bypasses
+> MetaMask/SIWE entirely and provisions a Turnkey embedded wallet on
+> first login. **Local dev only** — do not ship to invitees.
 
 ---
 
