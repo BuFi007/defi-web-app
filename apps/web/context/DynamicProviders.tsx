@@ -71,6 +71,20 @@ export default function Providers({ children }: { children: ReactNode }) {
       settings={{
         environmentId: DYNAMIC_ENVIRONMENT_ID,
         walletConnectors: [EthereumWalletConnectors],
+        // Bypass @metamask/sdk wrapping. Dynamic defaults useMetamaskSdk
+        // to true, which routes MetaMask calls through MetaMaskSDK 0.33.0
+        // even when the extension is installed. The SDK initializes with
+        // its own session identity (dappMetadata.url-derived) that doesn't
+        // match the extension's per-origin permission record — so connect
+        // succeeds, but the auth-handshake signMessage immediately fires
+        // RPC 4100 ("method not authorized"), MetaMask revokes
+        // eth_accounts (Array(1) → Array(0)), and the user sees "Please
+        // unlock your wallet extension". With useMetamaskSdk:false,
+        // MetaMask is detected via EIP-6963 and uses the injected
+        // provider directly. See @dynamic-labs/ethereum
+        // EthereumWalletConnectors.js:40 — MetaMaskConnector is omitted
+        // from the connector list when this flag is false.
+        useMetamaskSdk: false,
         // "withoutSigning" defers chain validation until the user actually
         // tries to sign a tx — auth handshake accepts any chain. Was
         // "always" which triggered an auto wallet_switchEthereumChain
