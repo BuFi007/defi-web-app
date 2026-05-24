@@ -26,6 +26,7 @@ import { formatHealthFactor, healthBucket, healthFactorFromE18, toAtomic } from 
 
 import { Hint } from "./hint";
 import { TokenIcon } from "./token-icon";
+import { LoanMarketPicker } from "./loan-market-picker";
 import { AnimatedNumber } from "@/components/animated-number";
 import { useMarketCandles } from "@/lib/perps/hooks";
 import {
@@ -1189,7 +1190,15 @@ export function ActionCard({
   return (
     <section className="lo-action">
       <div className="lo-action-head">
-        <span className="lo-eyebrow">Action</span>
+        {/* Market picker replaces the bare "Action" eyebrow so the user
+            can switch markets directly from the right panel — no more
+            forced trip back to the left-side market list. APY label on
+            the right stays as the rate readout. */}
+        <LoanMarketPicker
+          selected={market}
+          markets={marketsList ?? popoverMarkets ?? [market]}
+          onSelect={(m) => onFlipMarket?.(m.id)}
+        />
         <span
           className="lo-rate mono"
           style={{ color: A.side === "supply" ? "var(--profit-ink)" : "var(--loss-ink)" }}

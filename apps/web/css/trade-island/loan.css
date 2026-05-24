@@ -937,7 +937,10 @@
    the input's top edge regardless of the input's container width. */
 .lo-amount-quick {
   display: flex;
-  justify-content: flex-end;
+  /* Was flex-end so MAX hung off the input's right edge. Switched to
+     flex-start so the quick-pick rail aligns with the input's text
+     start and the row reads left → right (25 → 50 → 75 → MAX). */
+  justify-content: flex-start;
   align-items: center;
   gap: 6px;
   margin-bottom: -2px;
