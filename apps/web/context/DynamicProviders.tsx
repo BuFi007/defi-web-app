@@ -92,7 +92,7 @@ export default function Providers({ children }: { children: ReactNode }) {
         // caused MetaMask to revoke eth_accounts (Array(1) → Array(0)) and
         // surface the misleading "Please unlock your wallet extension"
         // overlay. See docs/loop-iteration-1/SUMMARY.md.
-        networkValidationMode: "withoutSigning",
+        networkValidationMode: "sign-in",
         walletConnectPreferredChains,
         social: {
           strategy: "popup",
