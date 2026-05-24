@@ -1,0 +1,66 @@
+/*
+ * uPlot CSS side-effect file.
+ *
+ * uPlot's stylesheet ships at `uplot/dist/uPlot.min.css`. Next.js bundles
+ * package CSS through `@import` inside a *.css file under the app tree —
+ * importing the CSS file directly from a "use client" component is not
+ * stable across Next versions. So we hop through this file, which any
+ * uPlot-consuming component (`depth.tsx`, `funding-rate-widget.tsx`)
+ * imports as a side-effect.
+ *
+ * BuFi-side overrides:
+ *   - kill the default white background (transparent so our card chrome
+ *     bleeds through),
+ *   - bump tooltip / legend fonts up to our mono stack,
+ *   - paint axis ticks with `--ink-3` (neutral) so the chart reads on
+ *     both light + dark themes.
+ *
+ * Keep this file pure CSS — no SCSS, no `:global(...)` wrappers. Next's
+ * default `.css` pipeline parses it through PostCSS just like
+ * `apps/web/app/globals.css`.
+ */
+
+@import url("uplot/dist/uPlot.min.css");
+
+.uplot {
+  /* Background is owned by the parent card; the canvas is always
+     transparent so a glass / dark / spaceman theme bleeds through. */
+  background: transparent !important;
+}
+
+.uplot .u-title {
+  display: none;
+}
+
+.uplot .u-legend {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
+  font-size: 10.5px;
+  color: var(--ink-3);
+}
+
+.uplot .u-axis text,
+.uplot .u-axis tspan {
+  fill: var(--ink-3) !important;
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
+  font-size: 10px;
+}
+
+/* Tooltip / crosshair cursor lines pick up our brand accent. */
+.uplot .u-cursor-x,
+.uplot .u-cursor-y {
+  background: var(--ink-3) !important;
+  opacity: 0.45;
+}
+
+/* Sparkline mode — caller adds `.uplot-spark` to the wrapper. We hide
+   all axes + the legend so the chart collapses to a pure curve. */
+.uplot-spark .uplot .u-axis,
+.uplot-spark .uplot .u-legend {
+  display: none;
+}
+
+.uplot-spark .uplot {
+  /* Sparklines live inside <24px rows; clip overflow so a long tail
+     doesn't bleed into the next row's metadata. */
+  overflow: hidden;
+}
