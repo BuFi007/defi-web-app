@@ -62,23 +62,28 @@ export function LoanMarketPicker({
     fuji: markets.filter((m) => m.hub === "fuji").length,
   } as const;
 
-  // Resting pill: pair icon + "LOAN/COLLATERAL" + hub pill. Same
-  // typographic rhythm as the perps trigger so the two pickers feel
-  // like siblings in the UI language.
+  // Resting pill: compact pair icon + "LOAN/COLLATERAL" + hub pill.
+  // Smaller than the perps header pill — the loan pill lives inside
+  // the action card head, not its own dedicated bar, so it has to
+  // read as a tight chip not a hero. Sizes set inline so the
+  // phantom (which mirrors this JSX) matches the visible pill width.
   const pillInner = (sel: LoanMarket | null) =>
     sel ? (
       <>
-        <TokenIconPair base={sel.loan} quote={sel.coll} size={20} />
-        <span style={{ fontWeight: 800, fontSize: 13 }}>
+        <TokenIconPair base={sel.loan} quote={sel.coll} size={16} />
+        <span style={{ fontWeight: 800, fontSize: 12 }}>
           {sel.loan}/{sel.coll}
         </span>
-        <span className="pill" style={{ fontSize: 9.5 }}>
+        <span className="pill" style={{ fontSize: 9 }}>
           {hubDisplayName(sel.hub)}
         </span>
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" style={{ opacity: 0.6 }}>
+          <path d="M2 4 L5 7 L8 4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </>
     ) : (
       <>
-        <span style={{ fontWeight: 800, fontSize: 13 }}>Pick a market</span>
+        <span style={{ fontWeight: 800, fontSize: 12 }}>Pick a market</span>
       </>
     );
 
