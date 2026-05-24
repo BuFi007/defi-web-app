@@ -95,6 +95,14 @@ pub struct GrpcState {
     /// Unix millis of the last successful settleMatch; surfaces via
     /// `HealthResponse.last_fill_timestamp_ms`. 0 if no fill yet.
     pub last_fill_timestamp_ms: std::sync::atomic::AtomicU64,
+    /// Phase 8.5a — unix millis of the last completed tick iteration.
+    /// Bumped by `tick::run` once per loop. Used by HTTP /ready to
+    /// detect a stalled matcher: if `now - last_tick_ms >
+    /// ready_max_tick_age`, the matcher is considered not-ready and
+    /// /ready returns 503. Independent from `last_fill_timestamp_ms`
+    /// (which only updates on real fills; markets can be idle for
+    /// hours without that signal moving).
+    pub last_tick_ms: std::sync::atomic::AtomicU64,
     /// Phase 8b — every successful `settle_one` builds a `Trade` proto
     /// and sends it here. `StreamTrades` subscribers read from this
     /// channel. Bounded so a slow client can't grow memory; the
@@ -128,6 +136,7 @@ impl GrpcState {
             started_at: Instant::now(),
             match_sequence_number: 0.into(),
             last_fill_timestamp_ms: 0.into(),
+            last_tick_ms: 0.into(),
             trade_tx,
             book_store: RwLock::new(BTreeMap::new()),
             book_tx,

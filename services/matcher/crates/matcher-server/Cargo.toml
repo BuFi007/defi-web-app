@@ -29,6 +29,11 @@ tonic = { workspace = true }
 prost = { workspace = true }
 async-stream = "0.3"
 
+# Phase 8.5a — HTTP /health + /ready + /metrics on a separate port
+# from the gRPC server (HTTP/1.1 for k8s liveness probes + Prometheus
+# scrapes; tonic on :3005 stays HTTP/2 prior-knowledge for clients).
+axum = "0.7"
+
 # alloy stack — used for EIP-712 verify + log subscription
 alloy-primitives = { workspace = true }
 alloy-sol-types = { workspace = true }
@@ -50,6 +55,9 @@ tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true }
+# Phase 8.5a test harness — `oneshot(Request)` against axum::Router
+# without binding a TCP port. Same tower version axum 0.7 pulls in.
+tower = { version = "0.5", features = ["util"] }
 
 [lints.rust]
 unsafe_code = "forbid"

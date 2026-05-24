@@ -33,6 +33,7 @@ mod config;
 mod event_subscriber;
 mod funding_poker;
 mod grpc;
+mod http_health;
 mod insurance_fund;
 mod intent_translator;
 mod lp_router;
@@ -225,6 +226,33 @@ async fn main() -> ExitCode {
         }
     };
 
+    // ---------- HTTP /health server (Phase 8.5a) ----------
+    let http_handle = if cfg.http_bind.is_empty() {
+        info!("HTTP /health server disabled (MATCHER_HTTP_BIND empty)");
+        None
+    } else {
+        match cfg.http_bind.parse::<std::net::SocketAddr>() {
+            Ok(addr) => {
+                info!(bind = %addr, "HTTP /health server starting (Phase 8.5a)");
+                let state = http_health::HttpHealthState {
+                    grpc: grpc_state.clone(),
+                    db: db.clone(),
+                    version: env!("CARGO_PKG_VERSION"),
+                    ready_max_tick_age_ms: cfg.ready_max_tick_age.as_millis() as u64,
+                };
+                Some(tokio::spawn(async move {
+                    if let Err(e) = http_health::serve(addr, state).await {
+                        error!(error = ?e, "HTTP /health server exited with error");
+                    }
+                }))
+            }
+            Err(e) => {
+                error!(bind = %cfg.http_bind, error = ?e, "MATCHER_HTTP_BIND parse: aborting");
+                return ExitCode::FAILURE;
+            }
+        }
+    };
+
     // ---------- Tick loop ----------
     let tick_cfg = cfg.clone();
     let tick_db = db.clone();
@@ -283,6 +311,18 @@ async fn main() -> ExitCode {
         }
     };
     tokio::pin!(grpc_future);
+    let http_future = async {
+        match http_handle {
+            Some(h) => {
+                let res = h.await;
+                error!(result = ?res, "HTTP /health server exited unexpectedly");
+            }
+            None => {
+                std::future::pending::<()>().await;
+            }
+        }
+    };
+    tokio::pin!(http_future);
     tokio::select! {
         _ = shutdown_signal() => {
             info!("shutdown signal received");
@@ -302,6 +342,7 @@ async fn main() -> ExitCode {
         _ = &mut canary_future => {}
         _ = &mut pyth_future => {}
         _ = &mut grpc_future => {}
+        _ = &mut http_future => {}
     }
     info!("BUFI matcher server stopped");
     ExitCode::SUCCESS

@@ -311,6 +311,18 @@ pub async fn run<L: LpStateView + Send + Sync>(
             }
         };
         drop(_guard);
+        // Phase 8.5a — heartbeat for HTTP /ready. Bumped after every
+        // tick completes (work or not), so /ready can detect a
+        // stalled loop even during idle periods.
+        if let Some(state) = grpc_state.as_ref() {
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0);
+            state
+                .last_tick_ms
+                .store(now_ms, std::sync::atomic::Ordering::Relaxed);
+        }
         if outcome.did_work {
             idle_streak = 0;
         } else {
@@ -380,6 +392,8 @@ mod tests {
             pyth_hermes_url: "https://hermes.pyth.network".into(),
             pyth_hermes_timeout: Duration::from_secs(10),
             grpc_bind: String::new(), // disabled in tick unit tests
+            http_bind: String::new(), // ditto for HTTP /health
+            ready_max_tick_age: Duration::from_secs(60),
         }
     }
 
