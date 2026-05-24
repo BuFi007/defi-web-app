@@ -4,6 +4,7 @@ import { cn } from "@/utils";
 import { pressable } from "@/utils/theme";
 import Image from "next/image";
 import { useState } from "react";
+import { TokenIcon } from "@/components/trade-island/token-icon";
 /**
  * Small button that display a given token symbol and image.
  *
@@ -44,7 +45,14 @@ export function TokenChip({
     token?.address === NATIVE_TOKEN_ADDRESS && chain
       ? chain.nativeCurrency.symbol
       : token?.symbol;
-  const showImage = Boolean(image) && !imageFailed;
+  // Route non-native symbols through TokenIcon so cirBTC renders the
+  // Webflow Lottie + STABLE_TOKEN_LIST hits get the canonical bundled
+  // SVG. Falls back to the deployment-provided `image` only when the
+  // address is the native gas token (where TokenIcon has no symbol
+  // basis to resolve from) or when TokenIcon's resolver misses.
+  const useSharedIcon =
+    Boolean(symbol) && token?.address !== NATIVE_TOKEN_ADDRESS;
+  const showImage = Boolean(image) && !imageFailed && !useSharedIcon;
   const isInteractive = Boolean(onClick) && !disabled;
   const chipClassName = cn(
     isInteractive ? pressable.secondary : "bg-ock-secondary",
@@ -55,7 +63,9 @@ export function TokenChip({
   );
   const content = (
     <>
-      {showImage ? (
+      {useSharedIcon ? (
+        <TokenIcon sym={symbol} size={24} />
+      ) : showImage ? (
         <Image
           src={image}
           alt={symbol}
