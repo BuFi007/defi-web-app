@@ -39,6 +39,17 @@ import {
   type StableTokenType,
 } from "@bufi/location/stable-tokens";
 
+import { LottieWrapper } from "@/components/ui/lottie-wrapper";
+
+// cirBTC has no static SVG / PNG yet — Circle ships the brand as a
+// Lottie loop on their Webflow CDN. Until we ingest a frozen still
+// into @bufi/location/stable-tokens, render the live loop in place
+// of the monogram fallback. The lottie-react child fetches + caches
+// the JSON via the browser HTTP cache, so repeat renders in a market
+// table only pay the parse + mount cost.
+const CIRBTC_LOTTIE_URL =
+  "https://cdn.prod.website-files.com/67116d0daddc92483c812e88/69cd233087350813462cfeea_cirBTC_Loop.json";
+
 const STABLE_BY_ASSET: Readonly<Record<StableTokenType, StableToken>> =
   Object.fromEntries(
     STABLE_TOKEN_LIST.map((t) => [t.asset, t] as const),
@@ -139,6 +150,34 @@ export function TokenIcon({
   size?: number;
   title?: string;
 }) {
+  // cirBTC: render the Webflow-hosted Lottie loop. Matches any
+  // casing the loan/markets tables emit ("cirBTC", "CIRBTC", "cirbtc").
+  if (sym.trim().toLowerCase() === "cirbtc") {
+    return (
+      <span
+        title={title ?? "cirBTC"}
+        aria-label={title ?? "cirBTC"}
+        style={{
+          display: "inline-block",
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          overflow: "hidden",
+          flexShrink: 0,
+          lineHeight: 0,
+        }}
+      >
+        <LottieWrapper
+          animationData={CIRBTC_LOTTIE_URL}
+          width=""
+          height=""
+          style={{ width: size, height: size }}
+          ariaLabel="cirBTC"
+        />
+      </span>
+    );
+  }
+
   const icon = resolveTokenIcon(sym);
   if (icon) {
     return (

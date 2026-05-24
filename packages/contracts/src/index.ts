@@ -225,6 +225,12 @@ export interface PrivacyContracts {
   swapAdapter?: Address;
   poolUSDC?: Address;
   poolEURC?: Address;
+  // Basket expansion 2026-05-23 — Arc only, deployed in 100%-hot
+  // mode (no Morpho rehyp). See privacy-hook-arc.json.
+  poolMXNB?: Address;
+  poolQCAD?: Address;
+  poolCIRBTC?: Address;
+  poolAUDF?: Address;
   commitmentVerifier?: Address;
   withdrawalVerifier?: Address;
   poseidonT3?: Address;
@@ -395,6 +401,8 @@ export const CONTRACTS: Record<ChainId, ChainContracts> = {
     // pools + Track B v2 fixed-rate swap adapter for atomic cross-currency
     // relay. `swapAdapter` is the v2 (codex round-11 patched) variant;
     // the deprecated v1 adapter at 0xA1930d3c… is drained + disabled.
+    // 2026-05-23 basket expansion (PR #45): MXNB / QCAD / cirBTC /
+    // AUDF shielded pools added in 100%-hot mode.
     // Source: ~/coding-dojo/fx-telarana/deployments/privacy-hook-arc.json.
     privacy: {
       entrypoint: "0xd11cddd1f04e850d3810a71608a49907c80f2736",
@@ -402,6 +410,10 @@ export const CONTRACTS: Record<ChainId, ChainContracts> = {
       swapAdapter: "0x3Fa1AcC89DFd52f6692F20b7E49cD58A306C27f2",
       poolUSDC: "0xc11c216c9c7a36848b1d4276d223160c8b51988f",
       poolEURC: "0x7B4582CDE65c8cC00fE24B16dBA60472242d234c",
+      poolMXNB: "0x441723FD6212EF7C95D0e04F59b2Eeb59838d4E7",
+      poolQCAD: "0xF3bd84bDdaD66a3b1F94dF7de0aD34AB158f2De4",
+      poolCIRBTC: "0x2465806A9293A588867DD94b9A6aB5d47531E928",
+      poolAUDF: "0x5BC0e0795D5ea842601220bd1f855e60Fad7E3D1",
       commitmentVerifier: "0x9056facd889a94e4acba8cbc4c8a81ed47ba8ea0",
       withdrawalVerifier: "0x7f0326cea0796e31ed38f01b1e8660faad7bb6ee",
       poseidonT3: "0x3333333C0A88F9BE4fd23ed0536F9B6c427e3B93",
