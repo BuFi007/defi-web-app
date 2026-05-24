@@ -24,6 +24,7 @@
         "@bufi/market-data": "workspace:*",
         "@bufi/mcp": "workspace:*",
         "@bufi/perps": "workspace:*",
+        "@bufi/realtime": "workspace:*",
         "@bufi/shared-types": "workspace:*",
         "@bufi/x402": "workspace:*",
         "@bufinance/logger": "0.1.1",
@@ -97,7 +98,9 @@
         "@bufi/db": "workspace:*",
         "@bufi/keeper-runtime": "workspace:*",
         "@bufi/perps": "workspace:*",
+        "@bufi/realtime": "workspace:*",
         "@bufi/shared-types": "workspace:*",
+        "@bufinance/logger": "0.1.1",
         "viem": "2.45.3",
       },
       "devDependencies": {
@@ -412,6 +415,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@bufi/contracts": "workspace:*",
+        "@bufi/realtime": "workspace:*",
         "@bufi/shared-types": "workspace:*",
         "viem": "2.45.3",
         "zod": "3.25.76",
@@ -424,6 +428,18 @@
     "packages/perps-math": {
       "name": "@bufi/perps-math",
       "version": "0.1.0",
+      "devDependencies": {
+        "bun-types": "1.3.10",
+        "typescript": "5",
+      },
+    },
+    "packages/realtime": {
+      "name": "@bufi/realtime",
+      "version": "0.1.0",
+      "dependencies": {
+        "@bufinance/logger": "0.1.1",
+        "ioredis": "5.4.1",
+      },
       "devDependencies": {
         "bun-types": "1.3.10",
         "typescript": "5",
@@ -792,6 +808,8 @@
     "@bufi/perps-math": ["@bufi/perps-math@workspace:packages/perps-math"],
 
     "@bufi/ponder": ["@bufi/ponder@workspace:apps/ponder"],
+
+    "@bufi/realtime": ["@bufi/realtime@workspace:packages/realtime"],
 
     "@bufi/shared-types": ["@bufi/shared-types@workspace:packages/shared-types"],
 
