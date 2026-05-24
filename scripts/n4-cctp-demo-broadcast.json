@@ -1,0 +1,99 @@
+{
+  "wave": "N4-PhaseC",
+  "broadcastAt": "2026-05-22T14:02:51.582Z",
+  "agent": "Wave N4 Phase C — re-broadcast swap leg with FxV4RouterHarness",
+  "preReq": {
+    "fxV4RouterHarness": "0x7cfc449B9A6777F740b2F8F7BA87351B15A4B3b6",
+    "fxV4RouterHarnessDeployTx": "0xedf26e793f8117482f01df92273204864b6bf0fa86e37b9e02dc177df3e417c4"
+  },
+  "network": {
+    "chainId": 5042002,
+    "name": "Arc Testnet",
+    "rpc": "https://rpc.testnet.arc.network"
+  },
+  "actor": {
+    "keeper": "0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69"
+  },
+  "contracts": {
+    "poolManager": "0x3FA22b7Aeda9ebBe34732ea394f1711887363B34",
+    "fxSwapHook": "0xC6F894f30d0D28972C876B4af58C02A4E88A0aC8",
+    "fxOracle": "0x77b3A3B420dB98B01085b8C46a753Ed9879e2865",
+    "fxV4RouterHarness": "0x7cfc449B9A6777F740b2F8F7BA87351B15A4B3b6",
+    "usdc": "0x3600000000000000000000000000000000000000",
+    "eurc": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a"
+  },
+  "poolKey": {
+    "currency0": "0x3600000000000000000000000000000000000000",
+    "currency1": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
+    "fee": 100,
+    "tickSpacing": 1,
+    "hooks": "0xC6F894f30d0D28972C876B4af58C02A4E88A0aC8"
+  },
+  "amount": {
+    "raw": "10000",
+    "human": "0.01",
+    "direction": "USDC→EURC (zeroForOne=true)"
+  },
+  "balances": {
+    "before": {
+      "keeper.usdc": "20.183907",
+      "keeper.eurc": "32.955639",
+      "hook.usdc": "1",
+      "hook.eurc": "0.9"
+    },
+    "after": {
+      "keeper.usdc": "20.160817",
+      "keeper.eurc": "32.964235",
+      "hook.usdc": "1.01",
+      "hook.eurc": "0.891404"
+    },
+    "deltas": {
+      "keeper.usdc": "-0.02309",
+      "keeper.eurc": "+0.008596",
+      "hook.usdc": "+0.01",
+      "hook.eurc": "-0.008596"
+    }
+  },
+  "steps": [
+    {
+      "step": "router-manager-sanity",
+      "status": "ok",
+      "detail": "manager() = 0x3FA22b7Aeda9ebBe34732ea394f1711887363B34"
+    },
+    {
+      "step": "pyth-refresh-pre-swap",
+      "status": "ok",
+      "txHash": "0xfbed293ae000da2ec147add9edff8ceb2183118b53623e8a76657211072ecc5c",
+      "explorer": "https://testnet.arcscan.app/tx/0xfbed293ae000da2ec147add9edff8ceb2183118b53623e8a76657211072ecc5c",
+      "gasUsed": "259928",
+      "blockNumber": "43517861",
+      "detail": "Fed 1 Pyth blob(s) to FxOracle.getMidWithUpdatePyth(USDC, EURC, ...)",
+      "durationMs": 5071
+    },
+    {
+      "step": "approve-router",
+      "status": "ok",
+      "txHash": "0xd8315f13fc60e336ee34ebb94f2082606e3d44c044a71e0c765fbbd328ea8c0f",
+      "explorer": "https://testnet.arcscan.app/tx/0xd8315f13fc60e336ee34ebb94f2082606e3d44c044a71e0c765fbbd328ea8c0f",
+      "gasUsed": "55426",
+      "blockNumber": "43517870",
+      "detail": "approve(0x7cfc449B9A6777F740b2F8F7BA87351B15A4B3b6, 10000)",
+      "durationMs": 4624
+    },
+    {
+      "step": "v4-router-swap-exact-input-single",
+      "status": "ok",
+      "txHash": "0x00360215bae7aa9d822611ffca52bc4224b4449386f2c47ad75fada76a4ec631",
+      "explorer": "https://testnet.arcscan.app/tx/0x00360215bae7aa9d822611ffca52bc4224b4449386f2c47ad75fada76a4ec631",
+      "detail": "router=0x7cfc449B9A6777F740b2F8F7BA87351B15A4B3b6 zeroForOne=true amountIn=10000 amountOutMinimum=0",
+      "gasUsed": "339140",
+      "blockNumber": "43517872",
+      "durationMs": 4533
+    }
+  ],
+  "outcome": {
+    "swapLeg": "PROVED LIVE",
+    "realTimeFxSwapPoolUsingCctp": "PROVED LIVE",
+    "evidence": "Keeper EURC 32.955639 → 32.964235 (Δ +0.008596 EURC). FxV4RouterHarness swap tx 0x00360215bae7aa9d822611ffca52bc4224b4449386f2c47ad75fada76a4ec631. Combined with N3's CCTP + Pyth artefacts, all four legs of \"Real-Time FX Swap Pools Using CCTP\" are now live."
+  }
+}
