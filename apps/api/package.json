@@ -34,5 +34,8 @@
   "devDependencies": {
     "@types/node": "20",
     "typescript": "5"
+  },
+  "optionalDependencies": {
+    "ioredis": "^5.4.1"
   }
 }
