@@ -13,6 +13,7 @@ import {
 
 import { fxBentoRoutes } from "./routes/fx-bento";
 import { fxTelaranaRoutes } from "./routes/fx-telarana";
+import { graphRoutes } from "./routes/graph";
 import { liveblocksRoutes } from "./routes/liveblocks";
 import { marketsRoutes } from "./routes/markets";
 import { mcpRoutes } from "./routes/mcp";
@@ -69,6 +70,7 @@ const corsMiddleware = createCorsMiddleware({
       "Content-Type",
       "Authorization",
       "X-API-Key",
+      "X-Bufi-Api-Key",
       "X-Request-Id",
       "X-Wallet-Address",
       "X-Wallet-ChainId",
@@ -79,7 +81,13 @@ const corsMiddleware = createCorsMiddleware({
       // Set by apps/web/lib/api-client.ts resilientFetch on POST/PUT/PATCH.
       "Idempotency-Key",
     ],
-    exposeHeaders: ["X-Request-Id", "X-Response-Time"],
+    exposeHeaders: [
+      "X-Request-Id",
+      "X-Response-Time",
+      "X-RateLimit-Limit",
+      "X-RateLimit-Remaining",
+      "Retry-After",
+    ],
     maxAge: 600,
     credentials: true,
   },
@@ -178,6 +186,11 @@ app.route("/fx-bento", fxBentoRoutes);
 app.route("/fx-telarana", fxTelaranaRoutes);
 app.route("/mcp", mcpRoutes);
 app.route("/x402", x402Routes);
+// Public GraphQL gateway in front of apps/ponder. Carries its own
+// rate-limit middleware (per-IP + per-API-key, token-bucket) so we
+// don't need to touch the global pipe. Mutations blocked at the edge.
+// See apps/api/src/routes/graph/index.ts + docs/integrator/GRAPHQL.md.
+app.route("/graph", graphRoutes);
 
 const port = Number(process.env.PORT ?? 3002);
 
