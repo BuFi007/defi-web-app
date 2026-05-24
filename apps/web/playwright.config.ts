@@ -19,6 +19,14 @@ import { defineConfig, devices } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "./e2e",
+  // Match only `*.e2e.ts` files. We deliberately do NOT use the default
+  // `*.spec.ts` glob because the root-level `bun test` discovers `*.spec.ts`
+  // across the whole monorepo and would try to execute these Playwright files
+  // in the bun runner (which throws "Playwright Test did not expect test() to
+  // be called here"). Keeping a Playwright-specific extension makes the two
+  // runners mutually exclusive without bun-side ignore config (which bun
+  // test does not yet support).
+  testMatch: /.*\.e2e\.ts$/,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
