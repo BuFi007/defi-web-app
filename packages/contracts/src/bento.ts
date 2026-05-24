@@ -81,8 +81,15 @@ export interface BentoV4PeripheryAddresses {
   FxSwapHook?: Address;
   TelaranaGatewayHubHook?: Address;
   /** PoolSwapTest router OR a custom FxSwapRouter forwarder. Read via env
-   *  `V4_SWAP_ROUTER_<CHAINID>` until pinned here (Wave M3 follow-up). */
+   *  `V4_SWAP_ROUTER_<CHAINID>` until pinned here (Wave M3 follow-up).
+   *  Wave N4 pin: FxV4RouterHarness — CCTP-shape (Demo A) path. */
   V4SwapRouter?: Address;
+  /** Gateway-aware v4 swap router (FxV4RouterHarnessGateway). Threads
+   *  Circle Gateway attestation through `beforeSwap` so a single tx can
+   *  pull liquidity from a remote chain and execute the swap atomically.
+   *  Wave N6 pin: FxV4RouterHarnessGateway — Gateway-shape (Demo B) path.
+   *  Read via env `V4_GATEWAY_SWAP_ROUTER_<CHAINID>` until pinned here. */
+  V4GatewaySwapRouter?: Address;
 }
 
 export interface BentoDeploymentArtifact {
@@ -130,9 +137,38 @@ export const BENTO_ARC_TESTNET_DEPLOYMENT: BentoDeploymentArtifact = {
     // PoolManager swap path so a single tx can pull liquidity from a
     // remote chain and execute the swap atomically.
     TelaranaGatewayHubHook: "0xe895CB461AFF6E98167a7FA0Db252ba906714088",
-    // V4SwapRouter: pending Wave M3 deploy in fx-telarana. Read via
-    // env var V4_SWAP_ROUTER_5042002 in the interim — see
-    // .env.local.example.
+    // fx-telarana FxV4RouterHarness (contracts/test/utils/FxV4RouterHarness.sol).
+    // PMM-aware: settles user input BEFORE manager.swap, which is what
+    // FxSwapHook's PMM custom-accounting shape requires — beforeSwap
+    // pulls the specified input out of PoolManager via
+    // inputCurrency.take(POOL_MANAGER, hook, amountIn) at FxSwapHook.sol L731,
+    // so the input MUST already be settled into PoolManager before
+    // manager.swap fires.
+    //
+    // Replaces the Wave N2a PoolSwapTest pin (0x60004B…11fa, tx
+    // 0xfcc77cb2…d39f) which settled AFTER manager.swap — incompatible
+    // with FxSwapHook, verified by N3's reverted swap artefact
+    // 0xde83acb7…62f6. PoolSwapTest is kept on-chain (and surfaced in
+    // fx-telarana arc-testnet.json under PoolSwapTest_deprecated) for
+    // v4-LP-shape pools without PMM hooks.
+    //
+    // Wave N4 deploy on Arc Testnet, tx 0xedf26e79…17c4. Closes N3's
+    // swap-leg revert. The env-var fallback (V4_SWAP_ROUTER_5042002)
+    // still works as an override for ops experimenting with a custom
+    // router. Demo A (CCTP path) router.
+    V4SwapRouter: "0x7cfc449B9A6777F740b2F8F7BA87351B15A4B3b6",
+    // fx-telarana FxV4RouterHarnessGateway — Gateway-aware variant of
+    // FxV4RouterHarness. Same PMM-aware settle-BEFORE-manager.swap
+    // ordering, additionally threads Circle Gateway attestation
+    // (Hyperlane-relayed mint-context proof) through TelaranaGatewayHubHook
+    // beforeSwap so a single tx pulls liquidity from a remote chain and
+    // executes the swap atomically. Demo B (Gateway path) router.
+    //
+    // Wave N6 deploy on Arc Testnet, tx 0x0d615d95…. Pairs with N4's
+    // CCTP-shape harness (V4SwapRouter above) — pick the router by
+    // demo path. The env-var fallback
+    // (V4_GATEWAY_SWAP_ROUTER_5042002) still works as an override.
+    V4GatewaySwapRouter: "0x72180a231245E06db12b6A77390Ce919fF041f04",
   },
 } as const;
 
@@ -234,6 +270,28 @@ export function getV4SwapRouterAddress(chainId: number): Address | null {
   const pinned = getBentoV4Periphery(chainId).V4SwapRouter;
   if (pinned) return pinned;
   const envValue = process.env[`V4_SWAP_ROUTER_${chainId}`];
+  if (envValue && /^0x[0-9a-fA-F]{40}$/.test(envValue)) {
+    return envValue as Address;
+  }
+  return null;
+}
+
+/**
+ * Resolve the v4 Gateway-aware swap router (FxV4RouterHarnessGateway) for
+ * `chainId`. Demo B path — threads Circle Gateway attestation through
+ * `beforeSwap` so a single tx can pull liquidity from a remote chain and
+ * execute the swap atomically. Falls back to env
+ * `V4_GATEWAY_SWAP_ROUTER_<CHAINID>` for ops experiments. Returns `null`
+ * when neither is configured.
+ *
+ * Pairs with `getV4SwapRouterAddress` (Demo A, CCTP path). Demo scripts
+ * and the /swap web widget pick the router by demo path. Wave N6 deploy:
+ * 0x72180a23…1f04 on Arc Testnet (chainId 5042002).
+ */
+export function getV4GatewaySwapRouterAddress(chainId: number): Address | null {
+  const pinned = getBentoV4Periphery(chainId).V4GatewaySwapRouter;
+  if (pinned) return pinned;
+  const envValue = process.env[`V4_GATEWAY_SWAP_ROUTER_${chainId}`];
   if (envValue && /^0x[0-9a-fA-F]{40}$/.test(envValue)) {
     return envValue as Address;
   }
