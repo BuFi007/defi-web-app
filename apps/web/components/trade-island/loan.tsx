@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { Address } from "viem";
-import { useAccount, useBalance } from "wagmi";
+import { useAccount, useBalance, useChainId, useSwitchChain } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
 
 import {
@@ -1097,6 +1097,9 @@ export function ActionCard({
   // BALANCE row showed 0 AUDF on Arc even when the user clearly held
   // 10M — wallet popover and ActionCard must agree on the same number.
   const { address: walletAddress } = useAccount();
+  const walletChainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
+  const { toast } = useToast();
   const onchain = market.onchain;
   const fallback = onchain ? null : loanTokenDeployment(market.hub, market.loan);
   const tokenAddress = (onchain?.loanToken ?? fallback?.address) as
@@ -1107,6 +1110,12 @@ export function ActionCard({
     | 5042002
     | undefined;
   const tokenDecimals = onchain?.loanDecimals ?? fallback?.decimals ?? 6;
+  const targetHubName = onchain
+    ? hubByChainId(onchain.hubChainId)?.name ?? market.hub.toUpperCase()
+    : market.hub.toUpperCase();
+  const needsNetworkSwitch = Boolean(
+    walletAddress && onchain && walletChainId !== onchain.hubChainId,
+  );
   const walletBalance = useBalance({
     address: walletAddress,
     token: tokenAddress,
@@ -1291,72 +1300,87 @@ export function ActionCard({
         </div>
       </div>
 
-      {onConfirm && (
-        <div className="lo-confirm-row">
-          <button
-            type="button"
-            className="lo-confirm-cta"
-            onClick={async () => {
-              if (!walletAddress) return;
-              if (!market.onchain) return;
-              const amt = parseFloat(amount);
-              if (!Number.isFinite(amt) || amt <= 0) return;
-              let atomic: bigint;
-              try {
-                atomic = parseUnits(amount, market.onchain.loanDecimals);
-              } catch {
-                return;
-              }
-              const kind: LendingActionKind =
-                action === "lend"
-                  ? "supply"
-                  : action === "withdraw"
-                  ? "withdraw"
-                  : action === "borrow"
-                  ? "borrow"
-                  : "repay";
-              await onConfirm(market, kind, atomic);
-            }}
-            disabled={
-              submitting ||
-              !walletAddress ||
-              !market.onchain ||
-              !(parseFloat(amount) > 0)
-            }
-            title={
-              !walletAddress
-                ? "Connect a wallet"
-                : !market.onchain
-                ? "Pick a live market from the list on the left"
-                : !(parseFloat(amount) > 0)
-                ? "Enter an amount above"
-                : submitLabelOverride ??
-                  `Confirm ${
-                    action === "lend"
-                      ? "Lend"
-                      : action === "withdraw"
-                      ? "Withdraw"
-                      : action === "borrow"
-                      ? "Borrow"
-                      : "Repay"
-                  }`
-            }
-          >
-            {submitting
-              ? "Signing…"
-              : submitLabelOverride ??
-                `Confirm ${
+      {onConfirm && (() => {
+        const actionVerb =
+          action === "lend"
+            ? "Lend"
+            : action === "withdraw"
+            ? "Withdraw"
+            : action === "borrow"
+            ? "Borrow"
+            : "Repay";
+        const ctaLabel = submitting
+          ? "Signing…"
+          : needsNetworkSwitch
+          ? `Switch to ${targetHubName} & ${actionVerb}`
+          : submitLabelOverride ?? `Confirm ${actionVerb}`;
+        const ctaTitle = !walletAddress
+          ? "Connect a wallet"
+          : !market.onchain
+          ? "Pick a live market from the list on the left"
+          : !(parseFloat(amount) > 0)
+          ? "Enter an amount above"
+          : needsNetworkSwitch
+          ? `Wallet is on the wrong network. Click to switch to ${targetHubName} and ${actionVerb.toLowerCase()}.`
+          : submitLabelOverride ?? `Confirm ${actionVerb}`;
+        return (
+          <div className="lo-confirm-row">
+            <button
+              type="button"
+              className="lo-confirm-cta"
+              onClick={async () => {
+                if (!walletAddress) return;
+                if (!market.onchain) return;
+                const amt = parseFloat(amount);
+                if (!Number.isFinite(amt) || amt <= 0) return;
+                // Prompt the wallet to switch to the hub chain BEFORE any
+                // contract reads (allowance) or signs fire. Without this,
+                // viem hits the wrong-chain RPC, the loan token contract
+                // doesn't exist there, and `allowance()` reverts with
+                // "Internal error" — surfaced to the user as a misleading
+                // "Signing failed" toast.
+                const targetChainId = market.onchain.hubChainId;
+                if (walletChainId !== targetChainId) {
+                  try {
+                    await switchChainAsync({ chainId: targetChainId });
+                  } catch (err) {
+                    toast({
+                      title: "Wrong network",
+                      description: `Switch your wallet to ${targetHubName} to ${actionVerb.toLowerCase()}.`,
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                }
+                let atomic: bigint;
+                try {
+                  atomic = parseUnits(amount, market.onchain.loanDecimals);
+                } catch {
+                  return;
+                }
+                const kind: LendingActionKind =
                   action === "lend"
-                    ? "Lend"
+                    ? "supply"
                     : action === "withdraw"
-                    ? "Withdraw"
+                    ? "withdraw"
                     : action === "borrow"
-                    ? "Borrow"
-                    : "Repay"
-                }`}
-          </button>
-        </div>
-      )}
+                    ? "borrow"
+                    : "repay";
+                await onConfirm(market, kind, atomic);
+              }}
+              disabled={
+                submitting ||
+                !walletAddress ||
+                !market.onchain ||
+                !(parseFloat(amount) > 0)
+              }
+              title={ctaTitle}
+            >
+              {ctaLabel}
+            </button>
+          </div>
+        );
+      })()}
     </section>
   );
 }
