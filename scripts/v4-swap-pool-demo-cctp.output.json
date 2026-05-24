@@ -1,0 +1,73 @@
+{
+  "ranAt": "2026-05-21T15:46:42.435Z",
+  "status": "dry-run",
+  "dryRun": true,
+  "network": {
+    "sourceChainId": 43113,
+    "destinationChainId": 5042002,
+    "cctp": {
+      "sourceDomain": 1,
+      "destinationDomain": 26,
+      "tokenMessengerV2": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
+      "messageTransmitterV2": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
+      "iris": "https://iris-api-sandbox.circle.com"
+    },
+    "arc": {
+      "poolManager": "0x3FA22b7Aeda9ebBe34732ea394f1711887363B34",
+      "telaranaGatewayHubHook": "0x74E894aFf25c89d707873347cd2554d30E0541fa",
+      "bufxTelaranaRequestRouter": "0xea11AfDc70eD0489346AC9d488C17155384B459c",
+      "fxSpotExecutor": "0x37ccDa89628Fd3Cc1f8ef5e45D8725c4e3a59542",
+      "usdc": "0x3600000000000000000000000000000000000000",
+      "targetTokenSymbol": "EURC",
+      "targetTokenAddress": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
+      "spotRouteId": "0x4b50d101784ab33ee4adc9ca42080b10cdd2b23d71004a34a9625f3554e97f19"
+    },
+    "fuji": {
+      "usdc": "0x5425890298aed601595a70AB815c96711a31Bc65"
+    }
+  },
+  "actors": {
+    "keeper": {
+      "address": "0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69"
+    },
+    "maker": {
+      "address": "0xa00b6D3a1C999DEc09EE1178d61EDC520c7d7AB9"
+    },
+    "taker": {
+      "address": "0xca437B03CDb1f2BCddB49dc45e267fc7038291fD"
+    }
+  },
+  "amountUsdc": "1",
+  "amountRaw": "1000000",
+  "steps": [
+    {
+      "step": "probe-arc-v4-pool-manager",
+      "status": "ok",
+      "detail": "PoolManager at 0x3FA22b7Aeda9ebBe34732ea394f1711887363B34 responded to extsload",
+      "durationMs": 434
+    },
+    {
+      "step": "probe-arc-telarana-gateway-hub-hook",
+      "status": "ok",
+      "detail": "GATEWAY_MINTER() = 0x0022222ABE238Cc2C7Bb1f21003F0a260052475B (matches canonical Circle Gateway minter)",
+      "durationMs": 434
+    },
+    {
+      "step": "fx-swap-hook-abi-presence",
+      "status": "stub",
+      "detail": "FxSwapHook (fx-telarana/contracts/src/hub/FxSwapHook.sol) is shipped on the contract side but its ABI is not synced into packages/contracts/src/abis/ yet. The minimal `parseAbi` stub in this script is a marker; the real beforeSwap-routed swap goes through PoolManager.unlock + PoolManager.swap with hookData carrying the GatewayMintContext.",
+      "stubReason": "waiting on Wave K1 — `scripts/sync-abis.mjs` must publish FxSwapHookAbi to packages/contracts/src/abis/"
+    },
+    {
+      "step": "dry-run-exit",
+      "status": "dry-run",
+      "detail": "V4_SWAP_DRY_RUN=true (default). Pass V4_SWAP_DRY_RUN=false to actually broadcast."
+    }
+  ],
+  "balances": {
+    "takerArcUsdcBefore": "0.996997",
+    "takerArcUsdcAfter": null,
+    "takerArcTargetBefore": "0",
+    "takerArcTargetAfter": null
+  }
+}

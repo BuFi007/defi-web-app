@@ -33,6 +33,8 @@
     "keeper:pyth": "bun run --filter ./apps/keeper-pyth dev",
     "keeper:arcade-settler": "bun run --filter ./apps/keeper-arcade-settler dev",
     "contracts:sync": "bun run scripts/sync-contracts.mjs",
+    "demo:v4-swap-pool-cctp": "bun scripts/v4-swap-pool-demo-cctp.ts",
+    "demo:v4-swap-pool-gateway": "bun scripts/v4-swap-pool-demo-gateway.ts",
     "smoke:perps-replacement:api": "bun scripts/perps-replacement-e2e-smoke.ts",
     "smoke:perps-replacement:browser": "bun scripts/perps-replacement-browser-e2e.ts",
     "smoke:perps-replacement:arc": "bun scripts/perps-live-arc-replacement-keeper-smoke.ts",
