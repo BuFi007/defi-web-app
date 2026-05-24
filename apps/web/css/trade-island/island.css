@@ -476,6 +476,19 @@ body[data-banner="open"] .island {
   align-items: center;
   gap: 8px;
   min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+/* Inside the row, the "USDC across all hubs" label must truncate before
+   it can push the right-side value (Gateway $X USDC + chevron) off the
+   panel. On Pixel 7 (412px → 380px panel → ~352px content) the label
+   alone is ~140px so it fits; on narrower phones (≤390px iPhone 14)
+   the panel narrows to ~358px and ellipsis becomes critical. */
+.gateway-island-row-l .acct-l {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 .gateway-island-row-r {
   display: inline-flex;
@@ -540,11 +553,21 @@ body[data-banner="open"] .island {
 
 /* Mobile — the panel already clamps to `calc(100vw - 32px)`. Tighten the
    internal padding so the unified row doesn't push the per-token list
-   below the fold on narrow phones. */
+   below the fold on narrow phones. Verified at Pixel 7 (412px) +
+   iPhone 14 (390px) — Wave L5 mobile QA pass. */
 @media (max-width: 480px) {
-  .gateway-island-row { padding: 9px 12px; }
+  .gateway-island-row { padding: 9px 12px; gap: 8px; }
   .gateway-island-breakdown { padding: 0 12px 6px; }
-  .gateway-island-badge { font-size: 8.5px; padding: 2px 6px; }
+  .gateway-island-badge { font-size: 8.5px; padding: 2px 6px; flex-shrink: 0; }
+  /* Per-hub breakdown rows: tabular-num + smaller label so a 4-hub
+     breakdown stays one-line each at iPhone-14 width. */
+  .gateway-island-breakdown-row { font-size: 11.5px; padding: 5px 0; }
+  .gateway-island-breakdown-l {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
 }
 
 .acct-island-scrim {
