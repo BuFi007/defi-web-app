@@ -120,6 +120,18 @@ pub struct Config {
     /// `last_tick_ms` within this window. Default 2 × tick_idle.
     /// Phase 8.5a.
     pub ready_max_tick_age: Duration,
+    /// Optional Redis URL for the realtime publisher. Empty = disabled
+    /// (the default). Set to e.g. `redis://127.0.0.1:6379/` to fan
+    /// out trades + book updates to Redis pub/sub channels in
+    /// addition to the existing gRPC `StreamTrades` / `StreamBook`
+    /// broadcasts. Phase 8.5b — replaces apps/keeper-perps-matcher
+    /// Redis publisher (TS-side PR #74).
+    pub redis_url: String,
+    /// Channel prefix for Redis publishes. Default `bufi:`. Final
+    /// channels: `<prefix>trades:<market_id_hex>` (per-market),
+    /// `<prefix>trades` (firehose across all markets),
+    /// `<prefix>book:<market_id_hex>` (per-market book). Phase 8.5b.
+    pub redis_channel_prefix: String,
 }
 
 impl Config {
@@ -201,6 +213,11 @@ impl Config {
             "MATCHER_READY_MAX_TICK_AGE_MS",
             (tick_idle.as_millis() as u64).saturating_mul(2),
         )?);
+        // Phase 8.5b — empty by default. Set MATCHER_REDIS_URL=
+        // explicitly to disable; set to a real URL to enable.
+        let redis_url = env::var("MATCHER_REDIS_URL").unwrap_or_default();
+        let redis_channel_prefix = env::var("MATCHER_REDIS_CHANNEL_PREFIX")
+            .unwrap_or_else(|_| "bufi:".to_string());
         Ok(Self {
             chain_id,
             rpc_url,
@@ -229,6 +246,8 @@ impl Config {
             grpc_bind,
             http_bind,
             ready_max_tick_age,
+            redis_url,
+            redis_channel_prefix,
         })
     }
 

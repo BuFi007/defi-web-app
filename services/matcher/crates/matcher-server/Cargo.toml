@@ -34,6 +34,12 @@ async-stream = "0.3"
 # scrapes; tonic on :3005 stays HTTP/2 prior-knowledge for clients).
 axum = "0.7"
 
+# Phase 8.5b — optional Redis publisher tap on existing broadcast
+# channels (GrpcState::trade_tx + book_tx). For non-gRPC consumers
+# (legacy TS keepers, future WS bridge in apps/api). Behind
+# MATCHER_REDIS_URL env (empty = disabled).
+redis = { version = "0.27", default-features = false, features = ["tokio-comp", "connection-manager"] }
+
 # alloy stack — used for EIP-712 verify + log subscription
 alloy-primitives = { workspace = true }
 alloy-sol-types = { workspace = true }
