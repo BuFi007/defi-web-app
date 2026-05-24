@@ -11,7 +11,8 @@
     "./locale-flags": "./src/locale-flags.ts",
     "./stable-tokens": "./src/stable-tokens.ts",
     "./hubs": "./src/hubs.ts",
-    "./deployments": "./src/deployments.ts"
+    "./deployments": "./src/deployments.ts",
+    "./v4-hook-deployments": "./src/v4-hook-deployments.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

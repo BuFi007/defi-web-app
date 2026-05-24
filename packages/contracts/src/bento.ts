@@ -21,6 +21,8 @@ import { FxBentoRoomFactoryAbi } from "./abis/FxBentoRoomFactory";
 import { FxBentoRoundManagerAbi } from "./abis/FxBentoRoundManager";
 import { FxBentoScoringAbi } from "./abis/FxBentoScoring";
 import { FxBentoSettlementManagerAbi } from "./abis/FxBentoSettlementManager";
+import { FxSwapHookAbi } from "./abis/FxSwapHook";
+import { TelaranaGatewayHubHookAbi } from "./abis/TelaranaGatewayHubHook";
 
 export type BentoContractName =
   | "FXBentoCommitmentManager"
@@ -60,6 +62,36 @@ export const BENTO_ABIS = {
   ProtocolFeeVault: FxBentoProtocolFeeVaultAbi,
 } as const satisfies Record<BentoContractName, Abi>;
 
+/**
+ * v4-periphery surface that lives next to the Bento PoolManager. These are
+ * the contracts the demo flows route swaps through — separate from the
+ * BentoContractName union because they belong to the wider FX Telaraña
+ * stack and may live in a sibling deploy manifest (`fx-telarana/deployments`).
+ *
+ * `FxSwapHook` / `TelaranaGatewayHubHook` are Wave M1 Uniswap v4 hooks
+ * deployed on Arc Testnet 2026-05-21 (see memory `reference_arc_addresses.md`).
+ * `V4SwapRouter` is the periphery router used by demo scripts to call
+ * `PoolManager.unlock` → `swap` from an EOA (Universal Router is not yet
+ * deployed on Arc Testnet; PoolSwapTest from v4-periphery is the canonical
+ * fallback). Address is `null` until M3 deploys the router from the
+ * sibling fx-telarana repo; M4 demos read it via env var
+ * `V4_SWAP_ROUTER_<CHAINID>` until pinned here.
+ */
+export interface BentoV4PeripheryAddresses {
+  FxSwapHook?: Address;
+  TelaranaGatewayHubHook?: Address;
+  /** PoolSwapTest router OR a custom FxSwapRouter forwarder. Read via env
+   *  `V4_SWAP_ROUTER_<CHAINID>` until pinned here (Wave M3 follow-up).
+   *  Wave N4 pin: FxV4RouterHarness — CCTP-shape (Demo A) path. */
+  V4SwapRouter?: Address;
+  /** Gateway-aware v4 swap router (FxV4RouterHarnessGateway). Threads
+   *  Circle Gateway attestation through `beforeSwap` so a single tx can
+   *  pull liquidity from a remote chain and execute the swap atomically.
+   *  Wave N6 pin: FxV4RouterHarnessGateway — Gateway-shape (Demo B) path.
+   *  Read via env `V4_GATEWAY_SWAP_ROUTER_<CHAINID>` until pinned here. */
+  V4GatewaySwapRouter?: Address;
+}
+
 export interface BentoDeploymentArtifact {
   network: string;
   chainId: number;
@@ -69,6 +101,9 @@ export interface BentoDeploymentArtifact {
   indexerStartBlock: number;
   poolManagerStartBlock: number;
   addresses: BentoContractAddresses & { PoolManager?: Address };
+  /** v4 periphery + Wave M1 hooks. Optional so non-Arc chains stay
+   *  backward-compatible. */
+  v4Periphery?: BentoV4PeripheryAddresses;
 }
 
 export const BENTO_ARC_TESTNET_DEPLOYMENT: BentoDeploymentArtifact = {
@@ -89,6 +124,51 @@ export const BENTO_ARC_TESTNET_DEPLOYMENT: BentoDeploymentArtifact = {
     FXBentoRoundManager: "0xfb956d033b15276da21579afd5f5b6bf6320869e",
     FXBentoSettlementManager: "0x8f635571aaea4b1391534cd92932caa839e04bcd",
     FXBentoCommitmentManager: "0x6b2c047fa0deb963a9ede1db7d0e4df258880414",
+  },
+  v4Periphery: {
+    // FX Telaraña Wave M1 — deployed 2026-05-21 via CREATE2 (salt-mined
+    // against the Uniswap v4 BEFORE_SWAP / AFTER_SWAP / ADD_LIQ flags).
+    // Source: fx-telarana@feat/wave-m1-deploy-arc-hooks deployments/arc-testnet.json.
+    // PermissionFlags 0xAC8: beforeAddLiquidity | beforeRemoveLiquidity |
+    // beforeSwap | afterSwap | beforeSwapReturnDelta.
+    FxSwapHook: "0xC6F894f30d0D28972C876B4af58C02A4E88A0aC8",
+    // PermissionFlags 0x88: beforeSwap | beforeSwapReturnDelta. Hooks
+    // Circle Gateway mint-context proofs (Hyperlane-relayed) into the
+    // PoolManager swap path so a single tx can pull liquidity from a
+    // remote chain and execute the swap atomically.
+    TelaranaGatewayHubHook: "0xe895CB461AFF6E98167a7FA0Db252ba906714088",
+    // fx-telarana FxV4RouterHarness (contracts/test/utils/FxV4RouterHarness.sol).
+    // PMM-aware: settles user input BEFORE manager.swap, which is what
+    // FxSwapHook's PMM custom-accounting shape requires — beforeSwap
+    // pulls the specified input out of PoolManager via
+    // inputCurrency.take(POOL_MANAGER, hook, amountIn) at FxSwapHook.sol L731,
+    // so the input MUST already be settled into PoolManager before
+    // manager.swap fires.
+    //
+    // Replaces the Wave N2a PoolSwapTest pin (0x60004B…11fa, tx
+    // 0xfcc77cb2…d39f) which settled AFTER manager.swap — incompatible
+    // with FxSwapHook, verified by N3's reverted swap artefact
+    // 0xde83acb7…62f6. PoolSwapTest is kept on-chain (and surfaced in
+    // fx-telarana arc-testnet.json under PoolSwapTest_deprecated) for
+    // v4-LP-shape pools without PMM hooks.
+    //
+    // Wave N4 deploy on Arc Testnet, tx 0xedf26e79…17c4. Closes N3's
+    // swap-leg revert. The env-var fallback (V4_SWAP_ROUTER_5042002)
+    // still works as an override for ops experimenting with a custom
+    // router. Demo A (CCTP path) router.
+    V4SwapRouter: "0x7cfc449B9A6777F740b2F8F7BA87351B15A4B3b6",
+    // fx-telarana FxV4RouterHarnessGateway — Gateway-aware variant of
+    // FxV4RouterHarness. Same PMM-aware settle-BEFORE-manager.swap
+    // ordering, additionally threads Circle Gateway attestation
+    // (Hyperlane-relayed mint-context proof) through TelaranaGatewayHubHook
+    // beforeSwap so a single tx pulls liquidity from a remote chain and
+    // executes the swap atomically. Demo B (Gateway path) router.
+    //
+    // Wave N6 deploy on Arc Testnet, tx 0x0d615d95…. Pairs with N4's
+    // CCTP-shape harness (V4SwapRouter above) — pick the router by
+    // demo path. The env-var fallback
+    // (V4_GATEWAY_SWAP_ROUTER_5042002) still works as an override.
+    V4GatewaySwapRouter: "0x72180a231245E06db12b6A77390Ce919fF041f04",
   },
 } as const;
 
@@ -145,6 +225,79 @@ export function getBentoIndexerStartBlock(chainId: number): number | undefined {
   return getBentoDeployment(chainId)?.indexerStartBlock;
 }
 
+/**
+ * v4 periphery addresses for a given chain. Returns an empty object when
+ * none are pinned yet (non-Arc chains today). M4 demo scripts should
+ * prefer the pinned address; fall back to env `V4_SWAP_ROUTER_<CHAINID>`
+ * when `V4SwapRouter` is undefined.
+ */
+export function getBentoV4Periphery(chainId: number): BentoV4PeripheryAddresses {
+  return getBentoDeployment(chainId)?.v4Periphery ?? {};
+}
+
+/**
+ * Resolve the FxSwapHook address for `chainId`, or `null` if not deployed.
+ * Wave M1 deployed this on Arc Testnet 2026-05-21.
+ */
+export function getFxSwapHookAddress(chainId: number): Address | null {
+  return getBentoV4Periphery(chainId).FxSwapHook ?? null;
+}
+
+/**
+ * Resolve the TelaranaGatewayHubHook address for `chainId`, or `null` if
+ * not deployed. Wave M1 deployed this on Arc Testnet 2026-05-21.
+ */
+export function getTelaranaGatewayHubHookAddress(chainId: number): Address | null {
+  return getBentoV4Periphery(chainId).TelaranaGatewayHubHook ?? null;
+}
+
+/**
+ * Resolve the v4 periphery swap router (PoolSwapTest or FxSwapRouter
+ * forwarder) for `chainId`. Falls back to env var
+ * `V4_SWAP_ROUTER_<CHAINID>` so the M4 demo broadcast can run while the
+ * pin lands in a follow-up. Returns `null` when neither is configured.
+ *
+ * Universal Router is the preferred entry point per the v4 SDK guide
+ * (see ~/.claude/skills/v4-sdk-integration/SKILL.md) but is NOT deployed
+ * on Arc Testnet (chainId 5042002) per
+ * https://developers.uniswap.org/contracts/v4/deployments — checked
+ * 2026-05-21, only the 18 mainnets + 6 testnets listed there carry one,
+ * Arc isn't among them. Until a Universal Router lands or fx-telarana
+ * Wave M3 broadcasts PoolSwapTest, demo scripts route EOA swaps through
+ * this address.
+ */
+export function getV4SwapRouterAddress(chainId: number): Address | null {
+  const pinned = getBentoV4Periphery(chainId).V4SwapRouter;
+  if (pinned) return pinned;
+  const envValue = process.env[`V4_SWAP_ROUTER_${chainId}`];
+  if (envValue && /^0x[0-9a-fA-F]{40}$/.test(envValue)) {
+    return envValue as Address;
+  }
+  return null;
+}
+
+/**
+ * Resolve the v4 Gateway-aware swap router (FxV4RouterHarnessGateway) for
+ * `chainId`. Demo B path — threads Circle Gateway attestation through
+ * `beforeSwap` so a single tx can pull liquidity from a remote chain and
+ * execute the swap atomically. Falls back to env
+ * `V4_GATEWAY_SWAP_ROUTER_<CHAINID>` for ops experiments. Returns `null`
+ * when neither is configured.
+ *
+ * Pairs with `getV4SwapRouterAddress` (Demo A, CCTP path). Demo scripts
+ * and the /swap web widget pick the router by demo path. Wave N6 deploy:
+ * 0x72180a23…1f04 on Arc Testnet (chainId 5042002).
+ */
+export function getV4GatewaySwapRouterAddress(chainId: number): Address | null {
+  const pinned = getBentoV4Periphery(chainId).V4GatewaySwapRouter;
+  if (pinned) return pinned;
+  const envValue = process.env[`V4_GATEWAY_SWAP_ROUTER_${chainId}`];
+  if (envValue && /^0x[0-9a-fA-F]{40}$/.test(envValue)) {
+    return envValue as Address;
+  }
+  return null;
+}
+
 export {
   FxBentoCommitmentManagerAbi,
   FxBentoHookAbi,
@@ -155,4 +308,6 @@ export {
   FxBentoRoundManagerAbi,
   FxBentoScoringAbi,
   FxBentoSettlementManagerAbi,
+  FxSwapHookAbi,
+  TelaranaGatewayHubHookAbi,
 };
