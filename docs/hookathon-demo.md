@@ -91,9 +91,9 @@ bun scripts/v4-swap-pool-demo-gateway.ts
 |---|---|---|
 | `KEEPER_PRIVATE_KEY` | local `.env.local` | Funded on Arc (USDC for gas). |
 | `TELARANA_GATEWAY_HUB_HOOK_ADDRESS` | `0xe895CB461AFF6E98167a7FA0Db252ba906714088` | CREATE2-mined low 14 bits = `0x88` (beforeSwap \| beforeSwapReturnDelta — the Gateway-aware flags). Salt `0x0000…01a6`. Deploy tx `0x53eca2cd…0601bde` (fx-telarana PR #34). Wave M4 post-deploy admin: `setGatewayRoute(fujiToArcMintToHubUsdc=0xf78147c9…2a968)` tx `0x992fb619…cc75d70`, `setGatewayContextProofMode(SIGNED_INTENT_OR_HYPERLANE=3)` tx `0x84f37814…0bfeacf6`. `EXECUTOR_ROLE` granted to keeper at ctor (initialAdmin). |
-| `V4_SWAP_TEST_ROUTER` | `<PENDING-M3>` | Arc-side v4 test router (`PoolSwapTest`-equivalent). Wave M3 deploys. |
-| `V4_SWAP_GATEWAY_ATTESTATION` | `<PENDING-GATEWAY-ATTESTATION>` | Circle Gateway attestation blob. Mint flow: keeper-gateway-signer (a) deposits USDC into Gateway Wallet `0x0077777d…0A19B9` on Fuji, (b) signs a `BurnIntent`, (c) POSTs to `https://gateway-api-testnet.circle.com/v1/burnIntents`. Not provisioned in the M4 broadcast window — `apps/keeper-gateway-signer` ships the loop in fx-telarana but no live attestation was generated yet. |
-| `V4_SWAP_GATEWAY_SIGNATURE` | `<PENDING-GATEWAY-ATTESTATION>` | Circle API signature over the attestation. Same source as above. |
+| `FX_V4_ROUTER_HARNESS_GATEWAY_ADDRESS` | `0x72180a231245E06db12b6A77390Ce919fF041f04` | Arc-side v4 router harness that satisfies `IUnlockCallback` AND threads the Circle Gateway attestation through `beforeSwap`. Deploy tx `0x0d615d95…1413ca5` (fx-telarana PR #40). Replaces the generic `V4_SWAP_TEST_ROUTER` for the Gateway demo path — Demo B uses this Gateway-aware harness, not the bare `PoolSwapTest`. |
+| `V4_SWAP_GATEWAY_ATTESTATION` | live (Wave N6) | Circle Gateway attestation blob. Mint flow: keeper-gateway-signer (a) deposits USDC into Gateway Wallet `0x0077777d…0A19B9` on Fuji, (b) signs an EIP-712 transfer payload (GatewayWallet domain), (c) POSTs to `https://gateway-api-testnet.circle.com/v1/transfer`. **Wave N6 minted a fresh attestation in-line** (the earlier N2c attestation `bfcd2c32-807a-4270-ad1d-234630e7e5c4` had expired): server-issued transferId `7429e2e4-9ad3-49de-a0f6-ed7b3e27b2c7`, 0.1 USDC Fuji→Arc, destinationRecipient=destinationCaller=TGH so `beforeSwap` can invoke `gatewayMint` atomically. |
+| `V4_SWAP_GATEWAY_SIGNATURE` | live (Wave N6) | Circle API signature over the attestation. Same source as above — fresh on every N6 broadcast since attestations are single-use. |
 | `CIRCLE_GATEWAY_API_KEY` | Circle dashboard | Paid tier. Required to mint the attestation in the first place. |
 
 **Expected output shape**
@@ -109,8 +109,24 @@ bun scripts/v4-swap-pool-demo-gateway.ts
 }
 ```
 
-**Tx-hash placeholder** *(Wave M4 — blocked)*
-- **Single v4 swap tx (Gateway mint folded into `beforeSwap`): `<PENDING-GATEWAY-ATTESTATION>`** — see env table above. The Gateway-funded route IS configured on-chain via `setGatewayRoute` + `setGatewayContextProofMode` (M4 phase A, tx hashes above), but the off-chain Circle Gateway attestation isn't provisioned yet. The keeper-gateway-signer loop must run once to mint the first attestation.
+**Tx-hash placeholder** *(Wave N6 — BROADCAST)*
+- **Single v4 swap tx (Gateway mint folded into `beforeSwap`):** [`0x66dc22ae835884c9b50641d062a53f8a80e3191a89a9a6337e81c95f2cf9bc09`](https://testnet.arcscan.app/tx/0x66dc22ae835884c9b50641d062a53f8a80e3191a89a9a6337e81c95f2cf9bc09) (block 43521137, status=success, gasUsed=21,349,297). Wave N6 (PR #101) broadcast the differentiator end-to-end on Arc Testnet. Inside that one tx the events `GatewayHubMintAttested` + `GatewayHubLiquidityReceived` + `GatewayRoutedSwap` all fire, and the USDC.Transfer trail is `0x0 → TGH → PoolManager → keeper` (100000 each leg). No CCTP attestation polling. No off-chain settlement loop. Artefact: [`scripts/n6-gateway-demo-broadcast.json`](../scripts/n6-gateway-demo-broadcast.json).
+
+**Live broadcast (Wave N6)**
+
+| Step | Tx | Block |
+|---|---|---|
+| `FxV4RouterHarnessGateway` deploy (fx-telarana #40) | [`0x0d615d95…1413ca5`](https://testnet.arcscan.app/tx/0x0d615d950cb1ec4d35a1a6a28bffda7e5a566c87f668cbc72d9b1b0de1413ca5) | — |
+| `PoolManager.initialize` (NEW TGH-hooked USDC/EURC pool) | [`0x91f605e7…01ce2921`](https://testnet.arcscan.app/tx/0x91f605e7556c5aec98fd2a93ea00777321b55cdaf501a371404b708d01ce2921) | 43520507 |
+| `TGH.setPoolGatewayRoute(poolId, routeId)` | [`0x1b885470…cb9533a5`](https://testnet.arcscan.app/tx/0x1b885470b6a0c862fd31d06ace2a433c5c6912154bf96f38e076383bcb9533a5) | 43520512 |
+| `EURC.approve(harness, 1_000_000)` | [`0xf1f200bb…74e29e9b`](https://testnet.arcscan.app/tx/0xf1f200bb6693dc5447dda1fa95bd7dcd10ffdd3113fa46e23bfe2ae274e29e9b) | 43520518 |
+| **`harness.swapExactInputSingleWithHookData(...)` (the Demo B swap)** | [`0x66dc22ae…f9bc09`](https://testnet.arcscan.app/tx/0x66dc22ae835884c9b50641d062a53f8a80e3191a89a9a6337e81c95f2cf9bc09) | 43521137 |
+
+- **New TGH-hooked v4 poolId:** `0xf6b13fe5ae3115d159b3a844a56588d1549293fb6725040f01c54ba31827f711` (poolKey = USDC `0x3600…0000`, EURC `0x89B5…D72a`, fee=100, tickSpacing=1, hooks=TGH `0xe895CB46…4088`).
+- **Gateway routeId bound to pool:** `0xf78147c98547731be048740d9d9089e6258e5e712e0c66f7b9d9d57d6af3a968` (the same Fuji→Arc USDC mint-to-hub route configured in Wave M4 phase A).
+- **Circle Gateway attestation transferId:** `7429e2e4-9ad3-49de-a0f6-ed7b3e27b2c7` (re-minted in N6 via `POST /v1/transfer`; N2c's earlier attestation `bfcd2c32-807a-4270-ad1d-234630e7e5c4` had expired and is documented in `scripts/n2c-mint-attestation.json` for completeness).
+- **Fuji Gateway unified-balance delta:** `2.779790 → 2.299770` USDC (consumed 0.480020 USDC across the N6 re-mint + the live swap — the GatewayWallet holds the pooled hub-side liquidity that materialises on Arc).
+- **Events emitted in the single Demo B swap tx:** `GatewayHubMintAttested` (topic `0x920529b0…`) + `GatewayHubLiquidityReceived` (topic `0x9893f54e…`) + `GatewayRoutedSwap` (topic `0x0f0ffd9e…`) — all three in the same tx, logIndex 48 onwards.
 
 **Differentiator callout**
 > Demo A requires waiting on a multi-block CCTP attestation between the burn (Fuji) and the mint (Arc). Demo B settles the entire FX swap in **one block** because the hook pulls Gateway liquidity inline. Same hub-and-spoke topology, two orders of magnitude faster settlement.
@@ -314,6 +330,8 @@ Every Hookathon contract deployed on Arc Testnet and Avalanche Fuji.
 | `FXBentoHook` | `0xa6e3c9c2d6436feb24b165a8bcf6b454e96d50c0` | `fx-bento/src/FXBentoHook.sol` | (live, BENTO_ARC_TESTNET_DEPLOYMENT) |
 | `FxGhostCommitmentRegistry` | `<TBD-M1-GHOST>` | `fx-telarana/contracts/src/ghost/FxGhostCommitmentRegistry.sol` | not yet deployed on Arc; v0.2 scaffold per §10 honesty note 6 |
 | `V4_SWAP_TEST_ROUTER` | `<PENDING-M3>` | router shim used by demo scripts | Wave M3 deploys a `PoolSwapTest`-equivalent that satisfies `IUnlockCallback` |
+| `FxV4RouterHarnessGateway` | `0x72180a231245E06db12b6A77390Ce919fF041f04` | `fx-telarana/contracts/src/harness/FxV4RouterHarnessGateway.sol` | deploy tx `0x0d615d95…1413ca5` (fx-telarana PR #40) — Demo B Gateway path; satisfies `IUnlockCallback` AND threads the Gateway attestation through `beforeSwap` |
+| **v4 pool — USDC/EURC w/ TelaranaGatewayHubHook (Demo B)** | poolId `0xf6b13fe5ae3115d159b3a844a56588d1549293fb6725040f01c54ba31827f711` | `PoolManager.initialize` tx `0x91f605e7…01ce2921` | fee=100, tickSpacing=1, hooks=TGH `0xe895CB46…4088`, sqrtPriceX96=`0xf52559aa0006380000000000` — **Wave N6** |
 | USDC | `0x3600000000000000000000000000000000000000` | Arc native gas + 6-dec ERC-20 form | Circle Arc docs |
 | EURC | `0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a` | canonical Circle EURC on Arc | n/a |
 | Circle Gateway Minter | `0x0022222ABE238Cc2C7Bb1f21003F0a260052475B` | Circle Gateway (universal CREATE2 address) | n/a |
@@ -345,9 +363,10 @@ Every Hookathon contract deployed on Arc Testnet and Avalanche Fuji.
 **`<TBD-M1>`** — **CLOSED.** All M1 placeholders are filled from fx-telarana PR #34 (`5b6d310`). The only remaining `<TBD-M1-GHOST>` row is `FxGhostCommitmentRegistry` on Arc, which is intentionally deferred per §10 honesty note 6 — the noir.js client prover is a v0.2 scaffold and the on-chain registry isn't deployed on Arc yet.
 
 **`<TBD-M3>`** — **STILL OPEN.** Wave M3 (router pin) has not landed. Remaining placeholders:
-- §2 `V4_SWAP_TEST_ROUTER` → `<PENDING-M3>`
-- §3 `V4_SWAP_TEST_ROUTER` → `<PENDING-M3>`
+- §2 `V4_SWAP_TEST_ROUTER` → `<PENDING-M3>` (Demo A / CCTP path)
 - §8 `V4_SWAP_TEST_ROUTER` row → `<PENDING-M3>`
+
+§3 (Demo B / Gateway path) no longer references `V4_SWAP_TEST_ROUTER` — Wave N6 shipped `FxV4RouterHarnessGateway` at `0x72180a23…1f04` (fx-telarana #40) which is Gateway-aware and satisfies `IUnlockCallback` for the Demo B flow.
 
 Wave M3 needs to: deploy a v4 router contract on Arc that satisfies `IUnlockCallback` (canonical pattern: `PoolSwapTest` from v4-core, or a custom forwarder). The router shape the demo scripts already encode against is a single `unlock(bytes)` external that re-enters `PoolManager.unlock(data)` from inside `unlockCallback(bytes)` and there forwards into `PoolManager.swap(poolKey, params, hookData)`. Without this, `PoolManager.unlock(...)` from an EOA reverts because EOAs can't satisfy `IUnlockCallback.unlockCallback`.
 
@@ -355,7 +374,6 @@ Wave M3 needs to: deploy a v4 router contract on Arc that satisfies `IUnlockCall
 
 Open / pending:
 - §2 `<PENDING-M3-ROUTER>` × 3 — Fuji burn, Arc mint, Arc v4 swap. Gated by `<TBD-M3>`.
-- §3 `<PENDING-GATEWAY-ATTESTATION>` — single Gateway v4 swap. Gated by Circle Gateway attestation env (`V4_SWAP_GATEWAY_ATTESTATION` + `V4_SWAP_GATEWAY_SIGNATURE`) — the keeper-gateway-signer service has not minted an attestation yet.
 - §5 `/swap` widget fill — gated by `<PENDING-M3-ROUTER>`.
 - §6 curl `/spot/fills` — gated by `<PENDING-M3-ROUTER>`.
 
@@ -364,6 +382,9 @@ Closed by Wave M4 (live on chain):
 - §4 Hyperlane MXNB Fuji→Arc: Fuji dispatch `0x7d2d26f9…140c6c07`, Arc delivery `0xc323f7fa…64b225` (closed by Wave M2, surfaced here).
 - §8 v4 pool USDC/EURC w/ FxSwapHook: `PoolManager.initialize` `0xf86f5d37…ded9f6463e`, poolId `0xd5e4a30d…f92a1ef`.
 - FxSwapHook PMM seed (owner-only first deposit): `setHotReservePct(10000)` `0x16ada1bd…ec0d92b5`, USDC approve `0xae260502…d6b33eb4`, EURC approve `0x258cb49f…cff3e3558e27`, `deposit(1e6, 9e5)` `0xf69fccaf…b6fed5f02` — 1.0 USDC + 0.9 EURC, totalShares=1,900,000.
+
+Closed by Wave N6 (live on chain, the differentiator):
+- §3 Demo B Gateway end-to-end: `FxV4RouterHarnessGateway` deploy `0x0d615d95…1413ca5` (fx-telarana #40), new TGH-hooked pool `PoolManager.initialize` `0x91f605e7…01ce2921` (block 43520507, poolId `0xf6b13fe5…7f711`), `TGH.setPoolGatewayRoute` `0x1b885470…cb9533a5` (block 43520512), `EURC.approve(harness)` `0xf1f200bb…74e29e9b` (block 43520518), **and the load-bearing single-tx Demo B swap `0x66dc22ae…f9bc09` (block 43521137)** — `GatewayHubMintAttested` + `GatewayHubLiquidityReceived` + `GatewayRoutedSwap` all fire in that one tx; Fuji GatewayWallet unified balance went 2.779790 → 2.299770 USDC; re-minted Circle attestation transferId `7429e2e4-9ad3-49de-a0f6-ed7b3e27b2c7`.
 
 ```bash
 # Sanity-grep
@@ -378,7 +399,7 @@ These are surfaced here on purpose. The bucket-analysis doc tracks the same gaps
 
 1. **`/swap` route does not yet exist on `main`.** It lands in PR-H9 (Wave M3, day 10). Until then, the §5 walkthrough is aspirational — the swap *components* in `apps/web/components/swap/` are partial scaffolding, not a wired page.
 2. **`/spot/quote`, `/spot/fills`, and `/spot/pools` are not yet split out.** Only `/spot/intents` ships today. PR-H4 + PR-H5 (Wave M2/M3) do the split. The OpenAPI spec at `/spot/openapi.json` follows once `spot.ts` converts to the `.openapi()` chain.
-3. **Both swap-pool demo scripts (`v4-swap-pool-demo-cctp.ts`, `v4-swap-pool-demo-gateway.ts`) are aspirational on `main`.** They land in PR-H2 / PR-H8. The shape above mirrors `scripts/perps-demo-trade.ts` (which IS live and proved real on-chain perp fills).
+3. **Both swap-pool demo scripts (`v4-swap-pool-demo-cctp.ts`, `v4-swap-pool-demo-gateway.ts`) are aspirational on `main`.** They land in PR-H2 / PR-H8. The shape above mirrors `scripts/perps-demo-trade.ts` (which IS live and proved real on-chain perp fills). **UPDATE — Demo B (Gateway) is now BROADCAST** as N6 tx [`0x66dc22ae…f9bc09`](https://testnet.arcscan.app/tx/0x66dc22ae835884c9b50641d062a53f8a80e3191a89a9a6337e81c95f2cf9bc09) via `scripts/n6-gateway-demo-broadcast.ts` — see §3 "Live broadcast (Wave N6)".
 4. **The Hyperlane MXNB bridge: live.** Wave M2 (fx-telarana PR #35) broadcast the first Fuji→Arc warp end-to-end. Fuji dispatch `0x7d2d26f9…140c6c07`, Arc delivery `0xc323f7fa…64b225`. See §4 + `fx-telarana/deployments/hyperlane-mxnb-fuji-arc.json`.
 5. **"Dedicated Rust matcher" was dropped from the submission text.** Verified via repo search: zero `Cargo.toml` files org-wide. The matcher is TypeScript (`apps/keeper-perps-matcher/`). See `docs/bucket-analysis-2026-05-21.md` §B8.
 6. **Privacy framing was tightened.** On-chain commitment registry (`FxGhostCommitmentRegistry`) IS shipped. The noir.js client prover is a v0.2 scaffold. The submission text now says exactly that.
