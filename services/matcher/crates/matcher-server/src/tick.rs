@@ -391,6 +391,8 @@ mod tests {
             pyth_push_max_age: Duration::from_secs(30),
             pyth_hermes_url: "https://hermes.pyth.network".into(),
             pyth_hermes_timeout: Duration::from_secs(10),
+            pyth_use_ws: false, // 8.5c — keep tick unit tests on the HTTP shape
+            pyth_hermes_ws_url: None,
             grpc_bind: String::new(), // disabled in tick unit tests
             http_bind: String::new(), // ditto for HTTP /health
             ready_max_tick_age: Duration::from_secs(60),

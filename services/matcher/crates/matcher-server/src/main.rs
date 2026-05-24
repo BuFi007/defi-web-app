@@ -42,6 +42,7 @@ mod lp_state;
 mod oi_gate;
 mod price;
 mod pyth_pusher;
+mod pyth_pusher_ws;
 mod realtime;
 mod replacement_events;
 mod settlement;

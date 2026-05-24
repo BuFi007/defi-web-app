@@ -105,6 +105,18 @@ pub struct Config {
     pub pyth_hermes_url: String,
     /// HTTP timeout for Hermes fetches. Default 10s.
     pub pyth_hermes_timeout: Duration,
+    /// Phase 8.5c — use the Hermes WebSocket subscription instead of
+    /// the legacy HTTP poll. Default `true`. Production can opt out
+    /// via `MATCHER_PYTH_USE_WS=false` if Hermes WS misbehaves; the
+    /// HTTP poll loop is retained as the fall-back path inside
+    /// `pyth_pusher` itself (kicks in automatically after 3 failed
+    /// WS connection attempts).
+    pub pyth_use_ws: bool,
+    /// Phase 8.5c — explicit override for the Hermes WS URL. Default
+    /// is derived from `pyth_hermes_url` by swapping `https→wss` and
+    /// appending `/ws`. Set when the mirror serves WS on a different
+    /// host than the REST endpoint.
+    pub pyth_hermes_ws_url: Option<String>,
     /// gRPC server bind address. Default `127.0.0.1:3005` (loopback —
     /// container or multi-host deployments override to `0.0.0.0:<port>`).
     /// Set to empty string via `MATCHER_GRPC_BIND=` to disable the
@@ -203,6 +215,14 @@ impl Config {
             .unwrap_or_else(|_| "https://hermes.pyth.network".to_string());
         let pyth_hermes_timeout =
             Duration::from_millis(parse_env_u64("PYTH_HERMES_TIMEOUT_MS", 10_000)?);
+        // Phase 8.5c — WS path is the new default. Two ways to opt
+        // out: MATCHER_PYTH_USE_WS=false (preserves legacy env name)
+        // or PYTH_USE_WS=false (shorter; checked second).
+        let pyth_use_ws = env::var("MATCHER_PYTH_USE_WS")
+            .or_else(|_| env::var("PYTH_USE_WS"))
+            .map(|v| !matches!(v.trim().to_ascii_lowercase().as_str(), "0" | "false" | "no" | "off" | ""))
+            .unwrap_or(true);
+        let pyth_hermes_ws_url = env::var("PYTH_HERMES_WS_URL").ok();
         let grpc_bind = env::var("MATCHER_GRPC_BIND")
             .unwrap_or_else(|_| "127.0.0.1:3005".to_string());
         let http_bind = env::var("MATCHER_HTTP_BIND")
@@ -243,6 +263,8 @@ impl Config {
             pyth_push_max_age,
             pyth_hermes_url,
             pyth_hermes_timeout,
+            pyth_use_ws,
+            pyth_hermes_ws_url,
             grpc_bind,
             http_bind,
             ready_max_tick_age,
