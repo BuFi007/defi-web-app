@@ -76,6 +76,12 @@ pub enum PerpIntentStatus {
     Rejected,
     /// Past `deadline` at the time the matcher swept it.
     Expired,
+    /// Cancelled by the trader before / between fills (CancelOrder
+    /// gRPC, or future OrderCancelled event from the contract).
+    /// Distinct from `Rejected` (validation failure) and `Expired`
+    /// (deadline) so downstream consumers can tell apart the
+    /// trader-initiated path from the matcher-initiated ones.
+    Canceled,
 }
 
 impl PerpIntentStatus {
@@ -87,6 +93,7 @@ impl PerpIntentStatus {
             PerpIntentStatus::Filled => "filled",
             PerpIntentStatus::Rejected => "rejected",
             PerpIntentStatus::Expired => "expired",
+            PerpIntentStatus::Canceled => "canceled",
         }
     }
 
@@ -98,6 +105,7 @@ impl PerpIntentStatus {
             "filled" => Some(PerpIntentStatus::Filled),
             "rejected" => Some(PerpIntentStatus::Rejected),
             "expired" => Some(PerpIntentStatus::Expired),
+            "canceled" => Some(PerpIntentStatus::Canceled),
             _ => None,
         }
     }

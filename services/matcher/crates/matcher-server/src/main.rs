@@ -196,7 +196,18 @@ async fn main() -> ExitCode {
         match cfg.grpc_bind.parse::<std::net::SocketAddr>() {
             Ok(addr) => {
                 info!(bind = %addr, version = env!("CARGO_PKG_VERSION"), "gRPC server starting (Phase 8)");
-                let svc = grpc::MatcherService::new(grpc_state.clone());
+                // Phase 8d — plumb the chain backend so SubmitOrder +
+                // CancelOrder can run end-to-end against the same DB
+                // and on-chain endpoint the tick loop uses. The
+                // matching_lock on GrpcState serializes match/settle
+                // between both.
+                let chain = grpc::ChainBackend {
+                    db: db.clone(),
+                    onchain: onchain.clone(),
+                    deployment,
+                    chain_id: cfg.chain_id as i64,
+                };
+                let svc = grpc::MatcherService::with_chain(grpc_state.clone(), chain);
                 Some(tokio::spawn(async move {
                     if let Err(e) = tonic::transport::Server::builder()
                         .add_service(svc.into_server())
