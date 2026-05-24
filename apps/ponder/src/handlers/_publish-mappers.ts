@@ -223,6 +223,120 @@ export function buildTradeMessage(input: BuildTradeMessageInput): Record<string,
   };
 }
 
+// ---------- FundingPoked (Wave I1) ----------
+
+export interface FundingPokedArgs {
+  marketId: string;
+  version: bigint;
+  rateE18PerSecond: bigint;
+  cumulativeFundingE18: bigint;
+}
+
+export interface FundingPokedMeta extends MatchSettledMeta {}
+
+/** Build the Tinybird `perp_funding_poked` row. Columns match the
+ *  datasource shipped in PR #58 (snake_case at the wire — `apps/api`
+ *  ingest route forwards the row unchanged). */
+export function buildFundingPokedRow(
+  args: FundingPokedArgs,
+  meta: FundingPokedMeta,
+): Record<string, unknown> {
+  return {
+    event_id: buildEventId(meta.txHash, meta.logIndex),
+    market_id: lowerHex(args.marketId),
+    version: args.version.toString(),
+    rate_e18_per_second: args.rateE18PerSecond.toString(),
+    cumulative_funding_e18: args.cumulativeFundingE18.toString(),
+    chain_id: meta.chainId,
+    tx_hash: lowerHex(meta.txHash),
+    block_number: meta.blockNumber.toString(),
+    timestamp: new Date(blockTimestampToMs(meta.blockTimestamp)).toISOString(),
+  };
+}
+
+/** Build the realtime `funding:` channel payload — matches the
+ *  `FundingMessage` contract documented in `apps/api/src/lib/realtime.ts`.
+ *  `markE18` is "0" because FundingPoked doesn't carry the mark price;
+ *  downstream consumers join with the oracle stream when they need it. */
+export function buildFundingMessage(
+  args: FundingPokedArgs,
+  meta: FundingPokedMeta,
+): { rateE18: string; markE18: string; ts: number } {
+  return {
+    rateE18: args.rateE18PerSecond.toString(),
+    markE18: "0",
+    ts: blockTimestampToMs(meta.blockTimestamp),
+  };
+}
+
+// ---------- AccountLiquidated (Wave I1) ----------
+
+export interface AccountLiquidatedArgs {
+  marketId: string;
+  trader: string;
+  liquidator: string;
+  reward: bigint;
+  socializedLoss: bigint;
+}
+
+export interface AccountLiquidatedMeta extends MatchSettledMeta {}
+
+/** Build the Tinybird `perp_liquidation` row. */
+export function buildAccountLiquidatedRow(
+  args: AccountLiquidatedArgs,
+  meta: AccountLiquidatedMeta,
+): Record<string, unknown> {
+  return {
+    event_id: buildEventId(meta.txHash, meta.logIndex),
+    market_id: lowerHex(args.marketId),
+    trader: lowerHex(args.trader),
+    liquidator: lowerHex(args.liquidator),
+    reward_atomic: args.reward.toString(),
+    socialized_loss_atomic: args.socializedLoss.toString(),
+    chain_id: meta.chainId,
+    tx_hash: lowerHex(meta.txHash),
+    block_number: meta.blockNumber.toString(),
+    timestamp: new Date(blockTimestampToMs(meta.blockTimestamp)).toISOString(),
+  };
+}
+
+// ---------- AccountFlagged (Wave I1) ----------
+//
+// Realtime + Tinybird are intentionally NOT wired here — flag events are
+// operational signals (keepers raising the flag, contract auto-clearing
+// on liquidate) and the indexer DB row is sufficient to surface them. If
+// a flag_events analytics dataset lands later, the row builder will live
+// next to these others.
+
+export interface AccountFlaggedArgs {
+  marketId: string;
+  trader: string;
+  flagger: string;
+}
+
+export interface AccountFlaggedMeta extends MatchSettledMeta {}
+
+/** Build the indexer DB row for AccountFlagged. Returned as a plain
+ *  object so unit tests can assert the shape without spinning Ponder. */
+export function buildAccountFlaggedRow(
+  args: AccountFlaggedArgs,
+  meta: AccountFlaggedMeta,
+): Record<string, unknown> {
+  return {
+    id: buildEventId(meta.txHash, meta.logIndex),
+    chainId: meta.chainId,
+    marketId: lowerHex(args.marketId),
+    trader: lowerHex(args.trader),
+    state: "flagged",
+    actor: lowerHex(args.flagger),
+    auto: null,
+    blockNumber: meta.blockNumber,
+    blockTimestamp: meta.blockTimestamp,
+    txHash: lowerHex(meta.txHash),
+    logIndex: meta.logIndex,
+  };
+}
+
 // ---------- dataset enum guard ----------
 
 /** Type-level reminder that the four allowed datasets line up with
