@@ -1,6 +1,7 @@
 import { ponder } from "ponder:registry";
 import type { Context } from "ponder:registry";
 import {
+  perpFundingPoke,
   perpsBadDebt,
   perpsMarketConfig,
   perpsOrderCancellation,
@@ -13,6 +14,15 @@ import type { Address, Hex } from "viem";
 
 import { FxPerpClearinghouseAbi } from "@bufi/contracts";
 import { lowerHex } from "@bufi/shared-types/hex";
+
+import {
+  buildFundingMessage,
+  buildFundingPokedRow,
+  buildMatchSettledRow,
+  buildPositionDecreasedRow,
+  buildPositionIncreasedRow,
+} from "./_publish-mappers";
+import { publishEvent } from "../lib/publish";
 
 type PositionEventName =
   | "FxPerpClearinghouseArc:PositionIncreased"
@@ -35,6 +45,33 @@ ponder.on("FxOrderSettlementArc:MatchSettled", async ({ event, context }) => {
       logIndex: event.log.logIndex,
     })
     .onConflictDoNothing();
+
+  // Wave F2: fan out to Tinybird. Skip realtime `trades:` publish from
+  // here — MatchSettled doesn't carry the taker `side` (fillSizeE18 is
+  // uint256 with no sign). The matcher keeper, which has the full intent
+  // context, is the authoritative `trades:` publisher and lands in
+  // Wave G. Ponder still owns the analytics backfill / replay path.
+  await publishEvent({
+    analytics: {
+      dataset: "perp_match_settled",
+      row: buildMatchSettledRow(
+        {
+          marketId: event.args.marketId,
+          maker: event.args.maker,
+          taker: event.args.taker,
+          fillSizeE18: event.args.fillSizeE18,
+          fillPriceE18: event.args.fillPriceE18,
+        },
+        {
+          chainId: context.chain.id,
+          blockNumber: event.block.number,
+          blockTimestamp: event.block.timestamp,
+          txHash: event.transaction.hash,
+          logIndex: event.log.logIndex,
+        },
+      ),
+    },
+  });
 });
 
 ponder.on("FxOrderSettlementArc:OrderCancelled", async ({ event, context }) => {
@@ -85,6 +122,34 @@ ponder.on("FxPerpClearinghouseArc:PositionIncreased", async ({ event, context })
     blockTimestamp: event.block.timestamp,
     txHash: event.transaction.hash,
   });
+
+  // Wave F2: fan out to Tinybird `perp_position_change`. Realtime
+  // `trades:` is intentionally skipped (see MatchSettled comment) —
+  // emitting from both maker- and taker-side position events would
+  // double-count fills in the trade tape.
+  await publishEvent({
+    analytics: {
+      dataset: "perp_position_change",
+      row: buildPositionIncreasedRow(
+        {
+          marketId: event.args.marketId,
+          trader: event.args.trader,
+          sizeDeltaE18: event.args.sizeDeltaE18,
+          resultingSizeE18: event.args.resultingSizeE18,
+          entryPriceE18: event.args.entryPriceE18,
+          marginReserved: event.args.marginReserved,
+          fee: event.args.fee,
+        },
+        {
+          chainId: context.chain.id,
+          blockNumber: event.block.number,
+          blockTimestamp: event.block.timestamp,
+          txHash: event.transaction.hash,
+          logIndex: event.log.logIndex,
+        },
+      ),
+    },
+  });
 });
 
 ponder.on("FxPerpClearinghouseArc:PositionDecreased", async ({ event, context }) => {
@@ -118,6 +183,32 @@ ponder.on("FxPerpClearinghouseArc:PositionDecreased", async ({ event, context })
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     txHash: event.transaction.hash,
+  });
+
+  // Wave F2: fan out to Tinybird `perp_position_change`.
+  await publishEvent({
+    analytics: {
+      dataset: "perp_position_change",
+      row: buildPositionDecreasedRow(
+        {
+          marketId: event.args.marketId,
+          trader: event.args.trader,
+          sizeDeltaE18: event.args.sizeDeltaE18,
+          resultingSizeE18: event.args.resultingSizeE18,
+          priceE18: event.args.priceE18,
+          marginReleased: event.args.marginReleased,
+          pnl: event.args.pnl,
+          badDebt: event.args.badDebt,
+        },
+        {
+          chainId: context.chain.id,
+          blockNumber: event.block.number,
+          blockTimestamp: event.block.timestamp,
+          txHash: event.transaction.hash,
+          logIndex: event.log.logIndex,
+        },
+      ),
+    },
   });
 });
 
@@ -187,6 +278,55 @@ ponder.on("FxPerpClearinghouseArc:FundingEngineSet", async ({ event, context }) 
       fundingEngineUpdatedAt: event.block.timestamp,
       fundingEngineUpdatedTxHash: txHash,
     });
+});
+
+// Wave I1 — FxFundingEngine FundingPoked. Versioned tick; (marketId,
+// version) is the chain-side idempotency key, so we mirror that into the
+// row primary key. Fans out to realtime (`funding:<marketId>` channel) +
+// Tinybird (`perp_funding_poked`).
+ponder.on("FxFundingEngineArc:FundingPoked", async ({ event, context }) => {
+  const marketId = event.args.marketId;
+  const args = {
+    marketId,
+    version: BigInt(event.args.version),
+    rateE18PerSecond: event.args.rateE18PerSecond,
+    cumulativeFundingE18: event.args.cumulativeFundingE18,
+  };
+  const meta = {
+    chainId: context.chain.id,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    txHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+  };
+
+  await context.db
+    .insert(perpFundingPoke)
+    .values({
+      id: `${lowerHex(marketId)}-${args.version.toString()}`,
+      chainId: meta.chainId,
+      marketId: lowerHex(marketId),
+      version: args.version,
+      rateE18PerSecond: args.rateE18PerSecond,
+      cumulativeFundingE18: args.cumulativeFundingE18,
+      blockNumber: meta.blockNumber,
+      blockTimestamp: meta.blockTimestamp,
+      txHash: lowerHex(meta.txHash),
+      logIndex: meta.logIndex,
+    })
+    .onConflictDoNothing();
+
+  await publishEvent({
+    realtime: {
+      kind: "funding",
+      marketId: lowerHex(marketId),
+      data: buildFundingMessage(args, meta),
+    },
+    analytics: {
+      dataset: "perp_funding_poked",
+      row: buildFundingPokedRow(args, meta),
+    },
+  });
 });
 
 async function upsertLatestPosition(args: {
