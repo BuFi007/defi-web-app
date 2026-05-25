@@ -39,12 +39,16 @@ export const config = createConfig({
     arbitrumSepolia,
   ],
   transports: {
-    [avalancheFuji.id]: http(),
+    [avalancheFuji.id]: http("https://api.avax-test.network/ext/bc/C/rpc"),
     [arcTestnet.id]: http("https://rpc.testnet.arc.network"),
-    [avalanche.id]: http(),
-    [mainnet.id]: http(),
-    [sepolia.id]: http(),
-    [arbitrumSepolia.id]: http(),
+    [avalanche.id]: http("https://api.avax.network/ext/bc/C/rpc"),
+    // Empty http() defaults route through viem's per-chain default
+    // (eth.merkle.io for mainnet) which CORS-rejects from localhost and
+    // floods the console. Pin to CORS-friendly public endpoints that
+    // ad-blockers don't usually flag.
+    [mainnet.id]: http("https://cloudflare-eth.com"),
+    [sepolia.id]: http("https://ethereum-sepolia-rpc.publicnode.com"),
+    [arbitrumSepolia.id]: http("https://arbitrum-sepolia-rpc.publicnode.com"),
   },
   // Required for Next.js App Router + cacheComponents. Without it, wagmi
   // hooks called during the server prerender pass throw

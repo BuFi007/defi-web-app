@@ -24,7 +24,7 @@ import {
 } from "@tanstack/react-query";
 import type { Hex } from "viem";
 import { UserRejectedRequestError } from "viem";
-import { useAccount, useChainId, useSignTypedData } from "wagmi";
+import { useAccount, useChainId, useSignTypedData, useSwitchChain } from "wagmi";
 
 import {
   buildPerpsOrderTypedData,
@@ -488,6 +488,7 @@ export function usePlaceOrder(): UseMutationResult<UsePlaceOrderResult, Error, U
   const wagmiChainId = useChainId();
   const { address } = useAccount();
   const { signTypedDataAsync } = useSignTypedData();
+  const { switchChainAsync } = useSwitchChain();
   const devWallet = useMemo(() => getPerpsReplacementDevWallet(), []);
   const signSession = useSessionSigner();
   const queryClient = useQueryClient();
@@ -526,6 +527,27 @@ export function usePlaceOrder(): UseMutationResult<UsePlaceOrderResult, Error, U
       };
       const typedData = buildPerpsOrderTypedData(orderInput);
       const digest = hashPerpsOrder(orderInput);
+
+      // Prompt wallet to switch to the order's chain BEFORE signing.
+      // Without this, wagmi's signTypedDataAsync throws
+      // "current chain of the wallet (id: X) does not match Chain ID: Y"
+      // when the user picked a market on a chain other than the one
+      // their wallet currently sits on. Dev wallet bypasses the switch
+      // because it's a local mock with no concept of a "current chain".
+      if (!devWallet && wagmiChainId !== chainId) {
+        try {
+          // Cast: ChainId widens to all known chains (incl. Mode 919),
+          // but wagmi's Register only knows the chains we configured in
+          // lib/wagmi.ts. The switch is a no-op for chains wagmi doesn't
+          // know — but we shouldn't be here for those anyway.
+          await switchChainAsync({ chainId: chainId as never });
+        } catch (err) {
+          if (isUserRejection(err)) {
+            throw new Error("Network switch cancelled in wallet");
+          }
+          throw err;
+        }
+      }
 
       let signature: Hex;
       try {
@@ -614,6 +636,8 @@ function useSessionSigner(): (
   chainId: number,
 ) => Promise<WalletSessionProof | null> {
   const { signTypedDataAsync } = useSignTypedData();
+  const { switchChainAsync } = useSwitchChain();
+  const wagmiChainId = useChainId();
   const devWallet = useMemo(() => getPerpsReplacementDevWallet(), []);
   // Stable ref so callers can drop it into a useCallback dep list without
   // re-creating queries every render.
@@ -626,6 +650,21 @@ function useSessionSigner(): (
       const cached = readCachedWalletSession(address, chainId);
       if (cached) return cached;
       const session = buildWalletSessionTypedData({ address, chainId });
+      // Same switch-before-sign preflight as usePlaceOrder — the
+      // session signature also binds a chainId and wagmi rejects
+      // signTypedDataAsync if the wallet sits on a different one.
+      if (!devWallet && wagmiChainId !== chainId) {
+        try {
+          // Cast: ChainId widens to all known chains (incl. Mode 919),
+          // but wagmi's Register only knows the chains we configured in
+          // lib/wagmi.ts. The switch is a no-op for chains wagmi doesn't
+          // know — but we shouldn't be here for those anyway.
+          await switchChainAsync({ chainId: chainId as never });
+        } catch (err) {
+          if (isUserRejection(err)) return null;
+          throw err;
+        }
+      }
       let signature: Hex;
       try {
         signature = devWallet
@@ -652,7 +691,7 @@ function useSessionSigner(): (
       writeCachedWalletSession(proof);
       return proof;
     },
-    [devWallet, signTypedDataAsync],
+    [devWallet, signTypedDataAsync, switchChainAsync, wagmiChainId],
   );
 
   return useCallback(

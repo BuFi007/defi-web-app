@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAccount, useBalance } from "wagmi";
 import { formatUnits, type Address } from "viem";
@@ -106,7 +106,22 @@ const useAllChainsStableBalances = (
     });
     return [cfg.chainId, rows] as const;
   });
-  return Object.fromEntries(entries);
+  // Memoize by stringified content so the returned object identity is
+  // stable across renders unless an underlying balance / price actually
+  // changes. Without this, every wagmi subscription tick produced a new
+  // map → every downstream useMemo recomputed → AnimatePresence
+  // reconciled its children with the new identity → in some chain-switch
+  // sequences React hit "Too many re-renders" before the page loaded.
+  //
+  // The key intentionally hashes only `formatted` per (chainId, asset) —
+  // that's the on-chain truth. usdValue derives from it, isLoading is
+  // a transient flag, decimals/address/deployed are constants per chain.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableKey = entries
+    .map(([cid, rows]) => `${cid}:${rows.map((r) => `${r.asset}=${r.formatted}`).join(",")}`)
+    .join("|");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => Object.fromEntries(entries), [stableKey]);
 };
 
 // One row = inline render. Stateless — all data comes from the parent's
@@ -134,8 +149,17 @@ const TokenBalanceRow: React.FC<{
           </span>
         )
       ) : (
-        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-          Pending
+        // "PENDING" read as "balance loading" but it actually means
+        // "asset is not deployed on this chain". Use an em-dash + tiny
+        // helper label so the row doesn't fight for attention with the
+        // chain total above. Confirmed by the user: rows that show
+        // PENDING never contribute to the total, so the labelling
+        // mismatch was the only thing making the total look "wrong".
+        <span
+          className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500"
+          title={`${row.asset} is not deployed on ${cfg.label}`}
+        >
+          — Not on {cfg.label.split(" ")[0]}
         </span>
       )}
     </li>

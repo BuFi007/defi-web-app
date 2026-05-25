@@ -1,3 +1,4 @@
+import { withSentryConfig } from "@sentry/nextjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -7,9 +8,11 @@ const workspaceRoot = join(projectRoot, "..", "..");
 
 const config = {
   reactStrictMode: true,
-  // Enables the 'use cache' directive + Partial Prerendering. Replaces the
-  // legacy experimental.ppr flag in Next.js 16.
-  cacheComponents: true,
+  // Disabled for beta: cacheComponents + dynamic({ssr:false}) + Turbopack 16
+  // surfaced a hydration bug where the wallet-provider stack never mounted
+  // CSR-side, leaving /en blank. Re-enable once Next 16 / React 19 fixes
+  // land. See docs/loop-iteration-1/SUMMARY.md (iteration-1 escape hatch).
+  cacheComponents: false,
   turbopack: {
     root: workspaceRoot,
   },
@@ -51,8 +54,10 @@ const config = {
   async headers() {
     return [
       {
-        // Hash-busted public assets that never change — let CDNs hold them
-        // forever. Covers audio (BGM + SFX) and network/chain icons.
+        source: "/(.*)",
+        headers: [{ key: "Document-Policy", value: "js-profiling" }],
+      },
+      {
         source: "/:dir(audio|sounds|networks)/:path*",
         headers: [
           {
@@ -65,4 +70,11 @@ const config = {
   },
 };
 
-export default config;
+export default withSentryConfig(config, {
+  org: "bufinance",
+  project: "bufi-defi-web-app",
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  tunnelRoute: "/monitoring",
+});

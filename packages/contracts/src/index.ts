@@ -159,7 +159,8 @@ export type ArcPerpMarketSymbol =
   | "EURC/USDC"
   | "tJPYC/USDC"
   | "MXNB/USDC"
-  | "CIRBTC/USDC";
+  | "CIRBTC/USDC"
+  | "AUDF/USDC";
 
 export interface TokenRegistry {
   usdc?: Address;
@@ -259,7 +260,7 @@ export interface BuFxProtocolPerpMarket {
 export interface ArcPerpMarket {
   chainId: 5042002;
   marketId: Hex;
-  baseToken: "eurc" | "jpyc" | "mxnb" | "cirbtc";
+  baseToken: "eurc" | "jpyc" | "mxnb" | "cirbtc" | "audf";
   quoteToken: "usdc";
   pythFeedId: Hex;
   config: {
@@ -371,7 +372,7 @@ export const CONTRACTS: Record<ChainId, ChainContracts> = {
       telaranaGatewayHubHook: "0x74E894aFf25c89d707873347cd2554d30E0541fa",
       fxHubMessageReceiver: "0x44B50E93eCC7775aF99bcd04c30e1A00da80F63C",
       fxGatewayHook: "0x2931C50745334d6DFf9eC4E3106fE05b49717DF1",
-      fxOracle: "0xf9b0356A31BC7125e2eD0DADf8b5957860d42c78",
+      fxOracle: "0xF181caF51bD2450211CB9e72d5Cc853d3789698B",
       fxMarketRegistry: "0x813232259c9b922e7571F15220617C80581f1464",
       fxLiquidator: "0xa50f7D4D4a1A0D3CF418515973545b80E037B379",
       fxReceiptUsdc: "0xdd22365Bba7330BE537c9BC26da9b1b4Db9aC431",
@@ -389,12 +390,12 @@ export const CONTRACTS: Record<ChainId, ChainContracts> = {
     // during the Step 3 dogfood — UI signs against this address, matcher
     // verifies against the deployment manifest; mismatch → SignerMismatch.
     perps: {
-      clearinghouse: "0x39dc43E2133CF860c1d17d4DB75Ef4204eebD46A",
-      marginAccount: "0x4EB6018F988301417B93cb2b8899D74D42273e96",
-      fundingEngine: "0x859bA11A3693895f8B03C31C6AE3b8F04992115B",
-      healthChecker: "0xA00Be167609c02F3879138dA8530BC31527c02b8",
-      liquidationEngine: "0xF579e265EF1D5E67EfDbb1F20863465E94a9d3eA",
-      orderSettlement: "0x93C3d831D6F0657479d7Fb6Cf0D06e75aA05E4CC",
+      clearinghouse: "0xCE3401BD53be4c0a8c7CCb0376b313925f99b8d2",
+      marginAccount: "0x766b96971F484E7287E41130E9a5b248CDE44ca9",
+      fundingEngine: "0x8b3b63D2031da48e3114871a49CD02B923E388e1",
+      healthChecker: "0x12d18BC4b2295834Bb7A08aF5Bc2b40E40c7F53B",
+      liquidationEngine: "0xA70aA9B3bCD3BB829B2E8aF29d8A48f5e09f50E5",
+      orderSettlement: "0x904bb24A910c54A84341E157B894d11B474A2e1F",
     },
     bento: {},
     // Privacy Hook v1 on Arc (sprint 2026-05-18) — shielded USDC + EURC
@@ -575,6 +576,25 @@ export const ARC_PERP_MARKETS: Record<ArcPerpMarketSymbol, ArcPerpMarket> = {
       // docs/operator-raise-oi-caps.md before live dogfooding.
       maxOpenInterestUsd: "250000000",
       maxSkewUsd: "250000000",
+    },
+    fundingConfig: ARC_PERP_DEFAULT_FUNDING_CONFIG,
+  },
+  "AUDF/USDC": {
+    chainId: 5042002,
+    // keccak256("AUDF") — broadcast via fx-telarana/contracts/script/
+    // ConfigureArcPerpAudf.s.sol (txs: setFeed 0x3ee0c09f…, configureMarket
+    // 0xa16dfeaf…, configureFunding 0xa36d037b…).
+    marketId: "0x921b564f97b14b7d73c12a72af4b7847fb5e3414f98cbe5fb5f1d8a3168c0a00",
+    baseToken: "audf",
+    quoteToken: "usdc",
+    pythFeedId: PYTH_FEED_IDS.audUsd,
+    config: {
+      ...ARC_PERP_DEFAULT_CONFIG,
+      // Pre-scaled by 1e12 to match the WAD-comparison fix raise-arc-max-oi
+      // shipped for the existing 4 markets. Without this scale the OI gate
+      // blocks every fill on the first cross.
+      maxOpenInterestUsd: "500000000000000000000",
+      maxSkewUsd: "500000000000000000000",
     },
     fundingConfig: ARC_PERP_DEFAULT_FUNDING_CONFIG,
   },

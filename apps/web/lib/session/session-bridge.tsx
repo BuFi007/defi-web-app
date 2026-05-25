@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAccount, useChainId } from "wagmi";
 import {
   useDynamicContext,
@@ -33,6 +34,15 @@ import { useBufiSessionStore } from "./store";
  */
 export function SessionBridge() {
   const devWallet = useDevWallet();
+  // The dev wallet is opt-in per-tab via ?force-island=1 so the env flag
+  // (NEXT_PUBLIC_BENTO_E2E=1) doesn't unconditionally bypass the wallet
+  // gate on every load. Matches the home/index.tsx forceIsland contract —
+  // without this, the Welcome / "Log in or sign up" card is unreachable
+  // on dev builds because SessionBridge auto-mints a connected session
+  // from the dev wallet, so isConnectedAnyPath stays true forever.
+  const searchParams = useSearchParams();
+  const devWalletActive =
+    devWallet !== null && searchParams?.get("force-island") === "1";
   const { address: wagmiAddress, status: wagmiStatus } = useAccount();
   const wagmiChainId = useChainId();
   const isDynamicLoggedIn = useIsLoggedIn();
@@ -47,12 +57,16 @@ export function SessionBridge() {
   useEffect(() => {
     const setIdentity = useBufiSessionStore.getState().setIdentity;
 
-    // 1. Dev wallet wins. We ALSO pre-mint the wallet-session proof
+    // 1. Dev wallet wins — but ONLY when the tab is in force-island
+    //    mode (?force-island=1). Without that gate the env flag would
+    //    auto-bypass auth for any developer with NEXT_PUBLIC_BENTO_E2E
+    //    set in .env.local, hiding the real Welcome / Dynamic auth card
+    //    from local dogfooding. We ALSO pre-mint the wallet-session proof
     //    synchronously — the dev wallet signs locally with no UI prompt,
     //    so it costs nothing to have the proof ready in the store from
     //    first paint. Production wallets DON'T do this — they sign only
     //    on explicit user action via useEnsureSession.
-    if (devWallet) {
+    if (devWalletActive && devWallet) {
       setIdentity({
         status: "connected",
         address: devWallet.address,
@@ -160,6 +174,7 @@ export function SessionBridge() {
     });
   }, [
     devWallet,
+    devWalletActive,
     wagmiAddress,
     wagmiStatus,
     wagmiChainId,

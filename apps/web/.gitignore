@@ -2,3 +2,8 @@
 playwright-report/
 test-results/
 playwright/.cache/
+
+certificates
+
+# Sentry
+.env.sentry-build-plugin

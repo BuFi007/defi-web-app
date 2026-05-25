@@ -185,6 +185,9 @@ export async function listMarkets(
                 ]),
                 `marketIdOf/isPoolLive ${hub.name}`,
               );
+              // Log silently-swallowed state-read failures so the UI
+              // doesn't permanently show "—" for APY / TVL / Util when
+              // an RPC hiccup or stale cache is the underlying cause.
               const state = await withTimeout(
                 readMarketState({
                   client,
@@ -192,7 +195,19 @@ export async function listMarkets(
                   marketId: id,
                 }),
                 `market-state ${hub.name}`,
-              ).catch(() => undefined);
+              ).catch((err: unknown) => {
+                console.warn(
+                  `[fx-telarana] market state read failed`,
+                  JSON.stringify({
+                    hub: hub.name,
+                    chainId: hub.chainId,
+                    marketId: id,
+                    morpho: hub.morphoBlue,
+                    err: err instanceof Error ? err.message : String(err),
+                  }),
+                );
+                return undefined;
+              });
 
               const market: LendingMarket = {
                 ...params,
@@ -208,10 +223,48 @@ export async function listMarkets(
               return market;
             }),
           );
-        } catch {
-          // Hub unreachable; fall back to the static manifest for this hub so
-          // the rest of the system can still progress.
-          return staticMarkets().filter((market) => market.hubChainId === hub.chainId);
+        } catch (listPoolsErr) {
+          // listPools() reverts on the live FxMarketRegistry deployments
+          // (both Arc + Fuji return "execution reverted" — confirmed via
+          // direct cast call). Storage-layout drift between the deployed
+          // bytecode and the current contract source is the likely cause;
+          // owner() and marketIdOf() still work, only the iterating views
+          // (listPools, isPoolLive) revert.
+          //
+          // Fall back to the static manifest BUT also fetch per-market
+          // state directly from MorphoBlue — without this the UI shows
+          // "—" for APY / supply / borrow / util / TVL on every row.
+          console.warn(
+            `[fx-telarana] listPools reverted on ${hub.name}; falling back to manifest + per-market state reads`,
+            (listPoolsErr as Error)?.message ?? String(listPoolsErr),
+          );
+          const localStatic = staticMarkets().filter(
+            (market) => market.hubChainId === hub.chainId,
+          );
+          return Promise.all(
+            localStatic.map(async (m) => {
+              const state = await withTimeout(
+                readMarketState({
+                  client,
+                  morpho: hub.morphoBlue,
+                  marketId: m.id,
+                }),
+                `static-state ${hub.name}`,
+              ).catch((err: unknown) => {
+                console.warn(
+                  `[fx-telarana] static-state read failed`,
+                  JSON.stringify({
+                    hub: hub.name,
+                    marketId: m.id,
+                    err: err instanceof Error ? err.message : String(err),
+                  }),
+                );
+                return undefined;
+              });
+              if (state) m.state = state;
+              return m;
+            }),
+          );
         }
       }),
     );

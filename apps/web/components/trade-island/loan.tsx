@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { Address } from "viem";
-import { useAccount, useBalance } from "wagmi";
+import { useAccount, useBalance, useChainId, useSwitchChain } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
 
 import {
@@ -26,6 +26,7 @@ import { formatHealthFactor, healthBucket, healthFactorFromE18, toAtomic } from 
 
 import { Hint } from "./hint";
 import { TokenIcon } from "./token-icon";
+import { LoanMarketPicker } from "./loan-market-picker";
 import { AnimatedNumber } from "@/components/animated-number";
 import { useMarketCandles } from "@/lib/perps/hooks";
 import {
@@ -266,7 +267,10 @@ export function loanTokenDeployment(
 ): { chainId: number; address: Address; decimals: number } | null {
   if (hub !== "arc" && hub !== "fuji") return null;
   const chainId = chainIdByHubKey(hub);
-  const dep = getDeployment(chainId, symbol as StableTokenType);
+  // StableTokenType keys are uppercase ("CIRBTC", "MXNB", etc.) but the
+  // loan-tab table emits user-facing mixed-case ("cirBTC") for display.
+  // Uppercase here so the lookup hits regardless of casing in the row.
+  const dep = getDeployment(chainId, symbol.toUpperCase() as StableTokenType);
   if (!dep) return null;
   return { chainId, address: dep.address as Address, decimals: dep.decimals };
 }
@@ -1045,6 +1049,15 @@ interface ActionCardProps {
   submitLabelOverride?: string;
   /** Optional live debt for the impact panel. */
   liveDebt?: number;
+  /**
+   * User's on-chain position in the currently-selected market. Drives
+   * the action-specific BALANCE/MAX:
+   *   withdraw → supplyAssets (what you can pull back)
+   *   repay    → borrowAssets (what you owe)
+   *   borrow   → collateral × LLTV − borrowAssets (max additional debt)
+   * lend stays on the wallet balance.
+   */
+  activePosition?: TelaranaPositionSerialized | null;
   /** Optional alternative markets list for the flip-pair lookup. */
   marketsList?: LoanMarket[];
   /** Markets used by the Confirm popover (full live + seed). */
@@ -1069,6 +1082,7 @@ export function ActionCard({
   marketsList,
   popoverMarkets,
   popoverPositions,
+  activePosition,
 }: ActionCardProps) {
   const loan = LOAN_TOKENS[market.loan] ?? LOAN_TOKENS.USDC;
   const A = ACTIONS.find((a) => a.id === action) || ACTIONS[0];
@@ -1094,6 +1108,9 @@ export function ActionCard({
   // BALANCE row showed 0 AUDF on Arc even when the user clearly held
   // 10M — wallet popover and ActionCard must agree on the same number.
   const { address: walletAddress } = useAccount();
+  const walletChainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
+  const { toast } = useToast();
   const onchain = market.onchain;
   const fallback = onchain ? null : loanTokenDeployment(market.hub, market.loan);
   const tokenAddress = (onchain?.loanToken ?? fallback?.address) as
@@ -1104,6 +1121,12 @@ export function ActionCard({
     | 5042002
     | undefined;
   const tokenDecimals = onchain?.loanDecimals ?? fallback?.decimals ?? 6;
+  const targetHubName = onchain
+    ? hubByChainId(onchain.hubChainId)?.name ?? market.hub.toUpperCase()
+    : market.hub.toUpperCase();
+  const needsNetworkSwitch = Boolean(
+    walletAddress && onchain && walletChainId !== onchain.hubChainId,
+  );
   const walletBalance = useBalance({
     address: walletAddress,
     token: tokenAddress,
@@ -1115,7 +1138,60 @@ export function ActionCard({
   const walletBalanceFloat = walletBalance.data
     ? Number(formatUnits(walletBalance.data.value, walletBalance.data.decimals ?? tokenDecimals))
     : 0;
-  const balance = balanceOverride ?? walletBalanceFloat;
+
+  // Action-specific balance. Drives the BALANCE label + the 25/50/75/MAX
+  // chip math + the input's implicit cap. Each action operates against
+  // a different "source":
+  //   lend     → wallet balance of loan token (deposit from your wallet)
+  //   withdraw → user's supplied assets in this market (pull back what's deposited)
+  //   repay    → user's outstanding debt in this market (close out the loan)
+  //   borrow   → max additional borrowable = collateral × price × LLTV − existing debt
+  // borrow is the hairy one: needs collateral price + LLTV math in WAD.
+  // When activePosition is missing (no position yet), withdraw/repay
+  // default to 0 (nothing to act on); borrow defaults to 0 (no
+  // collateral yet); lend keeps wallet balance.
+  const positionSupplyFloat = activePosition
+    ? Number(formatUnits(BigInt(activePosition.supplyAssets), tokenDecimals))
+    : 0;
+  const positionDebtFloat = activePosition
+    ? Number(formatUnits(BigInt(activePosition.borrowAssets), tokenDecimals))
+    : 0;
+  const positionCollateralFloat = activePosition
+    ? Number(activePosition.collateral) /
+      10 ** (onchain?.collateralDecimals ?? 6)
+    : 0;
+  // collateralPriceE36 is the collateral→loan rate scaled by 1e36;
+  // divide once to get loan-token-per-collateral-token in float space.
+  const collateralLoanRate = activePosition?.collateralPriceE36
+    ? Number(activePosition.collateralPriceE36) / 1e36
+    : 0;
+  const collateralLoanValue = positionCollateralFloat * collateralLoanRate;
+  // market.lltv is in percent (86 = 86%), per the seed table; treat null
+  // as 0 so borrow MAX falls to 0 when LLTV is missing.
+  const lltvFraction = market.lltv != null ? market.lltv / 100 : 0;
+  const maxBorrowable = Math.max(
+    0,
+    collateralLoanValue * lltvFraction - positionDebtFloat,
+  );
+  const actionBalance =
+    action === "withdraw"
+      ? positionSupplyFloat
+      : action === "repay"
+        ? positionDebtFloat
+        : action === "borrow"
+          ? maxBorrowable
+          : walletBalanceFloat; // lend (and any unknown action)
+  const balance = balanceOverride ?? actionBalance;
+  // Label that explains where the BALANCE number comes from for each
+  // action — "BALANCE" alone was misleading on withdraw/repay/borrow.
+  const balanceLabel =
+    action === "withdraw"
+      ? "SUPPLIED"
+      : action === "repay"
+        ? "DEBT"
+        : action === "borrow"
+          ? "MAX BORROW"
+          : "BALANCE";
   const amt = parseFloat(amount) || 0;
   const usd = amt * loan.price;
   const inverse = findInverse(market, marketsList ?? LOAN_MARKETS);
@@ -1142,10 +1218,14 @@ export function ActionCard({
     impactMini1 = ["per month", "−$" + monthly.toFixed(2)];
     impactMini2 = ["per day", "−$" + daily.toFixed(2)];
   } else if (action === "withdraw") {
+    // Lead with the asset amount (what actually lands in the wallet),
+    // demote the USDC dollar value to the small line. Previous order
+    // ($0.66 big + "1 AUDF" small) read as "you'll receive 66 cents" —
+    // confusing when the user's input was "1 AUDF".
     impactTitle = "You will receive";
-    impactBig = "$" + usd.toFixed(2);
+    impactBig = `${amt.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${loan.sym}`;
     impactBigClass = "ink";
-    impactMini1 = ["in " + loan.sym, amt.toLocaleString(undefined, { maximumFractionDigits: 2 })];
+    impactMini1 = ["≈ USDC", "$" + usd.toFixed(2)];
     impactMini2 = ["stops earning", "−$" + monthly.toFixed(2) + "/mo"];
   } else {
     // repay action — debt comes from telarana position read. No
@@ -1154,13 +1234,13 @@ export function ActionCard({
     // "—" rather than fake numbers.
     const debt = liveDebt;
     impactTitle = "You will free";
-    impactBig = "$" + usd.toFixed(2);
+    impactBig = `${amt.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${loan.sym}`;
     impactBigClass = "ink";
     impactMini1 = [
       "debt left",
       debt != null ? `−$${Math.max(0, debt - usd).toFixed(2)}` : "—",
     ];
-    impactMini2 = ["interest saved", "−$" + monthly.toFixed(2) + "/mo"];
+    impactMini2 = ["≈ USDC", "$" + usd.toFixed(2)];
   }
 
   // Legacy implicit-submit path. The Confirm popover is the primary CTA
@@ -1173,6 +1253,8 @@ export function ActionCard({
   return (
     <section className="lo-action">
       <div className="lo-action-head">
+        {/* Restored: market picker moved to the quick-pick rail (below)
+            per UX feedback. The head keeps the slim eyebrow + APY pill. */}
         <span className="lo-eyebrow">Action</span>
         <span
           className="lo-rate mono"
@@ -1214,17 +1296,28 @@ export function ActionCard({
           primary call to action. Keeping MAX rightmost keeps the muscle-
           memory consistent with most DeFi inputs (Aave, Compound). */}
       <div className="lo-amount-quick">
-        <button onClick={() => setAmount((balance / 4).toString())}>25%</button>
-        <button onClick={() => setAmount((balance / 2).toString())}>50%</button>
-        <button onClick={() => setAmount((balance * 0.75).toString())}>75%</button>
-        <button
-          type="button"
-          className="lo-amount-max"
-          onClick={() => setAmount(balance.toString())}
-          aria-label={`Use full balance of ${balance.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${loan.sym}`}
-        >
-          MAX
-        </button>
+        {/* Market picker sits at the start of the row; quick-pick chips
+            cluster to the right. justify-content: space-between on
+            .lo-amount-quick handles the layout — picker hugs the left
+            edge of the input, MAX hugs the right. */}
+        <LoanMarketPicker
+          selected={market}
+          markets={marketsList ?? popoverMarkets ?? [market]}
+          onSelect={(m) => onFlipMarket?.(m.id)}
+        />
+        <div className="lo-amount-quick-chips">
+          <button onClick={() => setAmount(formatAmountForInput(balance / 4, tokenDecimals))}>25%</button>
+          <button onClick={() => setAmount(formatAmountForInput(balance / 2, tokenDecimals))}>50%</button>
+          <button onClick={() => setAmount(formatAmountForInput(balance * 0.75, tokenDecimals))}>75%</button>
+          <button
+            type="button"
+            className="lo-amount-max"
+            onClick={() => setAmount(formatAmountForInput(balance, tokenDecimals))}
+            aria-label={`Use full balance of ${balance.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${loan.sym}`}
+          >
+            MAX
+          </button>
+        </div>
       </div>
 
       <div className="lo-amount-shell">
@@ -1265,8 +1358,12 @@ export function ActionCard({
 
       <div className="lo-amount-foot">
         <span className="lo-balance">
-          BALANCE <span className="mono">{balance.toLocaleString(undefined, { maximumFractionDigits: 2 })} {loan.sym}</span>
-          <span className="lo-balance-usd mono">≈ ${usd.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+          {balanceLabel} <span className="mono">{balance.toLocaleString(undefined, { maximumFractionDigits: 2 })} {loan.sym}</span>
+          {/* "≈ $X" reflects the action-specific balance — wallet for
+              lend, supplied for withdraw, debt for repay, max-borrow
+              for borrow — so the user always sees the dollar value of
+              whatever the MAX chip would fill in. */}
+          <span className="lo-balance-usd mono">≈ ${(balance * loan.price).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
         </span>
       </div>
 
@@ -1288,72 +1385,87 @@ export function ActionCard({
         </div>
       </div>
 
-      {onConfirm && (
-        <div className="lo-confirm-row">
-          <button
-            type="button"
-            className="lo-confirm-cta"
-            onClick={async () => {
-              if (!walletAddress) return;
-              if (!market.onchain) return;
-              const amt = parseFloat(amount);
-              if (!Number.isFinite(amt) || amt <= 0) return;
-              let atomic: bigint;
-              try {
-                atomic = parseUnits(amount, market.onchain.loanDecimals);
-              } catch {
-                return;
-              }
-              const kind: LendingActionKind =
-                action === "lend"
-                  ? "supply"
-                  : action === "withdraw"
-                  ? "withdraw"
-                  : action === "borrow"
-                  ? "borrow"
-                  : "repay";
-              await onConfirm(market, kind, atomic);
-            }}
-            disabled={
-              submitting ||
-              !walletAddress ||
-              !market.onchain ||
-              !(parseFloat(amount) > 0)
-            }
-            title={
-              !walletAddress
-                ? "Connect a wallet"
-                : !market.onchain
-                ? "Pick a live market from the list on the left"
-                : !(parseFloat(amount) > 0)
-                ? "Enter an amount above"
-                : submitLabelOverride ??
-                  `Confirm ${
-                    action === "lend"
-                      ? "Lend"
-                      : action === "withdraw"
-                      ? "Withdraw"
-                      : action === "borrow"
-                      ? "Borrow"
-                      : "Repay"
-                  }`
-            }
-          >
-            {submitting
-              ? "Signing…"
-              : submitLabelOverride ??
-                `Confirm ${
+      {onConfirm && (() => {
+        const actionVerb =
+          action === "lend"
+            ? "Lend"
+            : action === "withdraw"
+            ? "Withdraw"
+            : action === "borrow"
+            ? "Borrow"
+            : "Repay";
+        const ctaLabel = submitting
+          ? "Signing…"
+          : needsNetworkSwitch
+          ? `Switch to ${targetHubName} & ${actionVerb}`
+          : submitLabelOverride ?? `Confirm ${actionVerb}`;
+        const ctaTitle = !walletAddress
+          ? "Connect a wallet"
+          : !market.onchain
+          ? "Pick a live market from the list on the left"
+          : !(parseFloat(amount) > 0)
+          ? "Enter an amount above"
+          : needsNetworkSwitch
+          ? `Wallet is on the wrong network. Click to switch to ${targetHubName} and ${actionVerb.toLowerCase()}.`
+          : submitLabelOverride ?? `Confirm ${actionVerb}`;
+        return (
+          <div className="lo-confirm-row">
+            <button
+              type="button"
+              className="lo-confirm-cta"
+              onClick={async () => {
+                if (!walletAddress) return;
+                if (!market.onchain) return;
+                const amt = parseFloat(amount);
+                if (!Number.isFinite(amt) || amt <= 0) return;
+                // Prompt the wallet to switch to the hub chain BEFORE any
+                // contract reads (allowance) or signs fire. Without this,
+                // viem hits the wrong-chain RPC, the loan token contract
+                // doesn't exist there, and `allowance()` reverts with
+                // "Internal error" — surfaced to the user as a misleading
+                // "Signing failed" toast.
+                const targetChainId = market.onchain.hubChainId;
+                if (walletChainId !== targetChainId) {
+                  try {
+                    await switchChainAsync({ chainId: targetChainId });
+                  } catch (err) {
+                    toast({
+                      title: "Wrong network",
+                      description: `Switch your wallet to ${targetHubName} to ${actionVerb.toLowerCase()}.`,
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                }
+                let atomic: bigint;
+                try {
+                  atomic = parseUnits(amount, market.onchain.loanDecimals);
+                } catch {
+                  return;
+                }
+                const kind: LendingActionKind =
                   action === "lend"
-                    ? "Lend"
+                    ? "supply"
                     : action === "withdraw"
-                    ? "Withdraw"
+                    ? "withdraw"
                     : action === "borrow"
-                    ? "Borrow"
-                    : "Repay"
-                }`}
-          </button>
-        </div>
-      )}
+                    ? "borrow"
+                    : "repay";
+                await onConfirm(market, kind, atomic);
+              }}
+              disabled={
+                submitting ||
+                !walletAddress ||
+                !market.onchain ||
+                !(parseFloat(amount) > 0)
+              }
+              title={ctaTitle}
+            >
+              {ctaLabel}
+            </button>
+          </div>
+        );
+      })()}
     </section>
   );
 }
@@ -1373,6 +1485,20 @@ function mergeMockAndLiveMarkets(live: LoanMarket[]): LoanMarket[] {
   // still shows the long tail of FX pairs the protocol plans to support.
   const liveIds = new Set(live.map((m) => m.id));
   return [...live, ...LOAN_MARKETS.filter((m) => !liveIds.has(m.id))];
+}
+
+// Format a numeric balance for the amount input field. Strips floating-
+// point noise (0.1 + 0.2 → 0.3, not 0.30000000000000004), caps precision
+// at the token's on-chain decimals (so the parseUnits round-trip never
+// loses bits), and removes trailing zeros / dots for a clean display
+// (9999979 vs "9999979.000000"). Falls back to "" when the value isn't
+// finite — keeps the input empty rather than showing "NaN".
+function formatAmountForInput(value: number, decimals: number): string {
+  if (!Number.isFinite(value) || value <= 0) return "";
+  const cap = Math.max(0, Math.min(decimals, 8));
+  const rounded = Number(value.toFixed(cap));
+  if (Number.isInteger(rounded)) return rounded.toString();
+  return rounded.toString();
 }
 
 export function liveSupplyValueUsd(position: TelaranaPositionSerialized, loanDecimals = 6): number {
@@ -1549,6 +1675,7 @@ export function LoanTab() {
           submitting={actionSubmitting || oracleStaleActive}
           submitLabelOverride={oracleStaleActive ? "Oracle stale — retry…" : undefined}
           liveDebt={liveDebt}
+          activePosition={onchainPositionForMarket}
         />
       </div>
     </div>

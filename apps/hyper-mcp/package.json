@@ -1,0 +1,30 @@
+{
+  "name": "@bufi/hyper-mcp",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun --hot src/app.ts",
+    "start": "bun src/app.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@bufi/contracts": "workspace:*",
+    "@bufi/db": "workspace:*",
+    "@bufi/env": "workspace:*",
+    "@bufi/fx-spot": "workspace:*",
+    "@bufi/fx-telarana": "workspace:*",
+    "@bufi/market-data": "workspace:*",
+    "@bufi/mcp": "workspace:*",
+    "@bufi/perps": "workspace:*",
+    "@bufi/x402": "workspace:*",
+    "@sentry/bun": "^10.53.1",
+    "viem": "^2.30.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@usehyper/cli": "^0.1.1",
+    "typescript": "^5.6.0"
+  }
+}

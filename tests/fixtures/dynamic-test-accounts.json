@@ -1,0 +1,33 @@
+{
+  "_comment": "Dynamic.xyz test-mode credentials for dogfooding BUFI without a real wallet. Bypasses MetaMask/SIWE entirely — Dynamic provisions a Turnkey embedded wallet on first login.",
+  "_source": "https://docs.dynamic.xyz/users-and-orgs/users/test-accounts",
+  "_savedAt": "2026-05-24",
+  "email": {
+    "pattern": "any email with +dynamic_test<suffix> before the @ — the suffix can be anything (alpha, qa1, echo, etc.) to spread parallel-agent load across distinct identities and avoid Cloudflare WAF rate limits",
+    "primary": "tomas.cordero.esp+dynamic_test@gmail.com",
+    "varied_examples": [
+      "tomas.cordero.esp+dynamic_test_alpha@gmail.com",
+      "tomas.cordero.esp+dynamic_test_bravo@gmail.com",
+      "tomas.cordero.esp+dynamic_test_charlie@gmail.com",
+      "tomas.cordero.esp+dynamic_test_echo@gmail.com",
+      "tomas.cordero.esp+dynamic_test_qa1@gmail.com",
+      "tomas.cordero.esp+dynamic_test_qa2@gmail.com"
+    ]
+  },
+  "phone": {
+    "pattern": "any phone starting with +1-555",
+    "primary": "+1 555-111-2222",
+    "varied_examples": [
+      "+1 555-111-2223",
+      "+1 555-111-2224",
+      "+1 555-222-3333"
+    ]
+  },
+  "otp": "967140",
+  "_usage": {
+    "ui": "Click 'Log in or sign up' → choose Email or Phone → enter test value → enter OTP 967140",
+    "browse": "After page loads, drive Dynamic widget input fields and submit OTP",
+    "parallel_agents": "ALWAYS use a varied suffix per agent (alpha/bravo/echo/etc.). Otherwise Cloudflare WAF rate-limits the email and returns 403 — which browsers report as a CORS error but is actually rate-limit fallout.",
+    "rate_limit_window": "If you hit a 403/429 from app.dynamicauth.com, wait 15-30 min OR switch to a different +dynamic_test<suffix>@ variant."
+  }
+}

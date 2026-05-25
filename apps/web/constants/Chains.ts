@@ -263,6 +263,18 @@ export const ArcTestnet = {
   rpcUrls: ["https://rpc.testnet.arc.network"],
   isMainnet: false,
   networkId: 5042002,
+  // Arc Testnet brands its gas token as USDC (precompile at
+  // 0x3600...0000) but the EVM-level gas accounting is still in
+  // 18-decimal wei — every transaction's gas estimate is returned
+  // as wei. With `decimals: 6` MetaMask/Dynamic decoded the wei
+  // value through the 6-dec USDC formatter and displayed a
+  // ~0.005 USDC gas fee as **5,732,899,778.62 USDC**, which scared
+  // the user into thinking they were about to spend billions.
+  // 18-dec is the correct EVM convention; the symbol still reads
+  // "USDC" so the brand sticks, but the math is now sane.
+  // (If the wallet's native-balance display reads small after this,
+  // that's a separate fix in the balance-rendering code path, not
+  // here in the chain config.)
   nativeCurrency: {
     name: "USDC",
     symbol: "USDC",
@@ -294,7 +306,10 @@ export const Ethereum = {
     decimals: 18,
     iconUrls: ["/networks/eth.svg"],
   },
-  rpcUrls: ["https://eth.llamarpc.com"],
+  // Cloudflare's public ETH endpoint — CORS-friendly + not commonly
+  // blocked by ad-blockers (llamarpc + eth.merkle.io both get
+  // ERR_BLOCKED_BY_CLIENT or CORS-rejected in browser context).
+  rpcUrls: ["https://cloudflare-eth.com"],
   vanityName: "Ethereum",
   chainName: "Ethereum",
   networkId: 1,

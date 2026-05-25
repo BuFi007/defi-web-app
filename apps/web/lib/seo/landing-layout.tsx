@@ -1,5 +1,4 @@
 import { Metadata } from "next";
-import { cacheLife } from "next/cache";
 import { notFound } from "next/navigation";
 import {
   DEFAULT_LOCALE,
@@ -64,8 +63,6 @@ const localizedMetadata: Record<SupportedLocale, LocalizedMetadata> = {
 type CachedMetadata = Omit<Metadata, "metadataBase">;
 
 async function getMetadata(locale: string): Promise<CachedMetadata> {
-  "use cache";
-  cacheLife("weeks");
 
   if (!(SUPPORTED_LOCALES as readonly string[]).includes(locale)) notFound();
 

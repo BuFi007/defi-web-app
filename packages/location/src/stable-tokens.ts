@@ -60,6 +60,7 @@ export type StableTokenType =
   | "EURC"
   | "AUDF"
   | "BRLA"
+  | "CIRBTC"
   | "JPYC"
   | "KRW1"
   | "MXNB"
@@ -96,6 +97,17 @@ const StableTokenMap: Record<StableTokenType, StableToken> = {
     name: "Brazilian Real (BRLA)", asset: "BRLA",
     icon: `${ASSET_BASE}/brla_token_icon.png`,
     usdPrice: 0.1724, mock: false, displayDecimals: 2,
+  },
+  // cirBTC is Circle's wrapped-BTC test token on Arc — 8 dp on-chain
+  // (matches BTC's satoshi precision; NOT 6 like the USD-pegged stables).
+  // Icon is rendered via Lottie in token-icon.tsx (no static SVG yet);
+  // `icon` here points at a placeholder that the chip swaps for the
+  // animated source when `sym.toLowerCase() === 'cirbtc'`.
+  CIRBTC: {
+    code: "BTC", unicode: "U+20BF", flag: "₿",
+    name: "Circle Bitcoin (cirBTC)", asset: "CIRBTC",
+    icon: `${ASSET_BASE}/usdc_token_icon.svg`,
+    usdPrice: 95000, mock: false, displayDecimals: 6,
   },
   JPYC: {
     code: "JPY", unicode: "U+1F1EF U+1F1F5", flag: "🇯🇵",

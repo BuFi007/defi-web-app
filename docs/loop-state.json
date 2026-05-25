@@ -1,0 +1,74 @@
+{
+  "iteration": 3,
+  "last_iteration_completed": 2,
+  "last_iteration_at": "2026-05-24T19:10:00Z",
+  "branch": "feat/wk1n14-privacy-pools-live",
+  "head_commit": "7d011de",
+  "cadence_seconds": 2700,
+  "dod_progress": {
+    "render_homepage": "GREEN (force-island confirmed, real wallet blocked on Dynamic CORS)",
+    "all_tabs_render": "GREEN (Trade/Loan/Positions/Leaderboard/History; no separate Privacy tab — Ghost Mode is header toggle)",
+    "wallet_connect_arc": "BLOCKED — Dynamic env CORS missing https://localhost:3001",
+    "perp_trade_end_to_end": "BLOCKED — Dynamic CORS + on-chain maxOpenInterestUsd admin tx",
+    "morpho_yield_real": "BLOCKED — Morpho hook returns nothing, all columns '—'",
+    "privacy_pool_mxnb": "BLOCKED — MXNB oracle stale at Pyth Hermes upstream (1.9 days)",
+    "onchain_reads_only": "GREEN — CHARLIE fixed remaining wiring",
+    "onchain_writes_only": "BLOCKED — matcher OI cap admin tx needed",
+    "ci_green_main": "GREEN — 3x clean, PR #119 + #120 open",
+    "p0_p1_backlog_le_5": "GREEN — P0=1 P1=3 total=4"
+  },
+  "dod_green_count": 4,
+  "dod_total": 10,
+  "blockers": [
+    {
+      "id": 1,
+      "title": "Dynamic env CORS allowlist missing https://localhost:3001",
+      "owner": "USER",
+      "scope": "Dashboard config (not code)",
+      "blocks": ["wallet_connect_arc", "perp_trade_end_to_end"],
+      "workaround": "?force-island=1 query param skips wallet, uses dev-mock"
+    },
+    {
+      "id": 2,
+      "title": "Arc maxOpenInterestUsd 6-dec vs 18-dec WAD mismatch",
+      "owner": "USER (deployer key)",
+      "scope": "On-chain admin tx setMaxOpenInterest on Arc",
+      "blocks": ["onchain_writes_only", "perp_trade_end_to_end"]
+    },
+    {
+      "id": 3,
+      "title": "Morpho hook returns empty: Loan tab columns all '—'",
+      "owner": "CHARLIE-or-APP",
+      "scope": "useMorphoMarketData wiring to ponder/viem",
+      "blocks": ["morpho_yield_real"]
+    },
+    {
+      "id": 4,
+      "title": "Pyth Hermes upstream: tJPYC + MXNB oracle stale 1.9 days",
+      "owner": "UPSTREAM (Pyth)",
+      "scope": "Out of our control; dogfood EURC/USDC/cirBTC only",
+      "blocks": ["privacy_pool_mxnb"]
+    },
+    {
+      "id": 5,
+      "title": "Borrow toggle leaves Confirm button labeled 'Confirm Lend'",
+      "owner": "ALPHA",
+      "scope": "UI label conditional"
+    },
+    {
+      "id": 6,
+      "title": "Duplicate 'Log in or sign up' buttons on /",
+      "owner": "ALPHA",
+      "scope": "Header DynamicWidget + Welcome card DynamicWidget both render"
+    }
+  ],
+  "wins_iter2": [
+    "Hydration root cause was BENTO_E2E flag; gated to ?force-island=1 (44a18c5)",
+    "Matcher LP FillSizeCap unblocked via CANARY_NOTIONAL_USDC_E6 (BRAVO)",
+    "Arc deployments table: MXNB + cirBTC wired; AUDF dropped; cirBTC decimals=8 (4c30c00)",
+    "networkValidationMode TS regression fixed via PR #120 (DELTA)",
+    "P0+P1 backlog 10 → 4 (FOXTROT)",
+    "Tabs sweep: Trade/Loan/Positions/Leaderboard/History all interactive in force-island"
+  ],
+  "next_action": "Iteration 3 priorities: ALPHA dedupe CTA + fix Borrow label, APP wire Morpho hook, DELTA monitor PR #119/#120 merge. Do NOT auto-dispatch all 6 teams — most remaining blockers need user action (Dynamic dashboard CORS + Arc admin tx). Wait for user signal before iter 3 spawn."
+}
