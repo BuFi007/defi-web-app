@@ -1,4 +1,4 @@
-import { SPOT_FX_ROUTES } from "@bufi/contracts";
+import { SPOT_FX_ROUTES, PYTH_FEED_IDS } from "@bufi/contracts";
 import { createHermesClient } from "@bufi/market-data";
 import { requireKeeperSigner, runKeeper } from "@bufi/keeper-runtime";
 
@@ -17,7 +17,9 @@ await runKeeper({
   name: "@bufi/keeper-pyth",
   async tick(ctx) {
     requireKeeperSigner(ctx);
-    const feeds = Object.values(SPOT_FX_ROUTES).map((r) => r.pythFeedId);
+    const spotFeeds = Object.values(SPOT_FX_ROUTES).map((r) => r.pythFeedId);
+    const perpOnlyFeeds = [PYTH_FEED_IDS.audUsd];
+    const feeds = [...new Set([...spotFeeds, ...perpOnlyFeeds])];
     const latest = await hermes.latestPriceUpdates(feeds);
     if (!bootLogged) {
       ctx.log.info("pyth.ready", {
