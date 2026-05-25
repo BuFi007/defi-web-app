@@ -15,7 +15,10 @@ export const EIP712_DOMAIN_TYPE = [
 // -- Zod primitives --
 
 export const zAddress = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
-export const zAmount = z.string().regex(/^\d+(\.\d{1,6})?$/);
+export const zAmount = z.string().regex(/^\d+(\.\d{1,6})?$/).refine(
+  (v) => parseFloat(v) > 0,
+  { message: "amount must be greater than zero" },
+);
 export const zUint = z.string().regex(/^\d+$/);
 export const zSymbol = z.enum(PERP_SYMBOLS);
 export const zSide = z.enum(["long", "short"]);
@@ -33,10 +36,13 @@ export function computeSizeDelta(side: "long" | "short", sizeUsdc: string): stri
   return signedSizeDelta({ side, sizeUsdc }).toString();
 }
 
+let _nonceCounter = 0;
+
 export function generateDeadlineAndNonce(ttl = 3600) {
+  _nonceCounter = (_nonceCounter + 1) % 1_000_000;
   return {
     deadline: Math.floor(Date.now() / 1000) + ttl,
-    nonce: String(Date.now()),
+    nonce: `${Date.now()}${String(_nonceCounter).padStart(6, "0")}`,
   };
 }
 

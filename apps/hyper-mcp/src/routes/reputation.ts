@@ -1,5 +1,6 @@
 import { Hyper, ok, route } from "@hyper/core";
 import { z } from "zod";
+import { cache } from "@hyper/cache";
 import { jsonSafe } from "../services.ts";
 import { ARC_CHAIN_ID } from "../shared.ts";
 import {
@@ -13,6 +14,7 @@ import {
 
 const agentIdentity = route
   .get("/reputation/identity/:agentId")
+  .use(cache({ maxAge: 300, staleWhileRevalidate: 600 }))
   .meta({
     mcp: {
       title: "Agent Identity (ERC-8004)",
@@ -55,6 +57,7 @@ const agentIdentity = route
 
 const reputationScore = route
   .get("/reputation/score/:agentId")
+  .use(cache({ maxAge: 300, staleWhileRevalidate: 600 }))
   .meta({
     mcp: {
       title: "Reputation Score (ERC-8004)",

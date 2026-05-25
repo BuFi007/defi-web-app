@@ -31,13 +31,21 @@ const borrowPreview = route
     },
   })
   .handle(async ({ body }) => {
-    const preview = await telaranaService.borrowQuote({
-      chainId: ARC_CHAIN_ID,
-      marketId: body.marketId,
-      collateralAmount: body.collateralAmount,
-      borrowAmount: body.borrowAmount,
-    });
-    return ok(jsonSafe(preview));
+    try {
+      const preview = await telaranaService.borrowQuote({
+        chainId: ARC_CHAIN_ID,
+        marketId: body.marketId,
+        collateralAmount: body.collateralAmount,
+        borrowAmount: body.borrowAmount,
+      });
+      return ok(jsonSafe(preview));
+    } catch {
+      return ok({
+        error: "borrow preview unavailable",
+        note: "On-chain quote reader not configured. Use GET /api/lending/markets for APY data.",
+        marketId: body.marketId,
+      });
+    }
   });
 
 const supplyAction = route

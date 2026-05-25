@@ -265,6 +265,16 @@ export default {
   },
 };
 
+setTimeout(async () => {
+  const { livePerpsMarkets } = await import("@bufi/perps");
+  const { perpsService } = await import("./services.ts");
+  const markets = livePerpsMarkets(5042002);
+  for (const m of markets.slice(0, 2)) {
+    await perpsService.quote({ chainId: 5042002, marketId: m.marketId, side: "long", sizeUsdc: "1", sizeDelta: "1000000", leverage: 1 }).catch(() => {});
+  }
+  console.log(`  Oracle warmed for ${Math.min(2, markets.length)} markets`);
+}, 100);
+
 console.log(`BUFI HYPER MCP Gateway listening on :${port}`);
 console.log(`  MCP:     http://localhost:${port}/mcp`);
 console.log(`  OpenAPI: http://localhost:${port}/openapi.json`);
