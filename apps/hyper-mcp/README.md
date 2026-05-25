@@ -242,6 +242,101 @@ Traditional monitoring watches HTTP status codes. When your customers are AI age
 | `SENTRY_DSN_MCP` | built-in DSN | Override with your own Sentry project |
 | `NODE_ENV` | `development` | `production` → 20% trace sampling, `development` → 100% |
 
+## System Architecture
+
+No orchestrator. Each service is an independent loop that converges on shared state.
+
+```mermaid
+sequenceDiagram
+    participant Agent as AI Agent
+    participant MCP as mcp.bu.finance<br/>(Hyper-MCP)
+    participant DB as SQLite<br/>(Intent DB)
+    participant Matcher as Matcher<br/>(Rust gRPC)
+    participant Arc as Arc Testnet<br/>(On-Chain)
+    participant Ponder as Ponder<br/>(Indexer)
+    participant PG as Postgres
+
+    Agent->>MCP: bufi_trade_execute(signature)
+    MCP->>MCP: Validate ERC-1271 signature
+    MCP->>DB: Write intent (status: accepted)
+    MCP-->>Agent: { intentId, status: accepted }
+
+    loop Every ~1s
+        Matcher->>DB: Poll pending intents
+        Matcher->>Matcher: Match long ↔ short
+        Matcher->>Arc: clearinghouse.settle()
+        Arc-->>Matcher: tx confirmed (<1s)
+        Matcher->>DB: Update status: filled
+    end
+
+    Arc->>Ponder: PositionIncreased event
+    Arc->>Ponder: SettlementExecuted event
+    Ponder->>PG: Index positions, trades, PnL
+```
+
+```mermaid
+graph TB
+    subgraph "User-Facing"
+        FX[fx.bu.finance<br/>Next.js Frontend]
+        API[fx-api.bu.finance<br/>Hono REST API]
+        MCP[mcp.bu.finance<br/>Hyper MCP Gateway<br/>35 tools]
+    end
+
+    subgraph "Settlement"
+        MATCHER[Matcher<br/>Rust gRPC<br/>Order matching + settle]
+        ARC[Arc Testnet<br/>Sub-second finality<br/>~$0.01 USDC gas]
+    end
+
+    subgraph "Indexing"
+        PONDER[Ponder<br/>Event indexer]
+        PG[(Postgres)]
+    end
+
+    subgraph "Keepers (independent background loops)"
+        KP[keeper-pyth<br/>Push oracle prices<br/>~10s tick]
+        KL[keeper-perps-liquidator<br/>Liquidate positions<br/>~30s tick]
+        KS[keeper-spot<br/>Settle FX swaps<br/>~5s tick]
+        KG[keeper-gateway-signer<br/>CCTP relay<br/>~10s tick]
+        KT[keeper-telarana-liquidator<br/>Lending liquidations<br/>~30s tick]
+        KA[keeper-arcade-settler<br/>Bento settlement]
+    end
+
+    FX --> API
+    MCP --> API
+    API --> MATCHER
+    MATCHER --> ARC
+    ARC --> PONDER
+    PONDER --> PG
+    PG --> API
+    PG --> FX
+
+    KP --> ARC
+    KL --> ARC
+    KS --> ARC
+    KG --> ARC
+    KT --> ARC
+    KA --> ARC
+```
+
+### Shared State (the glue)
+
+| State | Writers | Readers |
+|-------|---------|---------|
+| SQLite intent DB | API + MCP (create intents) | Matcher (pick up + fill) |
+| Arc chain state | Matcher + keepers (settle txs) | Ponder (index events) |
+| Ponder Postgres | Ponder (index) | API + frontend (query positions/trades) |
+| Pyth oracle prices | keeper-pyth (push to chain) | Clearinghouse (read for quotes/liquidations) |
+
+### What happens if a service goes down
+
+| Service down | Impact | Recovery |
+|-------------|--------|----------|
+| MCP | Agents can't submit new trades | Restart — intents in DB are durable |
+| Matcher | Intents accepted but not filled | Restart — picks up pending intents |
+| keeper-pyth | Oracle prices go stale, quotes degrade | Restart — Hermes fallback in API |
+| keeper-liquidator | Underwater positions stay open | Restart — catches up on next tick |
+| Ponder | Frontend shows stale data | Restart — re-indexes from last block |
+
 ## Deploy
 
 ```bash
