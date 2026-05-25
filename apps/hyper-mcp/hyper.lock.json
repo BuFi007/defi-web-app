@@ -2,6 +2,21 @@
   "schema": 1,
   "registryUrl": "https://hyperjs.ai",
   "components": {
+    "agent-rules": {
+      "version": "0.1.0",
+      "installedAt": "2026-05-25T15:57:16.885Z",
+      "alias": "@hyper",
+      "files": [
+        {
+          "path": ".cursor/rules/hyper.md",
+          "sha256": "10d849a3ab7b53790b7e021d5a941f4224f3c679f9da5f1f076474fe2b9a5d24"
+        },
+        {
+          "path": "AGENTS.md",
+          "sha256": "8b6b968951c70d27234e5642b2636be927bdff7e611fa86a2b1cb6a8f67e9446"
+        }
+      ]
+    },
     "auth-jwt": {
       "version": "0.1.0",
       "installedAt": "2026-05-25T15:48:53.358Z",
@@ -32,6 +47,41 @@
         }
       ]
     },
+    "client": {
+      "version": "0.1.0",
+      "installedAt": "2026-05-25T15:57:16.885Z",
+      "alias": "@hyper",
+      "files": [
+        {
+          "path": "src/hyper/client/client.ts",
+          "sha256": "718e43d48228b4a29c4e00d01ab4b02c31330968e6d466c753a2554d76f0f04d"
+        },
+        {
+          "path": "src/hyper/client/codegen.ts",
+          "sha256": "9de687b7462628bfb5727289445d85ea720798073baf5ed2d79a8312d26e24bc"
+        },
+        {
+          "path": "src/hyper/client/index.ts",
+          "sha256": "1ba23c2698106352d179cc209fe1c263cd7956663ca38cbb83a93fc9a3ee2fbe"
+        },
+        {
+          "path": "src/hyper/client/sse.ts",
+          "sha256": "695238d750814c2400552b29fc993cff16ad4b7732ea89f302d9528164aefe2d"
+        },
+        {
+          "path": "src/hyper/client/tanstack-query.ts",
+          "sha256": "53d024578c4d0fa88084230f63d5a732bafc7b48ff4f61c02b45005649c43e1d"
+        },
+        {
+          "path": "src/hyper/client/transport.ts",
+          "sha256": "ebc67de8a01e3a166e817f615c05d28f5f6a4d979e792b0c37b94f4e08323c65"
+        },
+        {
+          "path": "src/hyper/client/types.ts",
+          "sha256": "b2f5bc51bddd81c066621f7cd24fea7a8a5d724542b05b868022dfa6a164db57"
+        }
+      ]
+    },
     "compress": {
       "version": "0.1.0",
       "installedAt": "2026-05-25T15:52:04.100Z",
@@ -45,7 +95,7 @@
     },
     "core": {
       "version": "0.1.0",
-      "installedAt": "2026-05-25T15:52:04.100Z",
+      "installedAt": "2026-05-25T15:57:16.883Z",
       "alias": "@hyper",
       "files": [
         {
@@ -238,6 +288,21 @@
         }
       ]
     },
+    "msgpack": {
+      "version": "0.1.0",
+      "installedAt": "2026-05-25T15:57:16.884Z",
+      "alias": "@hyper",
+      "files": [
+        {
+          "path": "src/hyper/msgpack/codec.ts",
+          "sha256": "bd0e918d130dfc037a6337fa6c6d9e74ba96aad84d6ad53692b120df00ec9d21"
+        },
+        {
+          "path": "src/hyper/msgpack/index.ts",
+          "sha256": "81f92241243fd660d23bb1e207616adfdd01c90009b7b3561f1511acf8706d95"
+        }
+      ]
+    },
     "openapi": {
       "version": "0.1.0",
       "installedAt": "2026-05-25T14:45:14.031Z",
@@ -307,6 +372,17 @@
         {
           "path": "src/hyper/session/sqlite.ts",
           "sha256": "e721a9469d938493d7602ed827e7fe7622ae189d945b333f6d94cffd0421caef"
+        }
+      ]
+    },
+    "subscribe": {
+      "version": "0.1.0",
+      "installedAt": "2026-05-25T15:57:16.883Z",
+      "alias": "@hyper",
+      "files": [
+        {
+          "path": "src/hyper/subscribe/index.ts",
+          "sha256": "e096aff51c6d3f5b1cd6fc94964b2b77fc101b4ea0f2c7f4e484acd1cb665783"
         }
       ]
     }

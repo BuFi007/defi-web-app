@@ -40,6 +40,7 @@ import spot from "./routes/spot.ts";
 import lending from "./routes/lending.ts";
 import leaderboard from "./routes/leaderboard.ts";
 import reputation from "./routes/reputation.ts";
+import stream from "./routes/stream.ts";
 
 const llmsTxt = `# BuFi Agora — Trading Infrastructure for AI Agents
 
@@ -195,7 +196,8 @@ const hyper = new Hyper()
   .use(spot)
   .use(lending)
   .use(leaderboard)
-  .use(reputation);
+  .use(reputation)
+  .use(stream);
 
 // JWT auth is opt-in: when BUFI_JWT_SECRET is set, agents authenticate
 // via `Authorization: Bearer <token>` and get ctx.user with { sub, scope }.
@@ -206,28 +208,30 @@ if (jwtSecret) {
 
 const port = Number(process.env.PORT ?? 4002);
 
+const baseUrl = process.env.BUFI_MCP_URL ?? `http://localhost:${port}`;
+
 const hyperApp = hyper.build();
 const mcp = mcpServer(hyperApp);
 
 const mcpLandingPage = {
-  endpoint: `http://localhost:${port}/mcp`,
+  endpoint: `${baseUrl}/mcp`,
   protocol: "json-rpc-2.0",
   methods: ["initialize", "tools/list", "tools/call"],
   tools: mcp.listTools(),
-  llmsTxt: `http://localhost:${port}/llms.txt`,
-  openapi: `http://localhost:${port}/openapi.json`,
+  llmsTxt: `${baseUrl}/llms.txt`,
+  openapi: `${baseUrl}/openapi.json`,
   snippet: {
     "claude-code": `claude mcp add --transport http bufi-hyper http://localhost:${port}/mcp`,
     ".mcp.json": {
       mcpServers: {
-        "bufi-hyper": { type: "url", url: `http://localhost:${port}/mcp` },
+        "bufi-hyper": { type: "url", url: `${baseUrl}/mcp` },
       },
     },
     "cursor / windsurf": {
       mcpServers: {
         "bufi-hyper": {
           command: "npx",
-          args: ["-y", "mcp-remote", `http://localhost:${port}/mcp`, "--allow-http"],
+          args: ["-y", "mcp-remote", `${baseUrl}/mcp`, "--allow-http"],
         },
       },
     },
