@@ -5,7 +5,7 @@ COPY package.json bun.lock* ./
 COPY packages/ packages/
 COPY apps/hyper-mcp/ apps/hyper-mcp/
 
-RUN bun install --frozen-lockfile --production
+RUN bun install --production
 
 EXPOSE 4002
 ENV PORT=4002
