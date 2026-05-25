@@ -11,11 +11,17 @@ import {
   requireKeeperSigner,
   runKeeper,
 } from "@bufi/keeper-runtime";
-import type { Address, Hex } from "viem";
+import { defineChain, type Address, type Hex } from "viem";
+
+const arcTestnet = defineChain({
+  id: 5042002,
+  name: "Arc Testnet",
+  nativeCurrency: { decimals: 18, name: "USDC", symbol: "USDC" },
+  rpcUrls: { default: { http: ["https://rpc.testnet.arc.network"] } },
+});
 
 const ARC_CHAIN_ID = 5042002;
 const hermes = createHermesClient();
-
 const USDC_ARC = "0x3600000000000000000000000000000000000000" as Address;
 
 const PERP_TOKENS: { symbol: string; base: Address }[] =
@@ -40,7 +46,8 @@ await runKeeper({
 
     const spotFeeds = Object.values(SPOT_FX_ROUTES).map((r) => r.pythFeedId);
     const perpOnlyFeeds = [PYTH_FEED_IDS.audUsd];
-    const allFeeds = [...new Set([...spotFeeds, ...perpOnlyFeeds])];
+    const quoteFeeds = [PYTH_FEED_IDS.usdUsdc];
+    const allFeeds = [...new Set([...spotFeeds, ...perpOnlyFeeds, ...quoteFeeds])];
 
     const latest = await hermes.latestPriceUpdates(allFeeds);
 
@@ -55,43 +62,30 @@ await runKeeper({
 
     if (!latest.updateData.length) return;
 
+    // Push Pyth updates for all perp markets. The oracle's
+    // getMidWithUpdatePyth pushes the Hermes payload on-chain so
+    // quoteFee can read fresh Pyth prices.
     const wallet = createKeeperWalletClient(ctx, "arc");
     let pushed = 0;
 
     for (const token of PERP_TOKENS) {
       try {
-        await ctx.clients.arc.readContract({
+        const hash = await wallet.writeContract({
+          chain: arcTestnet,
+          account: wallet.account!,
           address: oracle,
           abi: FxOracleAbi,
-          functionName: "getMid",
-          args: [token.base, USDC_ARC],
+          functionName: "getMidWithUpdatePyth",
+          args: [token.base, USDC_ARC, latest.updateData as Hex[]],
+          value: 100n,
         });
-      } catch {
-        // Oracle stale or feed unknown — push Pyth update
-        try {
-          // Pyth update fees are tiny (~1 wei per feed); send 0.001 USDC
-          // (1e15 atomic) — excess is refunded by the oracle contract.
-          const hash = await wallet.writeContract({
-            chain: null,
-            account: wallet.account!,
-            address: oracle,
-            abi: FxOracleAbi,
-            functionName: "getMidWithUpdatePyth",
-            args: [token.base, USDC_ARC, latest.updateData as Hex[]],
-            value: 1_000_000_000_000_000n,
-          });
-
-          pushed++;
-          ctx.log.info("pyth.pushed", {
-            symbol: token.symbol,
-            tx: hash,
-          });
-        } catch (e) {
-          ctx.log.warn("pyth.push_failed", {
-            symbol: token.symbol,
-            error: (e as Error).message.slice(0, 80),
-          });
-        }
+        pushed++;
+        ctx.log.info("pyth.pushed", { symbol: token.symbol, tx: hash });
+      } catch (e) {
+        ctx.log.warn("pyth.push_failed", {
+          symbol: token.symbol,
+          error: (e as Error).message.slice(0, 120),
+        });
       }
     }
 
