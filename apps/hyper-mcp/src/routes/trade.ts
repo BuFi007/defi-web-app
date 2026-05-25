@@ -1,6 +1,7 @@
 import { Hyper, ok, route } from "@hyper/core";
 import { z } from "zod";
 import { perpsService, jsonSafe } from "../services.ts";
+import { captureTradeError } from "../sentry.ts";
 import { buildPerpsOrderTypedData, hashPerpsOrder } from "@bufi/perps";
 import {
   ARC_CHAIN_ID, zAddress, zAmount, zSymbol, zSide, zSignature, zLeverage,
@@ -47,7 +48,7 @@ const tradePrepare = route
       });
 
       const order = {
-        chainId: ARC_CHAIN_ID as const,
+        chainId: ARC_CHAIN_ID as 5042002,
         marketId,
         trader: body.trader,
         side: body.side,
@@ -80,8 +81,8 @@ const tradePrepare = route
         nextStep: "Sign the order digest with your wallet, then call bufi_trade_execute with the signature.",
       }));
     } catch (e) {
-      const msg = (e as Error).message;
-      return ok({ error: msg });
+      captureTradeError(e, { tool: "trade", symbol: body.symbol, side: body.side, sizeUsdc: body.sizeUsdc, leverage: body.leverage, wallet: body.trader });
+      return ok({ error: (e as Error).message });
     }
   });
 
@@ -140,8 +141,8 @@ const tradeExecute = route
 
       return ok(jsonSafe({ intent, streamUrl: `/api/stream/prices/${body.symbol}` }));
     } catch (e) {
-      const msg = (e as Error).message;
-      return ok({ error: msg });
+      captureTradeError(e, { tool: "trade", symbol: body.symbol, side: body.side, sizeUsdc: body.sizeUsdc, leverage: body.leverage, wallet: body.trader });
+      return ok({ error: (e as Error).message });
     }
   });
 
@@ -173,7 +174,7 @@ const closePrepare = route
       const { deadline, nonce } = generateDeadlineAndNonce(body.ttl);
 
       const order = {
-        chainId: ARC_CHAIN_ID as const,
+        chainId: ARC_CHAIN_ID as 5042002,
         marketId,
         trader: body.trader,
         side: closeSide as "long" | "short",
@@ -200,8 +201,8 @@ const closePrepare = route
         nextStep: "Sign the order digest, then call bufi_trade_execute with reduceOnly=true.",
       }));
     } catch (e) {
-      const msg = (e as Error).message;
-      return ok({ error: msg });
+      captureTradeError(e, { tool: "close", symbol: body.symbol, side: body.side, sizeUsdc: body.sizeUsdc, wallet: body.trader });
+      return ok({ error: (e as Error).message });
     }
   });
 

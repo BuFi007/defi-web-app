@@ -1,3 +1,6 @@
+import { initSentry, instrumentMcpCall, Sentry } from "./sentry.ts";
+initSentry();
+
 import { Hyper, ok, route } from "@hyper/core";
 import { hyperLog } from "@hyper/log";
 import { corsPlugin } from "@hyper/cors";
@@ -240,7 +243,7 @@ const mcpLandingPage = {
 
 export default {
   port,
-  fetch(req: Request) {
+  async fetch(req: Request) {
     const url = new URL(req.url);
     if (url.pathname === "/mcp" || url.pathname.startsWith("/mcp/")) {
       if (req.method === "GET") {
@@ -248,9 +251,17 @@ export default {
           headers: { "content-type": "application/json" },
         });
       }
-      return mcp.handle(req);
+      let toolName = "unknown";
+      try {
+        const cloned = req.clone();
+        const body = await cloned.json().catch(() => ({})) as { method?: string; params?: { name?: string } };
+        if (body.method === "tools/call" && body.params?.name) {
+          toolName = body.params.name;
+        }
+      } catch {}
+      return instrumentMcpCall(toolName, null, () => mcp.handle(req));
     }
-    return hyperApp.fetch(req);
+    return Sentry.withIsolationScope(() => hyperApp.fetch(req));
   },
 };
 
