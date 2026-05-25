@@ -17,9 +17,35 @@
         }
       ]
     },
+    "cache": {
+      "version": "0.1.0",
+      "installedAt": "2026-05-25T15:52:04.101Z",
+      "alias": "@hyper",
+      "files": [
+        {
+          "path": "src/hyper/cache/index.ts",
+          "sha256": "0edc6e62868a82c1aceeb0c541b20c41e93eaf6b374c0b5cba955a171209861a"
+        },
+        {
+          "path": "src/hyper/cache/sqlite.ts",
+          "sha256": "a31497d6bb54b3dbdf0286c0a5824ba7115a28c1f8e68e0ea889999363787c22"
+        }
+      ]
+    },
+    "compress": {
+      "version": "0.1.0",
+      "installedAt": "2026-05-25T15:52:04.100Z",
+      "alias": "@hyper",
+      "files": [
+        {
+          "path": "src/hyper/compress/index.ts",
+          "sha256": "fe73d81049a3ab3e5ac2b61e82fdfd9eaf82b8ef2b4794c30d0e6ac20709cb90"
+        }
+      ]
+    },
     "core": {
       "version": "0.1.0",
-      "installedAt": "2026-05-25T15:48:53.357Z",
+      "installedAt": "2026-05-25T15:52:04.100Z",
       "alias": "@hyper",
       "files": [
         {
@@ -120,6 +146,25 @@
         {
           "path": "src/hyper/cors/index.ts",
           "sha256": "2e899bd6938273e082d8741be0ecad1d20dfca98962b594a54ccc777c7c29f8c"
+        }
+      ]
+    },
+    "idempotency": {
+      "version": "0.1.0",
+      "installedAt": "2026-05-25T15:52:04.101Z",
+      "alias": "@hyper",
+      "files": [
+        {
+          "path": "src/hyper/idempotency/index.ts",
+          "sha256": "2dacbe196c26c16ec748ac6b07396257e89ac5840f98506480f5a10acc2a5380"
+        },
+        {
+          "path": "src/hyper/idempotency/sqlite.ts",
+          "sha256": "b87abeaf293f180269aecdde1e1bebae166fe2ec806eee1cd8e6fb4fe25cd1e7"
+        },
+        {
+          "path": "src/hyper/idempotency/store.ts",
+          "sha256": "acc224c4c2d63185e1d1762e5da222f8c094ad22d2e12d1b3a1f0d5ca3408e75"
         }
       ]
     },

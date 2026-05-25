@@ -3,9 +3,34 @@ import { hyperLog } from "@hyper/log";
 import { corsPlugin } from "@hyper/cors";
 import { authJwtPlugin } from "@hyper/auth-jwt";
 import { rateLimit } from "@hyper/rate-limit";
+import { compress } from "@hyper/compress";
+import { idempotency } from "@hyper/idempotency";
 import { openapiPlugin } from "@hyper/openapi";
 import { zodConverter } from "@hyper/openapi-zod";
 import { mcpServer } from "@hyper/mcp";
+import { z } from "zod";
+
+async function signJwt(
+  payload: Record<string, unknown>,
+  secret: string,
+  opts: { expiresIn?: string } = {},
+): Promise<string> {
+  const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }))
+    .replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const now = Math.floor(Date.now() / 1000);
+  const ttlSeconds = opts.expiresIn === "30d" ? 30 * 86400 : 86400;
+  const body = { ...payload, iat: now, exp: now + ttlSeconds };
+  const payloadB64 = btoa(JSON.stringify(body))
+    .replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const key = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${header}.${payloadB64}`));
+  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)))
+    .replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  return `${header}.${payloadB64}.${sigB64}`;
+}
 
 import markets from "./routes/markets.ts";
 import quote from "./routes/quote.ts";
@@ -108,6 +133,43 @@ Trade (x402 $0.001-$0.005): perp open/close, spot buy, supply, borrow, repay, wi
 - Wallet: Circle Agent Wallet (circle CLI) — supports ERC-1271
 `;
 
+const tokenRoute = route
+  .post("/auth/token")
+  .body(
+    z.object({
+      wallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+      scope: z.string().default("read trade"),
+    }),
+  )
+  .meta({
+    mcp: {
+      title: "Issue API Key",
+      description:
+        "Issue a JWT API key for an agent wallet. The token authenticates all subsequent MCP calls — no session signatures needed. Scope: 'read' (free tools) or 'read trade' (all tools).",
+    },
+  })
+  .handle(async ({ body }) => {
+    const secret = process.env.BUFI_JWT_SECRET ?? process.env.JWT_SECRET;
+    if (!secret) {
+      return ok({
+        mode: "open",
+        note: "No JWT secret configured — all tools are accessible without auth (testnet mode).",
+      });
+    }
+    const token = await signJwt(
+      { sub: body.wallet, scope: body.scope },
+      secret,
+      { expiresIn: "30d" },
+    );
+    return ok({
+      token,
+      wallet: body.wallet,
+      scope: body.scope,
+      expiresIn: "30d",
+      usage: `Authorization: Bearer ${token}`,
+    });
+  });
+
 const llmsRoute = route.get("/llms.txt").handle(() => {
   return new Response(llmsTxt, {
     headers: { "content-type": "text/plain; charset=utf-8" },
@@ -121,9 +183,11 @@ const jwtSecret = process.env.BUFI_JWT_SECRET ?? process.env.JWT_SECRET;
 const hyper = new Hyper()
   .use(hyperLog({ service: "bufi-hyper" }))
   .use(corsPlugin({ origin: "*", allowAnyOrigin: true }))
+  .use(compress())
   .use(rateLimit({ limit: 120, window: "1m" }))
+  .use(idempotency())
   .use(openapiPlugin({ converters: [zodConverter] }))
-  .use([health, llmsRoute])
+  .use([health, llmsRoute, tokenRoute])
   .use(markets)
   .use(quote)
   .use(trade)
@@ -145,11 +209,41 @@ const port = Number(process.env.PORT ?? 4002);
 const hyperApp = hyper.build();
 const mcp = mcpServer(hyperApp);
 
+const mcpLandingPage = {
+  endpoint: `http://localhost:${port}/mcp`,
+  protocol: "json-rpc-2.0",
+  methods: ["initialize", "tools/list", "tools/call"],
+  tools: mcp.listTools(),
+  llmsTxt: `http://localhost:${port}/llms.txt`,
+  openapi: `http://localhost:${port}/openapi.json`,
+  snippet: {
+    "claude-code": `claude mcp add --transport http bufi-hyper http://localhost:${port}/mcp`,
+    ".mcp.json": {
+      mcpServers: {
+        "bufi-hyper": { type: "url", url: `http://localhost:${port}/mcp` },
+      },
+    },
+    "cursor / windsurf": {
+      mcpServers: {
+        "bufi-hyper": {
+          command: "npx",
+          args: ["-y", "mcp-remote", `http://localhost:${port}/mcp`, "--allow-http"],
+        },
+      },
+    },
+  },
+};
+
 export default {
   port,
   fetch(req: Request) {
     const url = new URL(req.url);
     if (url.pathname === "/mcp" || url.pathname.startsWith("/mcp/")) {
+      if (req.method === "GET") {
+        return new Response(JSON.stringify(mcpLandingPage, null, 2), {
+          headers: { "content-type": "application/json" },
+        });
+      }
       return mcp.handle(req);
     }
     return hyperApp.fetch(req);
