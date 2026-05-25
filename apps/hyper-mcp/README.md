@@ -190,6 +190,58 @@ Arc Testnet — sub-second finality, ~$0.01 USDC gas
   └── Circle Gateway (CCTP cross-chain)
 ```
 
+## Monitoring Agent Workflows (Sentry)
+
+Every MCP tool call is instrumented with [Sentry](https://sentry.io) — when an agent hits an error trading, borrowing, or querying reputation, you see exactly what happened, which tool failed, and why.
+
+### What gets captured
+
+| Signal | Context | Sentry feature |
+|--------|---------|----------------|
+| Every `tools/call` | Tool name, wallet address, protocol | Transaction with spans |
+| Trade failures | Symbol, side, sizeUsdc, leverage, wallet | Error with custom fingerprint |
+| x402 payment failures | Tool, wallet, price | Warning event |
+| Rate limit exhaustion | IP, endpoint | 429 tracking |
+| ERC-1271 verification errors | Wallet, digest | Auth error |
+
+Errors are fingerprinted by `[tool, error_type]` — so "all agents failing on `trade_execute` with nonce errors" groups as one issue, not thousands of duplicates.
+
+### Query from terminal
+
+```bash
+# Unresolved issues from agent workflows
+sentry issue list bufinance/bufi-hyper-mcp --query "is:unresolved"
+
+# AI root cause analysis
+sentry issue explain BUFI-HYPER-MCP-42
+
+# AI-generated fix plan
+sentry issue plan BUFI-HYPER-MCP-42
+
+# View distributed traces (prepare → sign → execute)
+sentry trace list bufinance/bufi-hyper-mcp --period 1h
+
+# Stream logs in real-time
+sentry log list bufinance/bufi-hyper-mcp --follow
+```
+
+### What this solves for agentic services
+
+Traditional monitoring watches HTTP status codes. When your customers are AI agents, you need:
+
+- **Tool-level granularity**: which MCP tool is failing, not which HTTP endpoint
+- **Wallet-scoped errors**: is one agent broken, or is everyone affected?
+- **Trade context in stack traces**: symbol, side, leverage — not just "500 Internal Server Error"
+- **Custom grouping**: "nonce already used" across 50 different agents is one issue, not 50
+- **AI-powered triage**: `sentry issue explain` gives root cause analysis — useful when the error is deep in EIP-712 signing or oracle staleness
+
+### Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SENTRY_DSN_MCP` | built-in DSN | Override with your own Sentry project |
+| `NODE_ENV` | `development` | `production` → 20% trace sampling, `development` → 100% |
+
 ## Deploy
 
 ```bash
