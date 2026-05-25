@@ -1049,6 +1049,15 @@ interface ActionCardProps {
   submitLabelOverride?: string;
   /** Optional live debt for the impact panel. */
   liveDebt?: number;
+  /**
+   * User's on-chain position in the currently-selected market. Drives
+   * the action-specific BALANCE/MAX:
+   *   withdraw → supplyAssets (what you can pull back)
+   *   repay    → borrowAssets (what you owe)
+   *   borrow   → collateral × LLTV − borrowAssets (max additional debt)
+   * lend stays on the wallet balance.
+   */
+  activePosition?: TelaranaPositionSerialized | null;
   /** Optional alternative markets list for the flip-pair lookup. */
   marketsList?: LoanMarket[];
   /** Markets used by the Confirm popover (full live + seed). */
@@ -1073,6 +1082,7 @@ export function ActionCard({
   marketsList,
   popoverMarkets,
   popoverPositions,
+  activePosition,
 }: ActionCardProps) {
   const loan = LOAN_TOKENS[market.loan] ?? LOAN_TOKENS.USDC;
   const A = ACTIONS.find((a) => a.id === action) || ACTIONS[0];
@@ -1128,7 +1138,60 @@ export function ActionCard({
   const walletBalanceFloat = walletBalance.data
     ? Number(formatUnits(walletBalance.data.value, walletBalance.data.decimals ?? tokenDecimals))
     : 0;
-  const balance = balanceOverride ?? walletBalanceFloat;
+
+  // Action-specific balance. Drives the BALANCE label + the 25/50/75/MAX
+  // chip math + the input's implicit cap. Each action operates against
+  // a different "source":
+  //   lend     → wallet balance of loan token (deposit from your wallet)
+  //   withdraw → user's supplied assets in this market (pull back what's deposited)
+  //   repay    → user's outstanding debt in this market (close out the loan)
+  //   borrow   → max additional borrowable = collateral × price × LLTV − existing debt
+  // borrow is the hairy one: needs collateral price + LLTV math in WAD.
+  // When activePosition is missing (no position yet), withdraw/repay
+  // default to 0 (nothing to act on); borrow defaults to 0 (no
+  // collateral yet); lend keeps wallet balance.
+  const positionSupplyFloat = activePosition
+    ? Number(formatUnits(BigInt(activePosition.supplyAssets), tokenDecimals))
+    : 0;
+  const positionDebtFloat = activePosition
+    ? Number(formatUnits(BigInt(activePosition.borrowAssets), tokenDecimals))
+    : 0;
+  const positionCollateralFloat = activePosition
+    ? Number(activePosition.collateral) /
+      10 ** (onchain?.collateralDecimals ?? 6)
+    : 0;
+  // collateralPriceE36 is the collateral→loan rate scaled by 1e36;
+  // divide once to get loan-token-per-collateral-token in float space.
+  const collateralLoanRate = activePosition?.collateralPriceE36
+    ? Number(activePosition.collateralPriceE36) / 1e36
+    : 0;
+  const collateralLoanValue = positionCollateralFloat * collateralLoanRate;
+  // market.lltv is in percent (86 = 86%), per the seed table; treat null
+  // as 0 so borrow MAX falls to 0 when LLTV is missing.
+  const lltvFraction = market.lltv != null ? market.lltv / 100 : 0;
+  const maxBorrowable = Math.max(
+    0,
+    collateralLoanValue * lltvFraction - positionDebtFloat,
+  );
+  const actionBalance =
+    action === "withdraw"
+      ? positionSupplyFloat
+      : action === "repay"
+        ? positionDebtFloat
+        : action === "borrow"
+          ? maxBorrowable
+          : walletBalanceFloat; // lend (and any unknown action)
+  const balance = balanceOverride ?? actionBalance;
+  // Label that explains where the BALANCE number comes from for each
+  // action — "BALANCE" alone was misleading on withdraw/repay/borrow.
+  const balanceLabel =
+    action === "withdraw"
+      ? "SUPPLIED"
+      : action === "repay"
+        ? "DEBT"
+        : action === "borrow"
+          ? "MAX BORROW"
+          : "BALANCE";
   const amt = parseFloat(amount) || 0;
   const usd = amt * loan.price;
   const inverse = findInverse(market, marketsList ?? LOAN_MARKETS);
@@ -1295,13 +1358,11 @@ export function ActionCard({
 
       <div className="lo-amount-foot">
         <span className="lo-balance">
-          BALANCE <span className="mono">{balance.toLocaleString(undefined, { maximumFractionDigits: 2 })} {loan.sym}</span>
-          {/* "≈ $X" must reflect the BALANCE value (what's in the wallet)
-              not the input amount — earlier code multiplied loan.price
-              by the live input which read $0 whenever the input was
-              empty, even though the user clearly held millions in
-              loan-side stables. Switch to balance × price so the row
-              reads as "you have X token ≈ $Y in your wallet". */}
+          {balanceLabel} <span className="mono">{balance.toLocaleString(undefined, { maximumFractionDigits: 2 })} {loan.sym}</span>
+          {/* "≈ $X" reflects the action-specific balance — wallet for
+              lend, supplied for withdraw, debt for repay, max-borrow
+              for borrow — so the user always sees the dollar value of
+              whatever the MAX chip would fill in. */}
           <span className="lo-balance-usd mono">≈ ${(balance * loan.price).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
         </span>
       </div>
@@ -1614,6 +1675,7 @@ export function LoanTab() {
           submitting={actionSubmitting || oracleStaleActive}
           submitLabelOverride={oracleStaleActive ? "Oracle stale — retry…" : undefined}
           liveDebt={liveDebt}
+          activePosition={onchainPositionForMarket}
         />
       </div>
     </div>
