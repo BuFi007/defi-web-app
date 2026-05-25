@@ -1,0 +1,12 @@
+services/matcher/target
+services/matcher/Cargo.lock
+.agents
+.claude
+.cursor
+.gstack
+docs
+references
+node_modules/.cache
+apps/hyper-mcp/src/hyper
+apps/keeper-*/node_modules
+apps/ponder/generated
