@@ -230,7 +230,7 @@ const mcpLandingPage = {
   llmsTxt: `${baseUrl}/llms.txt`,
   openapi: `${baseUrl}/openapi.json`,
   snippet: {
-    "claude-code": `claude mcp add --transport http bufi-hyper http://localhost:${port}/mcp`,
+    "claude-code": `claude mcp add --transport http bufi-hyper ${baseUrl}/mcp`,
     ".mcp.json": {
       mcpServers: {
         "bufi-hyper": { type: "url", url: `${baseUrl}/mcp` },
@@ -251,6 +251,25 @@ export default {
   port,
   async fetch(req: Request) {
     const url = new URL(req.url);
+
+    if (url.pathname === "/" && req.method === "GET") {
+      return new Response(JSON.stringify({
+        name: "BUFI HYPER",
+        description: "Trading infrastructure for AI agents — forex perps, spot FX, lending, privacy pools on Arc",
+        mcp: `${baseUrl}/mcp`,
+        llmsTxt: `${baseUrl}/llms.txt`,
+        openapi: `${baseUrl}/openapi.json`,
+        health: `${baseUrl}/health`,
+        tools: mcp.listTools().length,
+        connect: `claude mcp add --transport http bufi-hyper ${baseUrl}/mcp`,
+      }, null, 2), { headers: { "content-type": "application/json" } });
+    }
+
+    if (url.pathname === "/openapi.json" && req.method === "GET") {
+      const spec = hyperApp.toOpenAPI?.() ?? { openapi: "3.1.0", info: { title: "BUFI HYPER MCP", version: "0.1.0" }, paths: {} };
+      return new Response(JSON.stringify(spec, null, 2), { headers: { "content-type": "application/json" } });
+    }
+
     if (url.pathname === "/mcp" || url.pathname.startsWith("/mcp/")) {
       if (req.method === "GET") {
         return new Response(JSON.stringify(mcpLandingPage, null, 2), {
