@@ -98,7 +98,7 @@ export function McpInstallDropdown() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const textToCopy = "command" in selected ? selected.command : selected.config;
+  const textToCopy = "command" in selected ? (selected as { command: string }).command : (selected as { config: string }).config;
 
   return (
     <div className="relative inline-block text-left">
