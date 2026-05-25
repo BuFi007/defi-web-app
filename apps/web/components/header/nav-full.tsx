@@ -8,6 +8,7 @@ import { ModeToggle } from "@/components/theme-toggle";
 import SparklesText from "@/components/magicui/sparkles-text";
 import { motion } from "framer-motion";
 import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
+import { McpInstallDropdown } from "@/components/mcp-install";
 import { useHoverAudio } from "@/utils/audio-hover";
 import {
   ActionBannerSkeleton,
@@ -82,6 +83,7 @@ const HeaderFull: React.FC = () => {
           <span className="h-px flex-grow bg-purpleDanis"></span>
           <Suspense fallback={<WalletControlsSkeleton />}>
             <div className="flex items-center gap-3 z-20">
+              <McpInstallDropdown />
               <DynamicWidget />
             </div>
           </Suspense>
