@@ -49,6 +49,7 @@ use bufi_perps_onchain::{resolve_pyth_address, PerpsOnchain, PerpsOnchainError};
 
 use crate::config::Config;
 use crate::lp_state::market_id_hex;
+use crate::pyth_pusher_ws::{derive_ws_url, PythPusherWs};
 
 /// Errors raised at boot. Runtime tick errors log + retry; only boot misconfig aborts.
 #[derive(Debug, Error)]
@@ -83,6 +84,12 @@ pub struct PythPusher {
     /// Empty until the first tick after `seed_from_chain` runs.
     last_push_secs: BTreeMap<B256, u64>,
     hermes_client: reqwest::Client,
+    /// Phase 8.5c — when true, dispatch to the WS path on `run()`.
+    /// HTTP poll is retained as fall-back when WS exhausts its
+    /// reconnect budget.
+    use_ws: bool,
+    /// Phase 8.5c — derived `wss://…/ws` URL. Empty when `use_ws=false`.
+    ws_url: String,
 }
 
 impl PythPusher {
@@ -108,6 +115,12 @@ impl PythPusher {
             .build()
             .expect("reqwest client builder");
 
+        let ws_url = if cfg.pyth_use_ws {
+            derive_ws_url(&cfg.pyth_hermes_url, cfg.pyth_hermes_ws_url.as_deref())
+        } else {
+            String::new()
+        };
+
         Ok(Some(Self {
             onchain,
             hermes_url: cfg.pyth_hermes_url.clone(),
@@ -120,6 +133,8 @@ impl PythPusher {
             feed_ids: BTreeSet::new(),
             last_push_secs: BTreeMap::new(),
             hermes_client,
+            use_ws: cfg.pyth_use_ws,
+            ws_url,
         }))
     }
 
@@ -181,6 +196,12 @@ impl PythPusher {
     }
 
     /// Run forever until the parent task cancels us.
+    ///
+    /// Phase 8.5c: when `MATCHER_PYTH_USE_WS=true` (default) we run
+    /// the WebSocket subscription path. If WS exhausts its reconnect
+    /// budget the WS runner returns an error and we fall back to the
+    /// HTTP poll loop — the matcher MUST NEVER go blind on mark-price
+    /// freshness because Hermes WS hiccupped.
     pub async fn run(mut self) {
         self.seed_from_chain().await;
         info!(
@@ -189,11 +210,46 @@ impl PythPusher {
             poll_ms = self.poll_interval.as_millis() as u64,
             max_age_secs = self.max_age_secs,
             hermes_url = self.hermes_url,
+            use_ws = self.use_ws,
+            ws_url = self.ws_url,
             "pyth_pusher started"
         );
         if self.feed_ids.is_empty() {
             warn!("pyth_pusher: no feeds resolved; idling — LP-backstop oracle reads will continue to fail");
+            // No feeds = nothing to do. Park forever; the outer
+            // tokio::select! in main.rs will detect shutdown.
+            loop {
+                sleep(Duration::from_secs(3600)).await;
+            }
         }
+
+        if self.use_ws {
+            info!("pyth_pusher: starting in WebSocket mode (Phase 8.5c)");
+            let runner = PythPusherWs::new(
+                self.onchain.clone(),
+                self.ws_url.clone(),
+                self.pyth_address,
+                self.feed_ids.clone(),
+                self.max_age_secs,
+            );
+            if let Err(e) = runner.run().await {
+                warn!(
+                    error = ?e,
+                    "pyth_pusher: WS path failed permanently; falling back to HTTP poll"
+                );
+            } else {
+                // Normal in tests only. Production WS path runs forever.
+                info!("pyth_pusher: WS path exited cleanly; falling back to HTTP poll");
+            }
+        }
+
+        info!("pyth_pusher: running HTTP poll loop");
+        self.run_http_loop().await;
+    }
+
+    /// The original HTTP poll loop, factored out so the WS path can
+    /// fall back to it without code duplication. Runs forever.
+    async fn run_http_loop(&mut self) {
         loop {
             if let Err(e) = self.tick().await {
                 warn!(error = ?e, "pyth_pusher tick failed; backing off");

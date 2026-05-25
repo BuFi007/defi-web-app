@@ -29,6 +29,27 @@ tonic = { workspace = true }
 prost = { workspace = true }
 async-stream = "0.3"
 
+# Phase 8.5a — HTTP /health + /ready + /metrics on a separate port
+# from the gRPC server (HTTP/1.1 for k8s liveness probes + Prometheus
+# scrapes; tonic on :3005 stays HTTP/2 prior-knowledge for clients).
+axum = "0.7"
+
+# Phase 8.5b — optional Redis publisher tap on existing broadcast
+# channels (GrpcState::trade_tx + book_tx). For non-gRPC consumers
+# (legacy TS keepers, future WS bridge in apps/api). Behind
+# MATCHER_REDIS_URL env (empty = disabled).
+redis = { version = "0.27", default-features = false, features = ["tokio-comp", "connection-manager"] }
+
+# Phase 8.5c — Pyth Hermes WebSocket subscription. Replaces the
+# default 5s HTTP poll in pyth_pusher with a long-lived WS stream
+# (`wss://hermes.pyth.network/ws`) for sub-second mark-price freshness.
+# `rustls-tls-webpki-roots` matches the workspace reqwest profile so
+# only one TLS impl is linked into the binary. Gated behind
+# MATCHER_PYTH_USE_WS (default = true; set to false to fall back to
+# the legacy HTTP poll).
+tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
+base64 = "0.22"
+
 # alloy stack — used for EIP-712 verify + log subscription
 alloy-primitives = { workspace = true }
 alloy-sol-types = { workspace = true }
@@ -50,6 +71,9 @@ tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true }
+# Phase 8.5a test harness — `oneshot(Request)` against axum::Router
+# without binding a TCP port. Same tower version axum 0.7 pulls in.
+tower = { version = "0.5", features = ["util"] }
 
 [lints.rust]
 unsafe_code = "forbid"
