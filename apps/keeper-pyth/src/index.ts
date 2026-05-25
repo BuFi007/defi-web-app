@@ -1,96 +1,25 @@
-import {
-  SPOT_FX_ROUTES,
-  PYTH_FEED_IDS,
-  FxOracleAbi,
-  loadContracts,
-} from "@bufi/contracts";
-import { livePerpsMarkets } from "@bufi/perps";
+import { SPOT_FX_ROUTES, PYTH_FEED_IDS } from "@bufi/contracts";
 import { createHermesClient } from "@bufi/market-data";
-import {
-  createKeeperWalletClient,
-  requireKeeperSigner,
-  runKeeper,
-} from "@bufi/keeper-runtime";
-import { defineChain, type Address, type Hex } from "viem";
+import { requireKeeperSigner, runKeeper } from "@bufi/keeper-runtime";
 
-const arcTestnet = defineChain({
-  id: 5042002,
-  name: "Arc Testnet",
-  nativeCurrency: { decimals: 18, name: "USDC", symbol: "USDC" },
-  rpcUrls: { default: { http: ["https://rpc.testnet.arc.network"] } },
-});
-
-const ARC_CHAIN_ID = 5042002;
 const hermes = createHermesClient();
-const USDC_ARC = "0x3600000000000000000000000000000000000000" as Address;
-
-const PERP_TOKENS: { symbol: string; base: Address }[] =
-  livePerpsMarkets(ARC_CHAIN_ID).map((m) => ({
-    symbol: m.symbol,
-    base: m.baseAsset as Address,
-  }));
-
 let bootLogged = false;
 
 await runKeeper({
   name: "@bufi/keeper-pyth",
   async tick(ctx) {
     requireKeeperSigner(ctx);
-
-    const contracts = loadContracts()[ARC_CHAIN_ID];
-    const oracle = contracts.telarana.fxOracle;
-    if (!oracle) {
-      ctx.log.warn("pyth.no_oracle", { chainId: ARC_CHAIN_ID });
-      return;
-    }
-
     const spotFeeds = Object.values(SPOT_FX_ROUTES).map((r) => r.pythFeedId);
     const perpOnlyFeeds = [PYTH_FEED_IDS.audUsd];
-    const quoteFeeds = [PYTH_FEED_IDS.usdUsdc];
-    const allFeeds = [...new Set([...spotFeeds, ...perpOnlyFeeds, ...quoteFeeds])];
-
-    const latest = await hermes.latestPriceUpdates(allFeeds);
-
+    const feeds = [...new Set([...spotFeeds, ...perpOnlyFeeds])];
+    const latest = await hermes.latestPriceUpdates(feeds);
     if (!bootLogged) {
       ctx.log.info("pyth.ready", {
-        feeds: allFeeds.length,
-        perpTokens: PERP_TOKENS.length,
+        feeds: feeds.length,
         updatePayloads: latest.updateData.length,
+        note: "Arc Pyth is a v1 receiver — prices pushed by Arc relayer, not this keeper. Hermes data fetched for readiness monitoring only.",
       });
       bootLogged = true;
-    }
-
-    if (!latest.updateData.length) return;
-
-    // Push Pyth updates for all perp markets. The oracle's
-    // getMidWithUpdatePyth pushes the Hermes payload on-chain so
-    // quoteFee can read fresh Pyth prices.
-    const wallet = createKeeperWalletClient(ctx, "arc");
-    let pushed = 0;
-
-    for (const token of PERP_TOKENS) {
-      try {
-        const hash = await wallet.writeContract({
-          chain: arcTestnet,
-          account: wallet.account!,
-          address: oracle,
-          abi: FxOracleAbi,
-          functionName: "getMidWithUpdatePyth",
-          args: [token.base, USDC_ARC, latest.updateData as Hex[]],
-          value: 100n,
-        });
-        pushed++;
-        ctx.log.info("pyth.pushed", { symbol: token.symbol, tx: hash });
-      } catch (e) {
-        ctx.log.warn("pyth.push_failed", {
-          symbol: token.symbol,
-          error: (e as Error).message.slice(0, 120),
-        });
-      }
-    }
-
-    if (pushed > 0) {
-      ctx.log.info("pyth.tick", { pushed, total: PERP_TOKENS.length });
     }
   },
 });
