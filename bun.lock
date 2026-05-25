@@ -45,6 +45,7 @@
         "@bufi/contracts": "workspace:*",
         "@bufi/db": "workspace:*",
         "@bufi/env": "workspace:*",
+        "@bufi/fx-spot": "workspace:*",
         "@bufi/fx-telarana": "workspace:*",
         "@bufi/market-data": "workspace:*",
         "@bufi/mcp": "workspace:*",
