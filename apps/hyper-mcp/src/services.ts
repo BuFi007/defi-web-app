@@ -1,15 +1,24 @@
 import { createTradingMachineDbFromEnv } from "@bufi/db";
 import { createFxTelaranaService } from "@bufi/fx-telarana";
 import { createHermesClient } from "@bufi/market-data";
+import { ARC_PERP_MARKETS, PYTH_FEED_IDS } from "@bufi/contracts";
 import {
   createPerpsService,
   createViemPerpsNonceReader,
-  createViemPerpsQuoteReader,
+  createHybridPerpsQuoteReader,
   livePerpsMarkets,
 } from "@bufi/perps";
 import { createCircleGatewayVerifier, mockVerifier } from "@bufi/x402";
 
 const perpsMarkets = livePerpsMarkets();
+
+const pythFeedByMarket: Record<string, { baseFeedId: string; quoteFeedId: string }> = {};
+for (const m of Object.values(ARC_PERP_MARKETS)) {
+  pythFeedByMarket[m.marketId.toLowerCase()] = {
+    baseFeedId: m.pythFeedId,
+    quoteFeedId: PYTH_FEED_IDS.usdUsdc,
+  };
+}
 
 export const tradingDb = createTradingMachineDbFromEnv(process.env);
 export const hermes = createHermesClient();
@@ -17,7 +26,10 @@ export const telaranaService = createFxTelaranaService();
 
 export const perpsService = createPerpsService({
   markets: perpsMarkets,
-  quoteReader: createViemPerpsQuoteReader({ markets: perpsMarkets }),
+  quoteReader: createHybridPerpsQuoteReader({
+    markets: perpsMarkets,
+    pythFeedByMarket,
+  }),
   nonceReader: createViemPerpsNonceReader(),
   intentStore: tradingDb.perpsIntents,
   maxOracleStaleSeconds: Number(process.env.PYTH_MAX_STALE_SECONDS ?? 300),

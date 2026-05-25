@@ -106,6 +106,60 @@ export function createViemPerpsNonceReader(
   };
 }
 
+export interface CreateHybridQuoteReaderOptions extends CreateViemPerpsQuoteReaderOptions {
+  hermesBaseUrl?: string;
+  pythFeedByMarket: Record<string, { baseFeedId: string; quoteFeedId: string }>;
+}
+
+export function createHybridPerpsQuoteReader(
+  opts: CreateHybridQuoteReaderOptions,
+): PerpsQuoteReader {
+  const onchain = createViemPerpsQuoteReader(opts);
+  const maxLeverage = opts.maxLeverage ?? 50;
+  const hermesUrl = opts.hermesBaseUrl ?? process.env.PYTH_HERMES_URL ?? "https://hermes.pyth.network";
+
+  return {
+    async quoteFee(req) {
+      try {
+        return await onchain.quoteFee(req);
+      } catch {
+        // On-chain quoteFee failed (oracle stale / RedStone missing).
+        // Fall back to Hermes API for a fresh mark price.
+        const feedMap = opts.pythFeedByMarket[req.marketId.toLowerCase()];
+        if (!feedMap) throw new Error(`No Pyth feed mapping for market ${req.marketId}`);
+
+        const url = `${hermesUrl}/v2/updates/price/latest?ids[]=${feedMap.baseFeedId}&ids[]=${feedMap.quoteFeedId}&parsed=true`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Hermes request failed: ${res.status}`);
+        const data = await res.json() as {
+          parsed: Array<{ id: string; price: { price: string; expo: number; publish_time: number } }>;
+        };
+
+        const baseP = data.parsed.find((p) => p.id === feedMap.baseFeedId.replace("0x", ""));
+        const quoteP = data.parsed.find((p) => p.id === feedMap.quoteFeedId.replace("0x", ""));
+        if (!baseP || !quoteP) throw new Error("Hermes returned incomplete price data");
+
+        const basePrice = Number(baseP.price.price) * 10 ** baseP.price.expo;
+        const quotePrice = Number(quoteP.price.price) * 10 ** quoteP.price.expo;
+        const mid = basePrice / quotePrice;
+        const markPriceE18 = BigInt(Math.round(mid * 1e18));
+
+        const oracleTimestamp = Math.min(baseP.price.publish_time, quoteP.price.publish_time);
+        const feeEstimate = (parseUsdcToAtomic(req.sizeUsdc) * 5n) / 10000n;
+
+        return {
+          fee: feeEstimate.toString(),
+          markPrice: markPriceE18.toString(),
+          requiredMargin: requiredMarginFromNotional(req.sizeUsdc, req.leverage).toString(),
+          maxLeverage,
+          oracleTimestamp,
+          oracleStaleSeconds: Math.max(0, Math.floor(Date.now() / 1000) - oracleTimestamp),
+        };
+      }
+    },
+  };
+}
+
 export function requiredMarginFromNotional(sizeUsdc: string, leverage: number): bigint {
   if (leverage <= 0) throw new Error("leverage must be positive");
   const notional = parseUsdcToAtomic(sizeUsdc);
