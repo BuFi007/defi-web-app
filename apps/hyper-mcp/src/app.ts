@@ -45,6 +45,7 @@ import leaderboard from "./routes/leaderboard.ts";
 import reputation from "./routes/reputation.ts";
 import ghost from "./routes/ghost.ts";
 import bonds from "./routes/bonds.ts";
+import copyTrading from "./routes/copy-trading.ts";
 import stream from "./routes/stream.ts";
 
 const llmsTxt = `# BUFI HYPER — Trading Infrastructure for AI Agents
@@ -204,6 +205,7 @@ const hyper = new Hyper()
   .use(reputation)
   .use(ghost)
   .use(bonds)
+  .use(copyTrading)
   .use(stream);
 
 // JWT auth is opt-in: when BUFI_JWT_SECRET is set, agents authenticate
