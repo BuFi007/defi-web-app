@@ -6,6 +6,8 @@ import { ARC_CHAIN_ID } from "../shared.ts";
 import {
   getReputation,
   getAgentIdentity,
+  hasIdentity,
+  buildRegisterCalldata,
   IDENTITY_REGISTRY,
   REPUTATION_REGISTRY,
   VALIDATION_REGISTRY,
@@ -122,8 +124,84 @@ const giveFeedback = route
     });
   });
 
+const registerIdentity = route
+  .post("/reputation/register")
+  .body(
+    z.object({
+      address: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+      name: z.string().max(64).optional(),
+      type: z.enum(["agent", "human"]).default("agent"),
+      source: z.string().max(32).default("mcp"),
+    }),
+  )
+  .meta({
+    mcp: {
+      title: "Register Identity (ERC-8004)",
+      description:
+        "Register an onchain ERC-8004 identity NFT for a trader or agent on Arc. Every trader on the leaderboard needs an identity. Call this before trading to establish your onchain reputation. Returns the contract call to execute. If already registered, returns the existing identity.",
+    },
+  })
+  .handle(async ({ body }) => {
+    const already = await hasIdentity(body.address as `0x${string}`);
+    if (already) {
+      return ok({
+        address: body.address,
+        registered: true,
+        registryAddress: IDENTITY_REGISTRY,
+        chainId: ARC_CHAIN_ID,
+        note: "Identity already registered. Use bufi_reputation_score to check your score.",
+      });
+    }
+
+    const metadata = JSON.stringify({
+      name: body.name ?? `Trader-${body.address.slice(0, 8)}`,
+      type: body.type,
+      source: body.source,
+      registeredAt: new Date().toISOString(),
+      platform: "bufi-hyper",
+    });
+
+    const calldata = buildRegisterCalldata(metadata);
+
+    return ok({
+      address: body.address,
+      registered: false,
+      action: "register",
+      contract: {
+        to: calldata.to,
+        function: calldata.functionSignature,
+        args: calldata.args,
+      },
+      metadata: JSON.parse(metadata),
+      chainId: ARC_CHAIN_ID,
+      note: "Submit this contract call to mint your ERC-8004 identity NFT. After minting, you appear on the leaderboard and can receive reputation feedback.",
+    });
+  });
+
+const checkIdentity = route
+  .get("/reputation/check/:address")
+  .meta({
+    mcp: {
+      title: "Check Identity Status",
+      description:
+        "Check whether a wallet address has an ERC-8004 identity NFT registered on Arc. Returns true/false. Use before trading to determine if registration is needed.",
+    },
+  })
+  .handle(async (ctx) => {
+    const address = ((ctx.params as Record<string, string>).address ?? "") as `0x${string}`;
+    const registered = await hasIdentity(address);
+    return ok({
+      address,
+      registered,
+      registryAddress: IDENTITY_REGISTRY,
+      chainId: ARC_CHAIN_ID,
+    });
+  });
+
 export default new Hyper({ prefix: "/api" }).use([
   agentIdentity,
   reputationScore,
   giveFeedback,
+  registerIdentity,
+  checkIdentity,
 ]);

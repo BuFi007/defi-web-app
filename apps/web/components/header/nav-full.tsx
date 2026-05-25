@@ -9,6 +9,7 @@ import SparklesText from "@/components/magicui/sparkles-text";
 import { motion } from "framer-motion";
 import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
 import { McpInstallDropdown } from "@/components/mcp-install";
+import { IdentityBadge } from "@/components/identity-badge";
 import { useHoverAudio } from "@/utils/audio-hover";
 import {
   ActionBannerSkeleton,
@@ -84,6 +85,7 @@ const HeaderFull: React.FC = () => {
           <Suspense fallback={<WalletControlsSkeleton />}>
             <div className="flex items-center gap-3 z-20">
               <McpInstallDropdown />
+              <IdentityBadge />
               <DynamicWidget />
             </div>
           </Suspense>
