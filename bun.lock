@@ -4,6 +4,9 @@
   "workspaces": {
     "": {
       "name": "fx-arcade-monorepo",
+      "dependencies": {
+        "@circle-fin/x402-batching": "^3.0.4",
+      },
       "devDependencies": {
         "bun-types": "1.3.10",
         "concurrently": "^9.2.1",
@@ -806,6 +809,8 @@
     "@bufinance/logger": ["@bufinance/logger@0.1.1", "", { "dependencies": { "consola": "^3.4.2" } }, "sha512-VdqbugSai42lQ6YfFLGkNuPbIII0wkgZu6l/H4rI1BELX3SSG5bPmqJWFmdm0o8C5rxOM+VbR9maj7yUUpVCPQ=="],
 
     "@bufinance/worker-base": ["@bufinance/worker-base@0.1.0", "", { "dependencies": { "@bufinance/logger": "^0.1.1", "hono": "^4.12.7" } }, "sha512-mCy4aogYD2Bsz7m9ybqUaFyWlu0XT/hlYcPZ41EzRdqGrxjw6qZnlQ0lkQp0vBFcGtFrIBF9glCrYlHlxILT0g=="],
+
+    "@circle-fin/x402-batching": ["@circle-fin/x402-batching@3.0.4", "", { "peerDependencies": { "@x402/core": "^2.3.0", "@x402/evm": "^2.3.0", "viem": "^2.0.0" }, "optionalPeers": ["@x402/evm"] }, "sha512-631ZdmNQiCdNRLCY3uNTiD8G+cK4wiIElk/iQESwcpziQfirBXPCR9At14Kqgeq6tyFF67wHrIZzSRhPWk7C6Q=="],
 
     "@cnakazawa/watch": ["@cnakazawa/watch@1.0.4", "", { "dependencies": { "exec-sh": "^0.3.2", "minimist": "^1.2.0" }, "bin": { "watch": "cli.js" } }, "sha512-v9kIhKwjeZThiWrLmj0y17CWoyddASLj9O2yvbZkbvw/N3rWOYy9zkV66ursAoVr0mV15bL8g0c4QZUE6cdDoQ=="],
 
@@ -2254,6 +2259,8 @@
     "@whatwg-node/promise-helpers": ["@whatwg-node/promise-helpers@1.3.2", "", { "dependencies": { "tslib": "^2.6.3" } }, "sha512-Nst5JdK47VIl9UcGwtv2Rcgyn5lWtZ0/mhRQ4G8NN2isxpq2TO30iqHzmwoJycjWuyUfg3GFXqP/gFHXeV57IA=="],
 
     "@whatwg-node/server": ["@whatwg-node/server@0.10.18", "", { "dependencies": { "@envelop/instrumentation": "^1.0.0", "@whatwg-node/disposablestack": "^0.0.6", "@whatwg-node/fetch": "^0.10.13", "@whatwg-node/promise-helpers": "^1.3.2", "tslib": "^2.6.3" } }, "sha512-kMwLlxUbduttIgaPdSkmEarFpP+mSY8FEm+QWMBRJwxOHWkri+cxd8KZHO9EMrB9vgUuz+5WEaCawaL5wGVoXg=="],
+
+    "@x402/core": ["@x402/core@2.13.0", "", { "dependencies": { "zod": "^3.24.2" } }, "sha512-wZjjYZ9UxXZh8O2uP/x0u4M4Dvuw5hHdN7uzEseoS4V9fkMewi+VAx9Wd98PdU9VegvG24+ES88fgFB4C5QVUw=="],
 
     "@xtuc/ieee754": ["@xtuc/ieee754@1.2.0", "", {}, "sha512-DX8nKgqcGwsc0eJSqYt5lwP4DH5FlHnmuWWBRy7X0NcaGR0ZtuyeESgMwTYVEtxmsNGY+qit4QYT/MIYTOTPeA=="],
 
