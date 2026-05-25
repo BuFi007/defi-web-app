@@ -9,7 +9,7 @@ const perpQuote = route
       marketId: z.string().min(1),
       side: z.enum(["long", "short"]),
       sizeUsdc: z.string().regex(/^\d+(\.\d{1,6})?$/),
-      leverage: z.number().int().min(1).max(50),
+      leverage: z.number().int().min(1).max(100),
     }),
   )
   .meta({

@@ -21,7 +21,7 @@ const llmsTxt = `# BuFi Agora — Trading Infrastructure for AI Agents
 
 ## Markets
 - EUR/USDC, JPY/USDC, MXN/USDC, CHF/USDC, AUD/USDC perpetual futures
-- Up to 50x leverage, EIP-712 signed intents, Pyth oracle prices
+- Up to 100x leverage, EIP-712 signed intents, Pyth oracle prices
 - Funding rates updated every 8h
 - Lending pools: supply USDC, borrow FX tokens
 

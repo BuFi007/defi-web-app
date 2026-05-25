@@ -11,7 +11,7 @@ const buildOrder = route
       trader: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
       side: z.enum(["long", "short"]),
       sizeUsdc: z.string().regex(/^\d+(\.\d{1,6})?$/),
-      leverage: z.number().int().min(1).max(50),
+      leverage: z.number().int().min(1).max(100),
       orderType: z.enum(["limit", "market"]).default("market"),
       limitPrice: z.string().optional(),
       reduceOnly: z.boolean().default(false),
@@ -21,7 +21,7 @@ const buildOrder = route
     mcp: {
       title: "Build Trade Order",
       description:
-        "Build EIP-712 typed data for a forex perpetual futures order. Returns a digest to sign with your wallet. After signing, submit via bufi_submit_order. Supports long/short, 1-50x leverage, limit/market orders.",
+        "Build EIP-712 typed data for a forex perpetual futures order. Returns a digest to sign with your wallet. After signing, submit via bufi_submit_order. Supports long/short, 1-100x leverage, limit/market orders.",
     },
   })
   .handle(async ({ body }) => {
@@ -54,7 +54,7 @@ const submitOrder = route
       trader: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
       side: z.enum(["long", "short"]),
       sizeUsdc: z.string().regex(/^\d+(\.\d{1,6})?$/),
-      leverage: z.number().int().min(1).max(50),
+      leverage: z.number().int().min(1).max(100),
       orderType: z.enum(["limit", "market"]).default("market"),
       limitPrice: z.string().optional(),
       reduceOnly: z.boolean().default(false),
