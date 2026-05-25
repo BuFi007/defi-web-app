@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "bufi-agora": {
+    "bufi-hyper": {
       "type": "url",
       "url": "http://localhost:4002/mcp"
     }

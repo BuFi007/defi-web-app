@@ -17,7 +17,7 @@ Server starts on `http://localhost:4002`. MCP endpoint at `/mcp`.
 ### Claude Code (CLI)
 
 ```bash
-claude mcp add --transport http bufi-agora http://localhost:4002/mcp
+claude mcp add --transport http bufi-hyper http://localhost:4002/mcp
 ```
 
 Or add to your project's `.mcp.json`:
@@ -25,7 +25,7 @@ Or add to your project's `.mcp.json`:
 ```json
 {
   "mcpServers": {
-    "bufi-agora": {
+    "bufi-hyper": {
       "type": "url",
       "url": "http://localhost:4002/mcp"
     }
@@ -40,7 +40,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "bufi-agora": {
+    "bufi-hyper": {
       "command": "npx",
       "args": ["-y", "mcp-remote", "http://localhost:4002/mcp", "--allow-http"]
     }
@@ -53,7 +53,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "bufi-agora": {
+    "bufi-hyper": {
       "command": "npx",
       "args": ["-y", "mcp-remote", "http://localhost:4002/mcp", "--allow-http"]
     }

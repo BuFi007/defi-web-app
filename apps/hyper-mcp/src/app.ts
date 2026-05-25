@@ -70,7 +70,7 @@ const llmsRoute = route.get("/llms.txt").handle(() => {
 const health = route.get("/health").handle(() => ok({ ok: true, ts: Date.now() }));
 
 const hyper = new Hyper()
-  .use(hyperLog({ service: "bufi-agora" }))
+  .use(hyperLog({ service: "bufi-hyper" }))
   .use(corsPlugin({ origin: "*", allowAnyOrigin: true }))
   .use(openapiPlugin({ converters: [zodConverter] }))
   .use([health, llmsRoute])
