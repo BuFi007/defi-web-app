@@ -75,9 +75,9 @@ const llmsTxt = `# BuFi Agora — Trading Infrastructure for AI Agents
 2. post__api_lending_borrow(marketId, borrower="0x...", borrowAmount, collateralAmount)
 
 ## Markets
-- EURC/USDC, tJPYC/USDC, MXNB/USDC, CIRBTC/USDC, AUDF/USDC perpetual futures
-- Up to 100x leverage, EIP-712 signed intents, Pyth oracle prices
-- Spot: buy EURC, JPYC, MXNB with USDC
+- Perps: EURC/USDC, tJPYC/USDC, MXNB/USDC, CIRBTC/USDC, AUDF/USDC
+- Up to 50x leverage, EIP-712 signed intents, Pyth oracle prices
+- Spot: EURC, JPYC, MXNB (buy with USDC)
 - Lending: supply USDC to earn yield, borrow FX tokens against collateral
 
 ## Defaults (omit unless overriding)
@@ -138,7 +138,7 @@ const tokenRoute = route
   .post("/auth/token")
   .body(
     z.object({
-      wallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+      address: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
       scope: z.string().default("read trade"),
     }),
   )
@@ -158,13 +158,13 @@ const tokenRoute = route
       });
     }
     const token = await signJwt(
-      { sub: body.wallet, scope: body.scope },
+      { sub: body.address, scope: body.scope },
       secret,
       { expiresIn: "30d" },
     );
     return ok({
       token,
-      wallet: body.wallet,
+      address: body.address,
       scope: body.scope,
       expiresIn: "30d",
       usage: `Authorization: Bearer ${token}`,

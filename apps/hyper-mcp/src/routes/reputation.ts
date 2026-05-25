@@ -1,6 +1,7 @@
 import { Hyper, ok, route } from "@hyper/core";
 import { z } from "zod";
 import { jsonSafe } from "../services.ts";
+import { ARC_CHAIN_ID } from "../shared.ts";
 import {
   getReputation,
   getAgentIdentity,
@@ -32,7 +33,7 @@ const agentIdentity = route
           identity: IDENTITY_REGISTRY,
           reputation: REPUTATION_REGISTRY,
           validation: VALIDATION_REGISTRY,
-          chainId: 5042002,
+          chainId: ARC_CHAIN_ID,
         },
       }));
     } catch {
@@ -45,7 +46,7 @@ const agentIdentity = route
           identity: IDENTITY_REGISTRY,
           reputation: REPUTATION_REGISTRY,
           validation: VALIDATION_REGISTRY,
-          chainId: 5042002,
+          chainId: ARC_CHAIN_ID,
         },
         note: "Agent identity not found. Register via the IdentityRegistry contract.",
       });
@@ -72,7 +73,7 @@ const reputationScore = route
         feedbackCount: rep.feedbackCount,
         source: "chain",
         registryAddress: REPUTATION_REGISTRY,
-        chainId: 5042002,
+        chainId: ARC_CHAIN_ID,
       }));
     } catch {
       return ok({
@@ -82,7 +83,7 @@ const reputationScore = route
         feedbackCount: 0,
         source: "empty",
         registryAddress: REPUTATION_REGISTRY,
-        chainId: 5042002,
+        chainId: ARC_CHAIN_ID,
       });
     }
   });
@@ -112,7 +113,7 @@ const giveFeedback = route
       score,
       tag: body.tag,
       registryAddress: REPUTATION_REGISTRY,
-      chainId: 5042002,
+      chainId: ARC_CHAIN_ID,
       status: "ready",
       note: "Call giveFeedback() from @sendero/arc/identity with the raterWalletUuid to submit onchain.",
     });

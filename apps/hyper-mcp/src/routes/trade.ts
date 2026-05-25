@@ -1,28 +1,21 @@
 import { Hyper, ok, route } from "@hyper/core";
 import { z } from "zod";
 import { perpsService, jsonSafe } from "../services.ts";
-import { buildPerpsOrderTypedData, hashPerpsOrder, signedSizeDelta } from "@bufi/perps";
-import { livePerpsMarkets } from "@bufi/perps";
-
-function resolveMarketId(symbol: string): string | null {
-  const markets = livePerpsMarkets(5042002);
-  const match = markets.find(
-    (m) => m.symbol.toLowerCase() === symbol.toLowerCase(),
-  );
-  return match?.marketId ?? null;
-}
-
-const SYMBOL_ENUM = ["EURC/USDC", "tJPYC/USDC", "MXNB/USDC", "CIRBTC/USDC", "AUDF/USDC"] as const;
+import { buildPerpsOrderTypedData, hashPerpsOrder } from "@bufi/perps";
+import {
+  ARC_CHAIN_ID, zAddress, zAmount, zSymbol, zSide, zSignature, zLeverage,
+  resolveMarketId, computeSizeDelta, generateDeadlineAndNonce, withEip712Domain,
+} from "../shared.ts";
 
 const tradePrepare = route
   .post("/trade/prepare")
   .body(
     z.object({
-      symbol: z.enum(SYMBOL_ENUM),
-      trader: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
-      side: z.enum(["long", "short"]),
-      sizeUsdc: z.string().regex(/^\d+(\.\d{1,6})?$/),
-      leverage: z.number().int().min(1).max(100).default(1),
+      symbol: zSymbol,
+      trader: zAddress,
+      side: zSide,
+      sizeUsdc: zAmount,
+      leverage: zLeverage,
       orderType: z.enum(["limit", "market"]).default("market"),
       limitPrice: z.string().optional(),
       reduceOnly: z.boolean().default(false),
@@ -33,17 +26,18 @@ const tradePrepare = route
     mcp: {
       title: "Prepare Trade",
       description:
-        "Prepare a forex perp trade in one call. Pass human-readable symbol (e.g. 'EURC/USDC'), side, size in USDC, and leverage. Returns quote + EIP-712 typed data for both order and session signatures. After signing, call bufi_trade_execute. Nonce and deadline auto-generated. Up to 100x leverage.",
+        "Prepare a forex perp trade in one call. Pass human-readable symbol (e.g. 'EURC/USDC'), side, size in USDC, and leverage. Returns quote + EIP-712 typed data to sign. After signing, call bufi_trade_execute.",
     },
   })
   .handle(async ({ body }) => {
     const marketId = resolveMarketId(body.symbol);
     if (!marketId) return ok({ error: `Unknown symbol: ${body.symbol}` });
 
-    const sizeDelta = signedSizeDelta({ side: body.side, sizeUsdc: body.sizeUsdc }).toString();
+    const sizeDelta = computeSizeDelta(body.side, body.sizeUsdc);
+    const { deadline, nonce } = generateDeadlineAndNonce(body.ttl);
 
     const quote = await perpsService.quote({
-      chainId: 5042002,
+      chainId: ARC_CHAIN_ID,
       marketId,
       side: body.side,
       sizeUsdc: body.sizeUsdc,
@@ -51,10 +45,8 @@ const tradePrepare = route
       leverage: body.leverage,
     });
 
-    const deadline = Math.floor(Date.now() / 1000) + body.ttl;
-    const nonce = String(Date.now());
     const order = {
-      chainId: 5042002 as const,
+      chainId: ARC_CHAIN_ID as const,
       marketId,
       trader: body.trader,
       side: body.side,
@@ -68,15 +60,14 @@ const tradePrepare = route
       reduceOnly: body.reduceOnly,
       postOnly: false,
     };
-    const digest = hashPerpsOrder(order);
-    const typedData = buildPerpsOrderTypedData(order);
+
     return ok(jsonSafe({
       symbol: body.symbol,
       marketId,
       quote,
       order: {
-        digest,
-        typedData,
+        digest: hashPerpsOrder(order),
+        typedData: withEip712Domain(buildPerpsOrderTypedData(order)),
         deadline,
         nonce,
       },
@@ -93,18 +84,18 @@ const tradeExecute = route
   .post("/trade/execute")
   .body(
     z.object({
-      symbol: z.enum(SYMBOL_ENUM),
-      trader: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
-      side: z.enum(["long", "short"]),
-      sizeUsdc: z.string().regex(/^\d+(\.\d{1,6})?$/),
-      leverage: z.number().int().min(1).max(100).default(1),
+      symbol: zSymbol,
+      trader: zAddress,
+      side: zSide,
+      sizeUsdc: zAmount,
+      leverage: zLeverage,
       orderType: z.enum(["limit", "market"]).default("market"),
       limitPrice: z.string().optional(),
       reduceOnly: z.boolean().default(false),
       postOnly: z.boolean().default(false),
       deadline: z.number().int(),
       nonce: z.string(),
-      signature: z.string().regex(/^0x[a-fA-F0-9]+$/),
+      signature: zSignature,
     }),
   )
   .meta({
@@ -118,10 +109,10 @@ const tradeExecute = route
     const marketId = resolveMarketId(body.symbol);
     if (!marketId) return ok({ error: `Unknown symbol: ${body.symbol}` });
 
-    const sizeDelta = signedSizeDelta({ side: body.side, sizeUsdc: body.sizeUsdc }).toString();
+    const sizeDelta = computeSizeDelta(body.side, body.sizeUsdc);
 
     const intent = await perpsService.createIntent({
-      chainId: 5042002,
+      chainId: ARC_CHAIN_ID,
       marketId,
       trader: body.trader,
       side: body.side,
@@ -136,20 +127,22 @@ const tradeExecute = route
       postOnly: body.postOnly,
       signature: body.signature,
     });
-    return ok(jsonSafe({
-      intent,
-      streamUrl: `/api/perps/intents/${typeof intent === "object" && intent !== null && "intentId" in intent ? (intent as Record<string, unknown>).intentId : "unknown"}/stream`,
-    }));
+
+    const intentId = typeof intent === "object" && intent !== null && "intentId" in intent
+      ? (intent as Record<string, unknown>).intentId
+      : "unknown";
+
+    return ok(jsonSafe({ intent, streamUrl: `/api/stream/prices/${body.symbol}` }));
   });
 
 const closePrepare = route
   .post("/close/prepare")
   .body(
     z.object({
-      symbol: z.enum(SYMBOL_ENUM),
-      trader: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
-      side: z.enum(["long", "short"]),
-      sizeUsdc: z.string().regex(/^\d+(\.\d{1,6})?$/),
+      symbol: zSymbol,
+      trader: zAddress,
+      side: zSide,
+      sizeUsdc: zAmount,
       ttl: z.number().int().default(3600),
     }),
   )
@@ -157,7 +150,7 @@ const closePrepare = route
     mcp: {
       title: "Prepare Close Position",
       description:
-        "Prepare to close or reduce a forex perp position. Pass the side you're closing (your current side, not the opposite). Returns EIP-712 typed data to sign. Then call bufi_trade_execute with reduceOnly=true.",
+        "Prepare to close or reduce a forex perp position. Pass your current side (not the opposite). Returns EIP-712 typed data to sign. Then call bufi_trade_execute with reduceOnly=true.",
     },
   })
   .handle(async ({ body }) => {
@@ -165,11 +158,11 @@ const closePrepare = route
     if (!marketId) return ok({ error: `Unknown symbol: ${body.symbol}` });
 
     const closeSide = body.side === "long" ? "short" : "long";
-    const sizeDelta = signedSizeDelta({ side: closeSide, sizeUsdc: body.sizeUsdc }).toString();
-    const deadline = Math.floor(Date.now() / 1000) + body.ttl;
-    const nonce = String(Date.now());
+    const sizeDelta = computeSizeDelta(closeSide, body.sizeUsdc);
+    const { deadline, nonce } = generateDeadlineAndNonce(body.ttl);
+
     const order = {
-      chainId: 5042002 as const,
+      chainId: ARC_CHAIN_ID as const,
       marketId,
       trader: body.trader,
       side: closeSide as "long" | "short",
@@ -182,12 +175,17 @@ const closePrepare = route
       reduceOnly: true,
       postOnly: false,
     };
-    const digest = hashPerpsOrder(order);
-    const typedData = buildPerpsOrderTypedData(order);
+
     return ok(jsonSafe({
       symbol: body.symbol,
       closing: body.side,
-      order: { digest, typedData, deadline, nonce, reduceOnly: true },
+      order: {
+        digest: hashPerpsOrder(order),
+        typedData: withEip712Domain(buildPerpsOrderTypedData(order)),
+        deadline,
+        nonce,
+        reduceOnly: true,
+      },
       nextStep: "Sign the order digest, then call bufi_trade_execute with reduceOnly=true.",
     }));
   });

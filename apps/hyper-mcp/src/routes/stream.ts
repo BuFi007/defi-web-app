@@ -1,12 +1,7 @@
 import { Hyper } from "@hyper/core";
 import { subscribe } from "@hyper/subscribe";
 import { perpsService, jsonSafe } from "../services.ts";
-import { livePerpsMarkets } from "@bufi/perps";
-
-function resolveMarketId(symbol: string): string | null {
-  const markets = livePerpsMarkets(5042002);
-  return markets.find((m) => m.symbol.toLowerCase() === symbol.toLowerCase())?.marketId ?? null;
-}
+import { ARC_CHAIN_ID, resolveMarketId, computeSizeDelta } from "../shared.ts";
 
 const priceStream = subscribe<unknown>(
   "/stream/prices/:symbol",
@@ -18,13 +13,15 @@ const priceStream = subscribe<unknown>(
       yield { event: "error", data: { error: `Unknown symbol: ${symbol}` } };
       return;
     }
+    const sizeDelta = computeSizeDelta("long", "1");
     while (!signal.aborted) {
       try {
         const quote = await perpsService.quote({
-          chainId: 5042002,
+          chainId: ARC_CHAIN_ID,
           marketId,
           side: "long",
           sizeUsdc: "1",
+          sizeDelta,
           leverage: 1,
         });
         yield {

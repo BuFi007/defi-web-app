@@ -3,13 +3,14 @@ import { z } from "zod";
 import { hermes, jsonSafe } from "../services.ts";
 import { SPOT_FX_ROUTES } from "@bufi/contracts";
 import { buildVenueSpotIntent } from "@bufi/fx-spot";
+import { zAddress, zAmount, zUint, generateDeadlineAndNonce } from "../shared.ts";
 
 const spotQuote = route
   .post("/spot/quote")
   .body(
     z.object({
       symbol: z.enum(["EURC", "JPYC", "MXNB"]),
-      amountUsdc: z.string().regex(/^\d+(\.\d{1,6})?$/),
+      amountUsdc: zAmount,
     }),
   )
   .meta({
@@ -40,9 +41,9 @@ const spotBuy = route
   .body(
     z.object({
       symbol: z.enum(["EURC", "JPYC", "MXNB"]),
-      trader: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
-      amountInAtomic: z.string().regex(/^\d+$/),
-      minAmountOutAtomic: z.string().regex(/^\d+$/),
+      trader: zAddress,
+      amountInAtomic: zUint,
+      minAmountOutAtomic: zUint,
     }),
   )
   .meta({
@@ -53,8 +54,7 @@ const spotBuy = route
     },
   })
   .handle(async ({ body }) => {
-    const deadline = Math.floor(Date.now() / 1000) + 3600;
-    const nonce = String(Date.now());
+    const { deadline, nonce } = generateDeadlineAndNonce();
     const built = buildVenueSpotIntent({
       symbol: body.symbol,
       trader: body.trader,

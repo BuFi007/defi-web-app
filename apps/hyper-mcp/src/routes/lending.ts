@@ -2,6 +2,9 @@ import { Hyper, ok, route } from "@hyper/core";
 import { z } from "zod";
 import { telaranaService, jsonSafe } from "../services.ts";
 import { listMarkets } from "@bufi/fx-telarana";
+import { ARC_CHAIN_ID, zAddress, zAmount, generateDeadlineAndNonce } from "../shared.ts";
+
+const zMarketId = z.string().min(1);
 
 const lendingMarkets = route
   .get("/lending/markets")
@@ -9,7 +12,7 @@ const lendingMarkets = route
     mcp: {
       title: "Lending Markets",
       description:
-        "List available lending/borrowing pools on Arc. Shows supply APY, borrow APY, total supplied, total borrowed, utilization, and collateral requirements. Agents can supply USDC to earn yield or borrow FX tokens against USDC collateral.",
+        "List available lending/borrowing pools on Arc. Shows supply APY, borrow APY, total supplied, total borrowed, utilization, and collateral requirements.",
     },
   })
   .handle(async () => {
@@ -19,23 +22,17 @@ const lendingMarkets = route
 
 const borrowPreview = route
   .post("/lending/borrow/preview")
-  .body(
-    z.object({
-      marketId: z.string().min(1),
-      collateralAmount: z.string().regex(/^\d+(\.\d{1,6})?$/),
-      borrowAmount: z.string().regex(/^\d+(\.\d{1,6})?$/),
-    }),
-  )
+  .body(z.object({ marketId: zMarketId, collateralAmount: zAmount, borrowAmount: zAmount }))
   .meta({
     mcp: {
       title: "Borrow Preview",
       description:
-        "Preview a borrow: see utilization, borrow APY, and health factor before committing. Use to evaluate carry trade economics (borrow low-rate FX, deploy in high-yield perp funding).",
+        "Preview a borrow: see utilization, borrow APY, and health factor before committing.",
     },
   })
   .handle(async ({ body }) => {
     const preview = await telaranaService.borrowQuote({
-      chainId: 5042002,
+      chainId: ARC_CHAIN_ID,
       marketId: body.marketId,
       collateralAmount: body.collateralAmount,
       borrowAmount: body.borrowAmount,
@@ -45,133 +42,86 @@ const borrowPreview = route
 
 const supplyAction = route
   .post("/lending/supply")
-  .body(
-    z.object({
-      marketId: z.string().min(1),
-      supplier: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
-      amount: z.string().regex(/^\d+(\.\d{1,6})?$/),
-    }),
-  )
+  .body(z.object({ marketId: zMarketId, supplier: zAddress, amount: zAmount }))
   .meta({
     mcp: {
       title: "Supply to Lending Pool",
       description:
-        "Supply USDC to a lending pool to earn yield. Returns the market details and EIP-712 intent parameters needed to sign the supply transaction. Agents earn passive yield on idle USDC between trades. x402: $0.001.",
+        "Supply USDC to a lending pool to earn yield. Returns market details and EIP-712 intent parameters. x402: $0.001.",
     },
   })
   .handle(async ({ body }) => {
     const markets = await listMarkets();
     const market = markets.find((m) => m.id === body.marketId);
+    const { deadline, nonce } = generateDeadlineAndNonce();
     return ok(jsonSafe({
       action: "supply",
       marketId: body.marketId,
       supplier: body.supplier,
       amount: body.amount,
       market: market ?? null,
-      chainId: 5042002,
-      deadline: Math.floor(Date.now() / 1000) + 3600,
-      nonce: String(Date.now()),
+      chainId: ARC_CHAIN_ID,
+      deadline,
+      nonce,
     }));
   });
 
 const borrowAction = route
   .post("/lending/borrow")
-  .body(
-    z.object({
-      marketId: z.string().min(1),
-      borrower: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
-      borrowAmount: z.string().regex(/^\d+(\.\d{1,6})?$/),
-      collateralAmount: z.string().regex(/^\d+(\.\d{1,6})?$/),
-    }),
-  )
+  .body(z.object({ marketId: zMarketId, borrower: zAddress, borrowAmount: zAmount, collateralAmount: zAmount }))
   .meta({
     mcp: {
       title: "Borrow Against Collateral",
       description:
-        "Borrow FX tokens against USDC collateral. Use bufi_borrow_preview first to check health factor. Returns market details and EIP-712 intent parameters. x402: $0.001.",
+        "Borrow FX tokens against USDC collateral. Use bufi_borrow_preview first to check health factor. x402: $0.001.",
     },
   })
   .handle(async ({ body }) => {
     const preview = await telaranaService.borrowQuote({
-      chainId: 5042002,
+      chainId: ARC_CHAIN_ID,
       marketId: body.marketId,
       collateralAmount: body.collateralAmount,
       borrowAmount: body.borrowAmount,
     });
+    const { deadline, nonce } = generateDeadlineAndNonce();
     return ok(jsonSafe({
       action: "borrow",
-      marketId: body.marketId,
-      borrower: body.borrower,
-      borrowAmount: body.borrowAmount,
-      collateralAmount: body.collateralAmount,
+      ...body,
       preview,
-      chainId: 5042002,
-      deadline: Math.floor(Date.now() / 1000) + 3600,
-      nonce: String(Date.now()),
+      chainId: ARC_CHAIN_ID,
+      deadline,
+      nonce,
     }));
   });
 
 const repayAction = route
   .post("/lending/repay")
-  .body(
-    z.object({
-      marketId: z.string().min(1),
-      borrower: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
-      amount: z.string().regex(/^\d+(\.\d{1,6})?$/),
-    }),
-  )
+  .body(z.object({ marketId: zMarketId, borrower: zAddress, amount: zAmount }))
   .meta({
     mcp: {
       title: "Repay Loan",
-      description:
-        "Repay a lending pool loan. Reduces borrow balance and improves health factor. Returns EIP-712 intent parameters. x402: $0.001.",
+      description: "Repay a lending pool loan. Improves health factor. x402: $0.001.",
     },
   })
   .handle(async ({ body }) => {
-    return ok(jsonSafe({
-      action: "repay",
-      marketId: body.marketId,
-      borrower: body.borrower,
-      amount: body.amount,
-      chainId: 5042002,
-      deadline: Math.floor(Date.now() / 1000) + 3600,
-      nonce: String(Date.now()),
-    }));
+    const { deadline, nonce } = generateDeadlineAndNonce();
+    return ok(jsonSafe({ action: "repay", ...body, chainId: ARC_CHAIN_ID, deadline, nonce }));
   });
 
 const withdrawAction = route
   .post("/lending/withdraw")
-  .body(
-    z.object({
-      marketId: z.string().min(1),
-      supplier: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
-      amount: z.string().regex(/^\d+(\.\d{1,6})?$/),
-    }),
-  )
+  .body(z.object({ marketId: zMarketId, supplier: zAddress, amount: zAmount }))
   .meta({
     mcp: {
       title: "Withdraw from Lending Pool",
-      description:
-        "Withdraw previously supplied USDC from a lending pool. Returns EIP-712 intent parameters. x402: $0.001.",
+      description: "Withdraw previously supplied USDC from a lending pool. x402: $0.001.",
     },
   })
   .handle(async ({ body }) => {
-    return ok(jsonSafe({
-      action: "withdraw",
-      marketId: body.marketId,
-      supplier: body.supplier,
-      amount: body.amount,
-      chainId: 5042002,
-      deadline: Math.floor(Date.now() / 1000) + 3600,
-      nonce: String(Date.now()),
-    }));
+    const { deadline, nonce } = generateDeadlineAndNonce();
+    return ok(jsonSafe({ action: "withdraw", ...body, chainId: ARC_CHAIN_ID, deadline, nonce }));
   });
 
 export default new Hyper({ prefix: "/api" }).use([
-  lendingMarkets,
-  borrowPreview,
-  supplyAction,
-  borrowAction,
-  repayAction,
-  withdrawAction,
+  lendingMarkets, borrowPreview, supplyAction, borrowAction, repayAction, withdrawAction,
 ]);

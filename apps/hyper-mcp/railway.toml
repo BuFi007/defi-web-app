@@ -1,0 +1,15 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "apps/hyper-mcp/Dockerfile"
+watchPatterns = ["apps/hyper-mcp/**", "packages/**"]
+
+[deploy]
+startCommand = "bun apps/hyper-mcp/src/app.ts"
+healthcheckPath = "/health"
+healthcheckTimeout = 10
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "bufi-hyper-mcp"
+internalPort = 4002
