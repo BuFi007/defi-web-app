@@ -733,20 +733,21 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  /* Give the head a stable min-height so the market picker pill can
-     sit on the left without bleeding into the action tabs row below.
-     Was implicit (1em) → the absolute-positioned pill overflowed
-     downward when its content was taller than the eyebrow text. */
-  min-height: 32px;
   gap: 12px;
 }
 
-/* Loan picker pill — visually compact override of .mkt-island-pill.
+/* 25/50/75/MAX chip cluster sits inside .lo-amount-quick to the
+   right of the market picker. Inline flex so chips stay on one row. */
+.lo-amount-quick-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Loan picker pill — compact override of .mkt-island-pill.
    The perps header pill uses 13px bold + 20px icons because it
-   shares the entire chart header; the loan pill sits inside the
-   already-busy action card head and needs to read as a tight chip,
-   not a hero element. Constrains height so the action-head row
-   stays single-line and the lo-tabs row below doesn't get pushed. */
+   shares the entire chart header; the loan pill sits inline with
+   the quick-pick rail and needs to read as a tight chip. */
 .lo-market-picker-anchor {
   flex-shrink: 1;
   min-width: 0;
@@ -970,12 +971,12 @@
    the input's top edge regardless of the input's container width. */
 .lo-amount-quick {
   display: flex;
-  /* Was flex-end so MAX hung off the input's right edge. Switched to
-     flex-start so the quick-pick rail aligns with the input's text
-     start and the row reads left → right (25 → 50 → 75 → MAX). */
-  justify-content: flex-start;
+  /* MarketPicker hugs the left edge, 25/50/75/MAX chip cluster
+     hugs the right via .lo-amount-quick-chips. justify-between
+     spreads them across the row. */
+  justify-content: space-between;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-bottom: -2px;
   width: 100%;
 }

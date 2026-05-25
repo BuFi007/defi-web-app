@@ -1190,15 +1190,9 @@ export function ActionCard({
   return (
     <section className="lo-action">
       <div className="lo-action-head">
-        {/* Market picker replaces the bare "Action" eyebrow so the user
-            can switch markets directly from the right panel — no more
-            forced trip back to the left-side market list. APY label on
-            the right stays as the rate readout. */}
-        <LoanMarketPicker
-          selected={market}
-          markets={marketsList ?? popoverMarkets ?? [market]}
-          onSelect={(m) => onFlipMarket?.(m.id)}
-        />
+        {/* Restored: market picker moved to the quick-pick rail (below)
+            per UX feedback. The head keeps the slim eyebrow + APY pill. */}
+        <span className="lo-eyebrow">Action</span>
         <span
           className="lo-rate mono"
           style={{ color: A.side === "supply" ? "var(--profit-ink)" : "var(--loss-ink)" }}
@@ -1239,17 +1233,28 @@ export function ActionCard({
           primary call to action. Keeping MAX rightmost keeps the muscle-
           memory consistent with most DeFi inputs (Aave, Compound). */}
       <div className="lo-amount-quick">
-        <button onClick={() => setAmount(formatAmountForInput(balance / 4, tokenDecimals))}>25%</button>
-        <button onClick={() => setAmount(formatAmountForInput(balance / 2, tokenDecimals))}>50%</button>
-        <button onClick={() => setAmount(formatAmountForInput(balance * 0.75, tokenDecimals))}>75%</button>
-        <button
-          type="button"
-          className="lo-amount-max"
-          onClick={() => setAmount(formatAmountForInput(balance, tokenDecimals))}
-          aria-label={`Use full balance of ${balance.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${loan.sym}`}
-        >
-          MAX
-        </button>
+        {/* Market picker sits at the start of the row; quick-pick chips
+            cluster to the right. justify-content: space-between on
+            .lo-amount-quick handles the layout — picker hugs the left
+            edge of the input, MAX hugs the right. */}
+        <LoanMarketPicker
+          selected={market}
+          markets={marketsList ?? popoverMarkets ?? [market]}
+          onSelect={(m) => onFlipMarket?.(m.id)}
+        />
+        <div className="lo-amount-quick-chips">
+          <button onClick={() => setAmount(formatAmountForInput(balance / 4, tokenDecimals))}>25%</button>
+          <button onClick={() => setAmount(formatAmountForInput(balance / 2, tokenDecimals))}>50%</button>
+          <button onClick={() => setAmount(formatAmountForInput(balance * 0.75, tokenDecimals))}>75%</button>
+          <button
+            type="button"
+            className="lo-amount-max"
+            onClick={() => setAmount(formatAmountForInput(balance, tokenDecimals))}
+            aria-label={`Use full balance of ${balance.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${loan.sym}`}
+          >
+            MAX
+          </button>
+        </div>
       </div>
 
       <div className="lo-amount-shell">
@@ -1291,7 +1296,13 @@ export function ActionCard({
       <div className="lo-amount-foot">
         <span className="lo-balance">
           BALANCE <span className="mono">{balance.toLocaleString(undefined, { maximumFractionDigits: 2 })} {loan.sym}</span>
-          <span className="lo-balance-usd mono">≈ ${usd.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+          {/* "≈ $X" must reflect the BALANCE value (what's in the wallet)
+              not the input amount — earlier code multiplied loan.price
+              by the live input which read $0 whenever the input was
+              empty, even though the user clearly held millions in
+              loan-side stables. Switch to balance × price so the row
+              reads as "you have X token ≈ $Y in your wallet". */}
+          <span className="lo-balance-usd mono">≈ ${(balance * loan.price).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
         </span>
       </div>
 
