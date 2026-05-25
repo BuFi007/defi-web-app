@@ -1,3 +1,4 @@
+import { withSentryConfig } from "@sentry/nextjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -53,8 +54,10 @@ const config = {
   async headers() {
     return [
       {
-        // Hash-busted public assets that never change — let CDNs hold them
-        // forever. Covers audio (BGM + SFX) and network/chain icons.
+        source: "/(.*)",
+        headers: [{ key: "Document-Policy", value: "js-profiling" }],
+      },
+      {
         source: "/:dir(audio|sounds|networks)/:path*",
         headers: [
           {
@@ -67,4 +70,11 @@ const config = {
   },
 };
 
-export default config;
+export default withSentryConfig(config, {
+  org: "bufinance",
+  project: "bufi-defi-web-app",
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  tunnelRoute: "/monitoring",
+});
