@@ -13,7 +13,34 @@ const arcClient = createPublicClient({
 const IDENTITY_ABI = [
   parseAbiItem("function ownerOf(uint256 tokenId) view returns (address)"),
   parseAbiItem("function tokenURI(uint256 tokenId) view returns (string)"),
+  parseAbiItem("function balanceOf(address owner) view returns (uint256)"),
 ] as const;
+
+export async function hasIdentity(address: Address): Promise<boolean> {
+  try {
+    const balance = await arcClient.readContract({
+      address: IDENTITY_REGISTRY,
+      abi: IDENTITY_ABI,
+      functionName: "balanceOf",
+      args: [address],
+    });
+    return balance > 0n;
+  } catch {
+    return false;
+  }
+}
+
+export function buildRegisterCalldata(metadataURI: string): {
+  to: Address;
+  functionSignature: string;
+  args: [string];
+} {
+  return {
+    to: IDENTITY_REGISTRY,
+    functionSignature: "register(string)",
+    args: [metadataURI],
+  };
+}
 
 const FEEDBACK_EVENT = parseAbiItem(
   "event FeedbackGiven(uint256 indexed subjectId, uint256 indexed fromId, int128 score, string tag)",
