@@ -747,20 +747,31 @@
 /* Loan picker pill — compact override of .mkt-island-pill.
    The perps header pill uses 13px bold + 20px icons because it
    shares the entire chart header; the loan pill sits inline with
-   the quick-pick rail and needs to read as a tight chip. */
+   the quick-pick rail and must read as a chip the same height as
+   the 25/50/75/MAX siblings (30px). Force the anchor + phantom +
+   pill all to exactly 30px so the row never drifts. */
 .lo-market-picker-anchor {
   flex-shrink: 1;
   min-width: 0;
-}
-.lo-market-picker-pill {
-  padding: 4px 8px 4px 4px !important;
   height: 30px;
+  display: inline-flex;
+  align-items: center;
+}
+.lo-amount-quick .lo-market-picker-pill,
+.lo-amount-quick .market-mini--phantom {
+  padding: 4px 8px 4px 4px !important;
+  height: 30px !important;
+  font-size: 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px;
+}
+.lo-amount-quick .lo-market-picker-pill > span,
+.lo-amount-quick .market-mini--phantom > span {
   font-size: 12px !important;
 }
-.lo-market-picker-pill > span {
-  font-size: 12px !important;
-}
-.lo-market-picker-pill .pill {
+.lo-amount-quick .lo-market-picker-pill .pill,
+.lo-amount-quick .market-mini--phantom .pill {
   font-size: 9px !important;
   padding: 1px 5px !important;
 }
@@ -980,7 +991,11 @@
   margin-bottom: -2px;
   width: 100%;
 }
-.lo-amount-quick button {
+/* Scoped to chips only — was `.lo-amount-quick button` which also
+   matched the LoanMarketPicker pill (which is a <button>) and gave it
+   chip borders + a too-small font that broke the row alignment. */
+.lo-amount-quick-chips button {
+  height: 30px;
   padding: 4px 10px;
   background: var(--surface);
   border: 1.5px solid var(--border);
@@ -991,15 +1006,18 @@
   cursor: pointer;
   transition: border-color .12s, color .12s, background .12s, transform .12s;
   letter-spacing: .04em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
-.lo-amount-quick button:hover {
+.lo-amount-quick-chips button:hover {
   border-color: var(--ink);
   color: var(--ink);
 }
-.lo-amount-quick button:active { transform: translateY(1px); }
+.lo-amount-quick-chips button:active { transform: translateY(1px); }
 /* MAX gets the brand treatment — it's the primary shortcut, so it
    reads as solid call-to-action vs. the muted percentage chips. */
-.lo-amount-quick .lo-amount-max {
+.lo-amount-quick-chips .lo-amount-max {
   padding: 4px 12px;
   background: var(--primary-soft);
   border-color: var(--primary);
@@ -1007,7 +1025,7 @@
   letter-spacing: .08em;
   margin-left: 4px;
 }
-.lo-amount-quick .lo-amount-max:hover {
+.lo-amount-quick-chips .lo-amount-max:hover {
   background: var(--primary);
   border-color: var(--primary);
   color: #fff;
