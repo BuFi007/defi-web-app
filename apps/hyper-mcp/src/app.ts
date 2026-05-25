@@ -1,6 +1,8 @@
 import { Hyper, ok, route } from "@hyper/core";
 import { hyperLog } from "@hyper/log";
 import { corsPlugin } from "@hyper/cors";
+import { authJwtPlugin } from "@hyper/auth-jwt";
+import { rateLimit } from "@hyper/rate-limit";
 import { openapiPlugin } from "@hyper/openapi";
 import { zodConverter } from "@hyper/openapi-zod";
 import { mcpServer } from "@hyper/mcp";
@@ -92,6 +94,13 @@ Trade (x402 $0.001-$0.005): perp open/close, spot buy, supply, borrow, repay, wi
 - OpenAPI: http://localhost:4002/openapi.json
 - Install: claude mcp add --transport http bufi-hyper http://localhost:4002/mcp
 
+## Authentication
+- Open mode (default): no auth required — all tools accessible (hackathon/testnet)
+- JWT mode: set BUFI_JWT_SECRET, agents authenticate via Authorization: Bearer <token>
+  - Token payload: { sub: "0xwalletAddress", scope: "trade read" }
+  - Issue tokens scoped to wallet address — no session signatures needed
+- Rate limit: 120 requests/minute per IP (standard RateLimit-* headers)
+
 ## Settlement
 - Chain: Arc Testnet (chainId 5042002, sub-second finality)
 - Gas: ~$0.01 USDC (USDC is native gas token)
@@ -107,9 +116,12 @@ const llmsRoute = route.get("/llms.txt").handle(() => {
 
 const health = route.get("/health").handle(() => ok({ ok: true, ts: Date.now() }));
 
+const jwtSecret = process.env.BUFI_JWT_SECRET ?? process.env.JWT_SECRET;
+
 const hyper = new Hyper()
   .use(hyperLog({ service: "bufi-hyper" }))
   .use(corsPlugin({ origin: "*", allowAnyOrigin: true }))
+  .use(rateLimit({ limit: 120, window: "1m" }))
   .use(openapiPlugin({ converters: [zodConverter] }))
   .use([health, llmsRoute])
   .use(markets)
@@ -120,6 +132,13 @@ const hyper = new Hyper()
   .use(lending)
   .use(leaderboard)
   .use(reputation);
+
+// JWT auth is opt-in: when BUFI_JWT_SECRET is set, agents authenticate
+// via `Authorization: Bearer <token>` and get ctx.user with { sub, scope }.
+// When unset, all routes are open (hackathon/testnet mode).
+if (jwtSecret) {
+  hyper.use(authJwtPlugin({ secret: jwtSecret, allowShortSecret: true }));
+}
 
 const port = Number(process.env.PORT ?? 4002);
 

@@ -1,7 +1,7 @@
 import { Hyper, ok, route } from "@hyper/core";
 import { z } from "zod";
 import { perpsService, jsonSafe } from "../services.ts";
-import { buildPerpsOrderTypedData, hashPerpsOrder } from "@bufi/perps";
+import { buildPerpsOrderTypedData, hashPerpsOrder, signedSizeDelta } from "@bufi/perps";
 import { livePerpsMarkets } from "@bufi/perps";
 
 function resolveMarketId(symbol: string): string | null {
@@ -40,11 +40,14 @@ const tradePrepare = route
     const marketId = resolveMarketId(body.symbol);
     if (!marketId) return ok({ error: `Unknown symbol: ${body.symbol}` });
 
+    const sizeDelta = signedSizeDelta({ side: body.side, sizeUsdc: body.sizeUsdc }).toString();
+
     const quote = await perpsService.quote({
       chainId: 5042002,
       marketId,
       side: body.side,
       sizeUsdc: body.sizeUsdc,
+      sizeDelta,
       leverage: body.leverage,
     });
 
@@ -56,6 +59,7 @@ const tradePrepare = route
       trader: body.trader,
       side: body.side,
       sizeUsdc: body.sizeUsdc,
+      sizeDelta,
       leverage: body.leverage,
       deadline,
       nonce,
@@ -114,12 +118,15 @@ const tradeExecute = route
     const marketId = resolveMarketId(body.symbol);
     if (!marketId) return ok({ error: `Unknown symbol: ${body.symbol}` });
 
+    const sizeDelta = signedSizeDelta({ side: body.side, sizeUsdc: body.sizeUsdc }).toString();
+
     const intent = await perpsService.createIntent({
       chainId: 5042002,
       marketId,
       trader: body.trader,
       side: body.side,
       sizeUsdc: body.sizeUsdc,
+      sizeDelta,
       leverage: body.leverage,
       deadline: body.deadline,
       nonce: body.nonce,
@@ -158,6 +165,7 @@ const closePrepare = route
     if (!marketId) return ok({ error: `Unknown symbol: ${body.symbol}` });
 
     const closeSide = body.side === "long" ? "short" : "long";
+    const sizeDelta = signedSizeDelta({ side: closeSide, sizeUsdc: body.sizeUsdc }).toString();
     const deadline = Math.floor(Date.now() / 1000) + body.ttl;
     const nonce = String(Date.now());
     const order = {
@@ -166,6 +174,7 @@ const closePrepare = route
       trader: body.trader,
       side: closeSide as "long" | "short",
       sizeUsdc: body.sizeUsdc,
+      sizeDelta,
       leverage: 1,
       deadline,
       nonce,

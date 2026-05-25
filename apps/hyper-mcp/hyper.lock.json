@@ -2,9 +2,24 @@
   "schema": 1,
   "registryUrl": "https://hyperjs.ai",
   "components": {
+    "auth-jwt": {
+      "version": "0.1.0",
+      "installedAt": "2026-05-25T15:48:53.358Z",
+      "alias": "@hyper",
+      "files": [
+        {
+          "path": "src/hyper/auth-jwt/index.ts",
+          "sha256": "96b122083a7cd37615963b08e411eadfee44b8cd3b8ca971015b92e6a7d98628"
+        },
+        {
+          "path": "src/hyper/auth-jwt/jwt.ts",
+          "sha256": "4b6868d1eeea3479e60a49ed1487ad9b6eee3b5d07491c375c4d9f0b44615360"
+        }
+      ]
+    },
     "core": {
       "version": "0.1.0",
-      "installedAt": "2026-05-25T14:45:14.027Z",
+      "installedAt": "2026-05-25T15:48:53.357Z",
       "alias": "@hyper",
       "files": [
         {
@@ -213,6 +228,40 @@
         {
           "path": "src/hyper/openapi-zod/index.ts",
           "sha256": "fc3d5db756dd6ca5d1827b63657b956d043e5df1fbac7bdaac7d8888f1863c18"
+        }
+      ]
+    },
+    "rate-limit": {
+      "version": "0.1.0",
+      "installedAt": "2026-05-25T15:48:53.358Z",
+      "alias": "@hyper",
+      "files": [
+        {
+          "path": "src/hyper/rate-limit/index.ts",
+          "sha256": "29e7982259e47e287c6d420726e53eaca974b546023b2a1ff963f612879027f3"
+        },
+        {
+          "path": "src/hyper/rate-limit/sqlite.ts",
+          "sha256": "9254dfa14d9959b31e2420880b2cf3797d4efd4beaf38355ba0d176194b61c1a"
+        }
+      ]
+    },
+    "session": {
+      "version": "0.1.0",
+      "installedAt": "2026-05-25T15:48:53.359Z",
+      "alias": "@hyper",
+      "files": [
+        {
+          "path": "src/hyper/session/csrf.ts",
+          "sha256": "bf0abfe2a8e8ccf2f38371e5cb4d0a9986f738b27ef169c75d412aec6655f0ca"
+        },
+        {
+          "path": "src/hyper/session/index.ts",
+          "sha256": "24334ad83d54e7cc091c50cc1e4edf65855a3ff66d68c245eb60dc4472da6ee4"
+        },
+        {
+          "path": "src/hyper/session/sqlite.ts",
+          "sha256": "e721a9469d938493d7602ed827e7fe7622ae189d945b333f6d94cffd0421caef"
         }
       ]
     }
