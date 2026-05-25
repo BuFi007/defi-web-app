@@ -56,9 +56,9 @@ const arcTestnet = defineChain({
   testnet: true,
 });
 
-// FxPerpClearinghouse address on Arc Testnet — sourced from
-// /Users/criptopoeta/coding-dojo/fx-telarana/deployments/perps-5042002.json
-const CLEARINGHOUSE = "0x6A265045D9A3291D2881d77DDC62e2781A2418c5" as Address;
+// FxPerpClearinghouse address on Arc Testnet — Sprint-1 broadcast
+// (canonical address from packages/contracts/src/index.ts)
+const CLEARINGHOUSE = "0x39dc43E2133CF860c1d17d4DB75Ef4204eebD46A" as Address;
 
 // All live perp markets on Arc (TCHFC excluded per asset-rules: tCHFC
 // fully removed). Sourced from perps-config-5042002.json.
@@ -78,6 +78,10 @@ const MARKETS: { name: string; id: `0x${string}` }[] = [
   {
     name: "cirBTC/USDC",
     id: "0x238aacf17c8d170ad55905cd1c217ae2db8338354b1235059fb0f096e20b777a",
+  },
+  {
+    name: "AUDF/USDC",
+    id: "0x921b564f97b14b7d73c12a72af4b7847fb5e3414f98cbe5fb5f1d8a3168c0a00",
   },
 ];
 

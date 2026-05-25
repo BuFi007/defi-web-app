@@ -20,7 +20,7 @@ export const perpsService = createPerpsService({
   quoteReader: createViemPerpsQuoteReader({ markets: perpsMarkets }),
   nonceReader: createViemPerpsNonceReader(),
   intentStore: tradingDb.perpsIntents,
-  maxOracleStaleSeconds: Number(process.env.PYTH_MAX_STALE_SECONDS ?? 120),
+  maxOracleStaleSeconds: Number(process.env.PYTH_MAX_STALE_SECONDS ?? 300),
 });
 
 export const receiptStore = tradingDb.receipts;

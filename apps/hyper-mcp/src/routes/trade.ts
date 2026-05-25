@@ -30,54 +30,59 @@ const tradePrepare = route
     },
   })
   .handle(async ({ body }) => {
-    const marketId = resolveMarketId(body.symbol);
-    if (!marketId) return ok({ error: `Unknown symbol: ${body.symbol}` });
+    try {
+      const marketId = resolveMarketId(body.symbol);
+      if (!marketId) return ok({ error: `Unknown symbol: ${body.symbol}` });
 
-    const sizeDelta = computeSizeDelta(body.side, body.sizeUsdc);
-    const { deadline, nonce } = generateDeadlineAndNonce(body.ttl);
+      const sizeDelta = computeSizeDelta(body.side, body.sizeUsdc);
+      const { deadline, nonce } = generateDeadlineAndNonce(body.ttl);
 
-    const quote = await perpsService.quote({
-      chainId: ARC_CHAIN_ID,
-      marketId,
-      side: body.side,
-      sizeUsdc: body.sizeUsdc,
-      sizeDelta,
-      leverage: body.leverage,
-    });
+      const quote = await perpsService.quote({
+        chainId: ARC_CHAIN_ID,
+        marketId,
+        side: body.side,
+        sizeUsdc: body.sizeUsdc,
+        sizeDelta,
+        leverage: body.leverage,
+      });
 
-    const order = {
-      chainId: ARC_CHAIN_ID as const,
-      marketId,
-      trader: body.trader,
-      side: body.side,
-      sizeUsdc: body.sizeUsdc,
-      sizeDelta,
-      leverage: body.leverage,
-      deadline,
-      nonce,
-      orderType: body.orderType,
-      limitPrice: body.limitPrice,
-      reduceOnly: body.reduceOnly,
-      postOnly: false,
-    };
-
-    return ok(jsonSafe({
-      symbol: body.symbol,
-      marketId,
-      quote,
-      order: {
-        digest: hashPerpsOrder(order),
-        typedData: withEip712Domain(buildPerpsOrderTypedData(order)),
+      const order = {
+        chainId: ARC_CHAIN_ID as const,
+        marketId,
+        trader: body.trader,
+        side: body.side,
+        sizeUsdc: body.sizeUsdc,
+        sizeDelta,
+        leverage: body.leverage,
         deadline,
         nonce,
-      },
-      costEstimate: {
-        margin: `${(Number(body.sizeUsdc) / body.leverage).toFixed(4)} USDC`,
-        fee: quote.fee ? `${quote.fee} atomic` : "see quote",
-        x402Fee: "0.005 USDC",
-      },
-      nextStep: "Sign the order digest with your wallet, then call bufi_trade_execute with the signature.",
-    }));
+        orderType: body.orderType,
+        limitPrice: body.limitPrice,
+        reduceOnly: body.reduceOnly,
+        postOnly: false,
+      };
+
+      return ok(jsonSafe({
+        symbol: body.symbol,
+        marketId,
+        quote,
+        order: {
+          digest: hashPerpsOrder(order),
+          typedData: withEip712Domain(buildPerpsOrderTypedData(order)),
+          deadline,
+          nonce,
+        },
+        costEstimate: {
+          margin: `${(Number(body.sizeUsdc) / body.leverage).toFixed(4)} USDC`,
+          fee: quote.fee ? `${quote.fee} atomic` : "see quote",
+          x402Fee: "0.005 USDC",
+        },
+        nextStep: "Sign the order digest with your wallet, then call bufi_trade_execute with the signature.",
+      }));
+    } catch (e) {
+      const msg = (e as Error).message;
+      return ok({ error: msg });
+    }
   });
 
 const tradeExecute = route
@@ -106,33 +111,38 @@ const tradeExecute = route
     },
   })
   .handle(async ({ body }) => {
-    const marketId = resolveMarketId(body.symbol);
-    if (!marketId) return ok({ error: `Unknown symbol: ${body.symbol}` });
+    try {
+      const marketId = resolveMarketId(body.symbol);
+      if (!marketId) return ok({ error: `Unknown symbol: ${body.symbol}` });
 
-    const sizeDelta = computeSizeDelta(body.side, body.sizeUsdc);
+      const sizeDelta = computeSizeDelta(body.side, body.sizeUsdc);
 
-    const intent = await perpsService.createIntent({
-      chainId: ARC_CHAIN_ID,
-      marketId,
-      trader: body.trader,
-      side: body.side,
-      sizeUsdc: body.sizeUsdc,
-      sizeDelta,
-      leverage: body.leverage,
-      deadline: body.deadline,
-      nonce: body.nonce,
-      orderType: body.orderType,
-      limitPrice: body.limitPrice,
-      reduceOnly: body.reduceOnly,
-      postOnly: body.postOnly,
-      signature: body.signature,
-    });
+      const intent = await perpsService.createIntent({
+        chainId: ARC_CHAIN_ID,
+        marketId,
+        trader: body.trader,
+        side: body.side,
+        sizeUsdc: body.sizeUsdc,
+        sizeDelta,
+        leverage: body.leverage,
+        deadline: body.deadline,
+        nonce: body.nonce,
+        orderType: body.orderType,
+        limitPrice: body.limitPrice,
+        reduceOnly: body.reduceOnly,
+        postOnly: body.postOnly,
+        signature: body.signature,
+      });
 
-    const intentId = typeof intent === "object" && intent !== null && "intentId" in intent
-      ? (intent as Record<string, unknown>).intentId
-      : "unknown";
+      const intentId = typeof intent === "object" && intent !== null && "intentId" in intent
+        ? (intent as Record<string, unknown>).intentId
+        : "unknown";
 
-    return ok(jsonSafe({ intent, streamUrl: `/api/stream/prices/${body.symbol}` }));
+      return ok(jsonSafe({ intent, streamUrl: `/api/stream/prices/${body.symbol}` }));
+    } catch (e) {
+      const msg = (e as Error).message;
+      return ok({ error: msg });
+    }
   });
 
 const closePrepare = route
@@ -154,40 +164,45 @@ const closePrepare = route
     },
   })
   .handle(async ({ body }) => {
-    const marketId = resolveMarketId(body.symbol);
-    if (!marketId) return ok({ error: `Unknown symbol: ${body.symbol}` });
+    try {
+      const marketId = resolveMarketId(body.symbol);
+      if (!marketId) return ok({ error: `Unknown symbol: ${body.symbol}` });
 
-    const closeSide = body.side === "long" ? "short" : "long";
-    const sizeDelta = computeSizeDelta(closeSide, body.sizeUsdc);
-    const { deadline, nonce } = generateDeadlineAndNonce(body.ttl);
+      const closeSide = body.side === "long" ? "short" : "long";
+      const sizeDelta = computeSizeDelta(closeSide, body.sizeUsdc);
+      const { deadline, nonce } = generateDeadlineAndNonce(body.ttl);
 
-    const order = {
-      chainId: ARC_CHAIN_ID as const,
-      marketId,
-      trader: body.trader,
-      side: closeSide as "long" | "short",
-      sizeUsdc: body.sizeUsdc,
-      sizeDelta,
-      leverage: 1,
-      deadline,
-      nonce,
-      orderType: "market" as const,
-      reduceOnly: true,
-      postOnly: false,
-    };
-
-    return ok(jsonSafe({
-      symbol: body.symbol,
-      closing: body.side,
-      order: {
-        digest: hashPerpsOrder(order),
-        typedData: withEip712Domain(buildPerpsOrderTypedData(order)),
+      const order = {
+        chainId: ARC_CHAIN_ID as const,
+        marketId,
+        trader: body.trader,
+        side: closeSide as "long" | "short",
+        sizeUsdc: body.sizeUsdc,
+        sizeDelta,
+        leverage: 1,
         deadline,
         nonce,
+        orderType: "market" as const,
         reduceOnly: true,
-      },
-      nextStep: "Sign the order digest, then call bufi_trade_execute with reduceOnly=true.",
-    }));
+        postOnly: false,
+      };
+
+      return ok(jsonSafe({
+        symbol: body.symbol,
+        closing: body.side,
+        order: {
+          digest: hashPerpsOrder(order),
+          typedData: withEip712Domain(buildPerpsOrderTypedData(order)),
+          deadline,
+          nonce,
+          reduceOnly: true,
+        },
+        nextStep: "Sign the order digest, then call bufi_trade_execute with reduceOnly=true.",
+      }));
+    } catch (e) {
+      const msg = (e as Error).message;
+      return ok({ error: msg });
+    }
   });
 
 export default new Hyper({ prefix: "/api" }).use([tradePrepare, tradeExecute, closePrepare]);

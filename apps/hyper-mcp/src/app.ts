@@ -42,10 +42,10 @@ import leaderboard from "./routes/leaderboard.ts";
 import reputation from "./routes/reputation.ts";
 import stream from "./routes/stream.ts";
 
-const llmsTxt = `# BuFi Agora — Trading Infrastructure for AI Agents
+const llmsTxt = `# BUFI HYPER — Trading Infrastructure for AI Agents
 
 > Forex perpetual futures, spot FX, and lending/borrowing on Arc (Circle L1)
-> MCP-native. 2-call trading. Sub-second settlement. Up to 100x leverage.
+> MCP-native. 2-call trading. Sub-second settlement. Up to 50x leverage.
 
 ## Quick Trade (2 calls, <3 seconds)
 1. post__api_trade_prepare(symbol="EURC/USDC", side="long", sizeUsdc="5", leverage=2, trader="0x...")
@@ -254,7 +254,7 @@ export default {
   },
 };
 
-console.log(`BuFi Agora MCP Gateway listening on :${port}`);
+console.log(`BUFI HYPER MCP Gateway listening on :${port}`);
 console.log(`  MCP:     http://localhost:${port}/mcp`);
 console.log(`  OpenAPI: http://localhost:${port}/openapi.json`);
 console.log(`  llms:    http://localhost:${port}/llms.txt`);
