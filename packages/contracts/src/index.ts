@@ -159,7 +159,8 @@ export type ArcPerpMarketSymbol =
   | "EURC/USDC"
   | "tJPYC/USDC"
   | "MXNB/USDC"
-  | "CIRBTC/USDC";
+  | "CIRBTC/USDC"
+  | "AUDF/USDC";
 
 export interface TokenRegistry {
   usdc?: Address;
@@ -259,7 +260,7 @@ export interface BuFxProtocolPerpMarket {
 export interface ArcPerpMarket {
   chainId: 5042002;
   marketId: Hex;
-  baseToken: "eurc" | "jpyc" | "mxnb" | "cirbtc";
+  baseToken: "eurc" | "jpyc" | "mxnb" | "cirbtc" | "audf";
   quoteToken: "usdc";
   pythFeedId: Hex;
   config: {
@@ -575,6 +576,25 @@ export const ARC_PERP_MARKETS: Record<ArcPerpMarketSymbol, ArcPerpMarket> = {
       // docs/operator-raise-oi-caps.md before live dogfooding.
       maxOpenInterestUsd: "250000000",
       maxSkewUsd: "250000000",
+    },
+    fundingConfig: ARC_PERP_DEFAULT_FUNDING_CONFIG,
+  },
+  "AUDF/USDC": {
+    chainId: 5042002,
+    // keccak256("AUDF") — broadcast via fx-telarana/contracts/script/
+    // ConfigureArcPerpAudf.s.sol (txs: setFeed 0x3ee0c09f…, configureMarket
+    // 0xa16dfeaf…, configureFunding 0xa36d037b…).
+    marketId: "0x921b564f97b14b7d73c12a72af4b7847fb5e3414f98cbe5fb5f1d8a3168c0a00",
+    baseToken: "audf",
+    quoteToken: "usdc",
+    pythFeedId: PYTH_FEED_IDS.audUsd,
+    config: {
+      ...ARC_PERP_DEFAULT_CONFIG,
+      // Pre-scaled by 1e12 to match the WAD-comparison fix raise-arc-max-oi
+      // shipped for the existing 4 markets. Without this scale the OI gate
+      // blocks every fill on the first cross.
+      maxOpenInterestUsd: "500000000000000000000",
+      maxSkewUsd: "500000000000000000000",
     },
     fundingConfig: ARC_PERP_DEFAULT_FUNDING_CONFIG,
   },
