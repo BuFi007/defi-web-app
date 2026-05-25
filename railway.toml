@@ -1,0 +1,85 @@
+# Railway monorepo deployment — each service maps to one `[[services]]` entry.
+# GitHub integration auto-deploys all services on push to main.
+# Shared env vars are set at project level; per-service overrides in [services.*.variables].
+
+# ── Web Services (HTTP) ──────────────────────────────────
+
+[[services]]
+name = "bufi-hyper-mcp"
+rootDirectory = "."
+buildCommand = "bun install --no-save"
+startCommand = "bun apps/hyper-mcp/src/app.ts"
+healthcheckPath = "/health"
+
+  [services.variables]
+  PORT = "4002"
+  BUFI_MCP_URL = "https://mcp.bu.finance"
+
+[[services]]
+name = "bufi-api"
+rootDirectory = "."
+buildCommand = "bun install --no-save"
+startCommand = "bun apps/api/src/server.ts"
+healthcheckPath = "/health"
+
+  [services.variables]
+  PORT = "3002"
+
+# ── Rust Matcher (gRPC + HTTP) ───────────────────────────
+
+[[services]]
+name = "matcher"
+rootDirectory = "services/matcher"
+dockerfilePath = "services/matcher/deploy/Dockerfile"
+
+  [services.variables]
+  RUST_LOG = "info"
+
+# ── Keepers (background workers, no HTTP) ────────────────
+
+[[services]]
+name = "keeper-pyth"
+rootDirectory = "."
+buildCommand = "bun install --no-save"
+startCommand = "bun apps/keeper-pyth/src/index.ts"
+
+[[services]]
+name = "keeper-perps-liquidator"
+rootDirectory = "."
+buildCommand = "bun install --no-save"
+startCommand = "bun apps/keeper-perps-liquidator/src/index.ts"
+
+[[services]]
+name = "keeper-telarana-liquidator"
+rootDirectory = "."
+buildCommand = "bun install --no-save"
+startCommand = "bun apps/keeper-telarana-liquidator/src/index.ts"
+
+[[services]]
+name = "keeper-gateway-signer"
+rootDirectory = "."
+buildCommand = "bun install --no-save"
+startCommand = "bun apps/keeper-gateway-signer/src/index.ts"
+
+[[services]]
+name = "keeper-spot"
+rootDirectory = "."
+buildCommand = "bun install --no-save"
+startCommand = "bun apps/keeper-spot/src/index.ts"
+
+[[services]]
+name = "keeper-arcade-settler"
+rootDirectory = "."
+buildCommand = "bun install --no-save"
+startCommand = "bun apps/keeper-arcade-settler/src/index.ts"
+
+# ── Indexer ──────────────────────────────────────────────
+
+[[services]]
+name = "ponder"
+rootDirectory = "."
+buildCommand = "bun install --no-save"
+startCommand = "cd apps/ponder && bun run start"
+
+  [services.variables]
+  PORT = "42069"
