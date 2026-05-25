@@ -372,7 +372,7 @@ export const CONTRACTS: Record<ChainId, ChainContracts> = {
       telaranaGatewayHubHook: "0x74E894aFf25c89d707873347cd2554d30E0541fa",
       fxHubMessageReceiver: "0x44B50E93eCC7775aF99bcd04c30e1A00da80F63C",
       fxGatewayHook: "0x2931C50745334d6DFf9eC4E3106fE05b49717DF1",
-      fxOracle: "0xf9b0356A31BC7125e2eD0DADf8b5957860d42c78",
+      fxOracle: "0x680238E716eDB3db8C926001C533Dad547B4229b",
       fxMarketRegistry: "0x813232259c9b922e7571F15220617C80581f1464",
       fxLiquidator: "0xa50f7D4D4a1A0D3CF418515973545b80E037B379",
       fxReceiptUsdc: "0xdd22365Bba7330BE537c9BC26da9b1b4Db9aC431",
@@ -390,12 +390,12 @@ export const CONTRACTS: Record<ChainId, ChainContracts> = {
     // during the Step 3 dogfood — UI signs against this address, matcher
     // verifies against the deployment manifest; mismatch → SignerMismatch.
     perps: {
-      clearinghouse: "0x39dc43E2133CF860c1d17d4DB75Ef4204eebD46A",
-      marginAccount: "0x4EB6018F988301417B93cb2b8899D74D42273e96",
-      fundingEngine: "0x859bA11A3693895f8B03C31C6AE3b8F04992115B",
-      healthChecker: "0xA00Be167609c02F3879138dA8530BC31527c02b8",
-      liquidationEngine: "0xF579e265EF1D5E67EfDbb1F20863465E94a9d3eA",
-      orderSettlement: "0x93C3d831D6F0657479d7Fb6Cf0D06e75aA05E4CC",
+      clearinghouse: "0x5e3D4d909e1A32071C59DBaCca370e7ef38c697f",
+      marginAccount: "0xcd0D0B709761cE42C6B0E19A67810C6D4E7dDD3D",
+      fundingEngine: "0x0919f280Cf490E30679255f47F23eebE30444E3b",
+      healthChecker: "0x70585de0bdF5b60Cc61614CB83CECB2629428449",
+      liquidationEngine: "0xec998f9e1ef952aBe2C47F193eCf5dEc5C0eb7d3",
+      orderSettlement: "0x32De1C3C58E501640C82f20c077D2A562A2302D8",
     },
     bento: {},
     // Privacy Hook v1 on Arc (sprint 2026-05-18) — shielded USDC + EURC
