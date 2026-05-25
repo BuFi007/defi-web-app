@@ -3,12 +3,10 @@ WORKDIR /app
 
 COPY package.json bun.lock* ./
 COPY packages/ packages/
-COPY apps/hyper-mcp/ apps/hyper-mcp/
+COPY apps/ apps/
 
 RUN bun install --no-save
 
-EXPOSE 4002
-ENV PORT=4002
 ENV NODE_ENV=production
 
-CMD ["bun", "apps/hyper-mcp/src/app.ts"]
+CMD ["sh", "-c", "exec ${RAILWAY_START_COMMAND:-bun apps/hyper-mcp/src/app.ts}"]
