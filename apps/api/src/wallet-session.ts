@@ -20,6 +20,10 @@
 
 import type { Context, MiddlewareHandler } from "hono";
 import {
+  createPublicClient,
+  hashMessage,
+  hashTypedData,
+  http,
   isAddress,
   recoverMessageAddress,
   recoverTypedDataAddress,
@@ -27,7 +31,8 @@ import {
   type Hex,
 } from "viem";
 
-import type { WalletSession } from "@bufi/shared-types";
+import { getRpcUrl } from "@bufi/contracts";
+import type { ChainId, WalletSession } from "@bufi/shared-types";
 
 declare module "hono" {
   interface ContextVariableMap {
@@ -36,6 +41,55 @@ declare module "hono" {
 }
 
 const SUPPORTED_CHAIN_IDS = new Set([43113, 919, 5042002]);
+
+const ERC1271_MAGIC_VALUE = "0x1626ba7e" as const;
+
+const ERC1271_ABI = [
+  {
+    name: "isValidSignature",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { name: "hash", type: "bytes32" },
+      { name: "signature", type: "bytes" },
+    ],
+    outputs: [{ name: "", type: "bytes4" }],
+  },
+] as const;
+
+const clientCache = new Map<number, ReturnType<typeof createPublicClient>>();
+
+function getPublicClient(chainId: number) {
+  let client = clientCache.get(chainId);
+  if (!client) {
+    const rpcUrl = getRpcUrl(chainId as ChainId);
+    if (!rpcUrl) return null;
+    client = createPublicClient({ transport: http(rpcUrl) });
+    clientCache.set(chainId, client);
+  }
+  return client;
+}
+
+async function verifyErc1271Signature(
+  chainId: number,
+  walletAddress: Address,
+  hash: Hex,
+  signature: Hex,
+): Promise<boolean> {
+  const client = getPublicClient(chainId);
+  if (!client) return false;
+  try {
+    const result = await client.readContract({
+      address: walletAddress,
+      abi: ERC1271_ABI,
+      functionName: "isValidSignature",
+      args: [hash, signature],
+    });
+    return result === ERC1271_MAGIC_VALUE;
+  } catch {
+    return false;
+  }
+}
 
 export interface WalletSessionOptions {
   /** If true, request fails with 401 when no valid session header is present. */
@@ -89,6 +143,7 @@ async function readSession(c: Context, maxAgeSeconds: number): Promise<WalletSes
   let recovered: Address | null = null;
   let timestamps: SessionTimestamps | null = null;
   let proofMessage = message ?? "";
+  let messageHash: Hex | null = null;
 
   if (typedDataHeader) {
     const parsedTyped = parseTypedData(typedDataHeader);
@@ -101,24 +156,30 @@ async function readSession(c: Context, maxAgeSeconds: number): Promise<WalletSes
     if (!timestamps) return null;
     if (parsedTyped.message.wallet.toLowerCase() !== addr.toLowerCase()) return null;
     if (Number(parsedTyped.message.chainId) !== chainId) return null;
+
+    const typedDataArgs = {
+      domain: parsedTyped.domain,
+      types: parsedTyped.types,
+      primaryType: "WalletSession" as const,
+      message: {
+        purpose: parsedTyped.message.purpose,
+        wallet: parsedTyped.message.wallet,
+        chainId: BigInt(parsedTyped.message.chainId),
+        origin: parsedTyped.message.origin,
+        iat: BigInt(parsedTyped.message.iat),
+        exp: BigInt(parsedTyped.message.exp),
+      },
+    };
+
     try {
       recovered = await recoverTypedDataAddress({
-        domain: parsedTyped.domain,
-        types: parsedTyped.types,
-        primaryType: parsedTyped.primaryType,
-        message: {
-          purpose: parsedTyped.message.purpose,
-          wallet: parsedTyped.message.wallet,
-          chainId: BigInt(parsedTyped.message.chainId),
-          origin: parsedTyped.message.origin,
-          iat: BigInt(parsedTyped.message.iat),
-          exp: BigInt(parsedTyped.message.exp),
-        },
+        ...typedDataArgs,
         signature: signature as Hex,
       });
     } catch {
       return null;
     }
+    messageHash = hashTypedData(typedDataArgs);
     proofMessage = proofMessage || typedDataHeader;
   } else if (message) {
     timestamps = parseLegacyTimestamps(message, maxAgeSeconds);
@@ -128,11 +189,22 @@ async function readSession(c: Context, maxAgeSeconds: number): Promise<WalletSes
     } catch {
       return null;
     }
+    messageHash = hashMessage(message);
   } else {
     return null;
   }
 
-  if (!recovered || recovered.toLowerCase() !== addr.toLowerCase()) return null;
+  const eoaMatch = recovered && recovered.toLowerCase() === addr.toLowerCase();
+  if (!eoaMatch) {
+    if (!messageHash) return null;
+    const valid = await verifyErc1271Signature(
+      chainId,
+      addr as Address,
+      messageHash,
+      signature as Hex,
+    );
+    if (!valid) return null;
+  }
 
   return {
     address: addr as Address,

@@ -1,7 +1,9 @@
-import { loadContracts } from "@bufi/contracts";
+import { loadContracts, getRpcUrl } from "@bufi/contracts";
 import type { ChainId } from "@bufi/shared-types";
 import {
+  createPublicClient,
   hashTypedData,
+  http,
   isAddress,
   verifyTypedData,
   type Address,
@@ -10,6 +12,34 @@ import {
 } from "viem";
 
 import type { PerpsIntentRequest } from "./schemas";
+
+const ERC1271_MAGIC_VALUE = "0x1626ba7e" as const;
+
+const ERC1271_ABI = [
+  {
+    name: "isValidSignature",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { name: "hash", type: "bytes32" },
+      { name: "signature", type: "bytes" },
+    ],
+    outputs: [{ name: "", type: "bytes4" }],
+  },
+] as const;
+
+const clientCache = new Map<number, ReturnType<typeof createPublicClient>>();
+
+function getPublicClient(chainId: number) {
+  let client = clientCache.get(chainId);
+  if (!client) {
+    const rpcUrl = getRpcUrl(chainId as ChainId);
+    if (!rpcUrl) return null;
+    client = createPublicClient({ transport: http(rpcUrl) });
+    clientCache.set(chainId, client);
+  }
+  return client;
+}
 
 export const PERPS_ORDER_DOMAIN = {
   name: "TelaranaFxOrderSettlement",
@@ -127,11 +157,28 @@ export function hashPerpsOrder(req: PerpsOrderTypedDataInput): Hex {
 }
 
 export async function verifyPerpsOrderSignature(req: PerpsIntentRequest): Promise<boolean> {
-  return verifyTypedData({
-    ...buildPerpsOrderTypedData(req),
+  const typedData = buildPerpsOrderTypedData(req);
+  const eoaValid = await verifyTypedData({
+    ...typedData,
     address: req.trader as Address,
     signature: req.signature as Hex,
   });
+  if (eoaValid) return true;
+  // ERC-1271 fallback for smart contract wallets (Circle agent wallets)
+  const client = getPublicClient(req.chainId);
+  if (!client) return false;
+  try {
+    const hash = hashTypedData(typedData);
+    const result = await client.readContract({
+      address: req.trader as Address,
+      abi: ERC1271_ABI,
+      functionName: "isValidSignature",
+      args: [hash, req.signature as Hex],
+    });
+    return result === ERC1271_MAGIC_VALUE;
+  } catch {
+    return false;
+  }
 }
 
 export function signedSizeDelta(req: Pick<PerpsOrderTypedDataInput, "side" | "sizeDelta" | "sizeUsdc">): bigint {
