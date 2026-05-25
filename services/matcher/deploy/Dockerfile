@@ -1,12 +1,9 @@
-# Placeholder — real image gets built in Phase 3 (containerised deployment).
-# Two-stage build: rust:1.93-slim for compilation, gcr.io/distroless/cc for runtime.
-
 FROM rust:1.93-slim AS builder
 WORKDIR /build
 RUN apt-get update && apt-get install -y --no-install-recommends \
     protobuf-compiler ca-certificates pkg-config && \
     rm -rf /var/lib/apt/lists/*
-COPY . .
+COPY services/matcher/ .
 RUN cargo build --release -p bufi-matcher-server
 
 FROM gcr.io/distroless/cc-debian12:nonroot
