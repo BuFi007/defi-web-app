@@ -1,9 +1,11 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import type { Address } from "viem";
+import type { Address, Hex } from "viem";
 import { useAccount, useBalance, useChainId, useSwitchChain } from "wagmi";
-import { formatUnits, parseUnits } from "viem";
+import { encodeFunctionData, erc20Abi, formatUnits, parseUnits } from "viem";
+import { getPublicClient, writeContract } from "@wagmi/core";
+import { FxMarketRegistryAbi } from "@bufi/contracts";
 
 import {
   Popover,
@@ -35,6 +37,7 @@ import { TokenIcon } from "./token-icon";
 import { LoanMarketPicker } from "./loan-market-picker";
 import { AnimatedNumber } from "@/components/animated-number";
 import { useMarketCandles } from "@/lib/perps/hooks";
+import { config } from "@/lib/wagmi";
 import {
   STABLE_TOKEN_LIST,
   type StableTokenType,
@@ -295,6 +298,265 @@ export function loanTokenDeployment(
   const dep = getDeployment(chainId, symbol.toUpperCase() as StableTokenType);
   if (!dep) return null;
   return { chainId, address: dep.address as Address, decimals: dep.decimals };
+}
+
+type DepositChainRole = "hub" | "spoke";
+type GatewayStepId = "approve" | "deposit" | "relay" | "hub";
+type LoanDepositChainId =
+  | 43113
+  | 5042002
+  | 11155111
+  | 421614
+  | 84532
+  | 11155420
+  | 1301
+  | 4801;
+
+interface DepositToken {
+  address: Address;
+  decimals: number;
+  cctp: boolean;
+}
+
+interface LoanDepositChain {
+  id: string;
+  chainId: LoanDepositChainId;
+  label: string;
+  short: string;
+  role: DepositChainRole;
+  iconUrl?: string;
+  tokens: Partial<Record<string, DepositToken>>;
+  fxSpokeByHub?: Partial<Record<HubKey, Address>>;
+  enabled: boolean;
+}
+
+const FX_SPOKE_ABI = [
+  {
+    type: "function",
+    stateMutability: "payable",
+    name: "enterHub",
+    inputs: [
+      { name: "token", type: "address" },
+      { name: "amount", type: "uint256" },
+      { name: "beneficiary", type: "address" },
+      { name: "hubCalldata", type: "bytes" },
+    ],
+    outputs: [{ name: "messageNonce", type: "bytes32" }],
+  },
+] as const;
+
+const GATEWAY_STEPS: ReadonlyArray<{
+  id: GatewayStepId;
+  label: string;
+}> = [
+  { id: "approve", label: "Approve" },
+  { id: "deposit", label: "depositToHub()" },
+  { id: "relay", label: "CCTP relay" },
+  { id: "hub", label: "Hub deposit" },
+];
+
+function deployedToken(
+  chainId: number,
+  symbol: string,
+  cctp = false,
+): DepositToken | undefined {
+  const dep = getDeployment(chainId, symbol.toUpperCase() as StableTokenType);
+  return dep ? { address: dep.address as Address, decimals: dep.decimals, cctp } : undefined;
+}
+
+const token = (
+  address: Address,
+  decimals = 6,
+  cctp = false,
+): DepositToken => ({ address, decimals, cctp });
+
+const SPOKE_DEPOSIT_CHAINS: readonly LoanDepositChain[] = [
+  {
+    id: "arc",
+    chainId: HUBS.arc.chainId,
+    label: HUBS.arc.name,
+    short: HUBS.arc.short,
+    role: "hub",
+    iconUrl: HUBS.arc.iconUrl,
+    enabled: true,
+    tokens: {},
+  },
+  {
+    id: "fuji",
+    chainId: HUBS.fuji.chainId,
+    label: HUBS.fuji.name,
+    short: HUBS.fuji.short,
+    role: "hub",
+    iconUrl: HUBS.fuji.iconUrl,
+    enabled: true,
+    tokens: {},
+  },
+  {
+    id: "ethereum-sepolia",
+    chainId: 11155111,
+    label: "Ethereum Sepolia",
+    short: "Sepolia",
+    role: "spoke",
+    iconUrl: "/networks/eth.svg",
+    enabled: true,
+    tokens: {
+      USDC: deployedToken(11155111, "USDC", true),
+      EURC: deployedToken(11155111, "EURC", true),
+      MXNB: deployedToken(11155111, "MXNB", false),
+      AUDF: deployedToken(11155111, "AUDF", false),
+    },
+    fxSpokeByHub: {
+      fuji: "0xf6d845da2051183b9519ca1806c39040ba5e71ba",
+      arc: "0x4e63954685241c4469f02fec3761ff1d4f34ffa9",
+    },
+  },
+  {
+    id: "arbitrum-sepolia",
+    chainId: 421614,
+    label: "Arbitrum Sepolia",
+    short: "Arb Sepolia",
+    role: "spoke",
+    iconUrl: "https://app.dynamic.xyz/assets/networks/arbitrum.svg",
+    enabled: true,
+    tokens: {
+      USDC: deployedToken(421614, "USDC", true),
+      MXNB: deployedToken(421614, "MXNB", false),
+    },
+    fxSpokeByHub: {
+      fuji: "0x2900599ff0e6dd057493d62fac856e5a8f93c6eb",
+      arc: "0x365de300dda61c81a33bce3606a5d524ed964362",
+    },
+  },
+  {
+    id: "base-sepolia",
+    chainId: 84532,
+    label: "Base Sepolia",
+    short: "Base Sepolia",
+    role: "spoke",
+    iconUrl: "https://app.dynamic.xyz/assets/networks/base.svg",
+    enabled: true,
+    tokens: {
+      USDC: token("0x036CbD53842c5426634e7929541eC2318f3dCF7e", 6, true),
+      EURC: token("0x808456652fdb597867f38412077A9182bf77359F", 6, true),
+    },
+    fxSpokeByHub: {},
+  },
+  {
+    id: "op-sepolia",
+    chainId: 11155420,
+    label: "OP Sepolia",
+    short: "OP Sepolia",
+    role: "spoke",
+    iconUrl: "https://app.dynamic.xyz/assets/networks/optimism.svg",
+    enabled: true,
+    tokens: {
+      USDC: token("0x5fd84259d66Cd46123540766Be93DFE6D43130D7", 6, true),
+    },
+    fxSpokeByHub: {
+      fuji: "0x0b5d18bbe92f07ec0111ae6d2e102858268d6aca",
+      arc: "0x579fccdebb1f7e983c4ead27aa300d3b5397e28c",
+    },
+  },
+  {
+    id: "unichain-sepolia",
+    chainId: 1301,
+    label: "Unichain Sepolia",
+    short: "Unichain",
+    role: "spoke",
+    iconUrl: "https://app.uniswap.org/favicon.png",
+    enabled: true,
+    tokens: {
+      USDC: token("0x31d0220469e10c4E71834a79b1f276d740d3768F", 6, true),
+    },
+    fxSpokeByHub: {
+      fuji: "0xf7fcdca3f9c92418a980a31df7f87de7e1a1a04b",
+      arc: "0x7882d3f0e210128a4dce51e1af1ec801e21e1e5a",
+    },
+  },
+  {
+    id: "worldchain-sepolia",
+    chainId: 4801,
+    label: "World Chain Sepolia",
+    short: "World",
+    role: "spoke",
+    iconUrl: "https://world.org/favicon.ico",
+    enabled: true,
+    tokens: {
+      USDC: token("0x66145f38cBAC35Ca6F1Dfb4914dF98F1614aeA88", 6, true),
+    },
+    fxSpokeByHub: {
+      fuji: "0x0b5d18bbe92f07ec0111ae6d2e102858268d6aca",
+      arc: "0x579fccdebb1f7e983c4ead27aa300d3b5397e28c",
+    },
+  },
+  {
+    id: "tenderly-base",
+    chainId: 84532,
+    label: "Tenderly Base",
+    short: "Tenderly",
+    role: "spoke",
+    iconUrl: "https://app.dynamic.xyz/assets/networks/base.svg",
+    enabled: false,
+    tokens: {
+      USDC: token("0x036CbD53842c5426634e7929541eC2318f3dCF7e", 6, true),
+    },
+    fxSpokeByHub: {},
+  },
+];
+
+function chainTokenForMarket(
+  chain: LoanDepositChain | undefined,
+  market: LoanMarket,
+  hubTokenAddress: Address | undefined,
+  hubTokenDecimals: number,
+): DepositToken | undefined {
+  if (!chain) return undefined;
+  if (chain.role === "hub" && hubTokenAddress) {
+    return { address: hubTokenAddress, decimals: hubTokenDecimals, cctp: false };
+  }
+  return chain.tokens[market.loan.toUpperCase()];
+}
+
+function GatewayProgress({
+  activeStep,
+  completedSteps,
+  tx,
+  error,
+}: {
+  activeStep: GatewayStepId | null;
+  completedSteps: GatewayStepId[];
+  tx?: Hex | null;
+  error?: string | null;
+}) {
+  const completed = new Set(completedSteps);
+  return (
+    <div className="lo-gateway-flow">
+      <div className="lo-gateway-head">
+        <span>Gateway</span>
+        <span className="mono">{tx ? shortHex(tx) : "spoke route"}</span>
+      </div>
+      <div className="lo-gateway-steps">
+        {GATEWAY_STEPS.map((step, index) => {
+          const done = completed.has(step.id);
+          const active = activeStep === step.id;
+          return (
+            <div
+              key={step.id}
+              className={[
+                "lo-gateway-step",
+                done ? "done" : "",
+                active ? "active" : "",
+              ].filter(Boolean).join(" ")}
+            >
+              <span className="lo-gateway-index mono">{done ? "ok" : index + 1}</span>
+              <span>{step.label}</span>
+            </div>
+          );
+        })}
+      </div>
+      {error && <div className="lo-gateway-error">{error}</div>}
+    </div>
+  );
 }
 
 const fmtCompact = (n: number) =>
@@ -1324,8 +1586,74 @@ export function ActionCard({
   const targetHubName = onchain
     ? hubByChainId(onchain.hubChainId)?.name ?? market.hub.toUpperCase()
     : market.hub.toUpperCase();
+  const hubKey = (
+    onchain
+      ? hubKeyByChainId(onchain.hubChainId)
+      : market.hub === "arc" || market.hub === "fuji"
+        ? market.hub
+        : null
+  ) as HubKey | null;
+  const depositChainOptions = useMemo(() => {
+    const hubChainId = onchain?.hubChainId ?? tokenChainId;
+    return SPOKE_DEPOSIT_CHAINS.filter((chain) => {
+      if (chain.role === "hub") return chain.chainId === hubChainId;
+      return true;
+    });
+  }, [onchain?.hubChainId, tokenChainId]);
+  const defaultDepositChain = useMemo(() => {
+    const walletOption = depositChainOptions.find(
+      (chain) =>
+        chain.enabled &&
+        chain.chainId === walletChainId &&
+        Boolean(chainTokenForMarket(chain, market, tokenAddress, tokenDecimals)),
+    );
+    return walletOption ?? depositChainOptions.find((chain) => chain.role === "hub") ?? depositChainOptions[0];
+  }, [depositChainOptions, market, tokenAddress, tokenDecimals, walletChainId]);
+  const [depositChainId, setDepositChainId] = useState(defaultDepositChain?.id ?? "");
+  useEffect(() => {
+    if (!depositChainOptions.some((chain) => chain.id === depositChainId)) {
+      setDepositChainId(defaultDepositChain?.id ?? "");
+    }
+  }, [defaultDepositChain?.id, depositChainId, depositChainOptions]);
+  const selectedDepositChain =
+    depositChainOptions.find((chain) => chain.id === depositChainId) ??
+    defaultDepositChain;
+  const selectedDepositToken = chainTokenForMarket(
+    selectedDepositChain,
+    market,
+    tokenAddress,
+    tokenDecimals,
+  );
+  const selectedFxSpoke =
+    selectedDepositChain?.role === "spoke" && hubKey
+      ? selectedDepositChain.fxSpokeByHub?.[hubKey]
+      : undefined;
+  const spokeDepositSelected = action === "lend" && selectedDepositChain?.role === "spoke";
+  const gatewayUnavailableReason =
+    !spokeDepositSelected
+      ? null
+      : !selectedDepositChain?.enabled
+        ? "Route pending"
+        : !selectedDepositToken
+          ? `${market.loan} unavailable`
+          : !selectedDepositToken.cctp
+            ? "CCTP asset pending"
+            : !selectedFxSpoke
+              ? "FxSpoke route pending"
+              : selectedDepositToken.decimals !== tokenDecimals
+                ? "Decimal mismatch"
+                : null;
+  const gatewayReady = spokeDepositSelected && !gatewayUnavailableReason;
+  const targetActionChainId =
+    action === "lend" && selectedDepositChain
+      ? selectedDepositChain.chainId
+      : onchain?.hubChainId;
+  const targetNetworkName =
+    action === "lend" && selectedDepositChain
+      ? selectedDepositChain.label
+      : targetHubName;
   const needsNetworkSwitch = Boolean(
-    walletAddress && onchain && walletChainId !== onchain.hubChainId,
+    walletAddress && onchain && targetActionChainId && walletChainId !== targetActionChainId,
   );
   const walletBalance = useBalance({
     address: walletAddress,
@@ -1337,6 +1665,17 @@ export function ActionCard({
   });
   const walletBalanceFloat = walletBalance.data
     ? Number(formatUnits(walletBalance.data.value, walletBalance.data.decimals ?? tokenDecimals))
+    : 0;
+  const depositBalance = useBalance({
+    address: walletAddress,
+    token: selectedDepositToken?.address,
+    chainId: selectedDepositChain?.chainId,
+    query: {
+      enabled: Boolean(walletAddress && selectedDepositToken?.address && selectedDepositChain?.chainId),
+    },
+  });
+  const depositBalanceFloat = depositBalance.data
+    ? Number(formatUnits(depositBalance.data.value, depositBalance.data.decimals ?? selectedDepositToken?.decimals ?? tokenDecimals))
     : 0;
 
   // Action-specific balance. Drives the BALANCE label + the 25/50/75/MAX
@@ -1381,7 +1720,9 @@ export function ActionCard({
         ? positionDebtFloat
         : action === "borrow"
           ? maxBorrowable
-          : walletBalanceFloat; // lend (and any unknown action)
+          : action === "lend"
+            ? depositBalanceFloat
+            : walletBalanceFloat; // lend uses the selected hub/spoke balance
   const balance = balanceOverride ?? actionBalance;
   // Label that explains where the BALANCE number comes from for each
   // action — "BALANCE" alone was misleading on withdraw/repay/borrow.
@@ -1466,6 +1807,101 @@ export function ActionCard({
   // that fires.
   void onSubmit;
 
+  const [gatewayStep, setGatewayStep] = useState<GatewayStepId | null>(null);
+  const [gatewayCompleted, setGatewayCompleted] = useState<GatewayStepId[]>([]);
+  const [gatewayTx, setGatewayTx] = useState<Hex | null>(null);
+  const [gatewayError, setGatewayError] = useState<string | null>(null);
+  const gatewayBusy = gatewayStep === "approve" || gatewayStep === "deposit";
+
+  const markGatewayDone = (step: GatewayStepId) => {
+    setGatewayCompleted((prev) => (prev.includes(step) ? prev : [...prev, step]));
+  };
+
+  const submitGatewayDeposit = async (atomic: bigint) => {
+    if (!walletAddress || !market.onchain || !selectedDepositChain || !selectedDepositToken || !selectedFxSpoke) {
+      return;
+    }
+    if (!gatewayReady) {
+      toast({
+        title: "Gateway unavailable",
+        description: gatewayUnavailableReason ?? "This spoke route is not ready for the selected market.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setGatewayCompleted([]);
+    setGatewayTx(null);
+    setGatewayError(null);
+
+    try {
+      const publicClient = getPublicClient(config, { chainId: selectedDepositChain.chainId });
+      if (!publicClient) throw new Error(`Public client not ready for ${selectedDepositChain.label}.`);
+
+      setGatewayStep("approve");
+      let allowance = 0n;
+      try {
+        allowance = (await publicClient.readContract({
+          address: selectedDepositToken.address,
+          abi: erc20Abi,
+          functionName: "allowance",
+          args: [walletAddress, selectedFxSpoke],
+        })) as bigint;
+      } catch {
+        allowance = 0n;
+      }
+      if (allowance < atomic) {
+        const approveTx = await writeContract(config, {
+          chainId: selectedDepositChain.chainId,
+          address: selectedDepositToken.address,
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [selectedFxSpoke, atomic],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: approveTx });
+      }
+      markGatewayDone("approve");
+
+      setGatewayStep("deposit");
+      const hubCalldata = encodeFunctionData({
+        abi: FxMarketRegistryAbi,
+        functionName: "supply",
+        args: [
+          market.onchain.loanToken,
+          market.onchain.collateralToken,
+          atomic,
+          walletAddress,
+        ],
+      });
+      const depositTx = await writeContract(config, {
+        chainId: selectedDepositChain.chainId,
+        address: selectedFxSpoke,
+        abi: FX_SPOKE_ABI,
+        functionName: "enterHub",
+        args: [
+          selectedDepositToken.address,
+          atomic,
+          walletAddress,
+          hubCalldata,
+        ],
+      });
+      await publicClient.waitForTransactionReceipt({ hash: depositTx });
+      setGatewayTx(depositTx);
+      markGatewayDone("deposit");
+      setGatewayStep("relay");
+      toast({
+        title: "Gateway deposit sent",
+        description: `Spoke tx ${shortHex(depositTx)} confirmed. CCTP relay is pending.`,
+      });
+      setAmount("");
+    } catch (err) {
+      const message = errMsg(err);
+      setGatewayError(message);
+      setGatewayStep(null);
+      toast({ title: "Gateway deposit failed", description: message, variant: "destructive" });
+    }
+  };
+
   return (
     <section className="lo-action">
       <div className="lo-action-head">
@@ -1510,6 +1946,55 @@ export function ActionCard({
           );
         })}
       </div>
+
+      {action === "lend" && selectedDepositChain && (
+        <div className="lo-network">
+          <div className="lo-network-top">
+            <label className="lo-network-select-wrap">
+              <span>Network</span>
+              <select
+                className="lo-network-select"
+                value={selectedDepositChain.id}
+                onChange={(event) => setDepositChainId(event.target.value)}
+              >
+                {depositChainOptions.map((chain) => {
+                  const optionToken = chainTokenForMarket(chain, market, tokenAddress, tokenDecimals);
+                  return (
+                    <option
+                      key={chain.id}
+                      value={chain.id}
+                      disabled={!optionToken}
+                    >
+                      {chain.label}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
+            <span className={`lo-network-kind ${selectedDepositChain.role}`}>
+              {selectedDepositChain.role === "hub" ? "direct hub" : "spoke"}
+            </span>
+          </div>
+          <div className="lo-network-meta">
+            <span className="mono">
+              {!walletAddress
+                ? "connect wallet"
+                : !selectedDepositToken
+                  ? `${market.loan} unavailable`
+                  : depositBalance.isLoading
+                    ? "loading balance"
+                    : `${depositBalanceFloat.toLocaleString(undefined, {
+                        maximumFractionDigits: 4,
+                      })} ${loan.sym}`}
+            </span>
+            <span>
+              {selectedDepositChain.role === "hub"
+                ? targetHubName
+                : gatewayUnavailableReason ?? `FxSpoke ${shortHex(selectedFxSpoke ?? "0x")}`}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Quick-pick rail sits ABOVE the input and OUTSIDE its border —
           right-aligned, with the percent chips followed by MAX as the
@@ -1607,13 +2092,28 @@ export function ActionCard({
 
       <YieldHistoryPanel breakdown={market.yield} />
 
+      {spokeDepositSelected && (
+        <GatewayProgress
+          activeStep={gatewayStep}
+          completedSteps={gatewayCompleted}
+          tx={gatewayTx}
+          error={gatewayError}
+        />
+      )}
+
       {onConfirm && (() => {
         const verbMap: Record<string, string> = { lend: t('lend'), withdraw: t('withdraw'), borrow: t('borrow'), repay: t('repay') };
         const actionVerb = verbMap[action] ?? t('lend');
-        const ctaLabel = submitting
+        const ctaLabel = gatewayBusy
+          ? gatewayStep === "approve"
+            ? "Approving…"
+            : "depositToHub()…"
+          : gatewayUnavailableReason
+          ? gatewayUnavailableReason
+          : submitting
           ? "Signing…"
           : needsNetworkSwitch
-          ? `Switch to ${targetHubName} & ${actionVerb}`
+          ? `Switch to ${targetNetworkName} & ${actionVerb}`
           : submitLabelOverride ?? `${t('confirmPrefix')} ${actionVerb}`;
         const ctaTitle = !walletAddress
           ? t('connectWallet')
@@ -1621,8 +2121,10 @@ export function ActionCard({
           ? t('pickMarket')
           : !(parseFloat(amount) > 0)
           ? t('enterAmount')
+          : gatewayUnavailableReason
+          ? gatewayUnavailableReason
           : needsNetworkSwitch
-          ? `Wallet is on the wrong network. Click to switch to ${targetHubName} and ${actionVerb.toLowerCase()}.`
+          ? `Wallet is on the wrong network. Click to switch to ${targetNetworkName} and ${actionVerb.toLowerCase()}.`
           : submitLabelOverride ?? `${t('confirmPrefix')} ${actionVerb}`;
         return (
           <div className="lo-confirm-row">
@@ -1640,14 +2142,17 @@ export function ActionCard({
                 // doesn't exist there, and `allowance()` reverts with
                 // "Internal error" — surfaced to the user as a misleading
                 // "Signing failed" toast.
-                const targetChainId = market.onchain.hubChainId;
+                const targetChainId =
+                  action === "lend" && selectedDepositChain
+                    ? selectedDepositChain.chainId
+                    : market.onchain.hubChainId;
                 if (walletChainId !== targetChainId) {
                   try {
                     await switchChainAsync({ chainId: targetChainId });
                   } catch (err) {
                     toast({
                       title: t('wrongNetwork'),
-                      description: `Switch your wallet to ${targetHubName} to ${actionVerb.toLowerCase()}.`,
+                      description: `Switch your wallet to ${targetNetworkName} to ${actionVerb.toLowerCase()}.`,
                       variant: "destructive",
                     });
                     return;
@@ -1657,6 +2162,10 @@ export function ActionCard({
                 try {
                   atomic = parseUnits(amount, market.onchain.loanDecimals);
                 } catch {
+                  return;
+                }
+                if (action === "lend" && selectedDepositChain?.role === "spoke") {
+                  await submitGatewayDeposit(atomic);
                   return;
                 }
                 const kind: LendingActionKind =
@@ -1670,10 +2179,12 @@ export function ActionCard({
                 await onConfirm(market, kind, atomic);
               }}
               disabled={
+                gatewayBusy ||
                 submitting ||
                 !walletAddress ||
                 !market.onchain ||
-                !(parseFloat(amount) > 0)
+                !(parseFloat(amount) > 0) ||
+                Boolean(gatewayUnavailableReason)
               }
               title={ctaTitle}
             >

@@ -6,6 +6,10 @@ import {
   mainnet,
   sepolia,
   arbitrumSepolia,
+  baseSepolia,
+  optimismSepolia,
+  unichainSepolia,
+  worldchainSepolia,
 } from "wagmi/chains";
 import { getDefaultConfig } from "connectkit";
 import { useMemo } from "react";
@@ -17,7 +21,7 @@ import type { Account, Chain, Client, Transport } from "viem";
 // forced switch popup. Trading is scoped to Fuji + Arc by every hook
 // and contract address.
 //
-// Sepolia + Arbitrum Sepolia are spoke chains for cross-chain deposits.
+// Testnet spokes feed deposits into the Fuji / Arc hubs via FxSpoke + CCTP.
 export const config = createConfig(
   getDefaultConfig({
     chains: [
@@ -27,6 +31,10 @@ export const config = createConfig(
       mainnet,
       sepolia,
       arbitrumSepolia,
+      baseSepolia,
+      optimismSepolia,
+      unichainSepolia,
+      worldchainSepolia,
     ],
     transports: {
       [avalancheFuji.id]: http("https://api.avax-test.network/ext/bc/C/rpc"),
@@ -35,6 +43,10 @@ export const config = createConfig(
       [mainnet.id]: http("https://cloudflare-eth.com"),
       [sepolia.id]: http("https://ethereum-sepolia-rpc.publicnode.com"),
       [arbitrumSepolia.id]: http("https://arbitrum-sepolia-rpc.publicnode.com"),
+      [baseSepolia.id]: http("https://sepolia.base.org"),
+      [optimismSepolia.id]: http("https://sepolia.optimism.io"),
+      [unichainSepolia.id]: http("https://sepolia.unichain.org"),
+      [worldchainSepolia.id]: http("https://worldchain-sepolia.g.alchemy.com/public"),
     },
     walletConnectProjectId: process.env.NEXT_PUBLIC_REOWN_PROJECT_ID ?? "552cc1a2e5cd90a14345caa96a055f3c",
     appName: "BUFX",

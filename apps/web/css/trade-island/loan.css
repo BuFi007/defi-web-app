@@ -803,6 +803,87 @@
 /* Chip tabs */
 .lo-tabs { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
 
+.lo-network {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.lo-network-top,
+.lo-network-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+.lo-network-select-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+.lo-network-select-wrap > span {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--ink-3);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.lo-network-select {
+  min-width: 0;
+  width: 100%;
+  max-width: 210px;
+  height: 30px;
+  padding: 0 28px 0 9px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: 'Nunito', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  outline: 0;
+}
+.lo-network-kind {
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.lo-network-kind.hub {
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+}
+.lo-network-kind.spoke {
+  background: #e3f4ec;
+  color: #2f9e6c;
+}
+[data-theme="dark"] .lo-network-kind.spoke {
+  background: #1d3f2c;
+  color: #74e0a4;
+}
+.lo-network-meta {
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 800;
+}
+.lo-network-meta .mono {
+  color: var(--ink-2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ─── Confirm Action CTA + popover-side submit button ─────────────────
    The Confirm CTA replaces the old implicit-submit-via-tab affordance.
    Reads as "primary action" using the brand purple gradient; the popover
@@ -848,6 +929,76 @@
   background: linear-gradient(135deg, #8a76e9, #6954cf);
   border-color: #b09cff;
   box-shadow: 2px 2px 0 0 rgba(176, 156, 255, 0.45);
+}
+
+.lo-gateway-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.lo-gateway-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 10px;
+  font-weight: 900;
+  color: var(--ink-3);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.lo-gateway-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.lo-gateway-step {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink-3);
+  font-size: 10.5px;
+  font-weight: 800;
+}
+.lo-gateway-step.active {
+  border-color: var(--primary);
+  color: var(--primary-ink);
+  background: var(--primary-soft);
+}
+.lo-gateway-step.done {
+  border-color: rgba(47, 158, 108, 0.35);
+  color: #2f9e6c;
+  background: #e3f4ec;
+}
+[data-theme="dark"] .lo-gateway-step.done {
+  background: #1d3f2c;
+  color: #74e0a4;
+}
+.lo-gateway-index {
+  flex-shrink: 0;
+  min-width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: inherit;
+  font-size: 9px;
+  font-weight: 900;
+}
+.lo-gateway-error {
+  color: var(--loss-ink);
+  font-size: 11px;
+  font-weight: 800;
 }
 /* Per-row wallet balance in the MarketsTable. Renders inline under the
    hub row so the user can see "I have 10M AUDF on Arc" without
@@ -1440,6 +1591,8 @@
   .lo-action { padding: 12px 12px 14px; gap: 10px; }
   .lo-tabs { gap: 6px; }
   .lo-tab { padding: 7px 10px; font-size: 12px; min-width: 64px; }
+  .lo-gateway-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lo-gateway-step { font-size: 10px; }
   .lo-amount-input { font-size: 24px; padding: 0 14px; }
   /* Narrow viewport: MAX + FLIP still stacked top-right / bottom-right
      inside the same shell; tighten paddings + heights so they fit. */
