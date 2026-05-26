@@ -78,16 +78,16 @@ chains:
     contracts:
       - name: FxOrderSettlement
         address:
-          - "0x904bb24A910c54A84341E157B894d11B474A2e1F"
+          - "0xCeae7846c8ED2Dd9E6f541798a657875305EA0d8"
       - name: FxPerpClearinghouse
         address:
-          - "0xCE3401BD53be4c0a8c7CCb0376b313925f99b8d2"
+          - "0x7707d108F6Ce3d95ceA38D3965448F00C21CaFdC"
       - name: FxFundingEngine
         address:
-          - "0x8b3b63D2031da48e3114871a49CD02B923E388e1"
+          - "0xE08a146B9081A8dd32203fC5e7B5988352489518"
       - name: FxSpotExecutor
         address:
-          - "0x37ccDa89628Fd3Cc1f8ef5e45D8725c4e3a59542"
+          - "0x4e7372108529C0e7cb3aa0fF92B1c52e06e9e72f"
       - name: MorphoBlue
         address:
           - "0x65f435eB4FF05f1481618694bC1ff7Ee4680c0A4"

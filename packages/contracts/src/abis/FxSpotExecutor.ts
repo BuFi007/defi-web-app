@@ -1,7 +1,7 @@
-// Minimal ABI for Telarana FxSpotExecutor (Phase A v0.1).
-// v0.1 collapses executeSpotFx to take only requestId — the executor reads
+// Minimal ABI for Telarana FxSpotExecutor (Phase A v0.1+).
+// v0.1+ keeps executeSpotFx as requestId-only; the executor reads
 // recipient/minAmountOut/amount/tokenOut from the canonical TGH receipt.
-// See FxSpotExecutor NatSpec for changelog from v0 → v0.1.
+// See FxSpotExecutor NatSpec for the v0 -> v0.2 changelog.
 export const fxSpotExecutorAbi = [
   {
     type: "function",

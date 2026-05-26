@@ -96,13 +96,13 @@ Event-driven via Pyth WS feed. Envio for position set.
 ## Key Contract Addresses (Arc Testnet 5042002)
 
 ```
-FxOrderSettlement:    0x904bb24A910c54A84341E157B894d11B474A2e1F
-FxPerpClearinghouse:  0xCE3401BD53be4c0a8c7CCb0376b313925f99b8d2
-FxSpotExecutor:       0x37ccDa89628Fd3Cc1f8ef5e45D8725c4e3a59542
+FxOrderSettlement:    0xCeae7846c8ED2Dd9E6f541798a657875305EA0d8
+FxPerpClearinghouse:  0x7707d108F6Ce3d95ceA38D3965448F00C21CaFdC
+FxSpotExecutor:       0x4e7372108529C0e7cb3aa0fF92B1c52e06e9e72f
 MorphoBlue:           0x65f435eB4FF05f1481618694bC1ff7Ee4680c0A4
-FxOracle:             0x77b3A3B420dB98B01085b8C46a753Ed9879e2865
-FxHealthChecker:      0x12d18BC4b2295834Bb7A08aF5Bc2b40E40c7F53B
-FxLiquidationEngine:  0xA70aA9B3bCD3BB829B2E8aF29d8A48f5e09f50E5
+FxOracle:             0xF181caF51bD2450211CB9e72d5Cc853d3789698B
+FxHealthChecker:      0x234E06a0761cde322E4Fc5065A8256247669F362
+FxLiquidationEngine:  0x18DEA7845c36d45AaDbcCeC04aC6cFc103748D80
 FeeConfig:            0xa589040434735710aEF173e31e421a2d0a20Dd17
 FeeCollector:         0x1894C8c84F3a8DD1e17B237008a197feD2E299B6
 ```
@@ -119,7 +119,16 @@ Avalanche Fuji (43113): 0x5A517f51edca02880542effb8b6a3bdFaAcaD8B2
 Source: `fx-telarana/contracts/src/hub/TurboFeeVault.sol`
 Interface: `fx-telarana/contracts/src/interfaces/ITurboFeeVault.sol`
 
-Needs deployment — call `depositFee()` from FxOrderSettlement + FxSpotExecutor.
+Deployed: `0x929e222CBbC154f8e75a8DEF951288886Df70531`
+
+Wired consumers:
+
+- `FxPerpClearinghouse`: `0x7707d108F6Ce3d95ceA38D3965448F00C21CaFdC`
+- `FxSpotExecutor`: `0x4e7372108529C0e7cb3aa0fF92B1c52e06e9e72f`
+
+Arc TGH `SPOT_FX` routes for EURC, JPYC, MXNB, and CHFC now point at the same
+fee-vault-enabled `FxSpotExecutor` (`0x4e7372108529C0e7cb3aa0fF92B1c52e06e9e72f`).
+Readback verified on Arc block `44186984`.
 
 JPYC (official):      0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29
 

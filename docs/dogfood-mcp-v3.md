@@ -127,7 +127,7 @@ At the end, report:
 ```
 Circle wallet:     0xb79e4987bc58057a322cd9bcface4944dd6a6cc7
 FxOracleV2:        0xF181caF51bD2450211CB9e72d5Cc853d3789698B
-Clearinghouse:     0xCE3401BD53be4c0a8c7CCb0376b313925f99b8d2
-OrderSettlement:   0x904bb24A910c54A84341E157B894d11B474A2e1F
+Clearinghouse:     0x7707d108F6Ce3d95ceA38D3965448F00C21CaFdC
+OrderSettlement:   0xCeae7846c8ED2Dd9E6f541798a657875305EA0d8
 MCP endpoint:      http://localhost:4002/mcp
 ```
