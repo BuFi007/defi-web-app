@@ -54,7 +54,10 @@ const corsMiddleware = createCorsMiddleware({
       "https://127.0.0.1:3001",
       "https://tunnel.bu.finance",
     ],
-    production: (process.env.API_CORS_ORIGINS ?? "https://bu.finance")
+    production: (
+      process.env.API_CORS_ORIGINS ??
+      "https://bu.finance,https://fx.bu.finance"
+    )
       .split(",")
       .map((origin) => origin.trim())
       .filter(Boolean),

@@ -127,17 +127,60 @@ export default function Providers({ children }: { children: ReactNode }) {
               stack: err?.stack?.split("\n").slice(0, 4).join("\n"),
               data: err?.data,
             });
-            // Do NOT call purgeDynamicSession() here. The purge wiped the
-            // just-granted MetaMask permission and pushed users into a
-            // self-inflicted Array(1)→Array(0) loop. Let Dynamic handle
-            // its own connect retry state. Purge only on explicit logout.
+            // Do NOT call purgeDynamicSession() here — that would wipe
+            // localStorage keys including the just-granted MetaMask
+            // permission, pushing users into a self-inflicted
+            // Array(1)->Array(0) loop.
+            //
+            // However, DO clear the Dynamic JWT cookie when the failure
+            // looks like an auto-rejection (code 4001) caused by stale
+            // auth state. The cookie purge is safe — it only affects the
+            // Dynamic server-side session, not MetaMask's local
+            // permission grant.
+            if (err?.code === 4001 || err?.message?.includes("User rejected")) {
+              try {
+                document.cookie =
+                  "DYNAMIC_JWT_TOKEN=; Max-Age=-99999999; path=/; SameSite=Lax";
+              } catch {
+                // Best-effort cookie clear.
+              }
+            }
           },
           onAuthFailure: (data, reason) => {
+            const errorMsg =
+              typeof reason === "string" ? reason : reason?.error;
+            const errorStr = String(
+              errorMsg instanceof Error ? errorMsg.message : errorMsg ?? "",
+            );
             console.warn("Dynamic auth failure", {
               method: data?.type,
-              reason: typeof reason === "string" ? reason : reason?.error,
+              reason: errorStr,
             });
-            // Do NOT purge on auth failure — see onWalletConnectionFailed.
+            // Purge the Dynamic JWT cookie on auth failure. The SDK's
+            // logoutWithReason only clears the cookie when client.user
+            // is non-null, but during a stale-cookie 401 the user is
+            // null, so the cookie lingers and poisons every subsequent
+            // connect attempt. We clear it here as a safety net.
+            //
+            // We do NOT purge localStorage here — that would wipe the
+            // just-granted MetaMask permission and cause the
+            // Array(1)->Array(0) loop. Cookie-only purge is safe
+            // because the cookie is Dynamic's server-side session, not
+            // the local wallet permission state.
+            if (
+              errorStr.includes("rejected") ||
+              errorStr.includes("4001") ||
+              errorStr.includes("expired") ||
+              errorStr.includes("unauthorized") ||
+              errorStr.includes("401")
+            ) {
+              try {
+                document.cookie =
+                  "DYNAMIC_JWT_TOKEN=; Max-Age=-99999999; path=/; SameSite=Lax";
+              } catch {
+                // Best-effort cookie clear.
+              }
+            }
           },
           onLogout: () => {
             // Clean exit. Dynamic's own logout already clears its

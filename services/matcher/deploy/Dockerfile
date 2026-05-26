@@ -8,6 +8,8 @@ RUN cargo build --release -p bufi-matcher-server
 
 FROM gcr.io/distroless/cc-debian12:nonroot
 COPY --from=builder /build/target/release/bufi-matcher /usr/local/bin/bufi-matcher
-EXPOSE 50051 8081
+COPY services/matcher/deployments/ /opt/deployments/
+ENV FX_TELARANA_DEPLOYMENTS=/opt/deployments
+EXPOSE 3005 3006 3007
 USER nonroot
 ENTRYPOINT ["/usr/local/bin/bufi-matcher"]

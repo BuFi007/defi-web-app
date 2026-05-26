@@ -400,13 +400,33 @@ export const marketsWebSocketHandler = {
 
 // Helper used by server.ts to extract `:marketId` from a request URL. Returns
 // null if the path doesn't match — caller falls through to Hono.
+//
+// Must handle BOTH encoded and decoded slashes in the market-id segment:
+//   - `/ws/markets/EUR%2FUSD`  → `"EUR/USD"`  (browser sends %2F)
+//   - `/ws/markets/EUR/USD`    → `"EUR/USD"`  (reverse proxy decoded %2F)
+//
+// Railway (and many other reverse proxies) decode percent-encoded path
+// separators before forwarding to the backend, so the second form appears
+// in production even though the browser originally sent the first.
 export function parseMarketsWsPath(pathname: string): string | null {
   if (!pathname.startsWith(WS_MARKETS_PATH)) return null;
   const rest = pathname.slice(WS_MARKETS_PATH.length);
-  // Reject sub-paths / empty / suspicious chars. Market ids in this codebase
-  // are short symbols (e.g. EUR-USD-PERP). Cap at 64 chars.
-  if (!rest || rest.length > 64 || rest.includes("/")) return null;
-  return decodeURIComponent(rest);
+  if (!rest || rest.length > 64) return null;
+  // Decode first (handles %2F → /) then validate. The decoded id may contain
+  // `/` (e.g. "EUR/USD") — that's a valid market identifier in this codebase.
+  // We reject empty segments ("//"), leading/trailing slashes, and path
+  // traversal patterns ("..") to stay safe.
+  const decoded = decodeURIComponent(rest);
+  if (
+    !decoded ||
+    decoded.includes("..") ||
+    decoded.startsWith("/") ||
+    decoded.endsWith("/") ||
+    decoded.includes("//")
+  ) {
+    return null;
+  }
+  return decoded;
 }
 
 // Re-export E18 constant for unit tests / downstream tooling.
