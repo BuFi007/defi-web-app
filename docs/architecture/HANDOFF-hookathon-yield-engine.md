@@ -30,9 +30,11 @@ defi-web-app/docs/architecture/
 
 ## What to Build (in order)
 
-### Phase 0: Deploy Uniswap v4 on Arc Testnet + Fuji (fx-telarana repo)
+### Phase 0: Deploy Uniswap v4 on Arc Testnet + Fuji (fx-telarana repo) ✅ DONE
 
-Uniswap v4 is NOT deployed on either testnet. CREATE2 deployer EXISTS on both.
+Deployed via `contracts/script/DeployUniswapV4.s.sol`.
+- Arc: `0x403Aa1347a77195FB4dEddc362758AA9e0a48D2E`
+- Fuji: `0x5A517f51edca02880542effb8b6a3bdFaAcaD8B2`
 
 ```bash
 # Arc Testnet (5042002)
@@ -104,6 +106,20 @@ FxLiquidationEngine:  0xA70aA9B3bCD3BB829B2E8aF29d8A48f5e09f50E5
 FeeConfig:            0xa589040434735710aEF173e31e421a2d0a20Dd17
 FeeCollector:         0x1894C8c84F3a8DD1e17B237008a197feD2E299B6
 ```
+
+### Phase 0 Deployments (Uniswap v4 PoolManager)
+
+```
+Arc Testnet (5042002):  0x403Aa1347a77195FB4dEddc362758AA9e0a48D2E
+Avalanche Fuji (43113): 0x5A517f51edca02880542effb8b6a3bdFaAcaD8B2
+```
+
+### Phase 1 Contracts (TurboFeeVault)
+
+Source: `fx-telarana/contracts/src/hub/TurboFeeVault.sol`
+Interface: `fx-telarana/contracts/src/interfaces/ITurboFeeVault.sol`
+
+Needs deployment — call `depositFee()` from FxOrderSettlement + FxSpotExecutor.
 
 JPYC (official):      0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29
 
