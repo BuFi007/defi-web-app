@@ -16,4 +16,4 @@ jobs:
       - name: Deploy all services
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway up --detach
+        run: railway up --detach --service bufi-api
