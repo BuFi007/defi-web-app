@@ -2,7 +2,7 @@
  * UI translation locales supported by the web app.
  * Keep this list in sync with apps/web/i18n/request.ts and apps/web/proxy.ts.
  */
-export const SUPPORTED_LOCALES = ["en", "es", "pt", "ja", "ko"] as const;
+export const SUPPORTED_LOCALES = ["en", "es", "pt", "ja", "ko", "zh"] as const;
 
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 

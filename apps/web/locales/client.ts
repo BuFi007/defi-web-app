@@ -8,6 +8,7 @@ const LOCALE_LOADERS = {
   pt: () => import("../messages/pt.json"),
   ja: () => import("../messages/ja.json"),
   ko: () => import("../messages/ko.json"),
+  zh: () => import("../messages/zh.json"),
 } as const;
 
 export const {

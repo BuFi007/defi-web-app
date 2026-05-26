@@ -22,6 +22,12 @@ const countryFlags = {
     name: "Brazil",
     emoji: "🇧🇷",
   },
+  CN: {
+    code: "CN",
+    unicode: "U+1F1E8 U+1F1F3",
+    name: "China",
+    emoji: "🇨🇳",
+  },
   ES: {
     code: "ES",
     unicode: "U+1F1EA U+1F1F8",

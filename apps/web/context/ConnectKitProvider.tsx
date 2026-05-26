@@ -8,6 +8,7 @@ import { ReactNode } from "react";
 import { DevWalletProvider } from "@/lib/dev-wallet";
 import { SessionBridge } from "@/lib/session";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useCurrentLocale } from "@/locales/client";
 import { WalletConflictDetector } from "@/components/wallet-conflict-detector";
 
 const queryClient = new QueryClient();
@@ -15,7 +16,7 @@ const queryClient = new QueryClient();
 export { ConnectKitButton };
 
 const bufxTheme = {
-  "--ck-font-family": "'Nunito', sans-serif",
+  "--ck-font-family": "'Nunito', 'Poppins', sans-serif",
   "--ck-body-color": "#1B142D",
   "--ck-body-color-muted": "#999999",
   "--ck-body-color-muted-hover": "#1B142D",
@@ -89,11 +90,23 @@ const bufxTheme = {
   "--ck-body-disclaimer-background": "#f6f7f9",
 };
 
+const CK_LOCALE_MAP: Record<string, string> = {
+  en: "en-US",
+  es: "es-ES",
+  pt: "pt-BR",
+  ja: "en-US",
+  ko: "en-US",
+  zh: "zh-CN",
+};
+
 export default function ConnectKitProviders({
   children,
 }: {
   children: ReactNode;
 }) {
+  const locale = useCurrentLocale();
+  const ckLang = (CK_LOCALE_MAP[locale] ?? "en-US") as "en-US" | "es-ES" | "pt-BR";
+
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
@@ -106,7 +119,7 @@ export default function ConnectKitProviders({
             hideTooltips: false,
             enforceSupportedChains: false,
             embedGoogleFonts: false,
-            language: "en-US",
+            language: ckLang,
             disclaimer: (
               <>
                 By connecting you agree to the{" "}

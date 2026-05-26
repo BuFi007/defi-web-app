@@ -49,6 +49,12 @@ const localeFlags: Record<SupportedLocale, LocaleFlag> = {
     emoji: countryFlags.KR.emoji,
     nativeName: "한국어",
   },
+  zh: {
+    locale: "zh",
+    country: "CN",
+    emoji: countryFlags.CN.emoji,
+    nativeName: "中文",
+  },
 };
 
 export function getLocaleFlag(locale: SupportedLocale): LocaleFlag {

@@ -10,8 +10,16 @@
   padding-top: 0 !important;
   padding-bottom: 0 !important;
   font-family: 'Nunito', sans-serif !important;
-  font-weight: 800 !important;
+  font-weight: 900 !important;
   letter-spacing: -0.005em !important;
+}
+/* ConnectKit modal font override */
+[data-rk],
+[data-connectkit] {
+  --ck-font-family: 'Nunito', sans-serif !important;
+}
+[data-connectkit] * {
+  font-family: 'Nunito', sans-serif !important;
 }
 
 @font-face {
