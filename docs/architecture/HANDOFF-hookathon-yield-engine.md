@@ -105,7 +105,23 @@ FeeConfig:            0xa589040434735710aEF173e31e421a2d0a20Dd17
 FeeCollector:         0x1894C8c84F3a8DD1e17B237008a197feD2E299B6
 ```
 
+JPYC (official):      0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29
+
 Pyth BTC/USD feed: `0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43`
+Pyth JPY/USD feed: `0xef2c98c804ba503c6a707e38be4dfbb16683775f195b091252bf24693042fd52`
+
+## NEW: Official JPYC on Arc Testnet
+
+JPYC is now deployed at `0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29` on Arc.
+This replaces the old test synthetic `tJPYC`. Deploy the hookathon with
+BOTH demo pairs:
+
+- **cirBTC/USDC** — crypto hedge (BTC volatility, dramatic IL demo)
+- **JPYC/USDC** — FX hedge (JPY stability, sustainable yield demo)
+
+The JPYC pair is the stronger product story: real FX stablecoin,
+real issuer token, low volatility = cheap hedge = pure yield play.
+cirBTC is the dramatic demo. JPYC is the production use case.
 
 ## Key Decisions Already Made
 
