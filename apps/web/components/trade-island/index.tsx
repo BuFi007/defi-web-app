@@ -192,13 +192,13 @@ function LeadersTab() {
   const tradesInWindow =
     sinceSec == null
       ? trades
-      : trades.filter((t) => t.blockTimestamp >= sinceSec);
+      : trades.filter((tr) => tr.blockTimestamp >= sinceSec);
   const windowVolume = tradesInWindow.reduce(
-    (s, t) => s + (Number(t.sizeUsdc) || 0),
+    (s, tr) => s + (Number(tr.sizeUsdc) || 0),
     0,
   );
   const realizedPnl = tradesInWindow.reduce(
-    (s, t) => s + (t.realizedPnlUsdc ? Number(t.realizedPnlUsdc) : 0),
+    (s, tr) => s + (tr.realizedPnlUsdc ? Number(tr.realizedPnlUsdc) : 0),
     0,
   );
 
@@ -387,31 +387,31 @@ function HistoryTab() {
           </tr>
         </thead>
         <tbody>
-          {trades.map((t) => {
-            const ts = new Date(t.blockTimestamp * 1000)
+          {trades.map((tr) => {
+            const ts = new Date(tr.blockTimestamp * 1000)
               .toTimeString()
               .slice(0, 8);
             return (
-              <tr key={`${t.txHash}-${t.marketId}-${t.blockTimestamp}`}>
+              <tr key={`${tr.txHash}-${tr.marketId}-${tr.blockTimestamp}`}>
                 <td className="mono" style={{ color: "var(--ink-3)" }}>
                   {ts}
                 </td>
                 <td>
                   <span style={{ fontWeight: 800 }}>
-                    {shortMarket(t.marketId)}
+                    {shortMarket(tr.marketId)}
                   </span>
                 </td>
                 <td>
-                  <span className={"side-tag " + t.side}>
-                    {t.side.toUpperCase()}
+                  <span className={"side-tag " + tr.side}>
+                    {tr.side.toUpperCase()}
                   </span>
                 </td>
-                <td className="mono">{t.sizeUsdc}</td>
+                <td className="mono">{tr.sizeUsdc}</td>
                 <td className="mono">
-                  {e18ToNumber(safeBigInt(t.fillPriceE18))?.toFixed(4) ?? "—"}
+                  {e18ToNumber(safeBigInt(tr.fillPriceE18))?.toFixed(4) ?? "—"}
                 </td>
                 <td className="mono" style={{ color: "var(--ink-3)" }}>
-                  {t.txHash.slice(0, 10)}…
+                  {tr.txHash.slice(0, 10)}…
                 </td>
               </tr>
             );
@@ -1150,19 +1150,19 @@ function TradeIslandHeader({
         </div>
       )}
       <div className="island-tabs">
-        {tabs.map((t) => (
+        {tabs.map((td) => (
           <button
-            key={t.id}
-            className={"island-tab " + (tab === t.id ? "active" : "")}
+            key={td.id}
+            className={"island-tab " + (tab === td.id ? "active" : "")}
             onClick={() => {
-              setTab(t.id);
-              if (t.id !== "trade") setArcade(false);
+              setTab(td.id);
+              if (td.id !== "trade") setArcade(false);
             }}
-            title={TAB_HINTS[t.id]}
+            title={TAB_HINTS[td.id]}
           >
-            <Icon name={t.icon} size={14} />
-            <span>{t.label}</span>
-            {t.count != null && <span className="tab-pill">{t.count}</span>}
+            <Icon name={td.icon} size={14} />
+            <span>{td.label}</span>
+            {td.count != null && <span className="tab-pill">{td.count}</span>}
           </button>
         ))}
       </div>

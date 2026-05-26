@@ -29,6 +29,7 @@ import { TokenIconPair } from "./token-icon";
 import { CandleChart } from "./chart";
 import { TradeDrawer } from "./trade-drawer";
 import { useMarkets } from "@/lib/perps/hooks";
+import { useScopedI18n } from "@/locales/client";
 import { usePendingIntents } from "@/lib/perps/use-pending-intents";
 import type { PerpsMarketDto } from "@/lib/perps/client";
 
@@ -192,6 +193,7 @@ function MarketPickerSheet({
   setMarketSym: (s: string) => void;
   onClose: () => void;
 }) {
+  const t = useScopedI18n('MobileTrade');
   const [tab, setTab] = useState<"all" | "forex" | "perp">("all");
   const list = ALL_MARKETS.filter((m) => tab === "all" || m.type === tab);
   return (
@@ -216,7 +218,7 @@ function MarketPickerSheet({
               className={"mt-mkt-tab " + (tab === k ? "active" : "")}
               onClick={() => setTab(k)}
             >
-              {k === "all" ? "All" : k === "forex" ? "Forex" : "Perps"}
+              {k === "all" ? t("all") : k === "forex" ? t("forex") : t("perps")}
             </button>
           ))}
         </div>
@@ -237,7 +239,7 @@ function MarketPickerSheet({
                 <div className="mt-mkt-meta">
                   <div className="mt-mkt-sym">{m.sym}</div>
                   <div className="mt-mkt-type">
-                    {m.type === "perp" ? "Perpetual" : "Forex"} · {m.leverage}x
+                    {m.type === "perp" ? t("perpetual") : t("forex")} · {m.leverage}x
                   </div>
                 </div>
                 <div className="mt-mkt-price">
@@ -269,6 +271,7 @@ export function MobileTrade({
   marketSym: string;
   setMarketSym: (s: string) => void;
 }) {
+  const t = useScopedI18n('MobileTrade');
   const [inner, setInner] = useState<InnerTab>("chart");
   const [tf, setTf] = useState("15m");
   const [showMarketPicker, setShowMarketPicker] = useState(false);
@@ -320,30 +323,30 @@ export function MobileTrade({
       <div className="mt-inner-tabs">
         {(
           [
-            { id: "chart", label: "Chart" },
-            { id: "book", label: "Order Book" },
-            { id: "trades", label: "Trades" },
+            { id: "chart", label: t("chart") },
+            { id: "book", label: t("orderBook") },
+            { id: "trades", label: t("trades") },
           ] as const
-        ).map((t) => (
+        ).map((tab) => (
           <button
-            key={t.id}
-            className={"mt-inner-tab " + (inner === t.id ? "active" : "")}
-            onClick={() => setInner(t.id)}
+            key={tab.id}
+            className={"mt-inner-tab " + (inner === tab.id ? "active" : "")}
+            onClick={() => setInner(tab.id)}
           >
-            {t.label}
+            {tab.label}
           </button>
         ))}
       </div>
 
       {inner === "chart" && (
         <div className="mt-tf-row">
-          {tfs.map((t) => (
+          {tfs.map((tfv) => (
             <button
-              key={t}
-              className={"tf-btn " + (tf === t ? "active" : "")}
-              onClick={() => setTf(t)}
+              key={tfv}
+              className={"tf-btn " + (tf === tfv ? "active" : "")}
+              onClick={() => setTf(tfv)}
             >
-              {t}
+              {tfv}
             </button>
           ))}
         </div>
@@ -365,17 +368,17 @@ export function MobileTrade({
          slider, where the Long/Short language takes over. */}
       <div className="mt-cta-bar">
         <div className="mt-cta-avail">
-          <span className="mt-pl">Trade</span>
+          <span className="mt-pl">{t("trade")}</span>
           <span className="mono">{market.sym}</span>
         </div>
         <div className="mt-cta-row">
           <button className="mt-cta long" onClick={() => setOrderSide("long")}>
             <Icon name="sparkle" size={14} />
-            Buy
+            {t("buy")}
           </button>
           <button className="mt-cta short" onClick={() => setOrderSide("short")}>
             <Icon name="sparkle" size={14} />
-            Sell
+            {t("sell")}
           </button>
         </div>
       </div>

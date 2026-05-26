@@ -13,6 +13,7 @@ import { CandleChart } from "./chart";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/components/ui/use-toast";
 import { errMsg } from "@/utils";
+import { useScopedI18n } from "@/locales/client";
 import { useIntentStatusStream, useMarkets, usePlaceOrder } from "@/lib/perps/hooks";
 import type { PerpsIntentStatus } from "@/lib/perps/client";
 import { useMarketStats } from "@/lib/perps/use-market-stats";
@@ -56,6 +57,7 @@ function useUsdcBalance(address: `0x${string}` | undefined): {
 // here is the matcher's pending-intent queue grouped by limit price.
 // Bids = pending longs waiting to be matched. Asks = pending shorts.
 export function OrderbookCard({ market }: { market: Market }) {
+  const t = useScopedI18n('Panels');
   const decimals = market.price < 10 ? 4 : market.price < 1000 ? 2 : 1;
   const { data: markets } = useMarkets();
   const liveMarket = useMemo(
@@ -76,7 +78,7 @@ export function OrderbookCard({ market }: { market: Market }) {
       <div className="card-head ob-head">
         <div className="card-title">
           <span>
-            Pending Intents{" "}
+            {t("pendingIntents")}{" "}
             <Hint w={300}>
               This is not a traditional order book — it&apos;s the
               price-time matcher&apos;s pending-intent queue. Bids =
@@ -93,16 +95,16 @@ export function OrderbookCard({ market }: { market: Market }) {
         </span>
       </div>
       <div className="ob-cols">
-        <span>Price</span>
-        <span>Size</span>
-        <span>Total</span>
+        <span>{t("price")}</span>
+        <span>{t("size")}</span>
+        <span>{t("total")}</span>
       </div>
       <div className="ob-rows">
         <div className="ob-half ob-half-asks">
           {asks.length === 0 ? (
             <div className="ob-empty">
               <span className="ob-empty-label mono">
-                {isLoading ? "loading…" : "no pending shorts"}
+                {isLoading ? "loading…" : t("noPendingShorts")}
               </span>
             </div>
           ) : (
@@ -143,7 +145,7 @@ export function OrderbookCard({ market }: { market: Market }) {
           {bids.length === 0 ? (
             <div className="ob-empty">
               <span className="ob-empty-label mono">
-                {isLoading ? "loading…" : "no pending longs"}
+                {isLoading ? "loading…" : t("noPendingLongs")}
               </span>
             </div>
           ) : (
@@ -205,6 +207,7 @@ export function OrderPanelCard({
   leverage?: number;
   setLeverage?: (n: number) => void;
 }) {
+  const t = useScopedI18n('Panels');
   const [orderType, setOrderType] = useState("limit");
   const [marginMode, setMarginMode] = useState("cross");
   // Default = 1x spot. See TradeTab; this internal fallback only kicks
@@ -217,8 +220,8 @@ export function OrderPanelCard({
   // leverage-aware machinery). Single derived flag keeps the rendering
   // branches honest — no place can drift out of sync.
   const isSpot = lev === 1;
-  const sideALabel = isSpot ? "Buy" : "Long";
-  const sideBLabel = isSpot ? "Sell" : "Short";
+  const sideALabel = isSpot ? t("buy") : t("long");
+  const sideBLabel = isSpot ? t("sell") : t("short");
   const [size, setSize] = useState("");
   const [price, setPrice] = useState("");
   const [showAdv, setShowAdv] = useState(false);
@@ -233,7 +236,12 @@ export function OrderPanelCard({
   const reqMargin = requiredMarginFloat(notional, lev);
   const liqLong = liquidationPriceFloat({ entryPrice: priceV, notionalUsd: notional, leverage: lev, side: "long" });
   const liqShort = liquidationPriceFloat({ entryPrice: priceV, notionalUsd: notional, leverage: lev, side: "short" });
-  const types = ["Market", "Limit", "Stop", "TP/SL"];
+  const types = [
+    { key: "market", label: t("market") },
+    { key: "limit", label: t("limit") },
+    { key: "stop", label: t("stop") },
+    { key: "tp/sl", label: t("takeProfitStopLoss") },
+  ];
   const presets = [1, 2, 5, 10, 25, 50, 100];
   const sizePcts = [25, 50, 75, 100];
 
@@ -360,7 +368,7 @@ export function OrderPanelCard({
           <span className="card-icon">
             <Icon name="bolt" size={15} />
           </span>
-          <span>{isSpot ? "Spot Order" : "Perp Order"}</span>
+          <span>{isSpot ? t("spotOrder") : "Perp Order"}</span>
         </div>
         {/* Margin-mode tabs are perps-only — spot trades don't post
             collateral so Cross/Isolated has no meaning. */}
@@ -371,36 +379,27 @@ export function OrderPanelCard({
               onClick={() => setMarginMode("cross")}
               title="Cross margin: all your free collateral backs every position. Lower liquidation risk but losses can cascade."
             >
-              Cross
+              {t("cross")}
             </button>
             <button
               className={marginMode === "iso" ? "active" : ""}
               onClick={() => setMarginMode("iso")}
               title="Isolated margin: only the margin you set backs this position. Limits your downside to that amount."
             >
-              Isolated
+              {t("isolated")}
             </button>
           </div>
         )}
       </div>
       <div className="order-body">
         <div className="order-type-tabs">
-          {types.map((t) => (
+          {types.map((ot) => (
             <button
-              key={t}
-              className={orderType === t.toLowerCase() ? "active" : ""}
-              onClick={() => setOrderType(t.toLowerCase())}
-              title={
-                t === "Market"
-                  ? "Buy or sell immediately at the best available price."
-                  : t === "Limit"
-                  ? "Set the price you're willing to pay; fills only at that price or better."
-                  : t === "Stop"
-                  ? "Triggers a market order once the price crosses your stop level."
-                  : "Set take-profit and stop-loss alongside the entry."
-              }
+              key={ot.key}
+              className={orderType === ot.key ? "active" : ""}
+              onClick={() => setOrderType(ot.key)}
             >
-              {t}
+              {ot.label}
             </button>
           ))}
         </div>
@@ -408,7 +407,7 @@ export function OrderPanelCard({
         <div className="leverage-block">
           <div className="lev-row">
             <span className="field-label" style={{ display: "block" }}>
-              {isSpot ? "Mode" : "Leverage"}{" "}
+              {isSpot ? t("mode") : t("leverage")}{" "}
               <Hint w={280}>
                 {isSpot
                   ? "1× = Spot mode (Buy / Sell directly). Drag past 1× to enable perpetuals with leverage."
@@ -448,7 +447,7 @@ export function OrderPanelCard({
         {(orderType === "limit" || orderType === "stop") && (
           <div className="field">
             <div className="field-label">
-              <span>Price</span>
+              <span>{t("fieldPrice")}</span>
               <span style={{ color: "var(--ink-3)" }}>Mid {market.price.toFixed(decimals)}</span>
             </div>
             <div className="input-wrap">
@@ -460,7 +459,7 @@ export function OrderPanelCard({
 
         <div className="field">
           <div className="field-label">
-            <span>Size</span>
+            <span>{t("fieldSize")}</span>
             <div className="size-pcts">
               {sizePcts.map((p) => (
                 <button key={p}>{p}%</button>
@@ -489,14 +488,14 @@ export function OrderPanelCard({
           >
             <Icon name="chev" size={12} />
           </span>
-          Take Profit / Stop Loss
+          {t("takeProfitStopLoss")}
         </button>
 
         {showAdv && (
           <div className="tp-sl">
             <div className="field tp">
               <div className="field-label" style={{ color: "var(--profit-ink)" }}>
-                Take Profit
+                {t("takeProfit")}
               </div>
               <div className="input-wrap">
                 <input type="text" placeholder="0.00" />
@@ -505,7 +504,7 @@ export function OrderPanelCard({
             </div>
             <div className="field sl">
               <div className="field-label" style={{ color: "var(--loss-ink)" }}>
-                Stop Loss
+                {t("stopLoss")}
               </div>
               <div className="input-wrap">
                 <input type="text" placeholder="0.00" />
@@ -522,7 +521,7 @@ export function OrderPanelCard({
               checked={reduceOnly}
               onChange={(e) => setReduceOnly(e.target.checked)}
             />{" "}
-            Reduce Only
+            {t("reduceOnly")}
           </label>
           {orderType === "limit" && (
             <label>
@@ -531,7 +530,7 @@ export function OrderPanelCard({
                 checked={postOnly}
                 onChange={(e) => setPostOnly(e.target.checked)}
               />{" "}
-              Post Only
+              {t("postOnly")}
             </label>
           )}
         </div>
@@ -539,7 +538,7 @@ export function OrderPanelCard({
         <div className="summary">
           <div className="summary-row">
             <span className="l">
-              Order Value <Hint w={220}>Notional value of the trade at the entry price.</Hint>
+              {t("orderValue")} <Hint w={220}>Notional value of the trade at the entry price.</Hint>
             </span>
             <span className="v mono">{fmtUSD(notional)}</span>
           </div>
@@ -549,7 +548,7 @@ export function OrderPanelCard({
             <>
               <div className="summary-row">
                 <span className="l">
-                  Required Margin <Hint w={240}>Collateral locked up to open and maintain this position.</Hint>
+                  {t("requiredMargin")} <Hint w={240}>Collateral locked up to open and maintain this position.</Hint>
                 </span>
                 <span className="v mono">{fmtUSD(reqMargin)}</span>
               </div>
@@ -569,13 +568,13 @@ export function OrderPanelCard({
           )}
           <div className="summary-row">
             <span className="l">
-              Est. Fee <Hint w={220}>Trading fee paid on this order (taker rate, 5 bps).</Hint>
+              {t("estFee")} <Hint w={220}>Trading fee paid on this order (taker rate, 5 bps).</Hint>
             </span>
             <span className="v mono">{fmtUSD(notional * 0.0005)}</span>
           </div>
           {liveMarket && (
             <div className="summary-row" style={{ opacity: 0.7 }}>
-              <span className="l">Live market</span>
+              <span className="l">{t("liveMarket")}</span>
               <span className="v mono" style={{ fontSize: 11 }}>
                 {liveMarket.symbol}
               </span>
@@ -592,7 +591,7 @@ export function OrderPanelCard({
           aria-busy={placeOrder.isPending}
           data-primed={initialSide === "long" ? "true" : undefined}
         >
-          <Icon name="sparkle" size={14} /> {placeOrder.isPending ? "Signing..." : sideALabel}
+          <Icon name="sparkle" size={14} /> {placeOrder.isPending ? t("signing") : sideALabel}
         </button>
         <button
           className={"short" + (initialSide === "short" ? " primed" : "")}
@@ -601,7 +600,7 @@ export function OrderPanelCard({
           aria-busy={placeOrder.isPending}
           data-primed={initialSide === "short" ? "true" : undefined}
         >
-          <Icon name="sparkle" size={14} /> {placeOrder.isPending ? "Signing..." : sideBLabel}
+          <Icon name="sparkle" size={14} /> {placeOrder.isPending ? t("signing") : sideBLabel}
         </button>
       </div>
       {lastIntentId && (
@@ -616,7 +615,7 @@ export function OrderPanelCard({
       <div className="avail-line">
         {address ? (
           <>
-            Available{" "}
+            {t("available")}{" "}
             <span className="mono" style={{ color: "var(--ink)", fontWeight: 800 }}>
               {usdc.isLoading ? "…" : fmtUSD(Number(usdc.formatted))}
             </span>{" "}
@@ -627,7 +626,7 @@ export function OrderPanelCard({
           </>
         ) : (
           <span className="mono" style={{ color: "var(--muted)" }}>
-            Connect a wallet to see your USDC balance.
+            {t("connectForBalance")}
           </span>
         )}
       </div>
@@ -645,6 +644,7 @@ export function ChartCard({
    *  the leverage they're about to trade at, not the market's hard cap. */
   selectedLeverage?: number;
 }) {
+  const t = useScopedI18n('Panels');
   const [tf, setTf] = useState("15m");
   const [expanded, setExpanded] = useState(false);
   // 1W intentionally dropped: Pyth Benchmarks enforces a 1-year
@@ -693,9 +693,9 @@ export function ChartCard({
         </div>
         <div className="chart-head-right">
           <div className="timeframe-tabs">
-            {tfs.map((t) => (
-              <button key={t} className={"tf-btn " + (tf === t ? "active" : "")} onClick={() => setTf(t)}>
-                {t}
+            {tfs.map((tfv) => (
+              <button key={tfv} className={"tf-btn " + (tf === tfv ? "active" : "")} onClick={() => setTf(tfv)}>
+                {tfv}
               </button>
             ))}
           </div>
@@ -713,16 +713,16 @@ export function ChartCard({
       </div>
       <div className="chart-substats">
         <div className="chart-stat">
-          <span className="l">24h High</span>
+          <span className="l">{t("high24h")}</span>
           <span className="v mono">{high != null ? high.toFixed(decimals) : "—"}</span>
         </div>
         <div className="chart-stat">
-          <span className="l">24h Low</span>
+          <span className="l">{t("low24h")}</span>
           <span className="v mono">{low != null ? low.toFixed(decimals) : "—"}</span>
         </div>
         <div className="chart-stat">
           <span className="l">
-            24h Vol{" "}
+            {t("vol24h")}{" "}
             <Hint w={240}>
               FX feeds don&apos;t carry traded volume — the bar is a proxy
               derived from per-bar price-change magnitude.
