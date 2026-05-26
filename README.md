@@ -1,276 +1,47 @@
-# BUFI · FX Telaraña · FX² Arcade
+# BuFi · FX Telaraña
 
-Bun workspaces monorepo. Three product surfaces converge on a single web frontend.
+Onchain forex exchange on Arc. Perpetual futures, spot FX, lending/borrowing — for humans and AI agents.
 
-```
-apps/
-  web/              Next.js 16 frontend                    (the product)
-  api/              Hono API: realtime + agentic surface   (port 3002)
-  ponder/           Onchain indexer                        (port 42069)
-  keeper-*          Always-on Bun services for Gateway, spot, perps, Pyth, Bento
-packages/
-  liveblocks/       Realtime rooms (wallet-scoped session auth)
-  x402/             Nanopayment-gated route middleware
-  mcp/              Tool registry + workflow state machine
-  logger/           JSON structured logger
-  db/               Durable SQLite trading DB + read-store contracts
-  keeper-runtime/   Shared keeper loop, health endpoint, viem clients
-  market-data/      Pyth Hermes client + oracle freshness helpers
-  fx-spot/          BUFX Venue spot intent typed-data + calldata builders
-  perps/            Perps domain interface + zod schemas
-  fx-bento/         Arcade domain interface + zod schemas
-  fx-telarana/      Lending domain interface + zod schemas
-  shared-types/     Cross-package types
-  env/              Zod-validated env
-  contracts/        Per-chain address book
-services/           Future split-out backend services
-```
+**Live:** [fx.bu.finance](https://fx.bu.finance) · **MCP:** [mcp.bu.finance](https://mcp.bu.finance/mcp) · **API:** [api.bu.finance](https://api.bu.finance)
 
-## Quickstart
+## Why
 
-```bash
-bun install
-bun run dev               # frontend on :3000
-bun run dev:api           # api on :3002
-bun run dev:ponder        # indexer on :42069
-bun run keeper:spot       # one keeper service, same pattern for all keepers
-bun test --filter '@bufi/*'
-```
+Traditional FX is a $7.5T/day market running on 1970s infrastructure:
 
-Per-package: `bun run --filter @bufi/<name> typecheck` / `test`.
+- **T+2 settlement & Herstatt risk** — two legs of a trade don't clear simultaneously, exposing counterparties to the failure mode that took down Bankhaus Herstatt in 1974. Onchain atomic settlement eliminates this — both legs clear in one transaction, sub-second, on Arc.
+- **Market closure & fragmented liquidity** — FX trades ~24/5 with gaps across session handoffs (Tokyo→London→NY) and liquidity splintered across hundreds of bilateral venues. A 24/7 onchain venue with a single price surface never closes.
+- **Exclusion of non-institutional participants** — prime brokerage, ISDAs, and minimum tickets price out SMBs and emerging-market corridors (LATAM, Africa, Asia-Pacific) where spreads balloon. Stablecoin-native rails collapse the access stack to a wallet.
 
-## Vercel
+## Core Products
 
-The Next.js app lives at `apps/web`, **not** the repo root. In the Vercel dashboard:
+**Perpetual futures** — 5 forex pairs (EUR, JPY, MXN, BTC, AUD vs USDC), up to 100x leverage, Pyth oracle pricing. Intent-based order flow with onchain atomic settlement.
 
-> **Project Settings → General → Root Directory → `apps/web`**
+**Spot FX** — buy EURC, JPYC, MXNB stablecoins with USDC at live oracle prices. Emerging-market corridors quoted competitively onchain.
 
-Once set, Vercel auto-detects Next.js inside `apps/web` and the workspace install resolves correctly from the monorepo root.
+**Lending/Borrowing (Telaraña)** — supply USDC to earn yield, borrow against collateral with real-time health factor monitoring.
 
-## Worktrees — who owns what
+## Ghost Mode — Private Trading
 
-Three parallel feature branches each own one backend domain. Every worktree shares the same monorepo (rebase off `origin/main` to pick up changes here).
+Ghost Mode routes trades through **shielded pools** backed by zero-knowledge proofs. The `FxPrivacyEntrypoint` contract implements a commitment-based privacy scheme:
 
-| Worktree | Branch | Package | Routes |
-|---|---|---|---|
-| `../fx-telarana-perps-backend` | `feature/perps-backend-final` | `@bufi/perps` | `/perps/*` |
-| `../fx-telarana-bento-backend` | `feature/fx-bento-backend` | `@bufi/fx-bento` | `/fx-bento/*` |
-| `../fx-telarana-lending-backend` | `feature/fx-telarana-lending-backend` | `@bufi/fx-telarana` | `/fx-telarana/*` |
+1. **Deposit** — trader sends stablecoins with a Poseidon hash precommitment. The contract adds a commitment to a Merkle tree, decoupling deposit amount and owner from withdrawal.
+2. **Relay** — to exit, the trader generates a Groth16 ZK proof (via `commitmentVerifier` / `withdrawalVerifier` circuits with Poseidon T3/T4) proving ownership of a valid commitment without revealing which one. Funds go to any recipient address.
+3. **Cross-currency relay** — deposit USDC into the privacy pool, withdraw as EURC (or any stablecoin) via an atomic swap inside the shielded withdrawal. The counterparty never sees the original deposit.
 
-Each package has a README with concrete TODO list and definition of done.
+**The UX:** the theme toggle IS the privacy switch. Tap the moon/sun icon in the header — a Dynamic Island animation morphs into a "Ghost Mode — You can now trade privately" pill while a Spaceman circle-reveal transitions the entire page to dark theme. The visual shift is the privacy signal. Under the hood, `GhostModeContext` flips `isGhostMode`, trade routing switches from public order flow to shielded-pool paths, and the state persists across tabs via localStorage. A periodic ad loop surfaces Ghost Mode to light-theme users organically — no modals, no tooltips, just a tap.
 
-### Worktree onboarding (per worktree owner)
+This matters for forex: institutional traders use dark pools to avoid signaling large positions. Ghost Mode brings that to stablecoin FX — a $500K USDC→EURC conversion stays invisible on the public book.
 
-```bash
-cd ../<worktree>
-git fetch origin
-git rebase origin/main          # inherit the monorepo + shared packages
-bun install
-bun test --filter '@bufi/<your-package>'
-```
+## Agent Infrastructure (MCP)
 
-Then fill in the `⬜ TODO` files listed in `packages/<your-package>/README.md`. Wire your `createXxxService()` factory into `apps/api/src/routes/<your-domain>.ts` — the routes already validate inputs with zod and return 501 stubs; replace the stub bodies with `service.xxx(parsed)`.
+22 MCP tools via a live server — any AI agent connects with one command and can trade, lend, borrow, stream prices, and build onchain reputation. The exchange speaks MCP natively.
 
-### Ponder
+- **ERC-8004 identity & reputation** — agents mint identity NFTs on Arc, accumulate peer-rated reputation scores (0–100), build verifiable trading track records
+- **MCP workflow state machine** — multi-step flows (quote→sign→execute) with EIP-712 signature gates and x402 nanopayment gates
+- **4.17-second trades** — dogfooded with Circle agent wallet (prepare 0.73s + sign 3.04s + execute 0.40s), 60x faster than manual flows
+- **x402 nanopayments** — $0.001–$0.005 USDC per paid API call, no subscriptions
 
-Each backend domain has a handler file in `apps/ponder/src/handlers/`. When the contract is deployed, the worktree:
-
-1. Drops the ABI into `apps/ponder/abis/<Domain>.abi.ts`.
-2. Adds the `address` + `startBlock` env vars (see `apps/ponder/ponder.config.ts`).
-3. Uncomments `import "./handlers/<domain>";` in `apps/ponder/src/index.ts`.
-4. Writes the event handlers using the schema in `apps/ponder/ponder.schema.ts`.
-
-## Architecture rules
-
-These are non-negotiable and the worktrees must respect them:
-
-- **Money lives onchain.** Contracts settle. Ponder indexes. Backend coordinates. Liveblocks is never source of truth for balances, orders, escrow, positions, liquidations, or scores-of-record.
-- **No client-supplied price is trusted.** Quotes come from oracles + indexed state, verified against `oracle.freshness`.
-- **No financial action without:** wallet signature, valid nonce, valid deadline, fresh oracle, optionally an x402 receipt for paid endpoints.
-- **AI tools never bypass gates.** The MCP runner enforces `requiresSignature` / `requiresPaymentUsdc` before `execute()` runs.
-- **MCP signatures are EIP-712.** Signature-gated workflows sign `BUFX MCP Workflow` with the workflow id, tool name, actor, and canonical input hash before execution.
-- **No Clerk. No SaaS auth.** Wallet sessions only (`X-Wallet-*` SIWE-style headers, verified server-side with viem).
-- **All inputs validated with zod.** All envs validated with zod.
-- **Pin deps.** No `^` or `~` in `package.json`.
-
-## Stack
-
-- **Bun** 1.3 — package manager + runtime
-- **Next.js** 16 (Turbopack), **wagmi**, **viem**, **Dynamic Labs SDK** in `apps/web`
-- **Hono** in `apps/api` (`@bufi/api`)
-- **Ponder** 0.16 (pglite for dev, Postgres for prod) in `apps/ponder`
-- **Liveblocks** 2.24 for realtime
-- **zod** 3.25 everywhere
-- **TypeScript** 5
-
-## Liveblocks room map
-
-| Room id | Owner | What's in storage |
-|---|---|---|
-| `bufi:<chainId>:perps:<marketId>` | @bufi/perps | nothing (presence only) |
-| `bufi:<chainId>:arcade:fx-bento:<roomId>` | @bufi/fx-bento | countdown, tile preview, indexed leaderboard snapshot |
-| `bufi:<chainId>:fx-telarana:<marketId>` | @bufi/fx-telarana | nothing (presence only) |
-| `bufi:mcp:workflow:<workflowId>` | @bufi/mcp | workflow progress |
-
-## Routes
-
-```
-GET    /health
-
-POST   /liveblocks/auth                   wallet-session → scoped token
-
-GET    /markets
-GET    /markets/:marketId
-GET    /markets/:marketId/price
-GET    /markets/:marketId/candles
-
-POST   /spot/intents                       wallet-session
-
-GET    /perps/markets
-POST   /perps/quote
-POST   /perps/quote/premium               x402 0.0010 USDC
-POST   /perps/intents                     wallet-session
-GET    /perps/replacement-needed          wallet-session
-POST   /perps/intents/:id/replacement/prepare
-POST   /perps/intents/:id/replacement
-GET    /perps/intents/:id
-GET    /perps/positions/:address
-GET    /perps/trades/:address
-GET    /perps/funding
-GET    /perps/liquidations/candidates
-
-POST   /fx-bento/rooms                    x402 0.5000 USDC + wallet-session
-GET    /fx-bento/rooms
-GET    /fx-bento/rooms/:id
-POST   /fx-bento/rooms/:id/join           wallet-session → digest
-POST   /fx-bento/rooms/:id/commit
-POST   /fx-bento/rooms/:id/reveal
-GET    /fx-bento/rooms/:id/leaderboard
-POST   /fx-bento/rooms/:id/settle
-
-GET    /fx-telarana/markets
-POST   /fx-telarana/borrow/quote
-POST   /fx-telarana/borrow/intents        wallet-session
-GET    /fx-telarana/positions/:address
-
-GET    /mcp/tools
-POST   /mcp/workflows
-GET    /mcp/workflows/:id
-POST   /mcp/workflows/:id/run             resume w/ signature or x402 receipt
-
-GET    /x402/receipts
-GET    /x402/verify
-```
-
-## Environment variables
-
-Server (`apps/api`, `apps/ponder`):
-- `LIVEBLOCKS_SECRET_KEY` — realtime
-- `DATABASE_URL` / `DATABASE_PRIVATE_URL` — postgres for ponder (pglite fallback)
-- `PONDER_RPC_URL_ARC_TESTNET`, `PONDER_RPC_URL_AVAX_FUJI`
-- `PONDER_BUFX_START_BLOCK_FUJI`, `PONDER_BUFX_START_BLOCK_ARC`
-- `PONDER_TGH_START_BLOCK_ARC`, `PONDER_SPOT_EXECUTOR_START_BLOCK_ARC`
-- `PONDER_PERPS_ADDRESS_ARC`, `PONDER_PERPS_START_BLOCK_ARC`
-- `PONDER_BENTO_ADDRESS_FUJI`, `PONDER_BENTO_START_BLOCK_FUJI`
-- `PONDER_TELARANA_ADDRESS_FUJI`, `PONDER_TELARANA_START_BLOCK_FUJI`
-- `X402_FACILITATOR_URL`, `X402_RECEIVER_ADDRESS`
-- `BUFI_DB_PATH` — durable SQLite path for API/MCP/x402/perps intent state; defaults to `.bufi/trading-machine.sqlite` in local dev
-- `TREASURY_ADDRESS`, `CONTRACT_ADDRESSES_JSON` (override addresses without code change)
-- `CONTRACT_ADDRESSES_JSON` can override Phase B-E perps addresses under `5042002.perps.{clearinghouse,marginAccount,fundingEngine,healthChecker,liquidationEngine,orderSettlement,markets}`; it also accepts the flat `deployments/perps-5042002.json` keys from `fx-telarana`
-- `API_SIGNER_PRIVATE_KEY` — **dev only**, never set in production
-- `KEEPER_PRIVATE_KEY`, `KEEPER_POLL_MS`, `GATEWAY_API_BASE`, `PYTH_HERMES_URL`
-
-Client (`apps/web`):
-- `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID`
-- `NEXT_PUBLIC_API_URL`
-- `NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY`
-- `NEXT_PUBLIC_BG_VARIANT`, `ONE_NEXT_PUBLIC_BG_VARIANT`, `TWO_NEXT_PUBLIC_BG_VARIANT`
-- `NEXT_PUBLIC_PERPS_REPLACEMENT_E2E=1` — dev-only mock wallet for the residual-order toast harness
-- `NEXT_PUBLIC_PERPS_REPLACEMENT_E2E_PRIVATE_KEY` — optional dev-only private key; defaults to the smoke wallet
-- `NEXT_PUBLIC_PERPS_REPLACEMENT_E2E_CHAIN_ID` — optional dev-only chain id; defaults to Arc testnet `5042002`
-
-## Perps replacement smoke
-
-Run the API-only residual flow:
-
-```bash
-BUFI_DB_PATH="$PWD/.bufi/perps-replacement-smoke.sqlite" \
-BUFI_API_URL=http://localhost:3002 \
-bun run smoke:perps-replacement:api
-```
-
-Run the browser toast harness with a dev-only mock wallet:
-
-```bash
-BUFI_DB_PATH="$PWD/.bufi/perps-replacement-browser.sqlite"
-rm -f "$BUFI_DB_PATH" "$BUFI_DB_PATH-wal" "$BUFI_DB_PATH-shm"
-
-BUFI_DB_PATH="$PWD/.bufi/perps-replacement-browser.sqlite" \
-NODE_ENV=development \
-PORT=3002 \
-bun run dev:api
-
-NEXT_PUBLIC_API_URL=http://localhost:3002 \
-NEXT_PUBLIC_PERPS_REPLACEMENT_E2E=1 \
-NEXT_PUBLIC_PERPS_REPLACEMENT_E2E_CHAIN_ID=5042002 \
-bun run --filter ./apps/web dev
-
-BUFI_DB_PATH="$PWD/.bufi/perps-replacement-browser.sqlite" \
-BUFI_API_URL=http://localhost:3002 \
-BUFI_WEB_URL=http://localhost:3000 \
-bun run smoke:perps-replacement:browser
-```
-
-The browser harness launches headless Chrome, waits for the replacement toast, clicks `Sign`, and then verifies the residual order is back in the pending matcher book.
-
-Run the PR-safe local matcher canary:
-
-```bash
-bun run canary:perps-replacement:local
-```
-
-The local canary starts API + matcher on isolated ports with `PERPS_MATCHER_SETTLEMENT_MODE=mock`, uses a fresh SQLite DB, seeds crossing partial-fill orders, verifies the matcher emits `bufx.perps.replacement_needed`, calls the replacement prepare/submit API, seeds the residual counterparty order, and waits for the replacement to fill. This is the default pull-request regression gate in `.github/workflows/perps-canaries.yml`.
-
-Run the live Arc replacement-fill canary against the real matcher keeper:
-
-```bash
-ARC_OPERATOR_PRIVATE_KEY="$ARC_OPERATOR_PRIVATE_KEY" \
-ARC_RPC_URL=https://rpc.testnet.arc.network \
-bun run canary:perps-replacement:arc
-```
-
-The canary starts a local API and matcher on isolated ports, creates a fresh SQLite DB, seeds free margin for the smoke traders, submits the initial partial fill through the keeper, consumes the emitted replacement-needed event, submits the signed residual replacement, waits for the replacement fill to settle on-chain, closes the incremental canary positions, and tears the local services down. This is the pre-integration regression gate for matcher replacement behavior.
-
-CI behavior:
-- Pull requests run `bun run typecheck`, `bun test packages/perps packages/db packages/mcp`, and `bun run canary:perps-replacement:local`.
-- Manual workflow dispatch can set `run_live_arc=true` to run `bun run canary:perps-replacement:arc` after local checks pass. Configure `ARC_OPERATOR_PRIVATE_KEY` as a GitHub secret; optionally set `ARC_RPC_URL` as a GitHub Actions variable.
-
-If you already have API + matcher running and want only the smoke body:
-
-```bash
-BUFI_DB_PATH="$PWD/.bufi/perps-live-arc.sqlite"
-rm -f "$BUFI_DB_PATH" "$BUFI_DB_PATH-wal" "$BUFI_DB_PATH-shm"
-
-BUFI_DB_PATH="$PWD/.bufi/perps-live-arc.sqlite" \
-NODE_ENV=development \
-PORT=3002 \
-bun run dev:api
-
-BUFI_DB_PATH="$PWD/.bufi/perps-live-arc.sqlite" \
-KEEPER_PRIVATE_KEY="$ARC_OPERATOR_PRIVATE_KEY" \
-ARC_RPC_URL=https://rpc.testnet.arc.network \
-bun run keeper:perps-matcher
-
-BUFI_DB_PATH="$PWD/.bufi/perps-live-arc.sqlite" \
-BUFI_API_URL=http://localhost:3002 \
-ARC_RPC_URL=https://rpc.testnet.arc.network \
-SMOKE_MARGIN_SEEDER_PRIVATE_KEY="$ARC_OPERATOR_PRIVATE_KEY" \
-bun run smoke:perps-replacement:arc
-```
-
-## MCP Endpoints (for judges & integrators)
-
-### Live MCP Server
+## MCP Endpoints
 
 | Endpoint | URL |
 |----------|-----|
@@ -283,18 +54,25 @@ bun run smoke:perps-replacement:arc
 
 ### Connect your agent
 
-**Claude Code** (one-liner):
 ```bash
+# Claude Code (one-liner)
 claude mcp add --transport http bufi-hyper https://mcp.bu.finance/mcp
-```
 
-**Codex**:
-```bash
+# Codex
 codex --approval-mode full-auto -q "claude mcp add --transport http bufi-hyper https://mcp.bu.finance/mcp"
 ```
 
-**Claude Desktop / Cursor / Windsurf**:
 ```json
+// .mcp.json (project-level)
+{
+  "mcpServers": {
+    "bufi-hyper": { "type": "url", "url": "https://mcp.bu.finance/mcp" }
+  }
+}
+```
+
+```json
+// Claude Desktop / Cursor / Windsurf
 {
   "mcpServers": {
     "bufi-hyper": {
@@ -305,35 +83,50 @@ codex --approval-mode full-auto -q "claude mcp add --transport http bufi-hyper h
 }
 ```
 
-**.mcp.json** (project-level):
-```json
-{
-  "mcpServers": {
-    "bufi-hyper": {
-      "type": "url",
-      "url": "https://mcp.bu.finance/mcp"
-    }
-  }
-}
+## Quickstart
+
+```bash
+bun install
+bun run dev               # frontend on :3000
+bun run dev:api           # api on :3002
+bun run dev:ponder        # indexer on :42069
 ```
 
-### Live product surfaces
+## Stack
 
-| Surface | URL |
-|---------|-----|
-| **Web app** | `https://fx.bu.finance` |
-| **API** | `https://api.bu.finance` |
-| **GraphQL** | `https://api.bu.finance/graph` |
+Bun 1.3 · Next.js 16 · Hono · Ponder · Pyth · Liveblocks · viem · wagmi · Dynamic Labs · Circle Agent Wallet (ERC-1271) · Arc Testnet · Sentry · zod · TypeScript 5
 
-### 22 MCP tools available
+## Architecture
 
-Perpetual futures (8 tools), spot FX (2), lending & borrowing (6), leaderboard & ERC-8004 reputation (4), auth & streaming (2). Full tool list at `GET https://mcp.bu.finance/mcp`.
+```
+apps/
+  web/              Next.js 16 frontend
+  api/              Hono API: realtime + agentic surface
+  hyper-mcp/        MCP trading gateway (22 tools)
+  ponder/           Onchain indexer
+  keeper-*          Always-on keepers (Gateway, spot, perps, Pyth)
+packages/
+  x402/             Nanopayment-gated route middleware
+  mcp/              Tool registry + workflow state machine
+  contracts/        Per-chain address book + FxPrivacyEntrypoint ABI
+  perps/            Perps domain interface
+  fx-telarana/      Lending domain interface
+  fx-spot/          Spot intent builders
+  fx-bento/         Arcade domain interface
+  db/               Durable SQLite trading DB
+  market-data/      Pyth Hermes client + oracle freshness
+  liveblocks/       Realtime rooms
+  keeper-runtime/   Shared keeper loop
+  env/              Zod-validated env
+  shared-types/     Cross-package types
+  logger/           JSON structured logger
+```
 
-## Mental model
+## Rules
 
-> Liveblocks makes it realtime.
-> Ponder makes it indexed.
-> x402 makes paid AI/API actions economically gated.
-> MCP makes workflows agent-operable.
-> Contracts settle money.
-> The backend coordinates.
+- Money lives onchain. Contracts settle. Backend coordinates.
+- No client-supplied price is trusted. Quotes come from oracles.
+- No financial action without wallet signature + valid nonce + fresh oracle.
+- AI tools never bypass gates. MCP enforces `requiresSignature` / `requiresPaymentUsdc`.
+- MCP signatures are EIP-712.
+- No Clerk. No SaaS auth. Wallet sessions only.
