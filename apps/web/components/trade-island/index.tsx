@@ -5,6 +5,9 @@ import { useAccount } from "wagmi";
 import { AnimatePresence, motion } from "framer-motion";
 
 import { truncateAddress } from "@/utils";
+import { useScopedI18n } from "@/locales/client";
+import { useDocumentTitle } from "@/hooks/use-document-title";
+import { tradeTabTitle, DEFAULT_TAB_TITLE } from "@/utils/format-tab-title";
 
 import {
   ALL_MARKETS,
@@ -64,16 +67,8 @@ function useMediaQuery(query: string) {
   return match;
 }
 
-const TAB_HINTS: Record<string, string> = {
-  loan: "Lend and borrow FX stablecoins across hubs. Earn yield or take a collateralized loan.",
-  trade:
-    "Order book trading with leverage. Live charts, limit/market orders, manage positions.",
-  positions:
-    "See your open positions, unrealized PnL, and adjust take-profit / stop-loss.",
-  leaders:
-    "Top traders by PnL and ROI. Tap Copy to mirror their trades automatically.",
-  history: "A timeline of every trade you've closed. Filterable, exportable.",
-};
+// TAB_HINTS and PERIOD_LABELS moved inside components that need them
+// so they can read from the i18n hook.
 
 interface TabDef {
   id: string;
@@ -133,12 +128,7 @@ function resolveDisplayName(
 
 type LeaderPeriod = "24h" | "7d" | "30d" | "all";
 
-const PERIOD_LABELS: Record<LeaderPeriod, string> = {
-  "24h": "24h",
-  "7d": "7d",
-  "30d": "30d",
-  all: "All-time",
-};
+// PERIOD_LABELS moved inside LeadersTab to use i18n hook.
 
 // Convert a period to a unix-second cutoff. `null` means "no lower bound"
 // (i.e. all-time). Anything older than the cutoff is excluded from the
@@ -158,6 +148,13 @@ function periodSinceUnixSec(period: LeaderPeriod): number | null {
 }
 
 function LeadersTab() {
+  const t = useScopedI18n('TradeIsland');
+  const PERIOD_LABELS: Record<LeaderPeriod, string> = {
+    "24h": t("period24h"),
+    "7d": t("period7d"),
+    "30d": t("period30d"),
+    all: t("periodAllTime"),
+  };
   // The hardcoded 6-trader leaderboard (kawaii_whale, zen_trader_42, etc.)
   // was removed 2026-05-18. The cross-trader Ponder leaderboard endpoint
   // still hasn't shipped, but we can render the connected trader's own
@@ -237,20 +234,19 @@ function LeadersTab() {
       {!address && (
         <EmptyState
           lottie="green-man"
-          title="Connect a wallet to see your standings"
-          description="The cross-trader leaderboard ships with the Ponder cumulative-PnL view. Until then, sign in to see your own live rank."
+          title={t("connectForStandings")}
         />
       )}
 
       {address && isLoading && positions.length === 0 && (
-        <EmptyState lottie="process" title="Loading your standings…" />
+        <EmptyState lottie="process" title={t("loadingStandings")} />
       )}
 
       {address && !isLoading && !hasStandings && (
         <EmptyState
           lottie="chiquito"
           title={`No activity for ${displayName} in the ${PERIOD_LABELS[period]} window`}
-          description="Place a perp trade to start accruing rank-worthy PnL."
+          description={t("noActivityDescription")}
         />
       )}
 
@@ -258,13 +254,13 @@ function LeadersTab() {
         <table className="table leaders-table">
           <thead>
             <tr>
-              <th>Rank</th>
-              <th>Trader</th>
-              <th>Open</th>
-              <th>Trades ({PERIOD_LABELS[period]})</th>
+              <th>{t("thRank")}</th>
+              <th>{t("thTrader")}</th>
+              <th>{t("thOpen")}</th>
+              <th>{t("trades")} ({PERIOD_LABELS[period]})</th>
               <th>Volume ({PERIOD_LABELS[period]})</th>
               <th>Realized ({PERIOD_LABELS[period]})</th>
-              <th>Unrealized</th>
+              <th>{t("thUnrealized")}</th>
               <th>ROI ({PERIOD_LABELS[period]})</th>
             </tr>
           </thead>
@@ -334,6 +330,7 @@ function LeadersTab() {
 }
 
 function HistoryTab() {
+  const t = useScopedI18n('TradeIsland');
   const { data: liveTrades, isLoading, isError } = useTrades();
   const trades = useMemo<PerpsTradeDto[]>(() => liveTrades ?? [], [liveTrades]);
 
@@ -341,7 +338,7 @@ function HistoryTab() {
     return (
       <div className="history-tab" aria-busy="true">
         <p className="muted" style={{ padding: "24px", textAlign: "center" }}>
-          Loading trade history…
+          {t("loadingTradeHistory")}
         </p>
       </div>
     );
@@ -351,7 +348,7 @@ function HistoryTab() {
     return (
       <div className="history-tab">
         <p className="muted" style={{ padding: "24px", textAlign: "center" }}>
-          Couldn&apos;t load trade history. Retry shortly.
+          {t("errorTradeHistory")}
         </p>
       </div>
     );
@@ -364,14 +361,13 @@ function HistoryTab() {
       <div className="history-tab">
         <div className="history-summary">
           <div className="hsum-card">
-            <div className="hsum-l">Trades</div>
+            <div className="hsum-l">{t("trades")}</div>
             <div className="hsum-v mono">0</div>
           </div>
         </div>
         <EmptyState
           lottie="coffee"
-          title="No closed trades yet"
-          description="Once the matcher fills your first perp order it'll show up here."
+          title={t("noClosedTrades")}
         />
       </div>
     );
@@ -382,12 +378,12 @@ function HistoryTab() {
       <table className="table table-desktop-only">
         <thead>
           <tr>
-            <th>Time</th>
-            <th>Market</th>
-            <th>Side</th>
-            <th>Size (USDC)</th>
-            <th>Fill Price</th>
-            <th>Tx</th>
+            <th>{t("thTime")}</th>
+            <th>{t("thMarket")}</th>
+            <th>{t("thSide")}</th>
+            <th>{t("thSize")}</th>
+            <th>{t("thFillPrice")}</th>
+            <th>{t("thTx")}</th>
           </tr>
         </thead>
         <tbody>
@@ -427,6 +423,7 @@ function HistoryTab() {
 }
 
 function PerpsPositionCards({ rows }: { rows: PositionRow[] }) {
+  const t = useScopedI18n('TradeIsland');
   return (
     <div className="pos-cards" aria-label="Open perp positions">
       {rows.map((p, i) => {
@@ -467,11 +464,11 @@ function PerpsPositionCards({ rows }: { rows: PositionRow[] }) {
             </header>
             <dl className="pos-card-grid">
               <div>
-                <dt>Size</dt>
+                <dt>{t("thSize")}</dt>
                 <dd className="mono">{p.size.toLocaleString()}</dd>
               </div>
               <div>
-                <dt>Margin</dt>
+                <dt>{t("marginUsed")}</dt>
                 <dd className="mono">{fmtUSD(p.margin)}</dd>
               </div>
               <div>
@@ -492,12 +489,12 @@ function PerpsPositionCards({ rows }: { rows: PositionRow[] }) {
                 <dt>TP/SL</dt>
                 <dd>
                   <button className="copy-btn" style={{ padding: "3px 8px" }}>
-                    <Icon name="plus" size={10} /> Set
+                    <Icon name="plus" size={10} /> {t("set")}
                   </button>
                 </dd>
               </div>
             </dl>
-            <button className="pos-card-close">Close position</button>
+            <button className="pos-card-close">{t("closePosition")}</button>
           </article>
         );
       })}
@@ -506,6 +503,7 @@ function PerpsPositionCards({ rows }: { rows: PositionRow[] }) {
 }
 
 function PerpsPositionsView() {
+  const t = useScopedI18n('TradeIsland');
   const { address } = useAccount();
   const { data: livePositions, isLoading, isError } = usePositions();
 
@@ -527,7 +525,7 @@ function PerpsPositionsView() {
       <div className="history-summary">
         <div className="hsum-card">
           <div className="hsum-l">
-            Open Positions{" "}
+            {t("openPositions")}{" "}
             <Hint w={220}>
               How many perp trades you have running right now.
             </Hint>
@@ -536,7 +534,7 @@ function PerpsPositionsView() {
         </div>
         <div className="hsum-card">
           <div className="hsum-l">
-            Unrealized PnL{" "}
+            {t("unrealizedPnl")}{" "}
             <Hint w={240}>
               Profit or loss if you closed every position at the current mark
               price.
@@ -549,7 +547,7 @@ function PerpsPositionsView() {
         </div>
         <div className="hsum-card">
           <div className="hsum-l">
-            Margin Used{" "}
+            {t("marginUsed")}{" "}
             <Hint w={240}>
               Collateral currently locked up backing your open positions.
             </Hint>
@@ -558,7 +556,7 @@ function PerpsPositionsView() {
         </div>
         <div className="hsum-card">
           <div className="hsum-l">
-            Open Orders{" "}
+            {t("openOrders")}{" "}
             <Hint w={220}>
               Pending limit orders waiting for price to be reached.
             </Hint>
@@ -570,7 +568,7 @@ function PerpsPositionsView() {
         </div>
         <div className="hsum-card">
           <div className="hsum-l">
-            Funding (24h){" "}
+            {t("funding24h")}{" "}
             <Hint w={240}>
               Net funding paid (−) or received (+) on perpetual positions in the
               last 24h.
@@ -586,25 +584,22 @@ function PerpsPositionsView() {
       {showConnectHint && (
         <EmptyState
           lottie="green-man"
-          title="Connect a wallet to load your live perp positions"
-          description="Sign in via the wallet button in the top-right corner to start trading."
+          title={t("connectForPositions")}
         />
       )}
       {isLoading && address && (
-        <EmptyState lottie="process" title="Loading positions…" />
+        <EmptyState lottie="process" title={t("loadingPositions")} />
       )}
       {isError && (
         <EmptyState
           lottie="skull-lottie"
-          title="Couldn't load positions"
-          description="Retry shortly — the perps API may be warming up."
+          title={t("errorPositions")}
         />
       )}
       {rows.length === 0 && address && !isLoading && !isError && (
         <EmptyState
           lottie="chiquito"
-          title="No open perp positions yet"
-          description="Place a Long or Short from the Trade tab to get started."
+          title={t("noOpenPositions")}
         />
       )}
       {rows.length > 0 && (
@@ -612,15 +607,15 @@ function PerpsPositionsView() {
           <table className="table table-desktop-only">
             <thead>
               <tr>
-                <th>Market</th>
+                <th>{t("thMarket")}</th>
                 <th>
-                  Side{" "}
+                  {t("thSide")}{" "}
                   <Hint w={220}>
                     Long bets the price rises. Short bets it falls.
                   </Hint>
                 </th>
                 <th>
-                  Size{" "}
+                  {t("thSize")}{" "}
                   <Hint w={220}>
                     Notional value of the position in the base currency.
                   </Hint>
@@ -639,7 +634,7 @@ function PerpsPositionsView() {
                   </Hint>
                 </th>
                 <th>
-                  Margin{" "}
+                  {t("marginUsed")}{" "}
                   <Hint w={220}>
                     Collateral locked up backing this position.
                   </Hint>
@@ -655,7 +650,7 @@ function PerpsPositionsView() {
                     position.
                   </Hint>
                 </th>
-                <th>Action</th>
+                <th>{t("thAction")}</th>
               </tr>
             </thead>
             <tbody>
@@ -731,11 +726,11 @@ function PerpsPositionsView() {
                     </td>
                     <td>
                       <button className="copy-btn">
-                        <Icon name="plus" size={10} /> Set
+                        <Icon name="plus" size={10} /> {t("set")}
                       </button>
                     </td>
                     <td>
-                      <button className="close-btn">Close</button>
+                      <button className="close-btn">{t("closePosition")}</button>
                     </td>
                   </tr>
                 );
@@ -750,6 +745,7 @@ function PerpsPositionsView() {
 }
 
 function LoanPositionsView({ onLoanAction }: { onLoanAction: (intent: LoanTabIntent) => void }) {
+  const t = useScopedI18n('TradeIsland');
   const { address } = useAccount();
   // Live telarana positions. Replaces the legacy LOAN_POSITIONS
   // hardcoded $4,246 / $6,320 / $2,073 demo block. The DTO returned
@@ -808,7 +804,7 @@ function LoanPositionsView({ onLoanAction }: { onLoanAction: (intent: LoanTabInt
       <div className="history-summary">
         <div className="hsum-card">
           <div className="hsum-l">
-            Net worth{" "}
+            {t("netWorth")}{" "}
             <Hint w={220}>
               Supplied minus borrowed across all loan/borrow markets.
             </Hint>
@@ -817,7 +813,7 @@ function LoanPositionsView({ onLoanAction }: { onLoanAction: (intent: LoanTabInt
         </div>
         <div className="hsum-card">
           <div className="hsum-l">
-            Supplied{" "}
+            {t("supplied")}{" "}
             <Hint w={220}>Funds you&apos;ve deposited earning yield.</Hint>
           </div>
           <div className="hsum-v mono" style={{ color: "var(--profit-ink)" }}>
@@ -826,7 +822,7 @@ function LoanPositionsView({ onLoanAction }: { onLoanAction: (intent: LoanTabInt
         </div>
         <div className="hsum-card">
           <div className="hsum-l">
-            Borrowed{" "}
+            {t("borrowed")}{" "}
             <Hint w={220}>Loans you&apos;ve taken accruing interest.</Hint>
           </div>
           <div className="hsum-v mono" style={{ color: "var(--loss-ink)" }}>
@@ -835,14 +831,14 @@ function LoanPositionsView({ onLoanAction }: { onLoanAction: (intent: LoanTabInt
         </div>
         <div className="hsum-card">
           <div className="hsum-l">
-            Open lends{" "}
+            {t("openLends")}{" "}
             <Hint w={220}>Number of supply positions across all hubs.</Hint>
           </div>
           <div className="hsum-v mono">{address ? supplyCount : "—"}</div>
         </div>
         <div className="hsum-card">
           <div className="hsum-l">
-            Open borrows{" "}
+            {t("openBorrows")}{" "}
             <Hint w={220}>Number of borrow positions across all hubs.</Hint>
           </div>
           <div className="hsum-v mono">{address ? borrowCount : "—"}</div>
@@ -852,25 +848,23 @@ function LoanPositionsView({ onLoanAction }: { onLoanAction: (intent: LoanTabInt
       {!address && (
         <EmptyState
           lottie="green-man"
-          title="Connect a wallet to see your live loan/borrow positions"
-          description="Sign in via the wallet button in the top-right corner."
+          title={t("connectForLoans")}
         />
       )}
       {address && loading && rows.length === 0 && (
-        <EmptyState lottie="process" title="Loading positions…" />
+        <EmptyState lottie="process" title={t("loadingPositions")} />
       )}
       {address && error && (
         <EmptyState
           lottie="skull-lottie"
-          title="Couldn't load positions"
+          title={t("errorPositions")}
           description={error}
         />
       )}
       {address && !loading && !error && rows.length === 0 && (
         <EmptyState
           lottie="vampi"
-          title="No open loan/borrow positions yet"
-          description="Head to the Loan / Borrow tab to lend or borrow."
+          title={t("noOpenLoans")}
         />
       )}
 
@@ -878,20 +872,20 @@ function LoanPositionsView({ onLoanAction }: { onLoanAction: (intent: LoanTabInt
         <table className="table">
           <thead>
             <tr>
-              <th>Asset</th>
+              <th>{t("thAsset")}</th>
               <th>
-                Kind{" "}
+                {t("thKind")}{" "}
                 <Hint w={220}>
                   Whether you&apos;re supplying (earning) or borrowing (paying).
                 </Hint>
               </th>
-              <th>Market</th>
+              <th>{t("thMarket")}</th>
               <th>
-                Hub <Hint w={220}>Which chain hub this position lives on.</Hint>
+                {t("thHub")} <Hint w={220}>Which chain hub this position lives on.</Hint>
               </th>
-              <th>Amount</th>
-              <th>Value</th>
-              <th>Action</th>
+              <th>{t("thAmount")}</th>
+              <th>{t("thValue")}</th>
+              <th>{t("thAction")}</th>
             </tr>
           </thead>
           <tbody>
@@ -939,7 +933,7 @@ function LoanPositionsView({ onLoanAction }: { onLoanAction: (intent: LoanTabInt
                         "side-tag " + (r.kind === "supply" ? "long" : "short")
                       }
                     >
-                      {r.kind === "supply" ? "LEND" : "BORROW"}
+                      {r.kind === "supply" ? t("lend") : t("borrow")}
                     </span>
                   </td>
                   <td>
@@ -990,7 +984,7 @@ function LoanPositionsView({ onLoanAction }: { onLoanAction: (intent: LoanTabInt
                         });
                       }}
                     >
-                      {r.kind === "supply" ? "Withdraw" : "Repay"}
+                      {r.kind === "supply" ? t("withdraw") : t("repay")}
                     </button>
                   </td>
                 </tr>
@@ -1004,6 +998,7 @@ function LoanPositionsView({ onLoanAction }: { onLoanAction: (intent: LoanTabInt
 }
 
 function PositionsOnlyTab({ onLoanAction }: { onLoanAction: (intent: LoanTabIntent) => void }) {
+  const t = useScopedI18n('TradeIsland');
   const [sub, setSub] = useState("perps");
   const { address } = useAccount();
   const { data: livePositions } = usePositions();
@@ -1028,7 +1023,7 @@ function PositionsOnlyTab({ onLoanAction }: { onLoanAction: (intent: LoanTabInte
           onClick={() => setSub("perps")}
         >
           <Icon name="candle" size={13} />
-          <span>Trading</span>
+          <span>{t("trading")}</span>
           <span className="pp-subtab-count">{perpsCount}</span>
         </button>
         <button
@@ -1036,7 +1031,7 @@ function PositionsOnlyTab({ onLoanAction }: { onLoanAction: (intent: LoanTabInte
           onClick={() => setSub("loan")}
         >
           <Icon name="vault" size={13} />
-          <span>Loan / Borrow</span>
+          <span>{t("loanBorrow")}</span>
           <span className="pp-subtab-count">{loanLegCount}</span>
         </button>
       </div>
@@ -1111,22 +1106,31 @@ function TradeIslandHeader({
   arcade: boolean;
   setArcade: (v: boolean) => void;
 }) {
+  const t = useScopedI18n('TradeIsland');
   // Live position count drives the tab pill; mock orders + mock positions are
   // no longer trusted for the trader-visible total.
   const { data: livePositions } = usePositions();
   const livePositionsCount = livePositions?.length ?? 0;
 
+  const TAB_HINTS: Record<string, string> = {
+    loan: t("hintLoan"),
+    trade: t("hintTrade"),
+    positions: t("hintPositions"),
+    leaders: t("hintLeaders"),
+    history: t("hintHistory"),
+  };
+
   const tabs: TabDef[] = [
-    { id: "loan", label: "Loan / Borrow", icon: "vault" },
-    { id: "trade", label: "Trade", icon: "candle" },
+    { id: "loan", label: t("loanBorrow"), icon: "vault" },
+    { id: "trade", label: t("trade"), icon: "candle" },
     {
       id: "positions",
-      label: "Positions",
+      label: t("positions"),
       icon: "layers",
       count: livePositionsCount,
     },
-    { id: "leaders", label: "Leaderboard", icon: "trophy" },
-    { id: "history", label: "History", icon: "doc" },
+    { id: "leaders", label: t("leaderboard"), icon: "trophy" },
+    { id: "history", label: t("history"), icon: "doc" },
   ];
 
   const liveTotalPnl = (livePositions ?? []).reduce(
@@ -1245,6 +1249,15 @@ export default function TradeIsland() {
   // until it's swapped for fetchPerpsMarkets() (Task 2). Silence the
   // unused-import warning until then.
   void PERP_MARKETS;
+
+  // Binance-style dynamic browser tab title with live price.
+  const tabTitle = useMemo(() => {
+    if (tab === "trade" && market.price > 0) {
+      return tradeTabTitle(market.sym, market.price, market.change);
+    }
+    return DEFAULT_TAB_TITLE;
+  }, [tab, market.sym, market.price, market.change]);
+  useDocumentTitle(tabTitle);
 
   // Adaptive width per tab — the dynamic-island morph. Every tab maps
   // to a UNIQUE width so switching produces a visible spring on the
