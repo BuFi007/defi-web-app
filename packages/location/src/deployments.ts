@@ -63,8 +63,8 @@ const DEPLOYMENTS: Record<
   //
   // Live on Arc Testnet per @bufi/contracts CONTRACTS[5042002].tokens
   // (sprint-1 broadcast 2026-05-21):
-  //   USDC, EURC, tJPYC, MXNB, cirBTC, AUDF.
-  // BRAVO iter-1 noted "only 4 PERP markets live" (EURC, tJPYC, MXNB,
+  //   USDC, EURC, JPYC, MXNB, cirBTC, AUDF.
+  // BRAVO iter-1 noted "only 4 PERP markets live" (EURC, JPYC, MXNB,
   // cirBTC) — that's about derivative markets, not ERC20 deployments.
   // The AUDF ERC20 is deployed on Arc (user holds ~10M, lending +
   // approval flows confirmed live); the perp market for AUDF just

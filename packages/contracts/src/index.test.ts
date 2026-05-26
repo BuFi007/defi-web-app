@@ -20,7 +20,7 @@ describe("contract address registry", () => {
         marketId: "0x565a6e2fab61800aa18813603b5b485af5bed7dea1aa0845bdaa61502063cab8",
         config: { initialMarginBps: 500, maintenanceMarginBps: 300, tradingFeeBps: 5 },
       },
-      "tJPYC/USDC": {
+      "JPYC/USDC": {
         marketId: "0x9ccad283db415085bf69329b696bfc7a34bff2d476f5cf7b1d4a3ba9bc0b70ab",
       },
       "MXNB/USDC": {

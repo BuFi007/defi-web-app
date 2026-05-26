@@ -3,7 +3,7 @@ import { livePerpsMarkets, signedSizeDelta } from "@bufi/perps";
 
 export const ARC_CHAIN_ID = 5042002;
 
-export const PERP_SYMBOLS = ["EURC/USDC", "tJPYC/USDC", "MXNB/USDC", "CIRBTC/USDC", "AUDF/USDC"] as const;
+export const PERP_SYMBOLS = ["EURC/USDC", "JPYC/USDC", "MXNB/USDC", "CIRBTC/USDC", "AUDF/USDC"] as const;
 
 export const EIP712_DOMAIN_TYPE = [
   { name: "name", type: "string" },

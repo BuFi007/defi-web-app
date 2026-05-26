@@ -82,7 +82,7 @@ describe("markets", () => {
     expect(body.markets.length).toBe(5);
     const symbols = body.markets.map((m: { symbol: string }) => m.symbol);
     expect(symbols).toContain("EURC/USDC");
-    expect(symbols).toContain("tJPYC/USDC");
+    expect(symbols).toContain("JPYC/USDC");
     expect(symbols).toContain("MXNB/USDC");
     expect(symbols).toContain("CIRBTC/USDC");
     expect(symbols).toContain("AUDF/USDC");
@@ -102,7 +102,7 @@ describe("markets", () => {
 // ── Perp Quotes ──
 
 describe("perp quotes", () => {
-  const LIVE_MARKETS = ["EURC/USDC", "tJPYC/USDC", "MXNB/USDC", "CIRBTC/USDC"];
+  const LIVE_MARKETS = ["EURC/USDC", "JPYC/USDC", "MXNB/USDC", "CIRBTC/USDC"];
 
   for (const symbol of LIVE_MARKETS) {
     test(`${symbol} long quote returns mark price`, async () => {
@@ -141,7 +141,7 @@ describe("perp quotes", () => {
 // ── Trade Prepare ──
 
 describe("trade prepare", () => {
-  const LIVE_MARKETS = ["EURC/USDC", "tJPYC/USDC", "MXNB/USDC", "CIRBTC/USDC"];
+  const LIVE_MARKETS = ["EURC/USDC", "JPYC/USDC", "MXNB/USDC", "CIRBTC/USDC"];
 
   for (const symbol of LIVE_MARKETS) {
     test(`${symbol} prepare returns digest + typedData`, async () => {
@@ -201,7 +201,7 @@ describe("close prepare", () => {
 // ── Cost Estimate ──
 
 describe("cost estimate", () => {
-  const LIVE_MARKETS = ["EURC/USDC", "tJPYC/USDC", "MXNB/USDC", "CIRBTC/USDC"];
+  const LIVE_MARKETS = ["EURC/USDC", "JPYC/USDC", "MXNB/USDC", "CIRBTC/USDC"];
 
   for (const symbol of LIVE_MARKETS) {
     test(`${symbol} returns total cost`, async () => {

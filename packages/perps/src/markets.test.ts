@@ -8,7 +8,7 @@ describe("live perps markets", () => {
 
     expect(markets.map((market) => market.symbol)).toEqual([
       "EURC/USDC",
-      "tJPYC/USDC",
+      "JPYC/USDC",
       "MXNB/USDC",
       "CIRBTC/USDC",
       "AUDF/USDC",

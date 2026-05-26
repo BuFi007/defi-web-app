@@ -151,13 +151,11 @@ export type BuFxPerpMarketSymbol = "FX-USD-JPY" | "FX-USD-MXN";
 // the real MXNB issuer; the label reflects user intent. CHFC dropped
 // entirely (no real CHFC token on Arc; spot + perp surfaces both
 // removed).
-// tJPYC keeps its t-prefix: there's only one JPYC contract on Arc
-// (0xB176f6E0…) and it's the test issuance; the label reflects that
-// no canonical JPYC token has been deployed yet. MXNB and CIRBTC have
-// real issuer tokens so they don't carry the prefix.
+// Official JPYC token deployed by JPYC Inc on Arc (0xE7C3D8C9…c29).
+// MXNB and CIRBTC also have real issuer tokens — none carry a test prefix.
 export type ArcPerpMarketSymbol =
   | "EURC/USDC"
-  | "tJPYC/USDC"
+  | "JPYC/USDC"
   | "MXNB/USDC"
   | "CIRBTC/USDC"
   | "AUDF/USDC";
@@ -361,7 +359,7 @@ export const CONTRACTS: Record<ChainId, ChainContracts> = {
     tokens: {
       usdc: "0x3600000000000000000000000000000000000000",
       eurc: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
-      jpyc: "0xB176f6E0c8ecc2be208F72Ad34c54e5F10F1882a",
+      jpyc: "0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29",
       mxnb: "0x836F73Fbc370A9329Ba4957E47912DfDBA6BA461",
       qcad: "0x23d7CFFd0876f3ABb6B074287ba2aeefBc83825d",
       cirbtc: "0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF",
@@ -518,7 +516,7 @@ const ARC_PERP_DEFAULT_FUNDING_CONFIG = {
 //
 // Live on Arc (sprint-1 broadcast 2026-05-21,
 // ~/coding-dojo/fx-telarana/deployments/perps-config-5042002.json):
-//   EURC/USDC, tJPYC/USDC, tMXNB/USDC, CIRBTC/USDC.
+//   EURC/USDC, JPYC/USDC, tMXNB/USDC, CIRBTC/USDC.
 // tCHFC/USDC is kept here for SDK shape but is `enabled=false` on-chain
 // (the matcher's marketConfig read returns enabled=false; useMarketList
 // filters it out). CIRBTC/USDC is intentionally NOT here yet — it's a
@@ -538,7 +536,7 @@ export const ARC_PERP_MARKETS: Record<ArcPerpMarketSymbol, ArcPerpMarket> = {
     },
     fundingConfig: ARC_PERP_DEFAULT_FUNDING_CONFIG,
   },
-  "tJPYC/USDC": {
+  "JPYC/USDC": {
     chainId: 5042002,
     marketId: "0x9ccad283db415085bf69329b696bfc7a34bff2d476f5cf7b1d4a3ba9bc0b70ab",
     baseToken: "jpyc",

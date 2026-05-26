@@ -68,7 +68,7 @@ const MARKETS: { name: string; id: `0x${string}` }[] = [
     id: "0x565a6e2fab61800aa18813603b5b485af5bed7dea1aa0845bdaa61502063cab8",
   },
   {
-    name: "tJPYC/USDC",
+    name: "JPYC/USDC",
     id: "0x9ccad283db415085bf69329b696bfc7a34bff2d476f5cf7b1d4a3ba9bc0b70ab",
   },
   {

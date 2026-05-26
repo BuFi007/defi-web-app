@@ -81,7 +81,7 @@ const llmsTxt = `# BUFI HYPER — Trading Infrastructure for AI Agents
 2. post__api_lending_borrow(marketId, borrower="0x...", borrowAmount, collateralAmount)
 
 ## Markets
-- Perps: EURC/USDC, tJPYC/USDC, MXNB/USDC, CIRBTC/USDC, AUDF/USDC
+- Perps: EURC/USDC, JPYC/USDC, MXNB/USDC, CIRBTC/USDC, AUDF/USDC
 - Up to 50x leverage, EIP-712 signed intents, Pyth oracle prices
 - Spot: EURC, JPYC, MXNB (buy with USDC)
 - Lending: supply USDC to earn yield, borrow FX tokens against collateral
