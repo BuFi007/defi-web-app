@@ -17,11 +17,15 @@ type PerpTrade {
 
 type SpotSwap {
   id: ID!
+  requestId: String! @index
+  routeId: String! @index
   sender: String! @index
   baseToken: String!
   quoteToken: String!
   baseAmount: BigInt!
   quoteAmount: BigInt!
+  midE18: BigInt!
+  appliedSpreadBps: BigInt!
   txHash: String!
   blockNumber: Int!
   timestamp: Int!
@@ -31,7 +35,9 @@ type SpotSwap {
 type FundingEvent {
   id: ID!
   marketId: String! @index
+  version: BigInt!
   fundingRateE18: BigInt!
+  cumulativeFundingE18: BigInt!
   timestamp: Int!
   chainId: Int!
 }
@@ -40,9 +46,13 @@ type PositionChange {
   id: ID!
   marketId: String! @index
   trader: String! @index
+  action: String! @index
   sizeDeltaE18: BigInt!
   resultingSizeE18: BigInt!
   entryPriceE18: BigInt!
+  fee: BigInt!
+  realizedPnl: BigInt!
+  badDebt: BigInt!
   blockNumber: Int!
   timestamp: Int!
   chainId: Int!
@@ -56,6 +66,38 @@ type LendingEvent {
   assets: BigInt!
   shares: BigInt!
   action: String! @index
+  blockNumber: Int!
+  timestamp: Int!
+  chainId: Int!
+}
+
+type TradingFeeRoute {
+  id: ID!
+  marketId: String! @index
+  trader: String! @index
+  feeVault: String! @index
+  amount: BigInt!
+  source: String! @index
+  txHash: String!
+  blockNumber: Int!
+  timestamp: Int!
+  chainId: Int!
+}
+
+type TurboFeeVaultEvent {
+  id: ID!
+  eventType: String! @index
+  marketId: String! @index
+  user: String! @index
+  token: String!
+  amount: BigInt!
+  protocolShare: BigInt!
+  lpShare: BigInt!
+  insuranceShare: BigInt!
+  assets: BigInt!
+  shares: BigInt!
+  reason: String!
+  txHash: String!
   blockNumber: Int!
   timestamp: Int!
   chainId: Int!
@@ -79,8 +121,21 @@ type DailyMarketSnapshot {
   totalBorrow: BigInt!
   supplyEvents: Int!
   borrowEvents: Int!
+  # Turbo fee vault
+  turboFeeAmount: BigInt!
+  turboProtocolShare: BigInt!
+  turboLpShare: BigInt!
+  turboInsuranceShare: BigInt!
+  lpDepositEvents: Int!
+  lpWithdrawEvents: Int!
+  yieldClaimed: BigInt!
+  insurancePayouts: BigInt!
   # Funding
   lastFundingRate: BigInt!
-  # Derived yield (computed per snapshot)
+  cumulativeFundingE18: BigInt!
+  # Derived yield (computed per snapshot, 1e18 precision)
+  morphoBaseApy: BigInt!
+  feeBoostApy: BigInt!
+  compositeApy: BigInt!
   annualizedFeeApy: BigInt!
 }

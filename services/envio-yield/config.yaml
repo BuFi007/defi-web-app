@@ -6,7 +6,7 @@ contracts:
     abi_file_path: ./abis/FxOrderSettlement.json
     handler: ./src/handlers/perps.ts
     events:
-      - event: MatchSettled(bytes32 indexed marketId, address indexed maker, address indexed taker, uint256 sizeDeltaE18, uint256 priceE18, uint256 fee)
+      - event: MatchSettled(bytes32 indexed marketId, address indexed maker, address indexed taker, uint256 fillSizeE18, uint256 fillPriceE18)
         field_selection:
           transaction_fields:
             - hash
@@ -15,14 +15,50 @@ contracts:
     abi_file_path: ./abis/FxPerpClearinghouse.json
     handler: ./src/handlers/perps.ts
     events:
-      - event: PositionChanged(bytes32 indexed marketId, address indexed trader, int256 sizeDeltaE18, int256 resultingSizeE18, uint256 entryPriceE18)
-      - event: FundingPoked(bytes32 indexed marketId, int256 fundingRateE18, uint256 timestamp)
+      - event: PositionIncreased(bytes32 indexed marketId, address indexed trader, int256 sizeDeltaE18, int256 resultingSizeE18, uint256 entryPriceE18, uint256 marginReserved, uint256 fee)
+      - event: PositionDecreased(bytes32 indexed marketId, address indexed trader, int256 sizeDeltaE18, int256 resultingSizeE18, uint256 priceE18, uint256 marginReleased, int256 pnl, uint256 badDebt)
+      - event: TradingFeeRouted(bytes32 indexed marketId, address indexed trader, address indexed feeVault, uint256 amount)
+
+  - name: FxFundingEngine
+    abi_file_path: ./abis/FxFundingEngine.json
+    handler: ./src/handlers/perps.ts
+    events:
+      - event: FundingPoked(bytes32 indexed marketId, uint64 version, int256 rateE18PerSecond, int256 cumulativeFundingE18)
 
   - name: FxSpotExecutor
     abi_file_path: ./abis/FxSpotExecutor.json
     handler: ./src/handlers/spot.ts
     events:
-      - event: SpotFxExecuted(address indexed sender, address indexed baseToken, address indexed quoteToken, uint256 baseAmount, uint256 quoteAmount)
+      - event: SpotFxExecuted(bytes32 indexed requestId, bytes32 indexed routeId, address indexed recipient, address tokenOut, uint256 usdcIn, uint256 tokenOutDelivered, uint256 midE18, uint256 appliedSpreadBps)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: SpotFeeRouted(bytes32 indexed requestId, bytes32 indexed routeId, address indexed feeVault, uint256 amount)
+        field_selection:
+          transaction_fields:
+            - hash
+
+  - name: TurboFeeVault
+    abi_file_path: ./abis/TurboFeeVault.json
+    handler: ./src/handlers/turboFeeVault.ts
+    events:
+      - event: FeeDeposited(bytes32 indexed marketId, address token, uint256 amount, uint256 protocolShare, uint256 lpShare, uint256 insuranceShare)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: Deposited(address indexed user, uint256 assets, uint256 shares)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: Withdrawn(address indexed user, uint256 shares, uint256 assets)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: YieldClaimed(address indexed user, uint256 amount)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: InsurancePayout(bytes32 indexed marketId, uint256 amount, string reason)
         field_selection:
           transaction_fields:
             - hash
@@ -46,19 +82,25 @@ chains:
       - name: FxPerpClearinghouse
         address:
           - "0xCE3401BD53be4c0a8c7CCb0376b313925f99b8d2"
+      - name: FxFundingEngine
+        address:
+          - "0x8b3b63D2031da48e3114871a49CD02B923E388e1"
       - name: FxSpotExecutor
         address:
           - "0x37ccDa89628Fd3Cc1f8ef5e45D8725c4e3a59542"
       - name: MorphoBlue
         address:
           - "0x65f435eB4FF05f1481618694bC1ff7Ee4680c0A4"
+      - name: TurboFeeVault
+        address:
+          - "0x929e222CBbC154f8e75a8DEF951288886Df70531"
 
   - id: 43113
     start_block: 0
     contracts:
       - name: MorphoBlue
         address:
-          - "0x65f435eB4FF05f1481618694bC1ff7Ee4680c0A4"
+          - "0xeF64621D41093144D9ED8aB8327eE381ECdB79E6"
 
 field_selection:
   transaction_fields:
