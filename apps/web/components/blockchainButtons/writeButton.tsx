@@ -60,7 +60,7 @@ const WriteButton = ({
           description: `Transaction hash: ${approveTxHash}`,
         });
 
-        await publicClient.waitForTransactionReceipt({ hash: approveTxHash });
+        await publicClient!.waitForTransactionReceipt({ hash: approveTxHash });
       }
       await refreshData();
       const payload: ActionPayloadN = {
@@ -77,7 +77,7 @@ const WriteButton = ({
         args: [payload] as const,
       });
 
-      await publicClient.waitForTransactionReceipt({ hash: txHash });
+      await publicClient!.waitForTransactionReceipt({ hash: txHash });
 
       await refreshData();
 

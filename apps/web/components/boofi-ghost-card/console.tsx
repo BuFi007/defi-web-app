@@ -76,7 +76,7 @@ export function BooFiConsole() {
   const getUsdcBalance = useTokenBalance({
     address: address as Hex,
     tokenAddress: USDC_ADDRESS?.address as `0x${string}`,
-    chainId: chainId,
+    chainId: chainId as any,
     decimals: USDC_ADDRESS?.decimals || 6,
     setBalance: setUsdcBalance,
   });
