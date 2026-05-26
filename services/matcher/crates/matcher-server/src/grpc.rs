@@ -122,6 +122,12 @@ pub struct GrpcState {
     /// `tick::tick`. `tokio::sync::Mutex` (not parking_lot) so it
     /// can be held across `.await` points.
     pub matching_lock: Mutex<()>,
+    /// Phase 1 (Hybrid CLOB) — persistent order books shared between
+    /// the tick loop and submit_order. Protected by `matching_lock`.
+    pub books: Mutex<std::collections::BTreeMap<[u8; 32], bufi_orderbook::OrderBook>>,
+    /// Tracks the newest `created_at` seen by the tick loop so only
+    /// new intents are processed each iteration.
+    pub last_seen_created_at: Mutex<i64>,
 }
 
 impl GrpcState {
@@ -141,6 +147,8 @@ impl GrpcState {
             book_store: RwLock::new(BTreeMap::new()),
             book_tx,
             matching_lock: Mutex::new(()),
+            books: Mutex::new(std::collections::BTreeMap::new()),
+            last_seen_created_at: Mutex::new(0),
         }
     }
 
@@ -299,6 +307,8 @@ impl MatcherSvc for MatcherService {
         //    plumbs LpSigner into the gRPC handler isn't built yet —
         //    a residual under GTC simply rests on the book and a
         //    future tick will route it once the LP wiring lands.
+        let mut books = self.state.books.lock().await;
+        let mut last_seen = self.state.last_seen_created_at.lock().await;
         let _outcome = crate::tick::tick(
             &chain.db,
             &chain.onchain,
@@ -306,8 +316,12 @@ impl MatcherSvc for MatcherService {
             chain.chain_id,
             None::<(&LpSigner, &PathALpStateView)>,
             Some(self.state.as_ref()),
+            &mut books,
+            &mut last_seen,
         )
         .await;
+        drop(books);
+        drop(last_seen);
         drop(_guard);
 
         // 5. Drain trade_rx and keep only the fills involving OUR

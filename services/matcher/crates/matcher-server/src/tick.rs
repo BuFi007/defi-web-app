@@ -55,6 +55,11 @@ pub struct TickOutcome {
 
 /// Single tick. Returns once all pending intents this iteration are handled.
 ///
+/// `books` is the persistent book state across ticks. On the first tick,
+/// ALL pending intents are loaded and fed in. On subsequent ticks, only
+/// intents newer than `last_seen_created_at` are loaded (incremental).
+/// Filled/expired intents are removed from the book, not re-inserted.
+///
 /// `lp` is the optional (LP signer + LP state view) pair. When `Some`,
 /// the tick will try to route residuals to LP after the CLOB walk
 /// exhausts. When `None`, LP routing is skipped (pure CLOB behaviour).
@@ -65,6 +70,8 @@ pub async fn tick<L: LpStateView>(
     chain_id: i64,
     lp: Option<(&LpSigner, &L)>,
     grpc_state: Option<&crate::grpc::GrpcState>,
+    books: &mut BTreeMap<[u8; 32], OrderBook>,
+    last_seen_created_at: &mut i64,
 ) -> TickOutcome {
     let now_secs = current_unix_secs();
     let pending = match db.list_pending(chain_id, now_secs).await {
@@ -78,23 +85,19 @@ pub async fn tick<L: LpStateView>(
             };
         }
     };
-    let pending_count = pending.len();
-    if pending.is_empty() {
-        return TickOutcome {
-            did_work: false,
-            settled: 0,
-            pending: 0,
-        };
-    }
+    // Only process intents we haven't seen before.
+    let new_intents: Vec<_> = pending
+        .into_iter()
+        .filter(|i| i.created_at > *last_seen_created_at)
+        .collect();
+    let pending_count = new_intents.len();
 
     // Translate + classify.
     let mut translated_by_market: BTreeMap<[u8; 32], Vec<TranslatedIntent>> = BTreeMap::new();
     let mut translated_lookup: BTreeMap<[u8; 32], TranslatedIntent> = BTreeMap::new();
     let mut expired = 0usize;
     let mut rejected = 0usize;
-    for intent in pending {
-        // Defensive: list_pending filters on `deadline > now_secs` but the
-        // tick can take seconds — re-check and expire here.
+    for intent in &new_intents {
         if intent.deadline <= now_secs {
             if let Err(e) = db
                 .update_status(&intent.intent_id, PerpIntentStatus::Expired, now_secs)
@@ -105,7 +108,7 @@ pub async fn tick<L: LpStateView>(
             expired += 1;
             continue;
         }
-        match intent_translator::translate(&intent, deployment) {
+        match intent_translator::translate(intent, deployment) {
             Ok(t) => {
                 translated_lookup.insert(t.orderbook_intent.id, t.clone());
                 translated_by_market
@@ -126,15 +129,30 @@ pub async fn tick<L: LpStateView>(
         }
     }
 
-    // Per market: build a fresh book and match the intents in arrival order.
+    // Track the newest intent we processed so next tick is incremental.
+    if let Some(newest) = new_intents.iter().map(|i| i.created_at).max() {
+        *last_seen_created_at = newest;
+    }
+
+    if translated_by_market.is_empty() && expired == 0 && rejected == 0 {
+        return TickOutcome {
+            did_work: false,
+            settled: 0,
+            pending: pending_count,
+        };
+    }
+
+    // Per market: feed new intents into the PERSISTENT book and match.
     let now_ms = (now_secs as u64).saturating_mul(1_000);
     let mut paired_fills: Vec<(TranslatedIntent, TranslatedIntent, Fill)> = Vec::new();
     let mut match_seq = 0u64;
     for (market_id_bytes, intents) in translated_by_market {
-        let mut book = OrderBook::new(market_id_bytes);
+        let book: &mut OrderBook = books
+            .entry(market_id_bytes)
+            .or_insert_with(|| OrderBook::new(market_id_bytes));
         for t in intents {
             let outcome = match_intent(
-                &mut book,
+                book,
                 t.orderbook_intent.clone(),
                 now_ms,
                 match_seq,
@@ -196,7 +214,7 @@ pub async fn tick<L: LpStateView>(
                             } else {
                                 // GTC rested its residual on the book; remove it
                                 // so we don't double-count the trade.
-                                let _ = cancel_intent(&mut book, t.orderbook_intent.id);
+                                let _ = cancel_intent(book, t.orderbook_intent.id);
                                 paired_fills.push((
                                     routed.lp_intent,
                                     routed.taker_intent,
@@ -257,6 +275,9 @@ pub async fn tick<L: LpStateView>(
 /// the shared gRPC state — when present, fills are broadcast via its
 /// trade channel and Health's match_sequence_number / last_fill_ts are
 /// updated. Pass `None` if the gRPC server is disabled.
+///
+/// Phase 1 (Hybrid CLOB): books are persistent across ticks. Only new
+/// intents are fed into the existing book each iteration — no rebuild.
 pub async fn run<L: LpStateView + Send + Sync>(
     db: PerpsDb,
     onchain: PerpsOnchain,
@@ -268,6 +289,10 @@ pub async fn run<L: LpStateView + Send + Sync>(
 ) {
     let mut idle_streak: u32 = 0;
     let mut match_seq: u64 = 0;
+    // When gRPC is active, books live on GrpcState so submit_order
+    // shares them. Otherwise we keep local books.
+    let mut local_books: BTreeMap<[u8; 32], OrderBook> = BTreeMap::new();
+    let mut local_last_seen: i64 = 0;
     loop {
         match_seq = match_seq.wrapping_add(1);
         if let Some(state) = grpc_state.as_ref() {
@@ -276,38 +301,45 @@ pub async fn run<L: LpStateView + Send + Sync>(
                 .store(match_seq, std::sync::atomic::Ordering::Relaxed);
         }
         let grpc_ref = grpc_state.as_deref();
-        // Phase 8d — when the gRPC server is up, both this loop and
-        // `submit_order` must serialize on `matching_lock` so
-        // concurrent match+settle passes can't double-match the same
-        // pending intent. Held only across the tick body; released
-        // before the sleep so SubmitOrder can grab it during idle
-        // intervals.
         let _guard = match grpc_state.as_ref() {
             Some(state) => Some(state.matching_lock.lock().await),
             None => None,
         };
-        let outcome = match (&lp_signer, &lp_state) {
-            (Some(s), Some(v)) => {
-                tick(
-                    &db,
-                    &onchain,
-                    &deployment,
-                    config.chain_id as i64,
-                    Some((s, v)),
-                    grpc_ref,
-                )
-                .await
-            }
-            _ => {
-                tick::<L>(
-                    &db,
-                    &onchain,
-                    &deployment,
-                    config.chain_id as i64,
-                    None,
-                    grpc_ref,
-                )
-                .await
+
+        let outcome = if let Some(state) = grpc_state.as_ref() {
+            let mut shared_books = state.books.lock().await;
+            let mut shared_last_seen = state.last_seen_created_at.lock().await;
+            let o = match (&lp_signer, &lp_state) {
+                (Some(s), Some(v)) => {
+                    tick(
+                        &db, &onchain, &deployment, config.chain_id as i64,
+                        Some((s, v)), grpc_ref, &mut shared_books, &mut shared_last_seen,
+                    ).await
+                }
+                _ => {
+                    tick::<L>(
+                        &db, &onchain, &deployment, config.chain_id as i64,
+                        None, grpc_ref, &mut shared_books, &mut shared_last_seen,
+                    ).await
+                }
+            };
+            drop(shared_books);
+            drop(shared_last_seen);
+            o
+        } else {
+            match (&lp_signer, &lp_state) {
+                (Some(s), Some(v)) => {
+                    tick(
+                        &db, &onchain, &deployment, config.chain_id as i64,
+                        Some((s, v)), grpc_ref, &mut local_books, &mut local_last_seen,
+                    ).await
+                }
+                _ => {
+                    tick::<L>(
+                        &db, &onchain, &deployment, config.chain_id as i64,
+                        None, grpc_ref, &mut local_books, &mut local_last_seen,
+                    ).await
+                }
             }
         };
         drop(_guard);
