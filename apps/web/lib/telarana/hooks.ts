@@ -12,10 +12,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Address, Hex } from "viem";
 import {
   useAccount,
-  usePublicClient,
   useSignTypedData,
   useWalletClient,
 } from "wagmi";
+import { getPublicClient } from "@wagmi/core";
+import { config } from "@/lib/wagmi";
 
 import { FxMarketRegistryAbi } from "@bufi/contracts";
 
@@ -503,7 +504,6 @@ function planAction(input: LendingActionInput): {
 export function useLendingAction(): UseLendingActionResult {
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const publicClient = usePublicClient();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -518,33 +518,40 @@ export function useLendingAction(): UseLendingActionResult {
       if (!walletClient) {
         throw new Error("Wallet client not ready. Try again once your wallet finishes connecting.");
       }
-      if (!publicClient) {
+
+      // Get a fresh public client for the TARGET hub chain. The hook-level
+      // usePublicClient() is stale after switchChainAsync — the closure
+      // captures the old chain's client, causing allowance reads to hit
+      // the wrong RPC and return 0x.
+      const pc = getPublicClient(config, { chainId: input.hubChainId });
+      if (!pc) {
         throw new Error("Public client not ready for this chain.");
       }
 
       setLoading(true);
       setError(null);
       try {
-        // 1. Pick the right FxMarketRegistry entry point + figure out
-        //    whether we need an ERC-20 approve first.
         const plan = planAction(input);
         const registry = getTelaranaAddress(
           input.hubChainId as TelaranaHubChainId,
           "FxMarketRegistry",
         );
 
-        // 2. Approve if the action moves tokens from the user AND the
-         //   current allowance is below the amount we're about to spend.
-        //    Use exact-amount approve (NOT MaxUint256) so a leftover
-        //    approval can't be drained by a future contract bug.
         let approveTx: Hex | undefined;
         if (ACTIONS_REQUIRING_APPROVE.has(input.kind) && plan.movedToken) {
-          const current = (await publicClient.readContract({
-            address: plan.movedToken,
-            abi: ERC20_ABI,
-            functionName: "allowance",
-            args: [address, registry],
-          })) as bigint;
+          // Arc's native USDC precompile (0x3600…0000) may not support
+          // allowance — treat read failures as zero to trigger approve.
+          let current = 0n;
+          try {
+            current = (await pc.readContract({
+              address: plan.movedToken,
+              abi: ERC20_ABI,
+              functionName: "allowance",
+              args: [address, registry],
+            })) as bigint;
+          } catch {
+            current = 0n;
+          }
           if (current < input.amount) {
             approveTx = (await walletClient.writeContract({
               address: plan.movedToken,
@@ -552,16 +559,10 @@ export function useLendingAction(): UseLendingActionResult {
               functionName: "approve",
               args: [registry, input.amount],
             })) as Hex;
-            // Wait for confirmation so the registry call sees the new
-            // allowance. Without this the next tx races and reverts
-            // with ERC20InsufficientAllowance on Arc's faster blocks.
-            await publicClient.waitForTransactionReceipt({ hash: approveTx });
+            await pc.waitForTransactionReceipt({ hash: approveTx });
           }
         }
 
-        // 3. Hit the registry. viem narrows args by function name, so
-        //    cast on the call site to silence the union type without
-        //    losing the runtime safety we built into planAction().
         const tx = (await walletClient.writeContract({
           address: registry,
           abi: FxMarketRegistryAbi,
@@ -578,7 +579,7 @@ export function useLendingAction(): UseLendingActionResult {
         setLoading(false);
       }
     },
-    [address, walletClient, publicClient],
+    [address, walletClient],
   );
 
   return { submit, loading, error };

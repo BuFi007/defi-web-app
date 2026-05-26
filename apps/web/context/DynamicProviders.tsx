@@ -7,7 +7,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { config } from "@/lib/wagmi";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 import { ReactNode, useEffect } from "react";
-import { DYNAMIC_ENVIRONMENT_ID } from "@/constants/Env";
+const DYNAMIC_ENVIRONMENT_ID =
+  process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID ?? "";
 import {
   ArbitrumSepolia,
   ArcTestnet,
