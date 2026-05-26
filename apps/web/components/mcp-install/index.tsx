@@ -11,7 +11,7 @@ const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 const SIZES = {
   idle: { width: 160, height: 36, radius: 8 },
   ad: { width: 300, height: 50, radius: 999 },
-  expanded: { width: 300, height: 200, radius: 16 },
+  expanded: { width: 300, height: 310, radius: 16 },
 } as const;
 
 function ClaudeCodeIcon({ className }: { className?: string }) {
@@ -290,6 +290,46 @@ export function McpInstallDropdown() {
                   <CopyIcon className="h-3.5 w-3.5 text-purpleDanis/40 dark:text-white/40" />
                 </motion.button>
               ))}
+            </div>
+
+            {/* Agent Wallet — Circle Agent Stack */}
+            <div className="mt-1 pt-2 border-t border-purpleDanis/10 dark:border-white/10">
+              <div className="text-left mb-1.5">
+                <div className="text-[11px] font-bold text-purpleDanis/70 dark:text-white/70 uppercase tracking-widest">
+                  Agent Wallet
+                </div>
+                <div className="text-[10px] text-purpleDanis/40 dark:text-white/40">
+                  Fund your agent with USDC via Circle
+                </div>
+              </div>
+              <motion.button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigator.clipboard.writeText(
+                    'Run curl -sL https://agents.circle.com/skills/setup.md, and use the returned setup instructions to set up my agent wallet.'
+                  );
+                  toast({ description: "Agent wallet setup prompt copied" });
+                }}
+                whileHover={{ backgroundColor: "rgba(105,84,207,0.1)" }}
+                whileTap={{ scale: 0.98 }}
+                className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg bg-gradient-to-r from-purpleDanis/8 to-[#0052FF]/8 dark:from-white/8 dark:to-[#0052FF]/15 hover:from-purpleDanis/15 hover:to-[#0052FF]/15 transition-colors text-left cursor-pointer"
+                title="Copy agent wallet setup prompt"
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" className="text-[#0052FF]" />
+                  <path d="M12 7v10M7 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-[#0052FF]" />
+                </svg>
+                <div className="flex-1 min-w-0">
+                  <span className="text-[12px] font-semibold text-purpleDanis/90 dark:text-white/90 block">
+                    Get Agent Wallet
+                  </span>
+                  <span className="text-[9px] text-purpleDanis/40 dark:text-white/40 block truncate">
+                    Paste in Claude, Codex, or Cursor to set up
+                  </span>
+                </div>
+                <CopyIcon className="h-3.5 w-3.5 text-purpleDanis/40 dark:text-white/40" />
+              </motion.button>
             </div>
           </motion.div>
         )}
