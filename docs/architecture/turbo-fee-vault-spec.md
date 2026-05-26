@@ -428,6 +428,43 @@ Connect idle pool liquidity to Morpho lending. The hook auto-deposits
 unused USDC into the Morpho market and withdraws when needed for swaps.
 This is where the Morpho vault and Uniswap pool become one.
 
+### Phase 4.5: Spoke Chain Deposits in UI (defi-web-app)
+
+The current UI only shows hub markets (Arc 10 / Fuji 4). Users on
+spoke chains (Sepolia, Arbitrum Sepolia, Base Sepolia, etc.) cannot
+deposit through the UI even though the Telarana gateway contracts
+are deployed and functional on all 7 spokes.
+
+**What needs to change in the UI (apps/web/):**
+
+1. **Network selector in the action card**: Currently shows "Arc" or
+   "Fuji" next to the market. Needs a dropdown: "Deposit from: Arc /
+   Fuji / Sepolia / Arb Sepolia / Base Sepolia / OP Sepolia / ..."
+
+2. **Balance display per spoke**: Show the user's USDC/EURC balance
+   on their current chain, not just the hub chain. The stablecoin-
+   balances component already reads per-chain balances — wire it into
+   the action card.
+
+3. **Gateway transaction flow**: When the user picks a spoke as the
+   deposit origin, the "Confirm Lend" button must:
+   a. Approve USDC on the spoke
+   b. Call the gateway's `depositToHub()` on the spoke
+   c. CCTP relays to the selected hub
+   d. Hub receives and deposits into Morpho
+   The UI shows a multi-step progress indicator.
+
+4. **Hub filter in markets table**: Add spoke chain pills alongside
+   "All / Arc / Fuji" so users can see which markets accept deposits
+   from their current chain.
+
+5. **Chain switch prompt**: If the user is on Sepolia but selects an
+   Arc market, prompt them to either switch to Arc (direct deposit)
+   or stay on Sepolia (gateway deposit, ~2 min CCTP relay).
+
+This is a defi-web-app task, not fx-telarana. The contracts exist.
+The UI just doesn't expose the cross-chain deposit path yet.
+
 ### Phase 5: Testnet Launch (Arc Testnet ONLY)
 Full integration on Arc Testnet:
 - All FX pairs + cirBTC pool with hooks
