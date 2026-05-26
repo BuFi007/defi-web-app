@@ -181,6 +181,7 @@ export function LoanMarketPicker({
             )}
             {filtered.map((m) => {
               const active = selected?.id === m.id;
+              const supplyApy = m.yield?.compositeApy ?? m.supply;
               return (
                 <li key={m.id}>
                   <button
@@ -201,7 +202,7 @@ export function LoanMarketPicker({
                       <span className="mp-row-type">
                         {hubDisplayName(m.hub)}
                         {m.lltv != null ? ` · ${m.lltv.toFixed(0)}% LLTV` : ""}
-                        {m.supply != null ? ` · ${m.supply.toFixed(2)}% APY` : ""}
+                        {supplyApy != null ? ` · ${supplyApy.toFixed(2)}% APY` : ""}
                       </span>
                     </div>
                     <span className="pill" style={{ fontSize: 9.5 }}>

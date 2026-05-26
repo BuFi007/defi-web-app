@@ -92,6 +92,39 @@ export async function telaranaPost<T>(
   return unwrap<T>(response);
 }
 
+interface GraphqlResponse<T> {
+  data?: T;
+  errors?: Array<{ message?: string }>;
+}
+
+async function telaranaGraphql<T>(
+  query: string,
+  variables: Record<string, unknown>,
+  opts: TelaranaFetchOptions = {},
+): Promise<T> {
+  const response = await resilientFetch(telaranaApiUrl("/graph"), {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query, variables }, bigintReplacer),
+    signal: opts.signal,
+  });
+  const text = await response.text();
+  const body = text ? (JSON.parse(text) as GraphqlResponse<T>) : {};
+  if (!response.ok) {
+    throw new Error(`Envio GraphQL request failed: ${response.status}`);
+  }
+  if (body.errors?.length) {
+    throw new Error(body.errors[0]?.message ?? "Envio GraphQL returned errors");
+  }
+  if (!body.data) {
+    throw new Error("Envio GraphQL response missing data");
+  }
+  return body.data;
+}
+
 // ────────────────────── response shapes (serialized) ───────────────────────
 
 export interface TelaranaMarketSerialized {
@@ -128,6 +161,25 @@ export interface TelaranaPositionSerialized {
   oraclePublishedAt: string | null;
   healthFactorE18: string | null;
   liquidatable: boolean;
+}
+
+export interface EnvioDailyMarketSnapshot {
+  id: string;
+  marketId: string;
+  date: string;
+  chainId: number;
+  totalSupply: string;
+  totalBorrow: string;
+  turboFeeAmount: string;
+  turboProtocolShare: string;
+  turboLpShare: string;
+  turboInsuranceShare: string;
+  yieldClaimed: string;
+  insurancePayouts: string;
+  morphoBaseApy: string;
+  feeBoostApy: string;
+  compositeApy: string;
+  annualizedFeeApy: string;
 }
 
 export interface TelaranaIntentDoc {
@@ -167,6 +219,49 @@ export function fetchPositions(address: Address, opts?: TelaranaFetchOptions) {
     source: string;
     positions: TelaranaPositionSerialized[];
   }>(`/fx-telarana/positions/${address}`, opts);
+}
+
+export function fetchYieldSnapshots(args: {
+  marketIds?: string[];
+  limit?: number;
+  signal?: AbortSignal;
+}) {
+  const marketIds = args.marketIds?.filter(Boolean) ?? [];
+  const fields = `
+    id
+    marketId
+    date
+    chainId
+    totalSupply
+    totalBorrow
+    turboFeeAmount
+    turboProtocolShare
+    turboLpShare
+    turboInsuranceShare
+    yieldClaimed
+    insurancePayouts
+    morphoBaseApy
+    feeBoostApy
+    compositeApy
+    annualizedFeeApy
+  `;
+  const query = marketIds.length
+    ? `query YieldSnapshots($marketIds: [String!], $limit: Int!) {
+        DailyMarketSnapshot(
+          where: {marketId: {_in: $marketIds}}
+          order_by: {date: desc}
+          limit: $limit
+        ) { ${fields} }
+      }`
+    : `query YieldSnapshots($limit: Int!) {
+        DailyMarketSnapshot(order_by: {date: desc}, limit: $limit) { ${fields} }
+      }`;
+
+  return telaranaGraphql<{ DailyMarketSnapshot: EnvioDailyMarketSnapshot[] }>(
+    query,
+    marketIds.length ? { marketIds, limit: args.limit ?? 500 } : { limit: args.limit ?? 500 },
+    { signal: args.signal },
+  ).then((data) => ({ snapshots: data.DailyMarketSnapshot ?? [] }));
 }
 
 export interface BorrowQuoteBody {

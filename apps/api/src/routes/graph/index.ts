@@ -1,11 +1,10 @@
 /**
- * Public GraphQL gateway for `apps/ponder` (Wave I3).
+ * Public GraphQL gateway for the BUFX Envio HyperIndex.
  *
- * Forwards POST `/graph` to Ponder's GraphQL endpoint (defaulting to
- * `http://localhost:42069/graphql`) after running a per-IP / per-API-key
+ * Forwards POST `/graph` to Envio's GraphQL endpoint (defaulting to the
+ * hosted BUFX yield-engine endpoint) after running a per-IP / per-API-key
  * rate-limit and a coarse mutation guard. The gateway is read-only —
- * mutations are blocked at the boundary so we can't accidentally expose
- * write paths Ponder might add later.
+ * mutations are blocked at the boundary so the public API stays query-only.
  *
  * The schema endpoint (`GET /graph/schema`) introspects upstream once
  * and caches the result for `SCHEMA_CACHE_TTL_MS` so integrators can
@@ -30,11 +29,13 @@ interface SchemaCacheEntry {
 
 let schemaCache: SchemaCacheEntry | null = null;
 
-function ponderGraphqlUrl(): string {
+function envioGraphqlUrl(): string {
   return (
+    process.env.ENVIO_GRAPHQL_URL ??
+    process.env.ENVIO_URL ??
     process.env.PONDER_GRAPHQL_URL ??
     process.env.PONDER_URL ??
-    "http://localhost:42069/graphql"
+    "https://indexer.envio.dev/bufx-yield-engine/graphql"
   );
 }
 
@@ -115,7 +116,7 @@ graphRoutes.post("/", async (c) => {
     );
   }
 
-  const url = ponderGraphqlUrl();
+  const url = envioGraphqlUrl();
   let upstream: Response;
   try {
     upstream = await fetch(url, {
@@ -136,7 +137,7 @@ graphRoutes.post("/", async (c) => {
     return c.json(
       {
         error: "upstream_unavailable",
-        hint: "GraphQL indexer (Ponder) is not reachable.",
+        hint: "GraphQL indexer (Envio) is not reachable.",
       },
       502,
     );
@@ -144,13 +145,13 @@ graphRoutes.post("/", async (c) => {
 
   const contentType = upstream.headers.get("Content-Type") ?? "application/json";
   // Pass through body verbatim; pin a short cache so identical reads
-  // from a busy dashboard ride the CDN/edge instead of hammering Ponder.
+  // from a busy dashboard ride the CDN/edge instead of hammering Envio.
   return new Response(upstream.body, {
     status: upstream.status,
     headers: {
       "Content-Type": contentType,
       "Cache-Control": "public, max-age=2, stale-while-revalidate=10",
-      "X-Bufi-Gateway": "ponder-v1",
+      "X-Bufi-Gateway": "envio-v1",
     },
   });
 });
@@ -165,7 +166,7 @@ graphRoutes.get("/schema", async (c) => {
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
-        "X-Bufi-Gateway": "ponder-v1",
+        "X-Bufi-Gateway": "envio-v1",
         "X-Bufi-Schema-Cache": "hit",
       },
     });
@@ -192,7 +193,7 @@ graphRoutes.get("/schema", async (c) => {
   };
 
   try {
-    const upstream = await fetch(ponderGraphqlUrl(), {
+    const upstream = await fetch(envioGraphqlUrl(), {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(introspection),
@@ -207,7 +208,7 @@ graphRoutes.get("/schema", async (c) => {
       headers: {
         "Content-Type": upstream.headers.get("Content-Type") ?? "application/json",
         "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
-        "X-Bufi-Gateway": "ponder-v1",
+        "X-Bufi-Gateway": "envio-v1",
         "X-Bufi-Schema-Cache": "miss",
       },
     });

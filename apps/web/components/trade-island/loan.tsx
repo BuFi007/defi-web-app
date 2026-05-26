@@ -18,11 +18,16 @@ import {
   isOracleStaleError,
   useMarkets,
   usePositions,
+  useYieldSnapshots,
   useLendingAction,
   type LendingActionInput,
   type LendingActionKind,
 } from "@/lib/telarana/hooks";
-import type { TelaranaMarketSerialized, TelaranaPositionSerialized } from "@/lib/telarana/client";
+import type {
+  EnvioDailyMarketSnapshot,
+  TelaranaMarketSerialized,
+  TelaranaPositionSerialized,
+} from "@/lib/telarana/client";
 import { formatHealthFactor, healthBucket, healthFactorFromE18, toAtomic } from "@/lib/telarana/health";
 
 import { Hint } from "./hint";
@@ -69,6 +74,21 @@ export interface LoanHub extends HubChain {
 
 export type LoanMarketStatus = "live" | "paused" | "stale" | "pending";
 
+export interface LoanYieldPoint {
+  date: string;
+  morphoBaseApy: number | null;
+  feeBoostApy: number | null;
+  compositeApy: number | null;
+}
+
+export interface LoanYieldBreakdown {
+  morphoBaseApy: number | null;
+  feeBoostApy: number | null;
+  compositeApy: number | null;
+  latestDate: string | null;
+  history: LoanYieldPoint[];
+}
+
 export interface LoanMarket {
   id: string;
   hub: string;
@@ -103,6 +123,7 @@ export interface LoanMarket {
     loanDecimals: number;
     collateralDecimals: number;
   };
+  yield?: LoanYieldBreakdown;
 }
 
 export type LoanPositionKind = "supply" | "borrow";
@@ -330,6 +351,47 @@ function bpsFromWad(value: bigint | string): number {
   return Number(big / 10n ** 14n);
 }
 
+function percentFromWad(value: string | bigint | undefined): number | null {
+  if (value == null) return null;
+  const big = typeof value === "bigint" ? value : BigInt(value);
+  return Number(big / 10n ** 12n) / 10_000;
+}
+
+function atomic6Usd(value: string | bigint | undefined): number {
+  if (value == null) return 0;
+  const big = typeof value === "bigint" ? value : BigInt(value);
+  return Number(big / 10_000n) / 100;
+}
+
+function formatApy(value: number | null | undefined): string {
+  return value == null || !Number.isFinite(value) ? "—" : `${value.toFixed(2)}%`;
+}
+
+function latestByMarketId(snapshots: EnvioDailyMarketSnapshot[]): Map<string, EnvioDailyMarketSnapshot> {
+  const latest = new Map<string, EnvioDailyMarketSnapshot>();
+  for (const snap of snapshots) {
+    const key = snap.marketId.toLowerCase();
+    const prev = latest.get(key);
+    if (!prev || snap.date > prev.date) latest.set(key, snap);
+  }
+  return latest;
+}
+
+function dailyGlobalFeeBoost(markets: LoanMarket[], snapshots: EnvioDailyMarketSnapshot[]): Map<string, number> {
+  const totalTvl = markets.reduce((sum, m) => sum + (m.tvl ?? 0), 0);
+  const lpShareByDate = new Map<string, number>();
+  for (const snap of snapshots) {
+    const lpShareUsd = atomic6Usd(snap.turboLpShare);
+    if (lpShareUsd <= 0) continue;
+    lpShareByDate.set(snap.date, (lpShareByDate.get(snap.date) ?? 0) + lpShareUsd);
+  }
+  const result = new Map<string, number>();
+  for (const [date, lpShareUsd] of lpShareByDate) {
+    result.set(date, totalTvl > 0 ? (lpShareUsd * 365 * 100) / totalTvl : 0);
+  }
+  return result;
+}
+
 /**
  * Liftover: turn a serialized fx-telarana market into the LoanMarket row
  * shape the existing UI knows how to render.
@@ -416,6 +478,58 @@ function toLoanMarket(market: TelaranaMarketSerialized): LoanMarket {
       collateralDecimals: decimalsForSymbol(collSym),
     },
   };
+}
+
+function enrichMarketsWithYield(markets: LoanMarket[], snapshots: EnvioDailyMarketSnapshot[]): LoanMarket[] {
+  if (markets.length === 0) return markets;
+  const latest = latestByMarketId(snapshots);
+  const globalFeeByDate = dailyGlobalFeeBoost(markets, snapshots);
+  const globalDates = [...globalFeeByDate.keys()].sort();
+  const latestGlobalDate = globalDates[globalDates.length - 1] ?? null;
+  const latestGlobalFee = latestGlobalDate ? globalFeeByDate.get(latestGlobalDate) ?? 0 : null;
+
+  return markets.map((market) => {
+    const marketId = market.onchain?.marketId.toLowerCase();
+    const snap = marketId ? latest.get(marketId) : undefined;
+    const base = market.supply;
+    const feeFromWad = percentFromWad(snap?.feeBoostApy);
+    const feeFromMarketFlow =
+      snap && market.tvl && market.tvl > 0
+        ? (atomic6Usd(snap.turboLpShare) * 365 * 100) / market.tvl
+        : null;
+    const feeBoost =
+      feeFromWad != null && feeFromWad > 0
+        ? feeFromWad
+        : feeFromMarketFlow != null && feeFromMarketFlow > 0
+          ? feeFromMarketFlow
+          : latestGlobalFee;
+    const composite =
+      base == null
+        ? feeBoost != null
+          ? feeBoost
+          : null
+        : base + (feeBoost ?? 0);
+    const history = globalDates.slice(-14).map((date): LoanYieldPoint => {
+      const fee = globalFeeByDate.get(date) ?? 0;
+      return {
+        date,
+        morphoBaseApy: base,
+        feeBoostApy: fee,
+        compositeApy: base == null ? fee : base + fee,
+      };
+    });
+
+    return {
+      ...market,
+      yield: {
+        morphoBaseApy: base,
+        feeBoostApy: feeBoost,
+        compositeApy: composite,
+        latestDate: snap?.date ?? latestGlobalDate,
+        history,
+      },
+    };
+  });
 }
 
 void bpsFromWad; // reserved for future APY surfacing
@@ -699,6 +813,89 @@ export function MarketSpark({ market }: { market: LoanMarket }) {
   );
 }
 
+function YieldHistorySpark({ points }: { points: LoanYieldPoint[] }) {
+  const values = points
+    .map((p) => p.compositeApy)
+    .filter((value): value is number => value != null && Number.isFinite(value));
+
+  if (values.length < 2) {
+    return <div className="lo-yield-spark lo-yield-spark-empty" aria-hidden="true" />;
+  }
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const W = 260;
+  const H = 54;
+  const pad = 4;
+  const innerW = W - pad * 2;
+  const innerH = H - pad * 2;
+  const pts = values.map((value, i) => {
+    const x = pad + (i / (values.length - 1)) * innerW;
+    const y = pad + innerH - ((value - min) / range) * innerH;
+    return [x, y] as const;
+  });
+  const linePath = pts
+    .map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`)
+    .join(" ");
+  const fillPath = `${linePath} L${pts[pts.length - 1][0].toFixed(2)},${H} L${pts[0][0].toFixed(2)},${H} Z`;
+
+  return (
+    <svg
+      className="lo-yield-spark"
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      role="img"
+      aria-label="Composite APY history"
+    >
+      <defs>
+        <linearGradient id="lo-yield-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--profit-ink)" stopOpacity="0.24" />
+          <stop offset="100%" stopColor="var(--profit-ink)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={fillPath} fill="url(#lo-yield-grad)" />
+      <path
+        d={linePath}
+        fill="none"
+        stroke="var(--profit-ink)"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
+function YieldHistoryPanel({ breakdown }: { breakdown?: LoanYieldBreakdown }) {
+  return (
+    <div className="lo-yield-panel">
+      <div className="lo-yield-panel-head">
+        <span className="lo-yield-title">Yield</span>
+        <span className="lo-yield-date mono">{breakdown?.latestDate ?? "Envio"}</span>
+      </div>
+      <YieldHistorySpark points={breakdown?.history ?? []} />
+      <div className="lo-yield-breakdown">
+        <span>
+          <b>IRM</b>
+          <span className="mono">{formatApy(breakdown?.morphoBaseApy)}</span>
+        </span>
+        <span>
+          <b>Fee</b>
+          <span className="mono profit">
+            {breakdown?.feeBoostApy == null ? "—" : `+${breakdown.feeBoostApy.toFixed(2)}%`}
+          </span>
+        </span>
+        <span>
+          <b>Total</b>
+          <span className="mono">{formatApy(breakdown?.compositeApy)}</span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function MarketsTable({
   market,
   markets,
@@ -769,6 +966,9 @@ function MarketsTable({
             : undefined;
           const supplyUsd = pos ? liveSupplyValueUsd(pos) : 0;
           const borrowUsd = pos ? liveBorrowValueUsd(pos) : 0;
+          const supplyApy = m.yield?.compositeApy ?? m.supply;
+          const baseApy = m.yield?.morphoBaseApy ?? m.supply;
+          const feeBoostApy = m.yield?.feeBoostApy;
           return (
             <button
               key={m.id}
@@ -792,11 +992,11 @@ function MarketsTable({
                 </div>
               </div>
               <span className="mono profit lo-trow-num">
-                {m.supply == null ? (
+                {supplyApy == null ? (
                   "—"
                 ) : (
                   <AnimatedNumber
-                    value={m.supply}
+                    value={supplyApy}
                     currency="%"
                     maximumFractionDigits={2}
                     minimumFractionDigits={2}
@@ -912,29 +1112,15 @@ function MarketsTable({
                   </span>
                 </div>
                 <div className="lo-trow-detail-item">
-                  <span className="lo-trow-detail-l">Earn at this APY</span>
-                  <span className="lo-trow-detail-v mono">
-                    {m.supply != null && supplyUsd > 0 ? (
-                      <>
-                        +
-                        <AnimatedNumber
-                          value={(supplyUsd * m.supply) / 100}
-                          maximumFractionDigits={2}
-                        />
-                        /yr
-                      </>
-                    ) : m.supply != null ? (
-                      <>
-                        <AnimatedNumber
-                          value={m.supply}
-                          currency="%"
-                          maximumFractionDigits={2}
-                        />{" "}
-                        idle
-                      </>
-                    ) : (
-                      "—"
-                    )}
+                  <span className="lo-trow-detail-l">APY breakdown</span>
+                  <span className="lo-trow-detail-v mono lo-yield-formula">
+                    <span>{formatApy(baseApy)}</span>
+                    <span className="lo-yield-op">+</span>
+                    <span className="profit">
+                      {feeBoostApy == null ? "—" : `${feeBoostApy.toFixed(2)}%`}
+                    </span>
+                    <span className="lo-yield-op">=</span>
+                    <span>{formatApy(supplyApy)}</span>
                   </span>
                 </div>
               </div>
@@ -1104,7 +1290,7 @@ export function ActionCard({
   // earnings projection treats null as 0 for math purposes (no fake
   // yearly/monthly/daily) but the header pill renders "—" instead of a
   // fabricated APR/APY.
-  const rate: number | null = A.side === "supply" ? market.supply : market.borrow;
+  const rate: number | null = A.side === "supply" ? market.yield?.compositeApy ?? market.supply : market.borrow;
   const rateLabel = A.side === "supply" ? "APY" : "APR";
   const rateForMath = rate ?? 0;
 
@@ -1419,6 +1605,8 @@ export function ActionCard({
         </div>
       </div>
 
+      <YieldHistoryPanel breakdown={market.yield} />
+
       {onConfirm && (() => {
         const verbMap: Record<string, string> = { lend: t('lend'), withdraw: t('withdraw'), borrow: t('borrow'), repay: t('repay') };
         const actionVerb = verbMap[action] ?? t('lend');
@@ -1552,6 +1740,7 @@ export function LoanTab({ initialIntent, onActiveMarketChange }: { initialIntent
   const { toast } = useToast();
   const { markets: liveMarkets, error: marketsError } = useMarkets();
   const { positions, refresh: refreshPositions } = usePositions(address as Address | undefined);
+  const { snapshots: yieldSnapshots, error: yieldError } = useYieldSnapshots();
   const { submit: submitAction, loading: actionSubmitting } = useLendingAction();
 
   const [selectedId, setSelectedId] = useState("arc-usdc-eurc");
@@ -1587,7 +1776,11 @@ export function LoanTab({ initialIntent, onActiveMarketChange }: { initialIntent
   }, [oracleStaleUntil, now]);
   const oracleStaleActive = oracleStaleUntil > now;
 
-  const enrichedMarkets = useMemo(() => mergeMockAndLiveMarkets(liveMarkets.map(toLoanMarket)), [liveMarkets]);
+  const baseMarkets = useMemo(() => mergeMockAndLiveMarkets(liveMarkets.map(toLoanMarket)), [liveMarkets]);
+  const enrichedMarkets = useMemo(
+    () => enrichMarketsWithYield(baseMarkets, yieldSnapshots),
+    [baseMarkets, yieldSnapshots],
+  );
 
   const market = enrichedMarkets.find((m) => m.id === selectedId) ?? enrichedMarkets[0];
 
@@ -1606,11 +1799,11 @@ export function LoanTab({ initialIntent, onActiveMarketChange }: { initialIntent
       onActiveMarketChange({
         loan: market.loan,
         coll: market.coll,
-        supply: market.supply,
+        supply: market.yield?.compositeApy ?? market.supply,
         borrow: market.borrow,
       });
     }
-  }, [onActiveMarketChange, market?.id, market?.loan, market?.coll, market?.supply, market?.borrow]);
+  }, [onActiveMarketChange, market?.id, market?.loan, market?.coll, market?.yield?.compositeApy, market?.supply, market?.borrow]);
 
   // Hero stats (net worth / supplied / borrowed) were removed 2026-05-18
   // because the no-wallet fallback rendered LOAN_POSITIONS demo numbers
@@ -1696,11 +1889,16 @@ export function LoanTab({ initialIntent, onActiveMarketChange }: { initialIntent
 
   return (
     <div className="lo-shell">
-      {(marketsError || hf !== null) && (
+      {(marketsError || yieldError || hf !== null) && (
         <div className="lo-status-strip">
           {marketsError && (
             <span className="loss mono" style={{ fontSize: 11, fontWeight: 700 }}>
               markets feed: {marketsError}
+            </span>
+          )}
+          {yieldError && (
+            <span className="loss mono" style={{ fontSize: 11, fontWeight: 700 }}>
+              yield feed: {yieldError}
             </span>
           )}
           {hf !== null && (
@@ -1746,4 +1944,3 @@ function healthBucketClass(hf: number | null): string {
   if (bucket === "liquidatable" || bucket === "danger") return "loss";
   return "ink";
 }
-

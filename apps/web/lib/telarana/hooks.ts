@@ -54,10 +54,12 @@ import {
   fetchIntentNonce,
   fetchMarkets,
   fetchPositions,
+  fetchYieldSnapshots,
   postBorrowQuote,
   createIntent,
   submitIntentSignature,
   type BorrowQuoteBody,
+  type EnvioDailyMarketSnapshot,
   type BorrowQuoteResponseSerialized,
   type TelaranaIntentDoc,
   type TelaranaMarketSerialized,
@@ -114,6 +116,7 @@ export function emitOracleStaleToast(): void {
 
 const MARKETS_REFRESH_MS = 30_000;
 const POSITIONS_REFRESH_MS = 20_000;
+const YIELD_REFRESH_MS = 60_000;
 // Intent deadlines must stay within the Circle Gateway signer window
 // (~7200s). We pick 1 hour so user-side latency is forgiving.
 const INTENT_DEADLINE_SKEW_SECONDS = 3_600;
@@ -253,6 +256,60 @@ export function usePositions(address: Address | undefined): PositionsState {
   }, [address, load]);
 
   return { positions, loading, error, refresh: () => void load() };
+}
+
+export interface YieldSnapshotsState {
+  snapshots: EnvioDailyMarketSnapshot[];
+  loading: boolean;
+  error: string | null;
+  refresh: () => void;
+}
+
+export function useYieldSnapshots(marketIds?: string[]): YieldSnapshotsState {
+  const [snapshots, setSnapshots] = useState<EnvioDailyMarketSnapshot[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const key = useMemo(
+    () => (marketIds?.length ? [...marketIds].sort().join(",") : "all"),
+    [marketIds],
+  );
+
+  const load = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    try {
+      const queryMarketIds = key === "all" ? undefined : key.split(",").filter(Boolean);
+      const data = await fetchYieldSnapshots({
+        marketIds: queryMarketIds,
+        limit: 500,
+        signal,
+      });
+      if (signal?.aborted) return;
+      setSnapshots(data.snapshots);
+      setError(null);
+    } catch (err) {
+      if (signal?.aborted) return;
+      setError(errMsg(err));
+      setSnapshots([]);
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, [key]);
+
+  useEffect(() => {
+    let controller = new AbortController();
+    void load(controller.signal);
+    const id = window.setInterval(() => {
+      controller.abort();
+      controller = new AbortController();
+      void load(controller.signal);
+    }, YIELD_REFRESH_MS);
+    return () => {
+      controller.abort();
+      window.clearInterval(id);
+    };
+  }, [load]);
+
+  return { snapshots, loading, error, refresh: () => void load() };
 }
 
 export interface QuoteBorrowState {
