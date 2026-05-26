@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { toast } from "@/components/ui/use-toast";
+import { useI18n } from "@/locales/client";
 
 // Detects the "Cannot set property ethereum of #<Window> which has only a
 // getter" failure that MetaMask spams when another extension (Phantom,
@@ -48,16 +49,17 @@ function detectHijack(): { hijacked: boolean; owner: string | null } {
 }
 
 export function WalletConflictDetector() {
+  const t = useI18n();
   useEffect(() => {
     // Wallet extensions inject AFTER document-ready. 1.5s is enough
     // headroom for the slowest extensions to land; longer than that and
     // the user has likely already clicked Connect and seen the error.
-    const t = window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
       const { hijacked, owner } = detectHijack();
       if (!hijacked) return;
       const ownerLabel = owner ?? "another wallet extension";
       toast({
-        title: "MetaMask blocked by another wallet",
+        title: t('Wallet.metamaskBlocked'),
         description:
           `${ownerLabel} has locked window.ethereum, so MetaMask's injection failed. ` +
           `Fix: in MetaMask → menu → Settings → Advanced → enable "Use as default Ethereum wallet". ` +
@@ -65,8 +67,8 @@ export function WalletConflictDetector() {
         duration: 15_000,
       });
     }, 1_500);
-    return () => window.clearTimeout(t);
-  }, []);
+    return () => window.clearTimeout(timer);
+  }, [t]);
   return null;
 }
 

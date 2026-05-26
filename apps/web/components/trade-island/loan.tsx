@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/popover";
 import { useToast } from "@/components/ui/use-toast";
 import { errMsg } from "@/utils";
+import { useI18n } from "@/locales/client";
 import {
   emitOracleStaleToast,
   isOracleStaleError,
@@ -712,6 +713,7 @@ function MarketsTable({
    *  not connected or no positions yet. */
   positions: TelaranaPositionSerialized[];
 }) {
+  const t = useI18n();
   const [hubFilter, setHubFilter] = useState("all");
   const visible = markets.filter((m) => hubFilter === "all" || m.hub === hubFilter);
   // Each row reads the user's wallet balance for the row's loan token on
@@ -722,7 +724,7 @@ function MarketsTable({
   return (
     <div className="lo-table-wrap">
       <div className="lo-table-head">
-        <span className="lo-eyebrow">Markets</span>
+        <span className="lo-eyebrow">{t('Lending.markets')}</span>
         <div className="lo-hub-filter">
           {["all", "arc", "fuji"].map((h) => (
             <button
@@ -730,7 +732,7 @@ function MarketsTable({
               className={"lo-hub-btn " + (hubFilter === h ? "active" : "")}
               onClick={() => setHubFilter(h)}
             >
-              {h === "all" ? "All" : LOAN_HUBS[h as HubKey].short}
+              {h === "all" ? t('Lending.all') : LOAN_HUBS[h as HubKey].short}
               <span className="lo-hub-btn-count">
                 {h === "all" ? markets.length : markets.filter((m) => m.hub === h).length}
               </span>
@@ -742,11 +744,11 @@ function MarketsTable({
       <div className="lo-table">
         <div className="lo-table-thead">
           <div className="lo-table-thead-row">
-            <span>Market</span>
-            <span style={{ textAlign: "right" }}>Supply</span>
-            <span style={{ textAlign: "right" }}>Borrow</span>
-            <span style={{ textAlign: "right" }}>Util</span>
-            <span style={{ textAlign: "right" }}>TVL</span>
+            <span>{t('Lending.market')}</span>
+            <span style={{ textAlign: "right" }}>{t('Lending.supply')}</span>
+            <span style={{ textAlign: "right" }}>{t('Lending.borrow')}</span>
+            <span style={{ textAlign: "right" }}>{t('Lending.util')}</span>
+            <span style={{ textAlign: "right" }}>{t('Lending.tvl')}</span>
           </div>
           <span className="lo-table-thead-spark" aria-hidden="true">
             30d

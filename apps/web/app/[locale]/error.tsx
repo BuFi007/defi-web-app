@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useI18n } from "@/locales/client";
 
 export default function LocaleError({
   error,
@@ -9,6 +10,8 @@ export default function LocaleError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useI18n();
+
   useEffect(() => {
     console.error(error);
   }, [error]);
@@ -20,10 +23,10 @@ export default function LocaleError({
           Error
         </p>
         <h1 className="mt-4 text-3xl font-bold tracking-tight text-foreground sm:text-5xl">
-          Something went wrong
+          {t('Errors.somethingWentWrong')}
         </h1>
         <p className="mt-4 max-w-md text-lg text-muted-foreground">
-          We hit a snag rendering this page. You can retry below.
+          {t('Errors.unexpectedError')}
         </p>
         {error.digest ? (
           <p className="mt-2 text-xs text-muted-foreground/70 font-mono">
@@ -35,7 +38,7 @@ export default function LocaleError({
           onClick={reset}
           className="mt-8 inline-flex h-10 items-center justify-center rounded-md border border-yellow-200 px-8 text-sm font-medium transition-colors hover:bg-yellow-300 hover:text-black focus:outline-none focus:ring"
         >
-          Try again
+          {t('Errors.tryAgain')}
         </button>
       </div>
     </main>

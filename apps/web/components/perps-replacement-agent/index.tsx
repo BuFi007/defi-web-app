@@ -14,6 +14,7 @@ import {
   useBufiIsConnected,
   useEnsureSession,
 } from "@/lib/session";
+import { useI18n } from "@/locales/client";
 import {
   bufxApiUrl,
   fetchReplacementNeededEvents,
@@ -77,6 +78,7 @@ export function PerpsReplacementAgent() {
 }
 
 function ReplacementToastLauncher({ count }: { count: number }) {
+  const t = useI18n();
   const { toast } = useToast();
   const { ensureHeaders } = useEnsureSession();
   const devWallet = useDevWallet();
@@ -93,8 +95,8 @@ function ReplacementToastLauncher({ count }: { count: number }) {
       const next = events.find((e) => !handled.has(e.eventId));
       if (!next) {
         toast({
-          title: "Nothing to replace",
-          description: "All residual orders are already handled.",
+          title: t('Perps.nothingToReplace'),
+          description: t('Perps.allResidualHandled'),
         });
         return;
       }
@@ -107,7 +109,7 @@ function ReplacementToastLauncher({ count }: { count: number }) {
         deadline,
       });
       const prompt = toast({
-        title: "Residual perp order ready",
+        title: t('Perps.residualOrderReady'),
         description: `${shortId(prepared.replacementOf)} has ${prepared.remainingSizeDelta} left. Sign to re-enter it.`,
         action: (
           <ToastAction
@@ -118,8 +120,8 @@ function ReplacementToastLauncher({ count }: { count: number }) {
                 prompt.update({
                   id: prompt.id,
                   open: true,
-                  title: "Confirm in wallet",
-                  description: "Sign the residual order replacement.",
+                  title: t('Perps.confirmInWallet'),
+                  description: t('Perps.signResidualReplacement'),
                 });
                 const typed = normalizeReplacementTypedData(prepared);
                 const signature: Hex = devWallet
@@ -143,8 +145,8 @@ function ReplacementToastLauncher({ count }: { count: number }) {
                 prompt.update({
                   id: prompt.id,
                   open: true,
-                  title: "Replacement submitted",
-                  description: "Back in the matcher book.",
+                  title: t('Perps.replacementSubmitted'),
+                  description: t('Perps.backInMatcherBook'),
                 });
               } catch (err) {
                 if (err instanceof UserRejectedRequestError) {
@@ -155,7 +157,7 @@ function ReplacementToastLauncher({ count }: { count: number }) {
                   id: prompt.id,
                   open: true,
                   variant: "destructive",
-                  title: "Replacement not submitted",
+                  title: t('Perps.replacementNotSubmitted'),
                   description: (err as Error).message,
                 });
               }
@@ -169,13 +171,13 @@ function ReplacementToastLauncher({ count }: { count: number }) {
       if (err instanceof UserRejectedRequestError) return;
       toast({
         variant: "destructive",
-        title: "Wallet session needed",
+        title: t('Perps.walletSessionNeeded'),
         description: (err as Error).message,
       });
     } finally {
       setBusy(false);
     }
-  }, [busy, devWallet, ensureHeaders, signTypedDataAsync, toast]);
+  }, [busy, devWallet, ensureHeaders, signTypedDataAsync, toast, t]);
 
   return (
     <button

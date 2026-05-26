@@ -266,7 +266,31 @@
   },
   "Wallet": {
     "connectWallet": "Connect Wallet",
-    "pleaseConnectWallet": "Please connect your wallet"
+    "pleaseConnectWallet": "Please connect your wallet",
+    "network": "Network",
+    "totalOnThisChain": "Total on this chain",
+    "connectForBalances": "Connect a wallet to see live balances.",
+    "metamaskBlocked": "MetaMask blocked by another wallet"
+  },
+  "Perps": {
+    "nothingToReplace": "Nothing to replace",
+    "allResidualHandled": "All residual orders are already handled.",
+    "residualOrderReady": "Residual perp order ready",
+    "confirmInWallet": "Confirm in wallet",
+    "signResidualReplacement": "Sign the residual order replacement.",
+    "replacementSubmitted": "Replacement submitted",
+    "backInMatcherBook": "Back in the matcher book.",
+    "replacementNotSubmitted": "Replacement not submitted",
+    "walletSessionNeeded": "Wallet session needed"
+  },
+  "Lending": {
+    "markets": "Markets",
+    "all": "All",
+    "market": "Market",
+    "supply": "Supply",
+    "borrow": "Borrow",
+    "util": "Util",
+    "tvl": "TVL"
   },
   "Errors": {
     "somethingWentWrong": "Something went wrong",

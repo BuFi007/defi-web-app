@@ -15,6 +15,7 @@ import {
   type StableTokenType,
 } from "@bufi/location/stable-tokens";
 import type { Token } from "@/lib/types";
+import { useI18n } from "@/locales/client";
 
 import { SPOKE_CHAINS, type SpokeChain } from "./deployments";
 
@@ -167,6 +168,7 @@ const TokenBalanceRow: React.FC<{
 };
 
 export const StablecoinBalances: React.FC = () => {
+  const t = useI18n();
   const { address, isConnected } = useAccount();
   const [activeChainId, setActiveChainId] = useState<number>(
     SPOKE_CHAINS[0].chainId,
@@ -544,7 +546,7 @@ export const StablecoinBalances: React.FC = () => {
                         value={String(activeChainId)}
                         onChange={(v) => setActiveChainId(Number(v))}
                         chains={SPOKE_CHAINS.map((c) => c.chain)}
-                        label="Network"
+                        label={t('Wallet.network')}
                         variant="ghost"
                       />
                     </div>
@@ -561,7 +563,7 @@ export const StablecoinBalances: React.FC = () => {
 
                     {isConnected ? (
                       <div className="acct-island-foot">
-                        <span className="acct-island-foot-l">Total on this chain</span>
+                        <span className="acct-island-foot-l">{t('Wallet.totalOnThisChain')}</span>
                         <span
                           className="mono acct-island-foot-v"
                           title="Approximate sum of all token balances on this chain, converted to USDC face value via reference FX rates. Not a tradeable quote."
@@ -577,7 +579,7 @@ export const StablecoinBalances: React.FC = () => {
                       </div>
                     ) : (
                       <div className="acct-island-empty">
-                        Connect a wallet to see live balances.
+                        {t('Wallet.connectForBalances')}
                       </div>
                     )}
                   </motion.div>
