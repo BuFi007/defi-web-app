@@ -144,6 +144,14 @@ pub struct Config {
     /// `<prefix>trades` (firehose across all markets),
     /// `<prefix>book:<market_id_hex>` (per-market book). Phase 8.5b.
     pub redis_channel_prefix: String,
+    /// WebSocket gateway bind address for the Hybrid CLOB sequencer.
+    /// Default empty (disabled). Set `MATCHER_WS_BIND=127.0.0.1:3007`
+    /// to enable. Phase 2.
+    pub ws_bind: String,
+    /// Batch flusher interval in ms. Default 3000 (3s). Phase 2.
+    pub batch_interval_ms: u64,
+    /// Max fills before forced flush. Default 20. Phase 2.
+    pub batch_max_fills: usize,
 }
 
 impl Config {
@@ -270,6 +278,9 @@ impl Config {
             ready_max_tick_age,
             redis_url,
             redis_channel_prefix,
+            ws_bind: env::var("MATCHER_WS_BIND").unwrap_or_default(),
+            batch_interval_ms: parse_env_u64("MATCHER_BATCH_INTERVAL_MS", 3_000)?,
+            batch_max_fills: parse_env_u64("MATCHER_BATCH_MAX_FILLS", 20)? as usize,
         })
     }
 

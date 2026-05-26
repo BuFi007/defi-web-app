@@ -428,8 +428,11 @@ mod tests {
             grpc_bind: String::new(), // disabled in tick unit tests
             http_bind: String::new(), // ditto for HTTP /health
             ready_max_tick_age: Duration::from_secs(60),
-            redis_url: String::new(), // 8.5b realtime publisher off in tests
+            redis_url: String::new(),
             redis_channel_prefix: "bufi:".to_string(),
+            ws_bind: String::new(),
+            batch_interval_ms: 3_000,
+            batch_max_fills: 20,
         }
     }
 

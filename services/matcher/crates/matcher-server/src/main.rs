@@ -28,6 +28,7 @@ use crate::insurance_fund::InsuranceFundWatchdog;
 use crate::lp_signer::LpSigner;
 use crate::lp_state::PathALpStateView;
 
+mod batch_flusher;
 mod canary;
 mod config;
 mod event_subscriber;
@@ -45,8 +46,10 @@ mod pyth_pusher;
 mod pyth_pusher_ws;
 mod realtime;
 mod replacement_events;
+mod sequencer;
 mod settlement;
 mod tick;
+mod ws_gateway;
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -264,7 +267,48 @@ async fn main() -> ExitCode {
         },
     );
 
-    // ---------- Tick loop ----------
+    // ---------- Sequencer + Batch Flusher (Phase 2) ----------
+    let (fill_tx, fill_rx) = tokio::sync::mpsc::unbounded_channel();
+    let (seq_tx, seq_rx) = tokio::sync::mpsc::channel::<sequencer::SequencerCommand>(1024);
+
+    let seq_grpc = grpc_handle.as_ref().map(|_| grpc_state.clone());
+    let seq = sequencer::Sequencer::new(fill_tx, seq_grpc);
+    let sequencer_handle = tokio::spawn(async move { seq.run(seq_rx).await });
+
+    let flusher_grpc = grpc_handle.as_ref().map(|_| grpc_state.clone());
+    let flusher = batch_flusher::BatchFlusher::new(
+        db.clone(),
+        onchain.clone(),
+        batch_flusher::BatchFlusherConfig {
+            interval: std::time::Duration::from_millis(cfg.batch_interval_ms),
+            max_fills: cfg.batch_max_fills,
+        },
+        flusher_grpc,
+    );
+    let flusher_handle = tokio::spawn(async move { flusher.run(fill_rx).await });
+
+    // ---------- WS Gateway (Phase 2) ----------
+    let ws_handle = if cfg.ws_bind.is_empty() {
+        info!("WS gateway disabled (MATCHER_WS_BIND empty)");
+        None
+    } else {
+        match cfg.ws_bind.parse::<std::net::SocketAddr>() {
+            Ok(addr) => {
+                let ws_state = ws_gateway::WsState { seq_tx: seq_tx.clone() };
+                Some(tokio::spawn(async move {
+                    if let Err(e) = ws_gateway::serve(addr, ws_state).await {
+                        error!(error = ?e, "WS gateway exited with error");
+                    }
+                }))
+            }
+            Err(e) => {
+                error!(bind = %cfg.ws_bind, error = ?e, "MATCHER_WS_BIND parse: aborting");
+                return ExitCode::FAILURE;
+            }
+        }
+    };
+
+    // ---------- Tick loop (legacy, still runs alongside sequencer) ----------
     let tick_cfg = cfg.clone();
     let tick_db = db.clone();
     let tick_onchain = onchain.clone();
@@ -346,6 +390,18 @@ async fn main() -> ExitCode {
         }
     };
     tokio::pin!(realtime_future);
+    let ws_future = async {
+        match ws_handle {
+            Some(h) => {
+                let res = h.await;
+                error!(result = ?res, "WS gateway exited unexpectedly");
+            }
+            None => {
+                std::future::pending::<()>().await;
+            }
+        }
+    };
+    tokio::pin!(ws_future);
     tokio::select! {
         _ = shutdown_signal() => {
             info!("shutdown signal received");
@@ -367,6 +423,13 @@ async fn main() -> ExitCode {
         _ = &mut grpc_future => {}
         _ = &mut http_future => {}
         _ = &mut realtime_future => {}
+        _ = &mut ws_future => {}
+        res = sequencer_handle => {
+            error!(result = ?res, "sequencer exited unexpectedly");
+        }
+        res = flusher_handle => {
+            error!(result = ?res, "batch flusher exited unexpectedly");
+        }
     }
     info!("BUFI matcher server stopped");
     ExitCode::SUCCESS

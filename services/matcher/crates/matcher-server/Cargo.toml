@@ -32,7 +32,7 @@ async-stream = "0.3"
 # Phase 8.5a — HTTP /health + /ready + /metrics on a separate port
 # from the gRPC server (HTTP/1.1 for k8s liveness probes + Prometheus
 # scrapes; tonic on :3005 stays HTTP/2 prior-knowledge for clients).
-axum = "0.7"
+axum = { version = "0.7", features = ["ws"] }
 
 # Phase 8.5b — optional Redis publisher tap on existing broadcast
 # channels (GrpcState::trade_tx + book_tx). For non-gRPC consumers
