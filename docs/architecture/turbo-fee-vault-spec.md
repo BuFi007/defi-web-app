@@ -262,32 +262,39 @@ v4 ourselves at deterministic addresses.
 | Arc Testnet (5042002) | EXISTS | NOT DEPLOYED | We deploy |
 | Avalanche Fuji (43113) | EXISTS | NOT DEPLOYED | We deploy |
 
-**Dual-chain architecture (not full parity — by design):**
+**Dual-chain architecture — shared lending, single CLOB:**
 
 ```
-ARC TESTNET = Execution Layer
+ARC TESTNET = Execution Hub + Lending
   - Perps CLOB (sequencer, matcher, settlement)
   - Spot FX executor
-  - Uniswap v4 pools + FxHedgeHook
+  - Morpho Blue markets (Arc-native: EURC/USDC, MXNB/USDC, cirBTC/USDC)
+  - Uniswap v4 pools + FxHedgeHook + FxFeeHook
   - TurboFeeVault (fee collection + distribution)
-  - cirBTC/USDC, EURC/USDC trading pairs
   - USDC as native gas
 
-AVALANCHE FUJI = Lending Layer
-  - Morpho Blue markets (EURC/USDC, MXNB/USDC, etc.)
-  - Uniswap v4 pools + FxFeeHook (swap fees)
+AVALANCHE FUJI = Lending Hub + Gateway Origin
+  - Morpho Blue markets (Fuji-native: EURC/USDC, MXNB/USDC)
+  - Uniswap v4 pools + FxFeeHook
   - Telarana gateway (cross-chain deposits/withdrawals)
-  - CCTP bridge to Arc for trade settlement
 
-CCTP CONNECTS THEM:
-  Fuji lender deposits USDC → CCTP → Arc margin account
-  Arc trading fee → CCTP → Fuji TurboFeeVault distribution
-  Fuji LP hedge request → CCTP → Arc CLOB opens perps position
+TELARANA GATEWAY CONNECTS THEM:
+  Fuji lender deposits EURC → gateway → borrows USDC on Arc
+  Arc lender deposits USDC → gateway → borrows EURC on Fuji
+  Any hub, any direction — that's the whole point of Telarana
+
+CLOB IS ARC-ONLY:
+  All perps trading settles on Arc
+  Fuji LPs who want hedge exposure → CCTP → Arc CLOB
+  Trading fees from Arc CLOB → TurboFeeVault → distributed to
+  LPs on BOTH chains pro-rata
 ```
 
-This is cleaner than full parity. One CLOB, one source of truth
-for order matching. Lending lives where the Morpho contracts are.
-CCTP bridges the settlement. Each chain does what it's best at.
+Both chains lend. Both chains have Morpho markets. Both chains
+have Uniswap v4 pools. Only Arc has the perps CLOB + spot executor.
+The Telarana gateway already handles cross-chain lending — that's
+the protocol's core design. The yield engine just adds trading fees
+on top of what the gateway already routes.
 
 **Deployment steps (fx-telarana repo, next session):**
 
