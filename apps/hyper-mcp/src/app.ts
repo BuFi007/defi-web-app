@@ -272,9 +272,16 @@ export default {
 
     if (url.pathname === "/mcp" || url.pathname.startsWith("/mcp/")) {
       if (req.method === "GET") {
+        const accept = req.headers.get("accept") ?? "";
+        if (accept.includes("text/event-stream")) {
+          return mcp.handle(req);
+        }
         return new Response(JSON.stringify(mcpLandingPage, null, 2), {
           headers: { "content-type": "application/json" },
         });
+      }
+      if (req.method === "DELETE") {
+        return mcp.handle(req);
       }
       let toolName = "unknown";
       try {

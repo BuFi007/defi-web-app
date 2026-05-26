@@ -79,8 +79,12 @@ const ghostDeposit = route
     z.object({
       symbol: z.enum(["USDC", "EURC", "MXNB", "QCAD", "cirBTC", "AUDF"]),
       amount: z.string().regex(/^\d+(\.\d+)?$/),
-      depositor: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
-    }),
+      depositor: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional(),
+      trader: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional(),
+    }).refine(
+      (d) => d.depositor || d.trader,
+      { message: "depositor or trader address is required" },
+    ).transform((d) => ({ ...d, depositor: d.depositor ?? d.trader! })),
   )
   .meta({
     mcp: {
@@ -121,9 +125,13 @@ const ghostRelay = route
   .body(
     z.object({
       symbol: z.enum(["USDC", "EURC", "MXNB", "QCAD", "cirBTC", "AUDF"]),
-      recipient: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+      recipient: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional(),
+      trader: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional(),
       amount: z.string().regex(/^\d+(\.\d+)?$/),
-    }),
+    }).refine(
+      (d) => d.recipient || d.trader,
+      { message: "recipient or trader address is required" },
+    ).transform((d) => ({ ...d, recipient: d.recipient ?? d.trader! })),
   )
   .meta({
     mcp: {
@@ -176,8 +184,12 @@ const ghostSwap = route
       from: z.enum(["USDC", "EURC"]),
       to: z.enum(["USDC", "EURC"]),
       amount: z.string().regex(/^\d+(\.\d+)?$/),
-      recipient: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
-    }),
+      recipient: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional(),
+      trader: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional(),
+    }).refine(
+      (d) => d.recipient || d.trader,
+      { message: "recipient or trader address is required" },
+    ).transform((d) => ({ ...d, recipient: d.recipient ?? d.trader! })),
   )
   .meta({
     mcp: {
