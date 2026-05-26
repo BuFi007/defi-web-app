@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=./node_modules/envio/evm.schema.json
+name: bufx-yield-engine
+
+contracts:
+  - name: FxOrderSettlement
+    abi_file_path: ./abis/FxOrderSettlement.json
+    handler: ./src/handlers/perps.ts
+    events:
+      - event: MatchSettled(bytes32 indexed marketId, address indexed maker, address indexed taker, uint256 sizeDeltaE18, uint256 priceE18, uint256 fee)
+        field_selection:
+          transaction_fields:
+            - hash
+
+  - name: FxPerpClearinghouse
+    abi_file_path: ./abis/FxPerpClearinghouse.json
+    handler: ./src/handlers/perps.ts
+    events:
+      - event: PositionChanged(bytes32 indexed marketId, address indexed trader, int256 sizeDeltaE18, int256 resultingSizeE18, uint256 entryPriceE18)
+      - event: FundingPoked(bytes32 indexed marketId, int256 fundingRateE18, uint256 timestamp)
+
+  - name: FxSpotExecutor
+    abi_file_path: ./abis/FxSpotExecutor.json
+    handler: ./src/handlers/spot.ts
+    events:
+      - event: SpotFxExecuted(address indexed sender, address indexed baseToken, address indexed quoteToken, uint256 baseAmount, uint256 quoteAmount)
+        field_selection:
+          transaction_fields:
+            - hash
+
+  - name: MorphoBlue
+    abi_file_path: ./abis/MorphoBlue.json
+    handler: ./src/handlers/lending.ts
+    events:
+      - event: Supply(bytes32 indexed id, address indexed caller, address indexed onBehalf, uint256 assets, uint256 shares)
+      - event: Withdraw(bytes32 indexed id, address caller, address indexed onBehalf, address indexed receiver, uint256 assets, uint256 shares)
+      - event: Borrow(bytes32 indexed id, address caller, address indexed onBehalf, address indexed receiver, uint256 assets, uint256 shares)
+      - event: Repay(bytes32 indexed id, address indexed caller, address indexed onBehalf, uint256 assets, uint256 shares)
+
+chains:
+  - id: 5042002
+    start_block: 0
+    contracts:
+      - name: FxOrderSettlement
+        address:
+          - "0x904bb24A910c54A84341E157B894d11B474A2e1F"
+      - name: FxPerpClearinghouse
+        address:
+          - "0xCE3401BD53be4c0a8c7CCb0376b313925f99b8d2"
+      - name: FxSpotExecutor
+        address:
+          - "0x37ccDa89628Fd3Cc1f8ef5e45D8725c4e3a59542"
+      - name: MorphoBlue
+        address:
+          - "0x65f435eB4FF05f1481618694bC1ff7Ee4680c0A4"
+
+  - id: 43113
+    start_block: 0
+    contracts:
+      - name: MorphoBlue
+        address:
+          - "0x65f435eB4FF05f1481618694bC1ff7Ee4680c0A4"
+
+field_selection:
+  transaction_fields:
+    - hash

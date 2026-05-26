@@ -1,0 +1,86 @@
+# BUFX Yield Engine — indexed by Envio HyperIndex
+# Tracks trading fees, lending rates, and composite yield per market.
+
+type PerpTrade {
+  id: ID!
+  marketId: String! @index
+  maker: String! @index
+  taker: String! @index
+  sizeDeltaE18: BigInt!
+  priceE18: BigInt!
+  fee: BigInt!
+  txHash: String!
+  blockNumber: Int!
+  timestamp: Int!
+  chainId: Int!
+}
+
+type SpotSwap {
+  id: ID!
+  sender: String! @index
+  baseToken: String!
+  quoteToken: String!
+  baseAmount: BigInt!
+  quoteAmount: BigInt!
+  txHash: String!
+  blockNumber: Int!
+  timestamp: Int!
+  chainId: Int!
+}
+
+type FundingEvent {
+  id: ID!
+  marketId: String! @index
+  fundingRateE18: BigInt!
+  timestamp: Int!
+  chainId: Int!
+}
+
+type PositionChange {
+  id: ID!
+  marketId: String! @index
+  trader: String! @index
+  sizeDeltaE18: BigInt!
+  resultingSizeE18: BigInt!
+  entryPriceE18: BigInt!
+  blockNumber: Int!
+  timestamp: Int!
+  chainId: Int!
+}
+
+type LendingEvent {
+  id: ID!
+  marketId: String! @index
+  caller: String!
+  onBehalf: String! @index
+  assets: BigInt!
+  shares: BigInt!
+  action: String! @index
+  blockNumber: Int!
+  timestamp: Int!
+  chainId: Int!
+}
+
+# Aggregated daily snapshot per market — derived by handlers.
+type DailyMarketSnapshot {
+  id: ID!
+  marketId: String! @index
+  date: String! @index
+  chainId: Int!
+  # Perps
+  perpVolume: BigInt!
+  perpFees: BigInt!
+  perpTradeCount: Int!
+  # Spot
+  spotVolume: BigInt!
+  spotTradeCount: Int!
+  # Lending
+  totalSupply: BigInt!
+  totalBorrow: BigInt!
+  supplyEvents: Int!
+  borrowEvents: Int!
+  # Funding
+  lastFundingRate: BigInt!
+  # Derived yield (computed per snapshot)
+  annualizedFeeApy: BigInt!
+}
