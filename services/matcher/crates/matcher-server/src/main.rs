@@ -29,9 +29,11 @@ use crate::lp_signer::LpSigner;
 use crate::lp_state::PathALpStateView;
 
 mod batch_flusher;
+mod book_wal;
 mod canary;
 mod config;
 mod event_subscriber;
+mod expiry_sweeper;
 mod funding_poker;
 mod grpc;
 mod http_health;
@@ -311,24 +313,60 @@ async fn main() -> ExitCode {
         }
     };
 
-    // ---------- Tick loop (legacy, still runs alongside sequencer) ----------
+    // ---------- Tick loop (legacy fallback — kept for non-WS deployments) ----------
     let tick_cfg = cfg.clone();
     let tick_db = db.clone();
     let tick_onchain = onchain.clone();
     let tick_deployment = deployment;
     let tick_grpc_state = grpc_handle.as_ref().map(|_| grpc_state.clone());
-    let tick_handle = tokio::spawn(async move {
-        tick::run(
-            tick_db,
-            tick_onchain,
-            tick_deployment,
-            tick_cfg,
-            lp_signer,
-            lp_state,
-            tick_grpc_state,
-        )
-        .await
-    });
+    let tick_handle = if cfg.ws_bind.is_empty() {
+        // No WS gateway — tick loop is the primary matching path.
+        Some(tokio::spawn(async move {
+            tick::run(
+                tick_db,
+                tick_onchain,
+                tick_deployment,
+                tick_cfg,
+                lp_signer,
+                lp_state,
+                tick_grpc_state,
+            )
+            .await
+        }))
+    } else {
+        // WS gateway active — sequencer handles matching.
+        // Tick loop is disabled; expiry sweeper takes over.
+        info!("tick loop disabled (MATCHER_WS_BIND set; sequencer is primary)");
+        None
+    };
+
+    // ---------- Expiry sweeper (Phase 4) ----------
+    let sweeper_handle = if !cfg.ws_bind.is_empty() {
+        let sweeper = expiry_sweeper::ExpirySweeper::new(
+            db.clone(),
+            expiry_sweeper::ExpirySweeperConfig {
+                chain_id: cfg.chain_id as i64,
+                interval: cfg.tick_idle,
+            },
+            grpc_handle.as_ref().map(|_| grpc_state.clone()),
+        );
+        Some(tokio::spawn(async move { sweeper.run().await }))
+    } else {
+        None
+    };
+
+    // ---------- Book WAL (Phase 5) ----------
+    let wal_handle = if !cfg.ws_bind.is_empty() {
+        if let Some(gs) = grpc_handle.as_ref().map(|_| grpc_state.clone()) {
+            let wal_cfg = book_wal::BookWalConfig::from_db_path(&cfg.db_path);
+            let wal = book_wal::BookWal::new(wal_cfg, gs);
+            Some(tokio::spawn(async move { wal.run().await }))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
 
     // ---------- Shutdown ----------
     let canary_future = async {
@@ -405,13 +443,34 @@ async fn main() -> ExitCode {
         }
     };
     tokio::pin!(ws_future);
+    let tick_future = async {
+        match tick_handle {
+            Some(h) => { let res = h.await; error!(result = ?res, "tick loop exited unexpectedly"); }
+            None => { std::future::pending::<()>().await; }
+        }
+    };
+    tokio::pin!(tick_future);
+    let sweeper_future = async {
+        match sweeper_handle {
+            Some(h) => { let res = h.await; error!(result = ?res, "expiry sweeper exited unexpectedly"); }
+            None => { std::future::pending::<()>().await; }
+        }
+    };
+    tokio::pin!(sweeper_future);
+    let wal_future = async {
+        match wal_handle {
+            Some(h) => { let res = h.await; error!(result = ?res, "book WAL exited unexpectedly"); }
+            None => { std::future::pending::<()>().await; }
+        }
+    };
+    tokio::pin!(wal_future);
     tokio::select! {
         _ = shutdown_signal() => {
             info!("shutdown signal received");
         }
-        res = tick_handle => {
-            error!(result = ?res, "tick loop exited unexpectedly");
-        }
+        _ = &mut tick_future => {}
+        _ = &mut sweeper_future => {}
+        _ = &mut wal_future => {}
         res = subscriber_handle => {
             error!(result = ?res, "event subscriber exited unexpectedly");
         }
