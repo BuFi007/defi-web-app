@@ -268,6 +268,67 @@ SMOKE_MARGIN_SEEDER_PRIVATE_KEY="$ARC_OPERATOR_PRIVATE_KEY" \
 bun run smoke:perps-replacement:arc
 ```
 
+## MCP Endpoints (for judges & integrators)
+
+### Live MCP Server
+
+| Endpoint | URL |
+|----------|-----|
+| **MCP JSON-RPC** (POST) | `https://mcp.bu.finance/mcp` |
+| **MCP Landing** (GET) | `https://mcp.bu.finance/mcp` |
+| **OpenAPI 3.1 spec** | `https://mcp.bu.finance/openapi.json` |
+| **LLM protocol description** | `https://mcp.bu.finance/llms.txt` |
+| **Health check** | `https://mcp.bu.finance/health` |
+| **SSE price stream** | `https://mcp.bu.finance/api/stream/prices/:symbol` |
+
+### Connect your agent
+
+**Claude Code** (one-liner):
+```bash
+claude mcp add --transport http bufi-hyper https://mcp.bu.finance/mcp
+```
+
+**Codex**:
+```bash
+codex --approval-mode full-auto -q "claude mcp add --transport http bufi-hyper https://mcp.bu.finance/mcp"
+```
+
+**Claude Desktop / Cursor / Windsurf**:
+```json
+{
+  "mcpServers": {
+    "bufi-hyper": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.bu.finance/mcp", "--allow-http"]
+    }
+  }
+}
+```
+
+**.mcp.json** (project-level):
+```json
+{
+  "mcpServers": {
+    "bufi-hyper": {
+      "type": "url",
+      "url": "https://mcp.bu.finance/mcp"
+    }
+  }
+}
+```
+
+### Live product surfaces
+
+| Surface | URL |
+|---------|-----|
+| **Web app** | `https://fx.bu.finance` |
+| **API** | `https://api.bu.finance` |
+| **GraphQL** | `https://api.bu.finance/graph` |
+
+### 22 MCP tools available
+
+Perpetual futures (8 tools), spot FX (2), lending & borrowing (6), leaderboard & ERC-8004 reputation (4), auth & streaming (2). Full tool list at `GET https://mcp.bu.finance/mcp`.
+
 ## Mental model
 
 > Liveblocks makes it realtime.
