@@ -262,9 +262,32 @@ v4 ourselves at deterministic addresses.
 | Arc Testnet (5042002) | EXISTS | NOT DEPLOYED | We deploy |
 | Avalanche Fuji (43113) | EXISTS | NOT DEPLOYED | We deploy |
 
-Deploy on BOTH chains. Arc is the primary CLOB venue. Fuji has
-Morpho lending pools + Telarana gateway contracts. Multi-chain
-demo strengthens the hookathon pitch (hedge on Arc, lend on Fuji).
+**Dual-chain architecture (not full parity — by design):**
+
+```
+ARC TESTNET = Execution Layer
+  - Perps CLOB (sequencer, matcher, settlement)
+  - Spot FX executor
+  - Uniswap v4 pools + FxHedgeHook
+  - TurboFeeVault (fee collection + distribution)
+  - cirBTC/USDC, EURC/USDC trading pairs
+  - USDC as native gas
+
+AVALANCHE FUJI = Lending Layer
+  - Morpho Blue markets (EURC/USDC, MXNB/USDC, etc.)
+  - Uniswap v4 pools + FxFeeHook (swap fees)
+  - Telarana gateway (cross-chain deposits/withdrawals)
+  - CCTP bridge to Arc for trade settlement
+
+CCTP CONNECTS THEM:
+  Fuji lender deposits USDC → CCTP → Arc margin account
+  Arc trading fee → CCTP → Fuji TurboFeeVault distribution
+  Fuji LP hedge request → CCTP → Arc CLOB opens perps position
+```
+
+This is cleaner than full parity. One CLOB, one source of truth
+for order matching. Lending lives where the Morpho contracts are.
+CCTP bridges the settlement. Each chain does what it's best at.
 
 **Deployment steps (fx-telarana repo, next session):**
 
