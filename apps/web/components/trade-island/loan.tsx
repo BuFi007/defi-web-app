@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/popover";
 import { useToast } from "@/components/ui/use-toast";
 import { errMsg } from "@/utils";
-import { useI18n } from "@/locales/client";
+import { useScopedI18n } from "@/locales/client";
 import {
   emitOracleStaleToast,
   isOracleStaleError,
@@ -713,7 +713,7 @@ function MarketsTable({
    *  not connected or no positions yet. */
   positions: TelaranaPositionSerialized[];
 }) {
-  const t = useI18n();
+  const t = useScopedI18n('Lending');
   const [hubFilter, setHubFilter] = useState("all");
   const visible = markets.filter((m) => hubFilter === "all" || m.hub === hubFilter);
   // Each row reads the user's wallet balance for the row's loan token on
@@ -724,7 +724,7 @@ function MarketsTable({
   return (
     <div className="lo-table-wrap">
       <div className="lo-table-head">
-        <span className="lo-eyebrow">{t('Lending.markets')}</span>
+        <span className="lo-eyebrow">{t('markets')}</span>
         <div className="lo-hub-filter">
           {["all", "arc", "fuji"].map((h) => (
             <button
@@ -732,7 +732,7 @@ function MarketsTable({
               className={"lo-hub-btn " + (hubFilter === h ? "active" : "")}
               onClick={() => setHubFilter(h)}
             >
-              {h === "all" ? t('Lending.all') : LOAN_HUBS[h as HubKey].short}
+              {h === "all" ? t('all') : LOAN_HUBS[h as HubKey].short}
               <span className="lo-hub-btn-count">
                 {h === "all" ? markets.length : markets.filter((m) => m.hub === h).length}
               </span>
@@ -1547,7 +1547,7 @@ export interface LoanTabIntent {
   action: "withdraw" | "repay";
 }
 
-export function LoanTab({ initialIntent }: { initialIntent?: LoanTabIntent | null }) {
+export function LoanTab({ initialIntent, onActiveMarketChange }: { initialIntent?: LoanTabIntent | null; onActiveMarketChange?: (info: { loan: string; coll: string; supply: number | null; borrow: number | null }) => void }) {
   const { address } = useAccount();
   const { toast } = useToast();
   const { markets: liveMarkets, error: marketsError } = useMarkets();
@@ -1599,6 +1599,18 @@ export function LoanTab({ initialIntent }: { initialIntent?: LoanTabIntent | nul
       if (firstLive) setSelectedId(firstLive.id);
     }
   }, [enrichedMarkets, market]);
+
+  // Notify parent of the active market so it can update the browser tab title.
+  useEffect(() => {
+    if (onActiveMarketChange && market) {
+      onActiveMarketChange({
+        loan: market.loan,
+        coll: market.coll,
+        supply: market.supply,
+        borrow: market.borrow,
+      });
+    }
+  }, [onActiveMarketChange, market?.id, market?.loan, market?.coll, market?.supply, market?.borrow]);
 
   // Hero stats (net worth / supplied / borrowed) were removed 2026-05-18
   // because the no-wallet fallback rendered LOAN_POSITIONS demo numbers

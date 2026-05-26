@@ -7,7 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { truncateAddress } from "@/utils";
 import { useScopedI18n } from "@/locales/client";
 import { useDocumentTitle } from "@/hooks/use-document-title";
-import { tradeTabTitle, DEFAULT_TAB_TITLE } from "@/utils/format-tab-title";
+import { tradeTabTitle, loanTabTitle, DEFAULT_TAB_TITLE } from "@/utils/format-tab-title";
 
 import {
   ALL_MARKETS,
@@ -1201,6 +1201,7 @@ export default function TradeIsland() {
   const [marketSym, setMarketSym] = useState("EUR/USD");
   const [arcade, setArcade] = useState(false);
   const [loanIntent, setLoanIntent] = useState<LoanTabIntent | null>(null);
+  const [activeLoanMarket, setActiveLoanMarket] = useState<{ loan: string; coll: string; supply: number | null; borrow: number | null } | null>(null);
 
   // Callback for position row Withdraw/Repay buttons — switches to the
   // loan tab with the target market and action pre-selected.
@@ -1255,8 +1256,11 @@ export default function TradeIsland() {
     if (tab === "trade" && market.price > 0) {
       return tradeTabTitle(market.sym, market.price, market.change);
     }
+    if (tab === "loan" && activeLoanMarket) {
+      return loanTabTitle(activeLoanMarket.loan, activeLoanMarket.coll, "supply", activeLoanMarket.supply);
+    }
     return DEFAULT_TAB_TITLE;
-  }, [tab, market.sym, market.price, market.change]);
+  }, [tab, market.sym, market.price, market.change, activeLoanMarket]);
   useDocumentTitle(tabTitle);
 
   // Adaptive width per tab — the dynamic-island morph. Every tab maps
@@ -1344,7 +1348,7 @@ export default function TradeIsland() {
               />
             )}
             {tab === "positions" && <PositionsOnlyTab onLoanAction={navigateToLoan} />}
-            {tab === "loan" && <LoanTab initialIntent={loanIntent} />}
+            {tab === "loan" && <LoanTab initialIntent={loanIntent} onActiveMarketChange={setActiveLoanMarket} />}
             {tab === "leaders" && <LeadersTab />}
             {tab === "history" && <HistoryTab />}
           </motion.div>
