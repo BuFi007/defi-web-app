@@ -129,7 +129,22 @@ fxTelaranaRoutes.get("/markets/:hubChainId/:marketId/oracle", async (c) => {
     });
     const market = await getMarketById(ref);
     if (!market) return c.json({ error: "market_not_found" }, 404);
-    const oracle = await readMarketOracleQuote({ market });
+    let oracle: Awaited<ReturnType<typeof readMarketOracleQuote>>;
+    try {
+      oracle = await readMarketOracleQuote({ market });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const code = (error as { code?: string }).code;
+      c.var.log.warn("oracle_unavailable", { err: message, ...(code ? { code } : {}) });
+      return c.json(
+        {
+          error: message,
+          ...(code ? { code } : {}),
+          source: "oracle_unavailable",
+        },
+        424,
+      );
+    }
     return jsonRes(c, {
       ...ref,
       loanToken: market.loanToken,

@@ -15,7 +15,7 @@
  * counterpart that handles proof generation.
  */
 
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { createPublicClient, http, type Address, type Hex } from "viem";
 
 import {
@@ -40,6 +40,14 @@ function parseChain(value: string | undefined): PrivacyChainKey {
   throw new Error("chain must be 'arc' or 'fuji'");
 }
 
+function parseChainParam(c: Context): { ok: true; chain: PrivacyChainKey } | { ok: false; response: Response } {
+  try {
+    return { ok: true, chain: parseChain(c.req.query("chain") ?? "arc") };
+  } catch (e) {
+    return { ok: false, response: c.json({ error: (e as Error).message }, 400) };
+  }
+}
+
 function clientFor(chain: PrivacyChainKey) {
   const chainId = CHAIN_BY_KEY[chain];
   return createPublicClient({ transport: http(getRpcUrl(chainId)) });
@@ -53,7 +61,9 @@ function clientFor(chain: PrivacyChainKey) {
  * Ghost Mode pool overview without each consumer rebuilding an RPC.
  */
 privacyRoutes.get("/state", async (c) => {
-  const chain = parseChain(c.req.query("chain") ?? "arc");
+  const parsed = parseChainParam(c);
+  if (!parsed.ok) return parsed.response;
+  const chain = parsed.chain;
   const chainId = CHAIN_BY_KEY[chain];
   const contracts = getContracts(chainId).privacy;
   if (!contracts.entrypoint) {
@@ -108,7 +118,9 @@ privacyRoutes.get("/state", async (c) => {
  * the entrypoint's internal mapping.
  */
 privacyRoutes.get("/pool", async (c) => {
-  const chain = parseChain(c.req.query("chain") ?? "arc");
+  const parsed = parseChainParam(c);
+  if (!parsed.ok) return parsed.response;
+  const chain = parsed.chain;
   const scopeRaw = c.req.query("scope");
   if (!scopeRaw) return c.json({ error: "scope required" }, 400);
   let scope: bigint;
@@ -282,7 +294,9 @@ const FUJI_PRIVACY_REGISTRY: PrivacyAssetEntry[] = [
 ];
 
 privacyRoutes.get("/assets", (c) => {
-  const chain = parseChain(c.req.query("chain") ?? "arc");
+  const parsed = parseChainParam(c);
+  if (!parsed.ok) return parsed.response;
+  const chain = parsed.chain;
   const chainId = CHAIN_BY_KEY[chain];
   const contracts = getContracts(chainId).privacy;
   const assets = chain === "arc" ? ARC_PRIVACY_REGISTRY : FUJI_PRIVACY_REGISTRY;

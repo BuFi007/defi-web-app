@@ -31,6 +31,12 @@ const database = databaseUrl
       directory: process.env.PONDER_PGLITE_DIR ?? ".ponder/pglite",
     };
 
+// Keep backend indexers on an RPC that can serve old Fuji blocks and large
+// getLogs ranges. The shared `DEFAULT_RPC_URLS[43113]` fallback is optimized
+// for browser CORS reads, PublicNode returns null for some old blocks, and the
+// official Avalanche endpoint rate-limits long Ponder backfills.
+const DEFAULT_PONDER_FUJI_RPC_URL = "https://avalanche-fuji.gateway.tenderly.co";
+
 const chains = {
   arcTestnet: {
     id: 5042002,
@@ -38,7 +44,7 @@ const chains = {
   },
   avalancheFuji: {
     id: 43113,
-    rpc: http(process.env.PONDER_RPC_URL_AVAX_FUJI ?? DEFAULT_RPC_URLS[43113]),
+    rpc: http(process.env.PONDER_RPC_URL_AVAX_FUJI ?? DEFAULT_PONDER_FUJI_RPC_URL),
   },
 } as const;
 

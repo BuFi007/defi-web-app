@@ -106,6 +106,21 @@ function parseChainQuery(reqUrl: string) {
   return ChainQuerySchema.parse(Object.fromEntries(new URL(reqUrl).searchParams));
 }
 
+function parseOnchainRoomId(c: Context): string | Response {
+  const id = c.req.param("id");
+  if (!id) {
+    return c.json({ error: "room id required" }, 400);
+  }
+  try {
+    const value = BigInt(id);
+    const maxUint256 = (1n << 256n) - 1n;
+    if (value < 0n || value > maxUint256) throw new Error("room id out of range");
+    return id;
+  } catch {
+    return c.json({ error: "room id must be a uint256 (decimal or 0x-hex)" }, 400);
+  }
+}
+
 async function transactionPayload(
   engine: FxBentoContractEngineConfig,
   request: FxBentoTransactionRequest,
@@ -205,9 +220,11 @@ fxBentoRoutes.get("/rooms/:id/rounds", async (c) => {
 
 fxBentoRoutes.post("/rooms/:id/join", async (c) => {
   try {
+    const roomId = parseOnchainRoomId(c);
+    if (roomId instanceof Response) return roomId;
     const engine = engineFromQuery(parseChainQuery(c.req.url).chainId);
-    const request = prepareJoinRoomTransaction(engine, c.req.param("id"));
-    const payload = await transactionPayload(engine, request, { roomId: c.req.param("id") });
+    const request = prepareJoinRoomTransaction(engine, roomId);
+    const payload = await transactionPayload(engine, request, { roomId });
     c.var.log.info("route_ok");
     return c.json(payload);
   } catch (e) {
@@ -218,9 +235,11 @@ fxBentoRoutes.post("/rooms/:id/join", async (c) => {
 
 fxBentoRoutes.post("/rooms/:id/join/prepare", async (c) => {
   try {
+    const roomId = parseOnchainRoomId(c);
+    if (roomId instanceof Response) return roomId;
     const engine = engineFromQuery(parseChainQuery(c.req.url).chainId);
-    const request = prepareJoinRoomTransaction(engine, c.req.param("id"));
-    const payload = await transactionPayload(engine, request, { roomId: c.req.param("id") });
+    const request = prepareJoinRoomTransaction(engine, roomId);
+    const payload = await transactionPayload(engine, request, { roomId });
     c.var.log.info("route_ok");
     return c.json(payload);
   } catch (e) {
@@ -246,9 +265,11 @@ fxBentoRoutes.post("/dev/rooms/:id/join", async (c) => {
 
 fxBentoRoutes.post("/rooms/:id/leave", async (c) => {
   try {
+    const roomId = parseOnchainRoomId(c);
+    if (roomId instanceof Response) return roomId;
     const engine = engineFromQuery(parseChainQuery(c.req.url).chainId);
-    const request = prepareLeaveRoomTransaction(engine, c.req.param("id"));
-    const payload = await transactionPayload(engine, request, { roomId: c.req.param("id") });
+    const request = prepareLeaveRoomTransaction(engine, roomId);
+    const payload = await transactionPayload(engine, request, { roomId });
     c.var.log.info("route_ok");
     return c.json(payload);
   } catch (e) {
@@ -259,9 +280,11 @@ fxBentoRoutes.post("/rooms/:id/leave", async (c) => {
 
 fxBentoRoutes.post("/rooms/:id/refund", async (c) => {
   try {
+    const roomId = parseOnchainRoomId(c);
+    if (roomId instanceof Response) return roomId;
     const engine = engineFromQuery(parseChainQuery(c.req.url).chainId);
-    const request = prepareRefundTransaction(engine, c.req.param("id"));
-    const payload = await transactionPayload(engine, request, { roomId: c.req.param("id") });
+    const request = prepareRefundTransaction(engine, roomId);
+    const payload = await transactionPayload(engine, request, { roomId });
     c.var.log.info("route_ok");
     return c.json(payload);
   } catch (e) {
@@ -272,9 +295,11 @@ fxBentoRoutes.post("/rooms/:id/refund", async (c) => {
 
 fxBentoRoutes.post("/rooms/:id/refund/prepare", async (c) => {
   try {
+    const roomId = parseOnchainRoomId(c);
+    if (roomId instanceof Response) return roomId;
     const engine = engineFromQuery(parseChainQuery(c.req.url).chainId);
-    const request = prepareRefundTransaction(engine, c.req.param("id"));
-    const payload = await transactionPayload(engine, request, { roomId: c.req.param("id") });
+    const request = prepareRefundTransaction(engine, roomId);
+    const payload = await transactionPayload(engine, request, { roomId });
     c.var.log.info("route_ok");
     return c.json(payload);
   } catch (e) {
@@ -287,13 +312,15 @@ fxBentoRoutes.post("/rooms/:id/commit", async (c) => {
   try {
     const parsed = await parseBody(c, CommitTransactionSchema);
     if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
+    const roomId = parseOnchainRoomId(c);
+    if (roomId instanceof Response) return roomId;
     const engine = engineFromQuery(parseChainQuery(c.req.url).chainId);
     const request = prepareCommitSelectionTransaction(engine, {
-      roomId: c.req.param("id"),
+      roomId,
       roundIndex: parsed.data.roundIndex,
       commitment: parsed.data.commitment,
     });
-    const payload = await transactionPayload(engine, request, { roomId: c.req.param("id") });
+    const payload = await transactionPayload(engine, request, { roomId });
     c.var.log.info("route_ok");
     return c.json(payload);
   } catch (e) {
@@ -319,14 +346,16 @@ fxBentoRoutes.post("/rooms/:id/reveal", async (c) => {
   try {
     const parsed = await parseBody(c, RevealTransactionSchema);
     if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
+    const roomId = parseOnchainRoomId(c);
+    if (roomId instanceof Response) return roomId;
     const engine = engineFromQuery(parseChainQuery(c.req.url).chainId);
     const request = prepareRevealSelectionTransaction(engine, {
-      roomId: c.req.param("id"),
+      roomId,
       roundIndex: parsed.data.roundIndex,
       selection: parsed.data.selection,
       nonce: parsed.data.nonce,
     });
-    const payload = await transactionPayload(engine, request, { roomId: c.req.param("id") });
+    const payload = await transactionPayload(engine, request, { roomId });
     c.var.log.info("route_ok");
     return c.json(payload);
   } catch (e) {
@@ -358,15 +387,17 @@ fxBentoRoutes.post("/rooms/:id/settle", async (c) => {
   try {
     const parsed = await parseBody(c, SubmitResultsSchema);
     if (!parsed.success) return c.json({ error: "bad body", issues: parsed.error.issues }, 400);
+    const roomId = parseOnchainRoomId(c);
+    if (roomId instanceof Response) return roomId;
     const engine = engineFromQuery(parseChainQuery(c.req.url).chainId);
     const request = prepareSubmitResultsTransaction(engine, {
-      roomId: c.req.param("id"),
+      roomId,
       resultsRoot: parsed.data.resultsRoot,
       metadataURI: parsed.data.metadataURI ?? "ipfs://pending",
       payout: parsed.data.payout,
       attestation: parsed.data.attestation,
     });
-    const payload = await transactionPayload(engine, request, { roomId: c.req.param("id") });
+    const payload = await transactionPayload(engine, request, { roomId });
     c.var.log.info("route_ok");
     return c.json(payload);
   } catch (e) {
@@ -377,9 +408,11 @@ fxBentoRoutes.post("/rooms/:id/settle", async (c) => {
 
 fxBentoRoutes.post("/rooms/:id/finalize", async (c) => {
   try {
+    const roomId = parseOnchainRoomId(c);
+    if (roomId instanceof Response) return roomId;
     const engine = engineFromQuery(parseChainQuery(c.req.url).chainId);
-    const request = prepareFinalizeResultsTransaction(engine, c.req.param("id"));
-    const payload = await transactionPayload(engine, request, { roomId: c.req.param("id") });
+    const request = prepareFinalizeResultsTransaction(engine, roomId);
+    const payload = await transactionPayload(engine, request, { roomId });
     c.var.log.info("route_ok");
     return c.json(payload);
   } catch (e) {
