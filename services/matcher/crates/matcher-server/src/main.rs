@@ -18,6 +18,7 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use tokio::signal;
+use tokio::sync::broadcast;
 use tracing::{error, info};
 
 use bufi_perps_db::PerpsDb;
@@ -43,6 +44,7 @@ mod lp_router;
 mod lp_signer;
 mod lp_state;
 mod oi_gate;
+mod perps_liquidator;
 mod price;
 mod pyth_pusher;
 mod pyth_pusher_ws;
@@ -150,8 +152,16 @@ async fn main() -> ExitCode {
         tokio::spawn(async move { poker.run().await })
     };
 
+    // Shared Pyth tick channel. The Pyth pusher owns the Hermes WS stream;
+    // consumers subscribe here instead of opening duplicate sockets.
+    let (pyth_price_tx, _) = broadcast::channel(1024);
+
     // ---------- Pyth pusher (Phase 7.2 — unblocks LP oracle gate) ----------
-    let pyth_handle = match pyth_pusher::PythPusher::new(onchain.clone(), &cfg) {
+    let pyth_handle = match pyth_pusher::PythPusher::new(
+        onchain.clone(),
+        &cfg,
+        Some(pyth_price_tx.clone()),
+    ) {
         Ok(Some(pusher)) => {
             info!("pyth pusher enabled (Phase 7.2)");
             Some(tokio::spawn(async move { pusher.run().await }))
@@ -162,6 +172,27 @@ async fn main() -> ExitCode {
         }
         Err(e) => {
             error!(error = ?e, "pyth pusher boot: aborting");
+            return ExitCode::FAILURE;
+        }
+    };
+
+    // ---------- Perps liquidator (Hookathon Phase 6) ----------
+    let liquidator_handle = match perps_liquidator::PerpsLiquidator::new(
+        onchain.clone(),
+        &cfg,
+        &dir,
+        pyth_price_tx.subscribe(),
+    ) {
+        Ok(Some(liquidator)) => {
+            info!("perps liquidator enabled (Hookathon Phase 6)");
+            Some(tokio::spawn(async move { liquidator.run().await }))
+        }
+        Ok(None) => {
+            info!("perps liquidator disabled (LIQUIDATOR_ENABLED not true)");
+            None
+        }
+        Err(e) => {
+            error!(error = ?e, "perps liquidator boot: aborting");
             return ExitCode::FAILURE;
         }
     };
@@ -395,6 +426,18 @@ async fn main() -> ExitCode {
         }
     };
     tokio::pin!(pyth_future);
+    let liquidator_future = async {
+        match liquidator_handle {
+            Some(h) => {
+                let res = h.await;
+                error!(result = ?res, "perps liquidator exited unexpectedly");
+            }
+            None => {
+                std::future::pending::<()>().await;
+            }
+        }
+    };
+    tokio::pin!(liquidator_future);
     let grpc_future = async {
         match grpc_handle {
             Some(h) => {
@@ -482,6 +525,7 @@ async fn main() -> ExitCode {
         }
         _ = &mut canary_future => {}
         _ = &mut pyth_future => {}
+        _ = &mut liquidator_future => {}
         _ = &mut grpc_future => {}
         _ = &mut http_future => {}
         _ = &mut realtime_future => {}

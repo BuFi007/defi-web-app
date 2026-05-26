@@ -425,6 +425,12 @@ mod tests {
             pyth_hermes_timeout: Duration::from_secs(10),
             pyth_use_ws: false, // 8.5c — keep tick unit tests on the HTTP shape
             pyth_hermes_ws_url: None,
+            liquidator_enabled: false,
+            liquidator_envio_url: "http://localhost:0/graphql".into(),
+            liquidator_check_interval: Duration::from_millis(1),
+            liquidator_page_size: 100,
+            liquidator_max_concurrent_checks: 1,
+            liquidation_router_address: None,
             grpc_bind: String::new(), // disabled in tick unit tests
             http_bind: String::new(), // ditto for HTTP /health
             ready_max_tick_age: Duration::from_secs(60),

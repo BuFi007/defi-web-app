@@ -41,6 +41,7 @@ use alloy_provider::ProviderBuilder;
 use alloy_signer_local::PrivateKeySigner;
 use serde::Deserialize;
 use thiserror::Error;
+use tokio::sync::broadcast;
 use tokio::time::sleep;
 use tracing::{debug, info, warn};
 
@@ -49,7 +50,7 @@ use bufi_perps_onchain::{resolve_pyth_address, PerpsOnchain, PerpsOnchainError};
 
 use crate::config::Config;
 use crate::lp_state::market_id_hex;
-use crate::pyth_pusher_ws::{derive_ws_url, PythPusherWs};
+use crate::pyth_pusher_ws::{derive_ws_url, PythPriceTick, PythPusherWs};
 
 /// Errors raised at boot. Runtime tick errors log + retry; only boot misconfig aborts.
 #[derive(Debug, Error)]
@@ -90,12 +91,18 @@ pub struct PythPusher {
     use_ws: bool,
     /// Phase 8.5c — derived `wss://…/ws` URL. Empty when `use_ws=false`.
     ws_url: String,
+    /// Optional price-tick publisher for in-process consumers.
+    price_tx: Option<broadcast::Sender<PythPriceTick>>,
 }
 
 impl PythPusher {
     /// Build from config. Returns `Ok(None)` when there are no markets to
     /// keep fresh — the matcher boots happily without a pusher in that case.
-    pub fn new(onchain: PerpsOnchain, cfg: &Config) -> Result<Option<Self>, PythPusherBootError> {
+    pub fn new(
+        onchain: PerpsOnchain,
+        cfg: &Config,
+        price_tx: Option<broadcast::Sender<PythPriceTick>>,
+    ) -> Result<Option<Self>, PythPusherBootError> {
         if cfg.funding_market_ids.is_empty() {
             // Same markets the funding poker watches — no markets means
             // nothing to push for.
@@ -135,6 +142,7 @@ impl PythPusher {
             hermes_client,
             use_ws: cfg.pyth_use_ws,
             ws_url,
+            price_tx,
         }))
     }
 
@@ -231,6 +239,7 @@ impl PythPusher {
                 self.pyth_address,
                 self.feed_ids.clone(),
                 self.max_age_secs,
+                self.price_tx.clone(),
             );
             if let Err(e) = runner.run().await {
                 warn!(

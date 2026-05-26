@@ -117,6 +117,20 @@ pub struct Config {
     /// appending `/ws`. Set when the mirror serves WS on a different
     /// host than the REST endpoint.
     pub pyth_hermes_ws_url: Option<String>,
+    /// Enable the Rust perps liquidator. Defaults off so local dev does not
+    /// send liquidation txs unless the operator opts in.
+    pub liquidator_enabled: bool,
+    /// Envio GraphQL endpoint used as the canonical open-position set.
+    pub liquidator_envio_url: String,
+    /// Fallback scan cadence when Pyth WS is quiet or unavailable.
+    pub liquidator_check_interval: Duration,
+    /// Max PositionChange rows to read from Envio per refresh.
+    pub liquidator_page_size: usize,
+    /// Max concurrent liquidation pre-checks/tx attempts.
+    pub liquidator_max_concurrent_checks: usize,
+    /// Optional explicit LiquidationRouter address. If absent, the matcher
+    /// reads `liquidation-router-{chainId}.json` from the deployments dir.
+    pub liquidation_router_address: Option<String>,
     /// gRPC server bind address. Default `127.0.0.1:3005` (loopback —
     /// container or multi-host deployments override to `0.0.0.0:<port>`).
     /// Set to empty string via `MATCHER_GRPC_BIND=` to disable the
@@ -231,6 +245,19 @@ impl Config {
             .map(|v| !matches!(v.trim().to_ascii_lowercase().as_str(), "0" | "false" | "no" | "off" | ""))
             .unwrap_or(true);
         let pyth_hermes_ws_url = env::var("PYTH_HERMES_WS_URL").ok();
+        let liquidator_enabled = parse_env_bool("LIQUIDATOR_ENABLED", false);
+        let liquidator_envio_url = env::var("LIQUIDATOR_ENVIO_URL")
+            .or_else(|_| env::var("ENVIO_GRAPHQL_URL"))
+            .or_else(|_| env::var("ENVIO_URL"))
+            .unwrap_or_else(|_| "https://indexer.envio.dev/bufx-yield-engine/graphql".to_string());
+        let liquidator_check_interval =
+            Duration::from_millis(parse_env_u64("LIQUIDATOR_CHECK_INTERVAL_MS", 1_000)?);
+        let liquidator_page_size = parse_env_u64("LIQUIDATOR_PAGE_SIZE", 1_000)? as usize;
+        let liquidator_max_concurrent_checks =
+            parse_env_u64("LIQUIDATOR_MAX_CONCURRENT_CHECKS", 8)? as usize;
+        let liquidation_router_address = env::var("LIQUIDATION_ROUTER_ADDRESS")
+            .or_else(|_| env::var("LIQUIDATOR_ROUTER_ADDRESS"))
+            .ok();
         let grpc_bind = env::var("MATCHER_GRPC_BIND")
             .unwrap_or_else(|_| "127.0.0.1:3005".to_string());
         let http_bind = env::var("MATCHER_HTTP_BIND")
@@ -273,6 +300,12 @@ impl Config {
             pyth_hermes_timeout,
             pyth_use_ws,
             pyth_hermes_ws_url,
+            liquidator_enabled,
+            liquidator_envio_url,
+            liquidator_check_interval,
+            liquidator_page_size,
+            liquidator_max_concurrent_checks,
+            liquidation_router_address,
             grpc_bind,
             http_bind,
             ready_max_tick_age,
@@ -339,6 +372,16 @@ fn parse_b256_hex(s: &str) -> Option<[u8; 32]> {
         out[i] = u8::from_str_radix(hex, 16).ok()?;
     }
     Some(out)
+}
+
+fn parse_env_bool(name: &'static str, default: bool) -> bool {
+    match env::var(name) {
+        Ok(raw) => matches!(
+            raw.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        ),
+        Err(_) => default,
+    }
 }
 
 fn parse_env_u64(name: &'static str, default: u64) -> Result<u64, ConfigError> {

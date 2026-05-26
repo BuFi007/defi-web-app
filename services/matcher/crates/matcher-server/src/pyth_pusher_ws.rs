@@ -59,7 +59,7 @@ use base64::Engine;
 use futures::{SinkExt, StreamExt};
 use serde::Deserialize;
 use thiserror::Error;
-use tokio::sync::Mutex;
+use tokio::sync::{broadcast, Mutex};
 use tokio::time::sleep;
 use tokio_tungstenite::tungstenite::Message as WsMessage;
 use tracing::{debug, info, warn};
@@ -74,6 +74,20 @@ pub const RECONNECT_BACKOFF_MS: &[u64] = &[1_000, 2_000, 4_000, 8_000, 16_000, 3
 /// HTTP poll. We don't want the matcher silently flying blind because
 /// Hermes WS keeps refusing connections.
 pub const MAX_WS_RECONNECT_ATTEMPTS: u32 = 3;
+
+/// Price tick published by the shared Hermes WS stream.
+///
+/// Consumers such as the perps liquidator subscribe to this channel instead
+/// of opening their own Hermes socket. The pusher remains the single owner of
+/// WS reconnects and on-chain `updatePriceFeeds` submission.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PythPriceTick {
+    pub feed_id: B256,
+    pub price: i64,
+    pub conf: u64,
+    pub expo: i32,
+    pub publish_time: i64,
+}
 
 /// One in-flight WS run. Owns the open socket, the per-feed throttle
 /// state, and the on-chain client used to submit `updatePriceFeeds`.
@@ -93,6 +107,9 @@ pub struct PythPusherWs {
     /// incoming WS tick. Same semantics as the HTTP path's pre-push
     /// staleness gate. Reads from `cfg.pyth_push_max_age`.
     max_age_secs: u64,
+    /// Optional in-process publisher for consumers that need price-driven
+    /// work without opening a second Pyth WS connection.
+    price_tx: Option<broadcast::Sender<PythPriceTick>>,
 }
 
 impl PythPusherWs {
@@ -103,6 +120,7 @@ impl PythPusherWs {
         pyth_address: Address,
         feed_ids: BTreeSet<B256>,
         max_age_secs: u64,
+        price_tx: Option<broadcast::Sender<PythPriceTick>>,
     ) -> Self {
         let feed_ids_hex = feed_ids
             .iter()
@@ -116,6 +134,7 @@ impl PythPusherWs {
             feed_ids,
             last_push_secs: Arc::new(Mutex::new(BTreeMap::new())),
             max_age_secs,
+            price_tx,
         }
     }
 
@@ -237,6 +256,8 @@ impl PythPusherWs {
             // but be defensive.
             return Ok(());
         }
+        self.publish_price_tick(feed_b256, &feed);
+
         let vaa_b64 = match feed.vaa.as_deref() {
             Some(v) => v,
             None => {
@@ -309,6 +330,21 @@ impl PythPusherWs {
                 Ok(())
             }
         }
+    }
+
+    fn publish_price_tick(&self, feed_id: B256, feed: &HermesPriceFeed) {
+        let Some(tx) = &self.price_tx else {
+            return;
+        };
+        let price = feed.price.price.parse::<i64>().unwrap_or(0);
+        let conf = feed.price.conf.parse::<u64>().unwrap_or(0);
+        let _ = tx.send(PythPriceTick {
+            feed_id,
+            price,
+            conf,
+            expo: feed.price.expo,
+            publish_time: feed.price.publish_time,
+        });
     }
 }
 
@@ -425,6 +461,15 @@ struct HermesPriceFeed {
 
 #[derive(Debug, Deserialize)]
 struct HermesPrice {
+    /// Pyth signed price, encoded as a decimal string on the Hermes wire.
+    #[serde(default)]
+    price: String,
+    /// Pyth confidence interval, encoded as a decimal string on the Hermes wire.
+    #[serde(default)]
+    conf: String,
+    /// Price exponent.
+    #[serde(default)]
+    expo: i32,
     /// Pyth `publish_time` in unix seconds. Used for the staleness gate.
     publish_time: i64,
 }

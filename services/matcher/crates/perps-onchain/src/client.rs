@@ -6,7 +6,7 @@
 //! avoids spelling out the generic filler stack at every API boundary.
 
 use alloy_network::EthereumWallet;
-use alloy_primitives::{Address, Bytes, B256, U256};
+use alloy_primitives::{Address, Bytes, B256, I256, U256};
 use alloy_provider::ProviderBuilder;
 use alloy_signer_local::PrivateKeySigner;
 use thiserror::Error;
@@ -14,7 +14,10 @@ use thiserror::Error;
 #[allow(unused_imports)] // alloy_contract::CallBuilder is in scope via the macro
 use alloy_contract as _;
 
-use crate::bindings::{FxFundingEngine, FxOrderSettlement, FxPerpClearinghouse, IPyth, SignedOrder};
+use crate::bindings::{
+    FxFundingEngine, FxHealthChecker, FxOrderSettlement, FxPerpClearinghouse, IPyth,
+    LiquidationRouter, SignedOrder,
+};
 use crate::deployment::{DeploymentLoadError, PerpsDeployment};
 use crate::env::{arc_rpc_url, keeper_private_key, ARC_CHAIN_ID};
 
@@ -50,6 +53,14 @@ pub enum PerpsOnchainError {
     /// `settleMatch` reverted or the receipt was not successful.
     #[error("settleMatch reverted (tx {tx})")]
     SettlementReverted {
+        /// Transaction hash that reverted.
+        tx: B256,
+    },
+    /// A non-settlement keeper transaction reverted or the receipt was not successful.
+    #[error("{action} reverted (tx {tx})")]
+    TransactionReverted {
+        /// Keeper action name.
+        action: &'static str,
         /// Transaction hash that reverted.
         tx: B256,
     },
@@ -117,6 +128,11 @@ impl PerpsOnchain {
     /// FxFundingEngine address (Phase 5 funding poker target).
     pub fn funding_engine(&self) -> Address {
         self.deployment.contracts.fx_funding_engine
+    }
+
+    /// FxHealthChecker address.
+    pub fn health_checker(&self) -> Address {
+        self.deployment.contracts.fx_health_checker
     }
 
     /// Read `lastUpdate` (unix seconds) for `market_id` from `FxFundingEngine`.
@@ -208,6 +224,90 @@ impl PerpsOnchain {
             .map_err(|e| PerpsOnchainError::Rpc(format!("maxOpenInterest: {e}")))?
             ._0;
         Ok(OiSnapshot { long, short, cap })
+    }
+
+    /// Read the non-strict liquidation gate from `FxHealthChecker`.
+    ///
+    /// The state-changing liquidation still goes through `LiquidationRouter`
+    /// and the engine's strict RedStone-verified path. This read is a cheap
+    /// pre-filter so the keeper avoids sending obviously hopeless txs.
+    pub async fn is_liquidatable(
+        &self,
+        market_id: B256,
+        trader: Address,
+    ) -> Result<bool, PerpsOnchainError> {
+        let signer: PrivateKeySigner = self.parse_signer()?;
+        let wallet = EthereumWallet::from(signer);
+        let url = self.parse_url()?;
+        let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .wallet(wallet)
+            .on_http(url);
+        let health = FxHealthChecker::new(self.health_checker(), &provider);
+        let result = health
+            .isLiquidatable(market_id, trader)
+            .call()
+            .await
+            .map_err(|e| PerpsOnchainError::Rpc(format!("isLiquidatable: {e}")))?;
+        Ok(result._0)
+    }
+
+    /// Read the latest on-chain position size and return its absolute value.
+    pub async fn position_size_abs(
+        &self,
+        market_id: B256,
+        trader: Address,
+    ) -> Result<U256, PerpsOnchainError> {
+        let signer: PrivateKeySigner = self.parse_signer()?;
+        let wallet = EthereumWallet::from(signer);
+        let url = self.parse_url()?;
+        let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .wallet(wallet)
+            .on_http(url);
+        let clearinghouse = FxPerpClearinghouse::new(self.clearinghouse(), &provider);
+        let position = clearinghouse
+            .position(market_id, trader)
+            .call()
+            .await
+            .map_err(|e| PerpsOnchainError::Rpc(format!("position: {e}")))?
+            ._0;
+        Ok(i256_abs_u256(position.sizeE18))
+    }
+
+    /// Submit `LiquidationRouter.liquidateAtomic` and wait for the receipt.
+    pub async fn submit_liquidation_router_atomic(
+        &self,
+        router_address: Address,
+        market_id: B256,
+        trader: Address,
+        max_size_to_close_abs_e18: U256,
+    ) -> Result<B256, PerpsOnchainError> {
+        let signer: PrivateKeySigner = self.parse_signer()?;
+        let wallet = EthereumWallet::from(signer);
+        let url = self.parse_url()?;
+        let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .wallet(wallet)
+            .on_http(url);
+        let router = LiquidationRouter::new(router_address, &provider);
+        let pending = router
+            .liquidateAtomic(market_id, trader, max_size_to_close_abs_e18)
+            .send()
+            .await
+            .map_err(|e| PerpsOnchainError::Rpc(format!("liquidateAtomic send: {e}")))?;
+        let receipt = pending
+            .get_receipt()
+            .await
+            .map_err(|e| PerpsOnchainError::Rpc(format!("liquidateAtomic receipt: {e}")))?;
+        let tx_hash = receipt.transaction_hash;
+        if !receipt.status() {
+            return Err(PerpsOnchainError::TransactionReverted {
+                action: "liquidateAtomic",
+                tx: tx_hash,
+            });
+        }
+        Ok(tx_hash)
     }
 
     /// Phase 7.2 — push fresh Pyth update VAAs on-chain.
@@ -322,5 +422,42 @@ impl PerpsOnchain {
         self.rpc_url
             .parse::<reqwest::Url>()
             .map_err(|e| PerpsOnchainError::InvalidRpcUrl(e.to_string()))
+    }
+}
+
+fn i256_abs_u256(value: I256) -> U256 {
+    let raw = value.to_be_bytes::<32>();
+    if raw[0] & 0x80 == 0 {
+        return U256::from_be_bytes(raw);
+    }
+
+    let mut magnitude = raw;
+    for byte in &mut magnitude {
+        *byte = !*byte;
+    }
+    for byte in magnitude.iter_mut().rev() {
+        let (next, carry) = byte.overflowing_add(1);
+        *byte = next;
+        if !carry {
+            break;
+        }
+    }
+    U256::from_be_bytes(magnitude)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn i256_abs_handles_positive_values() {
+        let value = I256::try_from(123_i128).unwrap();
+        assert_eq!(i256_abs_u256(value), U256::from(123_u64));
+    }
+
+    #[test]
+    fn i256_abs_handles_negative_values() {
+        let value = I256::try_from(-123_i128).unwrap();
+        assert_eq!(i256_abs_u256(value), U256::from(123_u64));
     }
 }

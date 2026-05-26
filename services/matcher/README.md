@@ -89,6 +89,12 @@ FUNDING_POKE_MIN_INTERVAL_MS=3600000
 CANARY_INTERVAL_SECS=1800
 CANARY_TIMEOUT_SECS=120
 CANARY_NOTIONAL_USDC_E6=1000000
+
+# --- Perps liquidator (optional, Hookathon Phase 6) ---
+LIQUIDATOR_ENABLED=true
+LIQUIDATOR_ENVIO_URL=https://indexer.envio.dev/bufx-yield-engine/graphql
+LIQUIDATOR_CHECK_INTERVAL_MS=1000
+LIQUIDATION_ROUTER_ADDRESS=0x6349658AB89bB13a608b50835230d4b85Eb4734f
 ```
 
 Boot (three options, ordered most-integrated to most-direct):
@@ -146,8 +152,9 @@ writes to. Make sure:
 4. `FX_TELARANA_DEPLOYMENTS` points at the live sprint-1 manifest
    (verified addresses in `~/coding-dojo/fx-telarana/docs/INTEGRATION_HANDOFF.md`).
 
-The TS keeper `apps/keeper-perps-liquidator` is **separate** from the
-matcher and should keep running — it's out of scope for this service.
+The Rust perps liquidator is part of the matcher binary. Enable it with
+`LIQUIDATOR_ENABLED=true`; it reads open positions from Envio and uses the
+shared Pyth WS stream for event-driven scans.
 
 ### Live intent status (Step 3, 2026-05-23)
 

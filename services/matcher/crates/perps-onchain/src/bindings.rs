@@ -155,6 +155,22 @@ sol! {
             );
     }
 
+    /// `FxHealthChecker` read surface used by the Rust perps liquidator.
+    #[sol(rpc)]
+    contract FxHealthChecker {
+        function healthFactor(bytes32 marketId, address trader) external view returns (uint256);
+        function isLiquidatable(bytes32 marketId, address trader) external view returns (bool);
+    }
+
+    /// `LiquidationRouter` keeper-facing surface. The router performs the
+    /// flag + liquidate attempt through the liquidation engine in one tx.
+    #[sol(rpc)]
+    contract LiquidationRouter {
+        function liquidateAtomic(bytes32 marketId, address trader, uint256 maxSizeToCloseAbsE18)
+            external
+            returns (uint256 liquidatorReward, int256 socializedLoss, uint256 rewardForwarded);
+    }
+
     /// `FxOracle` view surface (Phase 4 — LP backstop + Phase 7.2 — Pyth push).
     /// `publishedAt` is unix seconds; the matcher uses it for invariant 4.
     /// `pythFeedOf` resolves the Hermes feed id for a token, used by the
