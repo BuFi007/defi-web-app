@@ -1,0 +1,150 @@
+# Session Handoff: Hookathon + Yield Engine + Envio Migration
+
+> Copy this entire file as the opening prompt for the next session.
+> Works in Claude Code, Cursor, or Codex. Start from the repo root.
+
+## Context
+
+You are resuming work on BUFX — an agentic forex stablecoin trading platform.
+The previous session shipped: Hybrid CLOB (5 phases), ConnectKit wallet,
+full i18n (6 locales), dynamic SEO, Envio HyperIndex scaffolding, and three
+architecture specs. Everything is on `main`, deployed to Vercel + Railway.
+
+## Repos
+
+```
+~/coding-dojo/defi-web-app/     — Next.js web app + Rust matcher + Envio indexer
+~/coding-dojo/fx-telarana/      — Solidity contracts (Morpho, gateway, perps, hooks)
+```
+
+Both repos need a new branch: `feat/hookathon-yield-engine`
+
+## Architecture Specs (read these first)
+
+```
+defi-web-app/docs/architecture/
+  ├── hybrid-clob-spec.md                  — DONE, shipped
+  ├── turbo-fee-vault-spec.md              — Unified liquidity layer spec
+  └── rust-keeper-consolidation-spec.md    — Keeper migration plan
+```
+
+## What to Build (in order)
+
+### Phase 0: Deploy Uniswap v4 on Arc Testnet + Fuji (fx-telarana repo)
+
+Uniswap v4 is NOT deployed on either testnet. CREATE2 deployer EXISTS on both.
+
+```bash
+# Arc Testnet (5042002)
+forge script script/DeployPoolManager.s.sol \
+  --rpc-url https://rpc.testnet.arc.network \
+  --private-key $DEPLOYER_PRIVATE_KEY --broadcast
+
+# Avalanche Fuji (43113)
+forge script script/DeployPoolManager.s.sol \
+  --rpc-url https://api.avax-test.network/ext/bc/C/rpc \
+  --private-key $DEPLOYER_PRIVATE_KEY --broadcast
+```
+
+Also deploy PositionManager from v4-periphery on both chains.
+
+### Phase 1: TurboFeeVault.sol (fx-telarana repo)
+
+Fee splitter: 50% protocol / 40% LP yield / 10% insurance.
+Interface at `docs/architecture/turbo-fee-vault-spec.md`.
+Wire `FxOrderSettlement.settleMatch()` to call `vault.depositFee()`.
+
+### Phase 2: FxHedgeHook.sol + cirBTC/USDC Pool (fx-telarana repo)
+
+THE HOOKATHON DEMO. Uniswap v4 hook that auto-hedges LP exposure:
+- `beforeAddLiquidity`: open BTC/USD short perp on BUFX CLOB
+- `afterSwap`: rebalance hedge if exposure changed
+- `beforeRemoveLiquidity`: close hedge proportionally
+
+Create cirBTC/USDC pool on Arc with hook attached. Demo script:
+1. LP without hook → BTC drops → show IL loss
+2. LP with hook → BTC drops → IL neutralized
+3. Both earned swap fees. Only hedged LP kept theirs.
+
+### Phase 3: LiquidationRouter.sol (fx-telarana repo)
+
+Atomic `flagAccount + liquidate` in one tx. Eliminates the gap
+between flag and liquidation where price can move further.
+
+### Phase 4: Deploy Envio to Hosted Service (defi-web-app repo)
+
+```bash
+cd services/envio-yield
+npx envio deploy  # or envio dev with Docker for local
+```
+
+Envio indexes: MatchSettled, SpotFxExecuted, FundingPoked,
+MorphoBlue Supply/Withdraw/Borrow/Repay, TurboFeeVault events.
+
+### Phase 5: Wire UI to Envio (defi-web-app repo)
+
+Replace Ponder GraphQL queries with Envio endpoint.
+Show composite APY in lending table (IRM + fee boost).
+
+### Phase 6: Rust Liquidator (defi-web-app/services/matcher/)
+
+Migrate `keeper-perps-liquidator` to Rust module inside the matcher.
+Event-driven via Pyth WS feed. Envio for position set.
+
+## Key Contract Addresses (Arc Testnet 5042002)
+
+```
+FxOrderSettlement:    0x904bb24A910c54A84341E157B894d11B474A2e1F
+FxPerpClearinghouse:  0xCE3401BD53be4c0a8c7CCb0376b313925f99b8d2
+FxSpotExecutor:       0x37ccDa89628Fd3Cc1f8ef5e45D8725c4e3a59542
+MorphoBlue:           0x65f435eB4FF05f1481618694bC1ff7Ee4680c0A4
+FxOracle:             0x77b3A3B420dB98B01085b8C46a753Ed9879e2865
+FxHealthChecker:      0x12d18BC4b2295834Bb7A08aF5Bc2b40E40c7F53B
+FxLiquidationEngine:  0xA70aA9B3bCD3BB829B2E8aF29d8A48f5e09f50E5
+FeeConfig:            0xa589040434735710aEF173e31e421a2d0a20Dd17
+FeeCollector:         0x1894C8c84F3a8DD1e17B237008a197feD2E299B6
+```
+
+Pyth BTC/USD feed: `0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43`
+
+## Key Decisions Already Made
+
+- Morpho pools ARE Uniswap v4 pools (same liquidity, hooks connect them)
+- Arc = execution hub (CLOB + spot + hooks + vault)
+- Fuji = lending hub (Morpho + gateway)
+- 7 spoke chains feed deposits via CCTP
+- Fee split: 50% protocol / 40% LP yield / 10% insurance
+- cirBTC/USDC is the hookathon demo pair
+- Perps are zero-sum contracts, not loans. Insurance covers liquidation failures only.
+- Delta neutral: hedge cancels price risk, LP keeps swap fees
+- Envio over Ponder (158x faster, Arc HyperSync at https://5042002.rpc.hypersync.xyz)
+- ConnectKit for wallet (replaced Dynamic Labs)
+
+## Environment
+
+```bash
+# defi-web-app
+MATCHER_WS_BIND=127.0.0.1:3007
+MATCHER_CHAIN_ID=5042002
+NEXT_PUBLIC_REOWN_PROJECT_ID=552cc1a2e5cd90a14345caa96a055f3c
+NEXT_PUBLIC_MATCHER_WS_URL=ws://127.0.0.1:3007/v1/markets
+
+# fx-telarana
+ARC_RPC_URL=https://rpc.testnet.arc.network
+FUJI_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
+DEPLOYER_PRIVATE_KEY=$KEEPER_PRIVATE_KEY  # same key
+```
+
+## Start Command
+
+```bash
+# Create branches in both repos
+cd ~/coding-dojo/defi-web-app && git checkout -b feat/hookathon-yield-engine
+cd ~/coding-dojo/fx-telarana && git checkout -b feat/hookathon-yield-engine
+
+# Read the specs
+cat ~/coding-dojo/defi-web-app/docs/architecture/turbo-fee-vault-spec.md
+cat ~/coding-dojo/defi-web-app/docs/architecture/rust-keeper-consolidation-spec.md
+
+# Start with Phase 0: deploy Uniswap v4 on Arc
+```
