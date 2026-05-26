@@ -131,3 +131,50 @@ The LP Incentive Pool (10% of fees) can fund:
 - YieldBasis-style fixed-rate vaults using the fee pool as variable buffer
 
 These hooks would live in the fx-telarana repo alongside the Morpho/Uniswap contracts.
+
+## Future: FX Hedge Hook (Cross-Protocol Volume Flywheel)
+
+The highest-leverage idea: a Uniswap v4 hook that lets ANY pool with FX-denominated tokens (EURC/WETH, JPYC/USDC, MXNB/anything) auto-hedge their FX exposure via BUFX perps.
+
+### How It Works
+
+1. LP deposits into a Uniswap v4 pool with a stablecoin that has FX risk (e.g. EURC/WETH)
+2. The FX Hedge Hook detects the LP's EUR exposure from their position
+3. The hook opens a corresponding EUR/USD short perp on the BUFX CLOB
+4. The LP is now delta-neutral on EUR/USD — they only earn swap fees, no FX IL
+5. The hedge position pays/receives funding rate on BUFX
+
+### Economics
+
+```
+LP earns:  Uniswap swap fees - BUFX funding rate cost
+LP avoids: EUR/USD impermanent loss (hedged by the perp)
+BUFX earns: Trading fee on hedge open/close + funding rate spread
+Vault gets: More perps volume → more fees → higher staker yield
+```
+
+### Why This Is Infrastructure
+
+- Any pool on ANY chain with FX-denominated assets can use the hook
+- BUFX becomes the "FX hedge layer for DeFi" — not just a trading app
+- Volume flywheel: more hedging pools → more CLOB volume → tighter spreads → more pools want to hedge
+- The hook can be permissionless — anyone deploys a pool with the BUFX FX Hedge Hook attached
+- Cross-chain via CCTP: hedge on Arc, pool on Ethereum/Base/Arbitrum
+
+### Implementation Notes
+
+- The hook needs read access to the BUFX CLOB (via the WS gateway or API)
+- Settlement happens off-chain (signed EIP-712 intents) — the hook signs on behalf of the LP
+- Hedge rebalancing on every significant position change (swap that moves the LP's FX delta)
+- The hook contract holds the perps margin (USDC) — funded by the LP or from a shared vault
+- Gas cost: hook execution on the Uniswap chain + cross-chain message to Arc for the hedge
+
+### Relationship to Uniswap Foundation Priorities
+
+This directly addresses the Foundation's 2026 frontier themes:
+- **IL insurance**: The hedge IS the insurance — perps position cancels FX IL
+- **Delta-neutral hedging**: Core mechanism
+- **Fee-smoothing**: The funding rate creates a predictable cost/income stream
+- **Sustainable LP economics**: LPs earn swap fees without FX risk — the holy grail
+
+This hook + the TurboFeeVault + Morpho lending = a complete yield stack that turns BUFX from a trading app into FX infrastructure for all of DeFi.
