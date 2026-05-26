@@ -7,7 +7,7 @@ import LocalSwitcher from "@/components/locale-switcher";
 import { ModeToggle } from "@/components/theme-toggle";
 import SparklesText from "@/components/magicui/sparkles-text";
 import { motion } from "framer-motion";
-import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
+import { ConnectKitButton } from "connectkit";
 import { McpInstallDropdown } from "@/components/mcp-install";
 import { IdentityBadge } from "@/components/identity-badge";
 import { useHoverAudio } from "@/utils/audio-hover";
@@ -86,7 +86,7 @@ const HeaderFull: React.FC = () => {
             <div className="flex items-center gap-3 z-20">
               <McpInstallDropdown />
               <IdentityBadge />
-              <DynamicWidget />
+              <ConnectKitButton />
             </div>
           </Suspense>
         </div>

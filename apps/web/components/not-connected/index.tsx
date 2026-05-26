@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
+import { ConnectKitButton } from "connectkit";
 import { useAppTranslations } from "@/context/TranslationContext";
 
 
@@ -19,7 +19,7 @@ export const NotConnectedHome: React.FC = () => {
           </p>
           <p className="text-3xl mb-6 tracking-wide">🚬🥃👻🕸️</p>
           <div className="flex justify-center">
-            <DynamicWidget />
+            <ConnectKitButton />
           </div>
         </div>
       </div>

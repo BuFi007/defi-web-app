@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ConnectKit button alignment with header controls */
+[data-testid="ck-connect-button"] button,
+[data-testid="ck-account-button"] button {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  font-family: 'Nunito', sans-serif !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.005em !important;
+}
+
 @font-face {
   font-family: "Poppins";
   src: url("/assets/fonts/poppins/Poppins-Light.ttf") format("truetype");

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAccount, useBalance, useReadContract } from "wagmi";
+import { useAccount, useBalance, useReadContract, useSwitchChain } from "wagmi";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { TransactionHistoryItem, Token } from "@/lib/types";
@@ -7,10 +7,6 @@ import { TransactionHistoryItem, Token } from "@/lib/types";
 import { useTokenBalance } from "@/hooks/use-user-balance";
 import { useChainSelection } from "@/hooks/use-chain-selection";
 import { ChainSelect } from "@/components/chain-select";
-import {
-  useSwitchNetwork,
-  useDynamicContext,
-} from "@dynamic-labs/sdk-react-core";
 import { erc20Abi, formatUnits, Hex, parseUnits } from "viem";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
 import { useNetworkManager } from "@/hooks/use-dynamic-network";
@@ -44,10 +40,9 @@ export function MoneyMarketCard() {
   >([]);
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
 
-  const { primaryWallet } = useDynamicContext();
   const chainId = useNetworkManager();
   const USDC_ADDRESS = useUsdcChain();
-  const switchNetwork = useSwitchNetwork();
+  const { switchChain } = useSwitchChain();
   const { toast } = useToast();
   const availableTokens = useGetTokensOrChain(chainId as number, "tokens");
 
@@ -102,10 +97,7 @@ export function MoneyMarketCard() {
 
     const chain = useGetTokensOrChain(Number(value), "chain");
     setFromChain(chain as Chain);
-    switchNetwork({
-      wallet: primaryWallet!,
-      network: Number(value),
-    });
+    switchChain({ chainId: Number(value) });
   }
 
   const payload = {

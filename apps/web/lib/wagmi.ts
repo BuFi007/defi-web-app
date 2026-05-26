@@ -7,6 +7,7 @@ import {
   sepolia,
   arbitrumSepolia,
 } from "wagmi/chains";
+import { getDefaultConfig } from "connectkit";
 import { useMemo } from "react";
 import { providers } from "ethers";
 import type { Account, Chain, Client, Transport } from "viem";
@@ -29,33 +30,32 @@ import type { Account, Chain, Client, Transport } from "viem";
 // of their choice. They're included here so the wallet dropdown can read
 // real per-chain balances (USDC, MXNB) instead of just hub balances —
 // without them, `useBalance({ chainId: 11155111 })` silently no-ops.
-export const config = createConfig({
-  chains: [
-    avalancheFuji,
-    arcTestnet,
-    avalanche,
-    mainnet,
-    sepolia,
-    arbitrumSepolia,
-  ],
-  transports: {
-    [avalancheFuji.id]: http("https://api.avax-test.network/ext/bc/C/rpc"),
-    [arcTestnet.id]: http("https://rpc.testnet.arc.network"),
-    [avalanche.id]: http("https://api.avax.network/ext/bc/C/rpc"),
-    // Empty http() defaults route through viem's per-chain default
-    // (eth.merkle.io for mainnet) which CORS-rejects from localhost and
-    // floods the console. Pin to CORS-friendly public endpoints that
-    // ad-blockers don't usually flag.
-    [mainnet.id]: http("https://cloudflare-eth.com"),
-    [sepolia.id]: http("https://ethereum-sepolia-rpc.publicnode.com"),
-    [arbitrumSepolia.id]: http("https://arbitrum-sepolia-rpc.publicnode.com"),
-  },
-  // Required for Next.js App Router + cacheComponents. Without it, wagmi
-  // hooks called during the server prerender pass throw
-  // `useConfig must be used within WagmiProvider` because the client
-  // provider's context isn't established yet.
-  ssr: true,
-});
+export const config = createConfig(
+  getDefaultConfig({
+    chains: [
+      avalancheFuji,
+      arcTestnet,
+      avalanche,
+      mainnet,
+      sepolia,
+      arbitrumSepolia,
+    ],
+    transports: {
+      [avalancheFuji.id]: http("https://api.avax-test.network/ext/bc/C/rpc"),
+      [arcTestnet.id]: http("https://rpc.testnet.arc.network"),
+      [avalanche.id]: http("https://api.avax.network/ext/bc/C/rpc"),
+      [mainnet.id]: http("https://cloudflare-eth.com"),
+      [sepolia.id]: http("https://ethereum-sepolia-rpc.publicnode.com"),
+      [arbitrumSepolia.id]: http("https://arbitrum-sepolia-rpc.publicnode.com"),
+    },
+    walletConnectProjectId: process.env.NEXT_PUBLIC_REOWN_PROJECT_ID ?? "552cc1a2e5cd90a14345caa96a055f3c",
+    appName: "BUFX",
+    appDescription: "Agentic Forex Stablecoin Trading",
+    appUrl: "https://fx.bu.finance",
+    appIcon: "https://fx.bu.finance/images/iso-logo.png",
+    ssr: true,
+  }),
+);
 
 declare module "wagmi" {
   interface Register {

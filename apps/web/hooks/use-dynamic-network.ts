@@ -1,24 +1,22 @@
-import { useEffect, useMemo, useCallback } from "react";
-import { useDynamicContext, getNetwork } from "@dynamic-labs/sdk-react-core";
+import { useEffect, useCallback } from "react";
+import { useChainId } from "wagmi";
 import { useNetworkStore } from "@/store";
 import { ChainList } from "@/lib/types";
 
 export const useNetworkManager = (): ChainList => {
-  const { network } = useDynamicContext();
+  const chainId = useChainId();
   const { setCurrentChainId, setLoading, setError, currentChainId } =
     useNetworkStore();
 
-  const connector = useMemo(() => network, [network]);
-
-  const updateNetwork = useCallback(async () => {
-    if (!connector) {
+  const updateNetwork = useCallback(() => {
+    if (!chainId) {
       setCurrentChainId(undefined);
       return;
     }
 
     setLoading(true);
     try {
-      setCurrentChainId(network as number | undefined);
+      setCurrentChainId(chainId as number | undefined);
       setError(null);
     } catch (error) {
       setError(
@@ -28,7 +26,7 @@ export const useNetworkManager = (): ChainList => {
     } finally {
       setLoading(false);
     }
-  }, [network, setCurrentChainId, setError, setLoading, connector]);
+  }, [chainId, setCurrentChainId, setError, setLoading]);
 
   useEffect(() => {
     updateNetwork();
