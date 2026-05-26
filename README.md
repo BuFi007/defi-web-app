@@ -1,4 +1,4 @@
-# BuFi · FX Telaraña
+# BUFX · Agentic Forex Stablecoin Trading
 
 Onchain forex exchange on Arc. Perpetual futures, spot FX, lending/borrowing — for humans and AI agents.
 
@@ -121,6 +121,35 @@ packages/
   shared-types/     Cross-package types
   logger/           JSON structured logger
 ```
+
+## Rust Matcher (Hybrid CLOB)
+
+Rust-based price-time priority matcher for perp trades. Sub-second matching with batch settlement on Arc — the exchange's order-matching core.
+
+**Architecture:** single-writer sequencer actor serializes all order events, a WebSocket gateway accepts submissions from traders/agents, and a batch flusher groups fills into onchain settlement transactions.
+
+```
+services/matcher/
+  crates/
+    orderbook/                          BTreeMap CLOB — price-time priority, cancel/replace
+    matcher-server/
+      src/
+        sequencer.rs                    Single-writer event loop (all order mutations)
+        ws_gateway.rs                   WebSocket order submission + acks
+        batch_flusher.rs                Onchain settlement batching (Arc)
+        tick.rs                         Legacy tick loop (Phase 1: persistent books)
+```
+
+**Config:**
+
+| Env var | Purpose |
+|---------|---------|
+| `MATCHER_WS_BIND` | WebSocket listen address |
+| `MATCHER_GRPC_BIND` | gRPC listen address |
+| `MATCHER_HTTP_BIND` | HTTP health/metrics address |
+| `MATCHER_CHAIN_ID` | Target chain for settlement |
+
+Full architecture spec: [`docs/architecture/hybrid-clob-spec.md`](docs/architecture/hybrid-clob-spec.md)
 
 ## Rules
 

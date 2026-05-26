@@ -294,7 +294,10 @@ async fn main() -> ExitCode {
     } else {
         match cfg.ws_bind.parse::<std::net::SocketAddr>() {
             Ok(addr) => {
-                let ws_state = ws_gateway::WsState { seq_tx: seq_tx.clone() };
+                let ws_state = ws_gateway::WsState {
+                    seq_tx: seq_tx.clone(),
+                    deployment: Arc::new(deployment),
+                };
                 Some(tokio::spawn(async move {
                     if let Err(e) = ws_gateway::serve(addr, ws_state).await {
                         error!(error = ?e, "WS gateway exited with error");
