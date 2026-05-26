@@ -244,26 +244,122 @@ lending table and the yield chart.
 
 ## Implementation Order
 
+> All phases execute in the **fx-telarana** repo, not defi-web-app.
+> The UI consumes results via Envio GraphQL.
+
+### Phase 0: Deploy Uniswap v4 on Arc Testnet (PREREQUISITE)
+
+Uniswap v4 is NOT deployed on Arc Testnet (chain 5042002) as of
+2026-05-26. The canonical PoolManager address has no code on Arc.
+However, the CREATE2 deployer IS present at
+`0x4e59b44847b379578588920cA78FbF26c0B4956C` — so we can deploy
+v4 ourselves at deterministic addresses.
+
+**Verified on-chain:**
+- CREATE2 deployer: EXISTS on Arc Testnet
+- PoolManager (`0x000000000004444c5dc75cb358380d2e3de08a90`): NOT DEPLOYED
+
+**Deployment steps (fx-telarana repo, next session):**
+
+```bash
+# 1. Clone v4-core and deploy PoolManager
+git clone https://github.com/Uniswap/v4-core
+cd v4-core && forge install
+forge script script/DeployPoolManager.s.sol \
+  --rpc-url https://rpc.testnet.arc.network \
+  --private-key $DEPLOYER_PRIVATE_KEY \
+  --broadcast
+
+# 2. Clone v4-periphery and deploy PositionManager
+git clone https://github.com/Uniswap/v4-periphery
+cd v4-periphery && forge install
+forge script script/DeployPositionManager.s.sol \
+  --rpc-url https://rpc.testnet.arc.network \
+  --private-key $DEPLOYER_PRIVATE_KEY \
+  --broadcast
+
+# 3. Verify on Arcscan
+# PoolManager should appear at the canonical CREATE2 address
+# https://testnet.arcscan.io/address/0x000000000004444c5dc75cb358380d2e3de08a90
+```
+
+**Why deploy ourselves:**
+- Uniswap v4 contracts are open source and permissionless
+- Anyone can deploy on any EVM chain
+- CREATE2 gives deterministic addresses matching other chains
+- No need to wait for Uniswap team — we unblock ourselves
+- The hookathon demo needs v4 on Arc, not a promise of v4 on Arc
+
+**Alternative if deploy scripts need adaptation:**
+- Use `forge create` directly with the PoolManager bytecode
+- Or use the scaffold-hook template which includes deployment helpers
+- Arc is EVM-compatible, no custom opcodes to worry about
+
 ### Phase 1: TurboFeeVault (fx-telarana repo)
 Deploy the vault contract on Arc Testnet. Wire FxOrderSettlement to
 call depositFee() after each trade. UI shows "Fee Boost APY" column.
 
-### Phase 2: Uniswap v4 Pool Listing
-Deploy the EURC/USDC pool on Uniswap v4 with the Fee Hook attached.
-The Fee Hook routes swap fees through the vault. LPs can deposit via
-Uniswap or BUFX — same pool.
+### Phase 2: FxHedgeHook + cirBTC/USDC Pool (HOOKATHON DEMO)
 
-### Phase 3: Lending Integration Hook
+The hookathon demo uses the cirBTC/USDC pair — a LIVE perps market
+on the BUFX CLOB with real Pyth BTC/USD oracle feeds.
+
+```bash
+# Deploy the hook using CREATE2 with HookMiner for correct address flags
+forge script script/DeployFxHedgeHook.s.sol \
+  --rpc-url https://rpc.testnet.arc.network \
+  --private-key $DEPLOYER_PRIVATE_KEY \
+  --broadcast
+
+# Create the cirBTC/USDC pool with the hook attached
+# Pool uses the PoolManager deployed in Phase 0
+```
+
+**FxHedgeHook.sol:**
+- `beforeAddLiquidity`: calculate BTC exposure → open BTC/USD short perp on BUFX CLOB
+- `afterSwap`: rebalance hedge if LP exposure changed significantly
+- `beforeRemoveLiquidity`: close hedge proportionally
+
+**Demo script (the hookathon presentation):**
+1. Deposit LP into cirBTC/USDC WITHOUT hook → BTC drops 10% → show IL loss
+2. Deposit LP into cirBTC/USDC WITH FxHedgeHook → BTC drops 10% → IL neutralized
+3. Both earned swap fees. Only the hedged LP kept theirs.
+4. Show the perps trade on the BUFX CLOB that executed the hedge
+5. Show the fee flowing through TurboFeeVault to the LP yield pool
+
+**What already exists on Arc Testnet:**
+- cirBTC token (deployed)
+- USDC (native gas token)
+- CIRBTC/USDC perps market (live on CLOB, matcher settles it)
+- BTC/USD Pyth oracle feed (`0xe62df6c...`)
+- Hybrid CLOB sequencer (WS gateway + batch flusher)
+- Morpho lending pools (USDC liquidity)
+
+Everything on one chain. No cross-chain. No bridging. Real trades.
+
+### Phase 3: Fee Hook + Uniswap Pool Listing
+Deploy EURC/USDC and other FX pools on Uniswap v4 with the Fee Hook.
+The Fee Hook routes swap fees through the TurboFeeVault. LPs can
+deposit via Uniswap interface or BUFX app — same pool, same yield.
+
+### Phase 4: Lending Integration Hook
 Connect idle pool liquidity to Morpho lending. The hook auto-deposits
 unused USDC into the Morpho market and withdraws when needed for swaps.
+This is where the Morpho vault and Uniswap pool become one.
 
-### Phase 4: FX Hedge Hook
-The cross-protocol hedge mechanism. External pools attach the hook to
-hedge FX exposure through the BUFX CLOB. Volume flywheel activates.
+### Phase 5: Testnet Launch (Arc Testnet ONLY)
+Full integration on Arc Testnet:
+- All FX pairs + cirBTC pool with hooks
+- TurboFeeVault distributing fees
+- Envio indexing composite yield
+- UI showing blended APY
+- Delta-neutral hedging working end-to-end
 
-### Phase 5: Cross-chain via CCTP
-Pools on Ethereum, Base, Arbitrum can hedge through Arc CLOB via
-Circle's CCTP. The hedge hook handles the cross-chain messaging.
+Mainnet deployment is a separate decision requiring:
+- Security audit of all hook contracts
+- Legal review of fee redistribution mechanism
+- Production Envio deployment
+- Insurance fund adequacy testing
 
 ## Why This Wins
 
