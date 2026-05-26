@@ -1,26 +1,187 @@
-# TurboFeeVault Spec — Yield Engine for BUFX
+# BUFX Unified Liquidity Layer — Yield Engine Spec
 
-> This contract lives in the **fx-telarana** or **BUFX** repo, NOT defi-web-app.
-> The UI consumes it via the Envio yield engine (services/envio-yield/).
+> Contracts live in **fx-telarana** or **BUFX** repo, NOT defi-web-app.
+> The UI consumes yield data via the Envio indexer (services/envio-yield/).
 
-## Overview
+## Core Thesis
 
-The TurboFeeVault is an on-chain fee splitter + yield distribution contract that routes a configurable percentage of trading fees (perps + spot) to lenders who stake their Morpho supply shares. It creates a composite APY: `Morpho IRM base rate + trading fee boost`.
+Morpho lending markets and Uniswap v4 pools are **the same liquidity**.
+One LP position. Three yield sources. One composite APY. The LP deposits
+once and earns from lending interest, trading fees, and external hedge
+volume — without managing three separate positions.
 
-## Fee Flow
+This is what makes BUFX infrastructure, not just an app.
+
+## Architecture
+
+```
+                    UNISWAP V4 POOL
+                    (EURC / USDC)
+                   ┌──────────────┐
+                   │ + Hedge Hook │ ← external pools hedge FX exposure here
+                   │ + Fee Hook   │ ← routes trading fees to vault
+                   │ + IRM Hook   │ ← connects to Morpho lending rate
+                   └──────┬───────┘
+                          │
+                 LP deposits USDC
+                          │
+              ┌───────────┴───────────┐
+              │   MORPHO BLUE MARKET  │
+              │   (same EURC/USDC)    │
+              │                       │
+              │  Lending: IRM APY     │  ← borrower interest
+              │  Trading: fee share   │  ← perps + spot fees
+              │  Hedging: volume fees │  ← external pools hedging
+              │                       │
+              │  = ONE composite APY  │
+              └───────────┬───────────┘
+                          │
+                    LP sees: 12.4% APY
+                    (doesn't care where it comes from)
+```
+
+## Three Yield Sources
+
+### Source 1: Morpho IRM (existing)
+
+```
+borrowAPR = f(utilization)
+supplyAPR = borrowAPR × utilization × (1 - reserveFactor)
+```
+
+This is the base rate. Currently 0% because no borrows. Grows as
+borrowing demand increases. Standard Morpho/Aave economics.
+
+### Source 2: Trading Fee Share (TurboFeeVault)
+
+Every perps trade and spot swap generates a fee (5-8 bps). The fee
+splitter routes 40% to the LP yield pool.
+
+```
+fee_apy = (daily_fees_to_vault × 365) / total_lp_deposits
+```
+
+At $100K daily trading volume with 5bps fee:
+  daily fees = $50, vault share (40%) = $20
+  on $500K TVL: fee_apy = ($20 × 365) / $500K = 1.46%
+
+At $1M daily volume: fee_apy = 14.6%
+
+This is the growth engine — more volume = higher APY = more TVL.
+
+### Source 3: External Hedge Volume (FX Hedge Hook)
+
+Any Uniswap v4 pool with FX-denominated tokens can attach the BUFX
+Hedge Hook. The hook opens perps positions on the BUFX CLOB to hedge
+the pool's FX exposure. Every hedge = a perps trade = a fee.
+
+This is the flywheel:
+```
+More external pools hedge → more CLOB volume → more fees
+→ higher LP APY → more TVL → deeper liquidity → tighter spreads
+→ more pools want to hedge through BUFX → repeat
+```
+
+The LP doesn't do anything extra to earn this. The hedge volume flows
+through the same CLOB, generates the same fees, and the vault
+distributes them to the same LPs.
+
+## Fee Split
 
 ```
 TRADER pays fee on every perps/spot trade
     ↓
-FxOrderSettlement / FxSpotExecutor
-    ↓ fee transferred to TurboFeeVault
-    ↓
-TURBO FEE VAULT (on-chain, immutable split)
-    ├── 50% → Protocol Treasury (protocolRecipient)
-    ├── 20% → Yield Pool (for stakers)
-    ├── 20% → Insurance Fund (insuranceRecipient)
-    └── 10% → LP Incentive Pool (lpRecipient)
+FEE SPLITTER (on-chain, immutable logic)
+    ├── 50% → Protocol Treasury (BUFX revenue, sustainability)
+    ├── 40% → LP Yield Pool (distributed pro-rata to depositors)
+    └── 10% → Insurance Fund (hedge failure protection buffer)
 ```
+
+Why this split:
+- **50% protocol**: sustainable business. Covers infra, team, development.
+- **40% LPs**: competitive APY. This is the number users compare across protocols.
+- **10% insurance**: small because FX has low volatility. Grows over time.
+  Only pays out when the hedge hook's perps position fails (rebalance lag,
+  funding spike, or liquidation — all rare for FX pairs).
+
+## How the Uniswap v4 Listing Works
+
+### The Pool IS the Market
+
+The EURC/USDC Uniswap v4 pool is also the EURC/USDC Morpho lending market.
+They share the same underlying liquidity. This is achieved via hooks:
+
+1. **Swap Hook**: When someone swaps EURC→USDC through the Uniswap pool,
+   the hook routes the execution through the BUFX spot executor. The LP
+   earns the swap fee. BUFX earns the protocol share.
+
+2. **Lending Hook**: The idle liquidity that isn't being used for swaps
+   is deposited into the Morpho market to earn lending yield. This is
+   similar to how Uniswap v4's "idle liquidity" hooks work.
+
+3. **Hedge Hook**: External pools (on other chains) that have FX exposure
+   open hedge positions through the BUFX CLOB. This generates trading
+   volume and fees without requiring any action from the LP.
+
+### What the LP Sees
+
+```
+BUFX App → Loan/Borrow tab → EURC/USDC pool
+  APY: 12.4% (composite)
+    ├── 3.2% lending (Morpho IRM — borrower interest)
+    ├── 7.8% trading fees (perps + spot volume share)
+    └── 1.4% hedge income (external pools hedging)
+
+Uniswap Interface → EURC/USDC pool (same pool, different frontend)
+  APY: 12.4% (same number)
+  "Powered by BUFX Yield Hooks"
+```
+
+The LP can deposit from either interface. Same pool. Same yield. BUFX
+gets distribution through Uniswap's massive user base.
+
+## Risks That Can Break This
+
+### 1. Oracle manipulation
+If the Pyth oracle price is manipulated, the hedge hook opens positions
+at wrong prices. The LP loses money on the hedge AND the Morpho
+liquidation engine fires incorrectly.
+
+**Mitigation**: Pyth has multi-publisher median. Add a TWAP sanity check
+in the hook. Pause hedging if price deviates > 2% from TWAP.
+
+### 2. Hedge-pool desync
+The Morpho market and Uniswap pool must stay in sync. If one has
+liquidity the other doesn't, arbitrageurs extract value.
+
+**Mitigation**: The hook enforces that withdrawals from one drain from
+both. Single LP token represents both positions.
+
+### 3. Funding rate regime change
+If funding rates on FX perps flip persistently negative (shorts pay
+longs), the hedge cost eats into LP yield. LPs withdraw. Liquidity
+drops. Death spiral.
+
+**Mitigation**: Insurance fund absorbs funding cost during adverse
+periods. The hook can also switch from perps to options-based hedging
+if funding exceeds a threshold.
+
+### 4. Smart contract risk
+Three interacting contracts (Morpho + Uniswap + BUFX hooks) = large
+attack surface. A bug in any one affects the entire yield stack.
+
+**Mitigation**: Each layer is independently audited. The hooks are
+stateless (they don't hold funds — Morpho and Uniswap do). The vault
+is the only contract that holds fee revenue.
+
+### 5. Regulatory risk
+Combining lending + trading fees + hedging into one yield product
+could be classified as a security (Howey test: investment of money
+in a common enterprise with expectation of profits from the efforts
+of others).
+
+**Mitigation**: Fully on-chain, permissionless, non-custodial. No
+admin keys on the fee split. Legal opinion needed before mainnet.
 
 ## Contract Interface
 
@@ -29,152 +190,91 @@ TURBO FEE VAULT (on-chain, immutable split)
 pragma solidity ^0.8.24;
 
 interface ITurboFeeVault {
-    // --- Admin ---
-    function setSplitBps(
-        uint16 protocolBps,
-        uint16 yieldBps,
-        uint16 insuranceBps,
-        uint16 lpBps
-    ) external; // onlyOwner, sum must = 10000
+    // --- Fee ingress (called by settlement contracts) ---
+    function depositFee(address token, uint256 amount, bytes32 marketId) external;
 
-    // --- Fee ingress ---
-    function depositFee(
-        address token,
-        uint256 amount,
-        bytes32 marketId
-    ) external; // called by settlement contracts
-
-    // --- Staking ---
-    function stake(uint256 morphoShares) external;
-    function unstake(uint256 morphoShares) external;
-    function claimYield() external;
+    // --- LP staking (deposit = stake, same action) ---
+    function deposit(uint256 assets) external returns (uint256 shares);
+    function withdraw(uint256 shares) external returns (uint256 assets);
+    function claimYield() external returns (uint256 claimed);
 
     // --- Views ---
     function pendingYield(address user) external view returns (uint256);
-    function totalStaked() external view returns (uint256);
-    function currentApy() external view returns (uint256); // annualized, 18 decimals
+    function compositeApy() external view returns (uint256); // 18 decimals
+    function totalDeposits() external view returns (uint256);
 
     // --- Events ---
-    event FeeDeposited(bytes32 indexed marketId, address token, uint256 amount, uint256 yieldShare);
-    event Staked(address indexed user, uint256 shares);
-    event Unstaked(address indexed user, uint256 shares);
+    event FeeDeposited(bytes32 indexed marketId, address token, uint256 amount, uint256 vaultShare);
+    event Deposited(address indexed user, uint256 assets, uint256 shares);
+    event Withdrawn(address indexed user, uint256 shares, uint256 assets);
     event YieldClaimed(address indexed user, uint256 amount);
-    event SplitUpdated(uint16 protocolBps, uint16 yieldBps, uint16 insuranceBps, uint16 lpBps);
+    event InsurancePayout(bytes32 indexed marketId, uint256 amount, string reason);
 }
-```
-
-## Yield Distribution Mechanics
-
-### Staking
-- Lenders who supply to Morpho pools receive Morpho supply shares
-- They can stake those shares in the TurboFeeVault
-- Staked shares continue to earn Morpho IRM yield (shares aren't transferred, just registered)
-- The vault tracks each staker's pro-rata share of the yield pool
-
-### Distribution
-- Fees accrue in the vault's yield pool in USDC
-- Distribution is continuous (no epoch/claiming windows)
-- `pendingYield(user) = yieldPool × (userStake / totalStaked) - alreadyClaimed`
-- Users call `claimYield()` to withdraw their pending USDC
-
-### APY Calculation
-```
-base_apy = morpho_irm_supply_rate (from on-chain IRM)
-fee_apy  = (daily_yield_pool_inflow × 365) / total_staked_value
-composite_apy = base_apy + fee_apy
 ```
 
 ## Envio Integration
 
-The Envio yield engine (services/envio-yield/) indexes:
-- `FeeDeposited` events → tracks fee accrual per market per day
-- `Staked` / `Unstaked` events → tracks TVL in the vault
-- `YieldClaimed` events → tracks distribution
-- Derives `annualizedFeeApy` per market in `DailyMarketSnapshot`
+The yield engine at services/envio-yield/ indexes:
 
-The web UI reads from Envio's GraphQL API to display:
-- Per-market composite APY in the lending table
-- Historical yield charts
-- User's pending yield + claim button
+| Event | Source | What it tracks |
+|-------|--------|---------------|
+| MatchSettled | FxOrderSettlement | Perps volume + fees per market |
+| SpotFxExecuted | FxSpotExecutor | Spot volume |
+| FundingPoked | FxPerpClearinghouse | Funding rate history |
+| Supply/Withdraw/Borrow/Repay | MorphoBlue | Lending TVL + utilization |
+| FeeDeposited | TurboFeeVault | Fee accrual per market per day |
+| Deposited/Withdrawn | TurboFeeVault | Vault TVL |
+| YieldClaimed | TurboFeeVault | Distribution tracking |
 
-## Deployment Plan
-
-1. **Contract**: Deploy TurboFeeVault on Arc Testnet (chain 5042002)
-2. **Integration**: Update FxOrderSettlement to call `vault.depositFee()` after each trade
-3. **UI**: Add "Boost APY" column in the lending table, "Stake" button in the action card
-4. **Indexer**: Add TurboFeeVault contract to Envio config.yaml
-
-## Security Considerations
-
-- The vault holds USDC (not supply shares) — simpler attack surface
-- Split percentages are admin-controlled but bounded (no single recipient > 60%)
-- Staking is non-custodial (Morpho shares stay with the user, vault just tracks registration)
-- No lock-up period (unstake anytime)
-- Insurance fund share provides solvency buffer for LP losses
-
-## Legal Notes
-
-- Fee redistribution to stakers is similar to Aave Safety Module or Curve gauge
-- The mechanism is fully on-chain, non-custodial, permissionless
-- Protocol keeps 50% (sustainable business model)
-- Legal review recommended before mainnet deployment
-- Consider: is the staked position a security? Depends on jurisdiction.
-  The "efforts of others" prong is arguable since trading volume is market-driven,
-  not protocol-managed. But US securities law is aggressive on DeFi yield.
-
-## Future: Uniswap v4 Yield Hooks
-
-The LP Incentive Pool (10% of fees) can fund:
-- IL insurance hook premiums for FX AMM LPs
-- Fee-smoothing hook that converts volatile per-block fees into steady yield
-- Delta-neutral hedging hook that auto-hedges LP exposure via the perps CLOB
-- YieldBasis-style fixed-rate vaults using the fee pool as variable buffer
-
-These hooks would live in the fx-telarana repo alongside the Morpho/Uniswap contracts.
-
-## Future: FX Hedge Hook (Cross-Protocol Volume Flywheel)
-
-The highest-leverage idea: a Uniswap v4 hook that lets ANY pool with FX-denominated tokens (EURC/WETH, JPYC/USDC, MXNB/anything) auto-hedge their FX exposure via BUFX perps.
-
-### How It Works
-
-1. LP deposits into a Uniswap v4 pool with a stablecoin that has FX risk (e.g. EURC/WETH)
-2. The FX Hedge Hook detects the LP's EUR exposure from their position
-3. The hook opens a corresponding EUR/USD short perp on the BUFX CLOB
-4. The LP is now delta-neutral on EUR/USD — they only earn swap fees, no FX IL
-5. The hedge position pays/receives funding rate on BUFX
-
-### Economics
-
-```
-LP earns:  Uniswap swap fees - BUFX funding rate cost
-LP avoids: EUR/USD impermanent loss (hedged by the perp)
-BUFX earns: Trading fee on hedge open/close + funding rate spread
-Vault gets: More perps volume → more fees → higher staker yield
+Derived metric exposed via GraphQL:
+```graphql
+query {
+  dailyMarketSnapshot(where: { marketId: "0x565a..." }) {
+    date
+    perpFees
+    spotVolume
+    totalSupply
+    annualizedFeeApy    # (daily_vault_inflow × 365) / total_deposits
+  }
+}
 ```
 
-### Why This Is Infrastructure
+The web UI reads this to display the composite APY breakdown in the
+lending table and the yield chart.
 
-- Any pool on ANY chain with FX-denominated assets can use the hook
-- BUFX becomes the "FX hedge layer for DeFi" — not just a trading app
-- Volume flywheel: more hedging pools → more CLOB volume → tighter spreads → more pools want to hedge
-- The hook can be permissionless — anyone deploys a pool with the BUFX FX Hedge Hook attached
-- Cross-chain via CCTP: hedge on Arc, pool on Ethereum/Base/Arbitrum
+## Implementation Order
 
-### Implementation Notes
+### Phase 1: TurboFeeVault (fx-telarana repo)
+Deploy the vault contract on Arc Testnet. Wire FxOrderSettlement to
+call depositFee() after each trade. UI shows "Fee Boost APY" column.
 
-- The hook needs read access to the BUFX CLOB (via the WS gateway or API)
-- Settlement happens off-chain (signed EIP-712 intents) — the hook signs on behalf of the LP
-- Hedge rebalancing on every significant position change (swap that moves the LP's FX delta)
-- The hook contract holds the perps margin (USDC) — funded by the LP or from a shared vault
-- Gas cost: hook execution on the Uniswap chain + cross-chain message to Arc for the hedge
+### Phase 2: Uniswap v4 Pool Listing
+Deploy the EURC/USDC pool on Uniswap v4 with the Fee Hook attached.
+The Fee Hook routes swap fees through the vault. LPs can deposit via
+Uniswap or BUFX — same pool.
 
-### Relationship to Uniswap Foundation Priorities
+### Phase 3: Lending Integration Hook
+Connect idle pool liquidity to Morpho lending. The hook auto-deposits
+unused USDC into the Morpho market and withdraws when needed for swaps.
 
-This directly addresses the Foundation's 2026 frontier themes:
-- **IL insurance**: The hedge IS the insurance — perps position cancels FX IL
-- **Delta-neutral hedging**: Core mechanism
-- **Fee-smoothing**: The funding rate creates a predictable cost/income stream
-- **Sustainable LP economics**: LPs earn swap fees without FX risk — the holy grail
+### Phase 4: FX Hedge Hook
+The cross-protocol hedge mechanism. External pools attach the hook to
+hedge FX exposure through the BUFX CLOB. Volume flywheel activates.
 
-This hook + the TurboFeeVault + Morpho lending = a complete yield stack that turns BUFX from a trading app into FX infrastructure for all of DeFi.
+### Phase 5: Cross-chain via CCTP
+Pools on Ethereum, Base, Arbitrum can hedge through Arc CLOB via
+Circle's CCTP. The hedge hook handles the cross-chain messaging.
+
+## Why This Wins
+
+1. **For LPs**: One deposit, three yield sources, no active management.
+   Higher APY than Morpho alone or Uniswap alone.
+
+2. **For traders**: Deep liquidity from combined Morpho+Uniswap TVL.
+   Tighter spreads. More markets.
+
+3. **For BUFX**: 50% of all trading fees as protocol revenue. Volume
+   flywheel from external hedgers. Distribution through Uniswap.
+
+4. **For DeFi**: The first FX-native yield infrastructure. Every protocol
+   that touches FX stablecoins can plug into BUFX for hedging and yield.
