@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useWalletClient } from "wagmi";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3002";
 
 export function useIdentityRegistration() {
   const { user, primaryWallet } = useDynamicContext();
+  const { data: walletClient } = useWalletClient();
   const [registered, setRegistered] = useState<boolean | null>(null);
   const [registering, setRegistering] = useState(false);
   const checkedRef = useRef<string | null>(null);
@@ -54,7 +56,6 @@ export function useIdentityRegistration() {
       }
 
       if (data.contract) {
-        const walletClient = await primaryWallet.getWalletClient();
         if (walletClient?.writeContract) {
           const tx = await walletClient.writeContract({
             address: data.contract.to as `0x${string}`,
@@ -82,7 +83,7 @@ export function useIdentityRegistration() {
     } finally {
       setRegistering(false);
     }
-  }, [address, primaryWallet, user]);
+  }, [address, primaryWallet, walletClient, user]);
 
   return { registered, registering, register, address };
 }
