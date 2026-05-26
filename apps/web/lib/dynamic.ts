@@ -1,2 +1,1 @@
-export * from "@dynamic-labs/sdk-react-core";
-export * from "@dynamic-labs/ethereum";
+// Dynamic SDK re-exports removed -- all wallet/auth access is now via wagmi + ConnectKit.

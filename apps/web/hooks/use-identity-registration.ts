@@ -1,20 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
-import { useWalletClient } from "wagmi";
+import { useAccount, useWalletClient } from "wagmi";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3002";
 
 export function useIdentityRegistration() {
-  const { user, primaryWallet } = useDynamicContext();
+  const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
   const [registered, setRegistered] = useState<boolean | null>(null);
   const [registering, setRegistering] = useState(false);
   const checkedRef = useRef<string | null>(null);
-
-  const address = primaryWallet?.address;
 
   useEffect(() => {
     if (!address || checkedRef.current === address) return;
@@ -27,15 +24,10 @@ export function useIdentityRegistration() {
   }, [address]);
 
   const register = useCallback(async () => {
-    if (!address || !primaryWallet) return;
+    if (!address) return;
     setRegistering(true);
 
-    const name =
-      user?.username?.trim() ??
-      user?.alias?.trim() ??
-      user?.firstName?.trim() ??
-      user?.email?.split("@")[0] ??
-      `Trader-${address.slice(0, 8)}`;
+    const name = `Trader-${address.slice(0, 8)}`;
 
     try {
       const res = await fetch(`${API_URL}/reputation/register`, {
@@ -45,7 +37,7 @@ export function useIdentityRegistration() {
           address,
           name,
           type: "human",
-          source: "dynamic",
+          source: "wagmi",
         }),
       });
       const data = await res.json();
@@ -83,7 +75,7 @@ export function useIdentityRegistration() {
     } finally {
       setRegistering(false);
     }
-  }, [address, primaryWallet, walletClient, user]);
+  }, [address, walletClient]);
 
   return { registered, registering, register, address };
 }

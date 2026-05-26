@@ -12,7 +12,7 @@ import {
   type Variants,
 } from "framer-motion";
 import { ArrowUpRight, Home as HomeIcon } from "lucide-react";
-import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
+import { ConnectKitButton } from "connectkit";
 import { ModeToggle } from "@/components/theme-toggle";
 import LocalSwitcher from "@/components/locale-switcher";
 import { useAppTranslations } from "@/context/TranslationContext";
@@ -374,7 +374,7 @@ const MobileMenu: React.FC = () => {
                   </div>
                   <div className="flex flex-col gap-3">
                     <div className="[&>div]:w-full [&_button]:w-full">
-                      <DynamicWidget />
+                      <ConnectKitButton />
                     </div>
                   </div>
                 </motion.section>

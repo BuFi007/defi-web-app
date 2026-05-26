@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
 import { AnimatePresence, motion } from "framer-motion";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 
 import { truncateAddress } from "@/utils";
 
@@ -126,17 +125,8 @@ function liveToPositionRow(p: PerpsPositionDto): PositionRow {
 // social-auth profile), fall back to a truncated address so the row
 // still renders identifiably instead of "Anonymous".
 function resolveDisplayName(
-  user: ReturnType<typeof useDynamicContext>["user"],
   address: string | null | undefined,
 ): string {
-  const username = user?.username?.trim();
-  if (username) return username;
-  const alias = user?.alias?.trim();
-  if (alias) return alias;
-  const firstName = user?.firstName?.trim();
-  if (firstName) return firstName;
-  const email = user?.email?.trim();
-  if (email) return email.split("@")[0] ?? email;
   if (address) return truncateAddress(address, 6);
   return "Anonymous";
 }
@@ -184,7 +174,6 @@ function LeadersTab() {
   // current snapshot from /perps/positions since open positions don't
   // carry a timestamp.
   const { address } = useAccount();
-  const { user } = useDynamicContext();
   const { data: livePositions, isLoading } = usePositions();
   const { data: liveTrades } = useTrades();
   const [period, setPeriod] = useState<LeaderPeriod>("30d");
@@ -226,7 +215,7 @@ function LeadersTab() {
   // and a fresh trader whose only basis is their open-position margin.
   const roiBase = Math.max(windowVolume, totalMargin);
   const roiPct = roiBase > 0 ? (windowPnl / roiBase) * 100 : null;
-  const displayName = resolveDisplayName(user, address);
+  const displayName = resolveDisplayName(address);
   const hasStandings =
     Boolean(address) && (positions.length > 0 || tradesInWindow.length > 0);
 
