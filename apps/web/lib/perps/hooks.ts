@@ -46,6 +46,9 @@ import {
   fetchPerpsQuote,
   fetchPerpsTrades,
   submitPerpsIntent,
+} from "./client";
+import { getSequencerClient, type SignedOrderPayload } from "./ws-sequencer";
+import {
   type PerpsCandlesResponseDto,
   type PerpsFundingDto,
   type PerpsIntentDto,
@@ -596,14 +599,53 @@ export function usePlaceOrder(): UseMutationResult<UsePlaceOrderResult, Error, U
         throw error;
       }
 
-      const proof = await signSession(trader, chainId);
-      if (!proof) throw new Error("wallet session required");
-
       const sizeDelta = signedSizeDelta({
         side: input.side,
         sizeUsdc: input.sizeUsdc,
         sizeDelta: undefined,
       }).toString();
+
+      // Phase 3: try WS sequencer first (sub-5ms), fall back to REST.
+      const seqClient = getSequencerClient();
+      if (seqClient.connected) {
+        try {
+          const wsOrder: SignedOrderPayload = {
+            trader,
+            marketId: input.marketId,
+            sizeDeltaE18: typedData.message.sizeDeltaE18.toString(),
+            priceE18: typedData.message.priceE18.toString(),
+            nonce: nonce.toString(),
+            deadline,
+            orderType: typedData.message.orderType as number,
+            flags: typedData.message.flags as number,
+          };
+          const ack = await seqClient.place(wsOrder, signature);
+          if (ack.status === "rejected") {
+            throw new Error(ack.reason ?? "sequencer rejected order");
+          }
+          return {
+            intent: {
+              intentId: ack.intentId ?? digest,
+              digest,
+              status: "accepted" as const,
+              typedData: {
+                domain: typedData.domain as unknown as { name: string; version: string; chainId: number; verifyingContract: `0x${string}` },
+                types: typedData.types as unknown as Record<string, { name: string; type: string }[]>,
+                primaryType: typedData.primaryType,
+                message: typedData.message as unknown as Record<string, unknown>,
+              },
+            },
+            digest,
+            nonce,
+            deadline,
+          };
+        } catch {
+          // WS failed — fall through to REST
+        }
+      }
+
+      const proof = await signSession(trader, chainId);
+      if (!proof) throw new Error("wallet session required");
 
       const intent = await submitPerpsIntent({
         request: {
