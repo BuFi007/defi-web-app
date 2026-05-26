@@ -40,7 +40,8 @@ function resolvePerpMarketId(uiSym: string, markets: PerpsMarketDto[] | undefine
   const pool = enabled.length > 0 ? enabled : markets;
   const base = uiSym.split(/[/-]/)[0]?.toUpperCase() ?? "";
   const baseAliases: Record<string, string[]> = {
-    EUR: ["EURC"], JPY: ["JPYC", "TJPYC"], MXN: ["MXNB", "TMXNB"], CHF: ["CHFC", "TCHFC"],
+    EUR: ["EURC"], JPY: ["JPYC", "TJPYC"], MXN: ["MXNB", "TMXNB"],
+    BTC: ["CIRBTC"], AUD: ["AUDF"],
   };
   const candidates = [base, ...(baseAliases[base] ?? [])];
   for (const c of candidates) {

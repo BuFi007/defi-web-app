@@ -117,9 +117,12 @@ perpsRoutes.get("/intents/pending", async (c) => {
     ? Math.min(Math.max(1, Math.floor(depthRaw)), 50)
     : 10;
   try {
+    const now = Math.floor(Date.now() / 1000);
     const all = await tradingDb.perpsIntents.list({ status: "pending" });
     const market = all.filter(
-      (i) => i.marketId.toLowerCase() === marketId.toLowerCase(),
+      (i) =>
+        i.marketId.toLowerCase() === marketId.toLowerCase() &&
+        i.deadline > now,
     );
     // Group by 1e18-scaled limit price. Bucket on price floor so close
     // limit orders coalesce visually. Bucket size = 0.0001 in price

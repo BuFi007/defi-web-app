@@ -179,7 +179,8 @@ function resolveLiveMarket(uiSym: string, markets: PerpsMarketDto[] | undefined)
     EUR: ["EURC"],
     JPY: ["JPYC", "TJPYC"],
     MXN: ["MXNB", "TMXNB"],
-    CHF: ["CHFC", "TCHFC"],
+    BTC: ["CIRBTC"],
+    AUD: ["AUDF"],
   };
   const candidates = [base, ...(baseAliases[base] ?? [])];
   for (const c of candidates) {
@@ -276,6 +277,20 @@ export function OrderPanelCard({
       return () => clearTimeout(t);
     }
   }, [liveTerminal]);
+
+  // Show a one-time toast when an on-chain identity NFT is minted.
+  useEffect(() => {
+    const handler = () => {
+      if (sessionStorage.getItem("identity-toast-shown")) return;
+      sessionStorage.setItem("identity-toast-shown", "1");
+      toast({
+        title: "Identity minted!",
+        description: "Your ERC-8004 trader identity is live. Check the Leaderboard tab.",
+      });
+    };
+    window.addEventListener("identity-registered", handler);
+    return () => window.removeEventListener("identity-registered", handler);
+  }, [toast]);
 
   const canTrade = Boolean(isConnected || devWallet);
   const hasSize = sizeV > 0;

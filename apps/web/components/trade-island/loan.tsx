@@ -372,7 +372,8 @@ function toLoanMarket(market: TelaranaMarketSerialized): LoanMarket {
   // 6-dp atomic → USD float. We assume both stables sit at 6 decimals
   // on every deployed market (USDC, EURC, MXNB, AUDF are all 6-dp on
   // testnets per their issuer docs); revisit when a 18-dp loan asset
-  // lands.
+  // lands. Show 0 (not null) for TVL on empty markets — "$0" is honest
+  // and useful (tells user no capital is locked yet).
   const tvl = hasState ? Number((supplyAssets - borrowAssets) / 10n ** 4n) / 100 : null;
   // LLTV is an immutable MarketParams field — the SDK fills it even when
   // the runtime state read fails, so it's safe to surface unconditionally.
@@ -381,8 +382,18 @@ function toLoanMarket(market: TelaranaMarketSerialized): LoanMarket {
   // for the UI. Supply ≈ borrow × util (Morpho fee defaults to 0). When
   // the protocol swaps in the adaptive IRM, replace these two lines
   // with a real `borrowRateView(...)` call surfaced via the SDK.
-  const borrow = util != null ? util * 100 : null;
-  const supply = util != null ? util * util * 100 : null;
+  //
+  // Edge case: when the market state is fetched successfully but BOTH
+  // totalSupply and totalBorrow are 0, the market is completely empty —
+  // no one has deposited or borrowed. Showing "0.00%" is misleading
+  // because it implies "this market pays nothing forever"; in reality
+  // the rate will emerge once liquidity + borrowing appear. Show null
+  // ("—") for empty markets so the UI reads as "rate not yet established"
+  // rather than "rate = zero". Once any supply enters and a borrow opens,
+  // real utilization drives real rates.
+  const isEmpty = hasState && supplyAssets === 0n && borrowAssets === 0n;
+  const borrow = util != null && !isEmpty ? util * 100 : null;
+  const supply = util != null && !isEmpty ? util * util * 100 : null;
   return {
     id: `${hub}-${loanSym.toLowerCase()}-${collSym.toLowerCase()}`,
     hub,
@@ -1166,9 +1177,10 @@ export function ActionCard({
     ? Number(activePosition.collateralPriceE36) / 1e36
     : 0;
   const collateralLoanValue = positionCollateralFloat * collateralLoanRate;
-  // market.lltv is in percent (86 = 86%), per the seed table; treat null
+  // market.lltv is a fraction (0.86 = 86%); derived from WAD in
+  // toLoanMarket() via `BigInt(lltv) / 10^14 / 10_000`. Treat null
   // as 0 so borrow MAX falls to 0 when LLTV is missing.
-  const lltvFraction = market.lltv != null ? market.lltv / 100 : 0;
+  const lltvFraction = market.lltv ?? 0;
   const maxBorrowable = Math.max(
     0,
     collateralLoanValue * lltvFraction - positionDebtFloat,
@@ -1207,16 +1219,31 @@ export function ActionCard({
   let impactMini2: [string, string];
   if (action === "lend") {
     impactTitle = "You will earn";
-    impactBig = "+$" + yearly.toFixed(2);
-    impactBigClass = "profit";
-    impactMini1 = ["per month", "+$" + monthly.toFixed(2)];
-    impactMini2 = ["per day", "+$" + daily.toFixed(2)];
+    if (rate == null) {
+      // Market is empty or rate not yet established — can't project
+      impactBig = "—";
+      impactBigClass = "ink";
+      impactMini1 = ["rate", "not yet established"];
+      impactMini2 = ["", "supply to bootstrap"];
+    } else {
+      impactBig = "+$" + yearly.toFixed(2);
+      impactBigClass = "profit";
+      impactMini1 = ["per month", "+$" + monthly.toFixed(2)];
+      impactMini2 = ["per day", "+$" + daily.toFixed(2)];
+    }
   } else if (action === "borrow") {
     impactTitle = "You will pay";
-    impactBig = "−$" + yearly.toFixed(2);
-    impactBigClass = "loss";
-    impactMini1 = ["per month", "−$" + monthly.toFixed(2)];
-    impactMini2 = ["per day", "−$" + daily.toFixed(2)];
+    if (rate == null) {
+      impactBig = "—";
+      impactBigClass = "ink";
+      impactMini1 = ["rate", "not yet established"];
+      impactMini2 = ["", "awaiting liquidity"];
+    } else {
+      impactBig = "−$" + yearly.toFixed(2);
+      impactBigClass = "loss";
+      impactMini1 = ["per month", "−$" + monthly.toFixed(2)];
+      impactMini2 = ["per day", "−$" + daily.toFixed(2)];
+    }
   } else if (action === "withdraw") {
     // Lead with the asset amount (what actually lands in the wallet),
     // demote the USDC dollar value to the small line. Previous order
@@ -1513,7 +1540,12 @@ export function liveBorrowValueUsd(position: TelaranaPositionSerialized, loanDec
   return Number(borrowAtomic / 10n ** BigInt(Math.max(loanDecimals - 2, 0))) / 100;
 }
 
-export function LoanTab() {
+export interface LoanTabIntent {
+  marketId: string;
+  action: "withdraw" | "repay";
+}
+
+export function LoanTab({ initialIntent }: { initialIntent?: LoanTabIntent | null }) {
   const { address } = useAccount();
   const { toast } = useToast();
   const { markets: liveMarkets, error: marketsError } = useMarkets();
@@ -1523,6 +1555,18 @@ export function LoanTab() {
   const [selectedId, setSelectedId] = useState("arc-usdc-eurc");
   const [actionId, setActionId] = useState("lend");
   const [amount, setAmount] = useState("");
+
+  // Consume an external intent (e.g. from Positions tab Withdraw/Repay buttons).
+  // When the intent changes, pre-select the target market and action tab.
+  const consumedIntentRef = useRef<LoanTabIntent | null>(null);
+  useEffect(() => {
+    if (initialIntent && initialIntent !== consumedIntentRef.current) {
+      consumedIntentRef.current = initialIntent;
+      setSelectedId(initialIntent.marketId);
+      setActionId(initialIntent.action);
+      setAmount("");
+    }
+  }, [initialIntent]);
 
   // When the API reports ORACLE_STALE we lock the CTA for 5s so users
   // don't hammer the backend while Pyth/Redstone catches up. The hook

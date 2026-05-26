@@ -43,7 +43,6 @@ export const FX_MARKETS: Market[] = [
   { sym: "USD/JPY", base: "USD", quote: "JPY", flagA: "🇺🇸", flagB: "🇯🇵", price: 0, change: 0, leverage: 100, type: "forex", spread: 0 },
   { sym: "AUD/USD", base: "AUD", quote: "USD", flagA: "🇦🇺", flagB: "🇺🇸", price: 0, change: 0, leverage: 50, type: "forex", spread: 0 },
   { sym: "USD/MXN", base: "USD", quote: "MXN", flagA: "🇺🇸", flagB: "🇲🇽", price: 0, change: 0, leverage: 50, type: "forex", spread: 0 },
-  { sym: "USD/CHF", base: "USD", quote: "CHF", flagA: "🇺🇸", flagB: "🇨🇭", price: 0, change: 0, leverage: 100, type: "forex", spread: 0 },
   { sym: "NZD/USD", base: "NZD", quote: "USD", flagA: "🇳🇿", flagB: "🇺🇸", price: 0, change: 0, leverage: 50, type: "forex", spread: 0 },
   { sym: "USD/CAD", base: "USD", quote: "CAD", flagA: "🇺🇸", flagB: "🇨🇦", price: 0, change: 0, leverage: 100, type: "forex", spread: 0 },
 ];

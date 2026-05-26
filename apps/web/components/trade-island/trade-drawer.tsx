@@ -64,7 +64,8 @@ function resolveLiveMarket(
     EUR: ["EURC"],
     JPY: ["JPYC", "TJPYC"],
     MXN: ["MXNB", "TMXNB"],
-    CHF: ["CHFC", "TCHFC"],
+    BTC: ["CIRBTC"],
+    AUD: ["AUDF"],
   };
   const candidates = [base, ...(baseAliases[base] ?? [])];
   for (const c of candidates) {

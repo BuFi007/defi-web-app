@@ -59,6 +59,14 @@ function decodeLevels(levels: PendingIntentLevelRaw[]): PendingLevel[] {
   });
 }
 
+function recumulateLevels(levels: PendingLevel[]): PendingLevel[] {
+  let running = 0;
+  return levels.map((l) => {
+    running += l.size;
+    return { ...l, total: running };
+  });
+}
+
 export function usePendingIntents(
   marketId: string | undefined,
   depth = 10,
@@ -71,8 +79,23 @@ export function usePendingIntents(
       const res = await fetch(url, { signal });
       if (!res.ok) throw new Error(`pending-intents ${res.status}`);
       const raw = (await res.json()) as PendingIntentsRaw;
-      const bids = decodeLevels(raw.bids);
-      const asks = decodeLevels(raw.asks);
+      const rawBids = decodeLevels(raw.bids);
+      const rawAsks = decodeLevels(raw.asks);
+
+      // Filter out far-OTM canary/test levels (e.g. 10,000 on a 1.16
+      // FX pair). Use the tightest realistic level from each side to
+      // derive a reference price, then discard anything >5x away.
+      const refBid = rawBids.find((l) => l.price < 50_000) ?? rawBids[0];
+      const refAsk = rawAsks.find((l) => l.price < 50_000) ?? rawAsks[0];
+      const ref = refBid && refAsk
+        ? (refBid.price + refAsk.price) / 2
+        : refBid?.price ?? refAsk?.price ?? 0;
+      const lo = ref * 0.2;
+      const hi = ref * 5;
+      const inRange = (l: PendingLevel) => ref === 0 || (l.price >= lo && l.price <= hi);
+      const bids = recumulateLevels(rawBids.filter(inRange));
+      const asks = recumulateLevels(rawAsks.filter(inRange));
+
       const maxTotal = Math.max(
         bids.length ? bids[bids.length - 1].total : 0,
         asks.length ? asks[asks.length - 1].total : 0,

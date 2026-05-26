@@ -29,6 +29,7 @@ import { useAccount, useChainId, useSignTypedData, useSwitchChain } from "wagmi"
 import {
   buildPerpsOrderTypedData,
   hashPerpsOrder,
+  signedSizeDelta,
   type PerpsOrderTypedDataInput,
 } from "@bufi/perps";
 import type { ChainId } from "@bufi/shared-types";
@@ -183,6 +184,10 @@ function apiSymbolToUiSymbol(s: string): string {
     "tJPYC/USDC": "USD/JPY",
     "tMXNB/USDC": "USD/MXN",
     "tCHFC/USDC": "USD/CHF",
+    // Current on-chain symbols (no `t` prefix after issuer-token migration):
+    "MXNB/USDC": "USD/MXN",
+    "CIRBTC/USDC": "BTC-PERP",
+    "AUDF/USDC": "AUD/USD",
   };
   return map[s] ?? s;
 }
@@ -594,6 +599,12 @@ export function usePlaceOrder(): UseMutationResult<UsePlaceOrderResult, Error, U
       const proof = await signSession(trader, chainId);
       if (!proof) throw new Error("wallet session required");
 
+      const sizeDelta = signedSizeDelta({
+        side: input.side,
+        sizeUsdc: input.sizeUsdc,
+        sizeDelta: undefined,
+      }).toString();
+
       const intent = await submitPerpsIntent({
         request: {
           chainId,
@@ -601,6 +612,7 @@ export function usePlaceOrder(): UseMutationResult<UsePlaceOrderResult, Error, U
           trader,
           side: input.side,
           sizeUsdc: input.sizeUsdc,
+          sizeDelta,
           leverage: input.leverage,
           deadline,
           nonce,
@@ -615,9 +627,38 @@ export function usePlaceOrder(): UseMutationResult<UsePlaceOrderResult, Error, U
 
       return { intent, digest, nonce, deadline };
     },
-    onSuccess: () => {
+    onSuccess: (_data, input) => {
       void queryClient.invalidateQueries({ queryKey: ["perps", "positions"] });
       void queryClient.invalidateQueries({ queryKey: ["perps", "trades"] });
+
+      const trader = ((devWallet?.address as `0x${string}` | undefined) ??
+        (address as `0x${string}` | undefined)) ?? null;
+      if (trader) {
+        const api = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3002";
+        fetch(`${api}/reputation/check/${trader}`)
+          .then((r) => r.json())
+          .then((d) => {
+            if (d.registered) return;
+            return fetch(`${api}/reputation/register`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                address: trader,
+                name: `Trader-${trader.slice(0, 8)}`,
+                type: "human",
+                source: "trade",
+              }),
+            }).then(() => {
+              // Notify UI that a fresh identity was minted
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(
+                  new CustomEvent("identity-registered", { detail: { address: trader } }),
+                );
+              }
+            });
+          })
+          .catch(() => {});
+      }
     },
   });
 }

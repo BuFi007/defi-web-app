@@ -24,7 +24,7 @@
  *
  * MARKET-ID → PYTH FEED MAPPING:
  *  `pythFeedForSpotSymbol` from `@bufi/market-data` only accepts the spot
- *  symbol literals ("EURC" | "JPYC" | "MXNB" | "CHFC"), so we wrap it with
+ *  symbol literals ("EURC" | "JPYC" | "MXNB"), so we wrap it with
  *  `resolvePythFeed(marketId)` below that accepts the looser identifiers
  *  flowing through the WS scaffold ("EUR/USD", "EURUSD", "EUR-USD-PERP",
  *  "tEURC/USDC", etc.) and normalises them to either a SpotFxSymbol or a
@@ -235,6 +235,7 @@ export function resolvePythFeed(marketId: string): Hex | null {
   if (upper.includes("CIRBTC") || upper.includes("BTC")) return PYTH_FEED_IDS.btcUsd;
   if (upper.includes("QCAD") || upper.includes("CAD")) return PYTH_FEED_IDS.cadUsd;
   if (upper.includes("AUDF") || upper.includes("AUD")) return PYTH_FEED_IDS.audUsd;
+  if (upper.includes("CHFC") || upper.includes("CHF")) return PYTH_FEED_IDS.chfUsd;
 
   return null;
 }

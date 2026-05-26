@@ -116,10 +116,9 @@ export const CIRCLE_GATEWAY = {
 // Canonical Pyth Hermes feed IDs. Source of truth:
 // ~/coding-dojo/fx-telarana/packages/sdk/src/addresses/index.ts.
 //
-// Five live feeds: usdUsdc (peg sanity), eurUsd (EURC perp), jpyUsd
+// Live feeds: usdUsdc (peg sanity), eurUsd (EURC perp), jpyUsd
 // (JPYC perp), mxnUsd (MXNB perp), btcUsd (CIRBTC perp), cadUsd
-// (QCAD Morpho), audUsd (AUDF — perp listing pending). chfUsd
-// dropped — CHFC was inert on Arc and the surface is fully removed.
+// (QCAD Morpho), audUsd (AUDF perp), chfUsd (USD/CHF chart + WS).
 export const PYTH_FEED_IDS = {
   usdUsdc: "0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
   eurUsd: "0x76fa85158bf14ede77087fe3ae472f66213f6ea2f5b411cb2de472794990fa5c",
@@ -128,6 +127,7 @@ export const PYTH_FEED_IDS = {
   btcUsd: "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
   cadUsd: "0x3112b03a41c910ed446852aacf67118cb1bec67b2cd0b9a214c58cc0eaa2ecca",
   audUsd: "0x67a6f93030420c1c9e3fe37c1ab6b77966af82f995944a9fefce357a22854a80",
+  chfUsd: "0x0b1e3297e643c4d82f6e7571be3250e61534776c9dede4bfd0e6c0e17e0e36d2",
 } as const satisfies Record<string, Hex>;
 
 export const LIVE_ROUTE_IDS = {

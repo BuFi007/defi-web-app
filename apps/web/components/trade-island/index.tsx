@@ -22,6 +22,7 @@ import { Hint } from "./hint";
 import { OrderbookCard, OrderPanelCard, ChartCard } from "./panels";
 import {
   LoanTab,
+  type LoanTabIntent,
   LOAN_TOKENS,
   LOAN_HUBS,
   HUB_NAME_BY_CHAIN_ID,
@@ -759,7 +760,7 @@ function PerpsPositionsView() {
   );
 }
 
-function LoanPositionsView() {
+function LoanPositionsView({ onLoanAction }: { onLoanAction: (intent: LoanTabIntent) => void }) {
   const { address } = useAccount();
   // Live telarana positions. Replaces the legacy LOAN_POSITIONS
   // hardcoded $4,246 / $6,320 / $2,073 demo block. The DTO returned
@@ -989,7 +990,17 @@ function LoanPositionsView() {
                   </td>
                   <td className="mono">{fmtUSD(r.valueUsd)}</td>
                   <td>
-                    <button className="close-btn" type="button">
+                    <button
+                      className="close-btn"
+                      type="button"
+                      onClick={() => {
+                        const loanMarketId = `${hubName}-${loanSym.toLowerCase()}-${collSym.toLowerCase()}`;
+                        onLoanAction({
+                          marketId: loanMarketId,
+                          action: r.kind === "supply" ? "withdraw" : "repay",
+                        });
+                      }}
+                    >
                       {r.kind === "supply" ? "Withdraw" : "Repay"}
                     </button>
                   </td>
@@ -1003,7 +1014,7 @@ function LoanPositionsView() {
   );
 }
 
-function PositionsOnlyTab() {
+function PositionsOnlyTab({ onLoanAction }: { onLoanAction: (intent: LoanTabIntent) => void }) {
   const [sub, setSub] = useState("perps");
   const { address } = useAccount();
   const { data: livePositions } = usePositions();
@@ -1041,7 +1052,7 @@ function PositionsOnlyTab() {
         </button>
       </div>
       {sub === "perps" && <PerpsPositionsView />}
-      {sub === "loan" && <LoanPositionsView />}
+      {sub === "loan" && <LoanPositionsView onLoanAction={onLoanAction} />}
     </div>
   );
 }
@@ -1196,6 +1207,14 @@ export default function TradeIsland() {
   const [tab, setTab] = useState("trade");
   const [marketSym, setMarketSym] = useState("EUR/USD");
   const [arcade, setArcade] = useState(false);
+  const [loanIntent, setLoanIntent] = useState<LoanTabIntent | null>(null);
+
+  // Callback for position row Withdraw/Repay buttons — switches to the
+  // loan tab with the target market and action pre-selected.
+  const navigateToLoan = (intent: LoanTabIntent) => {
+    setLoanIntent(intent);
+    setTab("loan");
+  };
   const baseMarket = useMemo(
     () => ALL_MARKETS.find((m) => m.sym === marketSym) || FX_MARKETS[0],
     [marketSym],
@@ -1322,8 +1341,8 @@ export default function TradeIsland() {
                 onPhaseChange={setArcadePhase}
               />
             )}
-            {tab === "positions" && <PositionsOnlyTab />}
-            {tab === "loan" && <LoanTab />}
+            {tab === "positions" && <PositionsOnlyTab onLoanAction={navigateToLoan} />}
+            {tab === "loan" && <LoanTab initialIntent={loanIntent} />}
             {tab === "leaders" && <LeadersTab />}
             {tab === "history" && <HistoryTab />}
           </motion.div>
