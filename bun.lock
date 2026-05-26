@@ -105,19 +105,6 @@
         "typescript": "5",
       },
     },
-    "apps/keeper-pyth": {
-      "name": "@bufi/keeper-pyth",
-      "version": "0.1.0",
-      "dependencies": {
-        "@bufi/contracts": "workspace:*",
-        "@bufi/keeper-runtime": "workspace:*",
-        "@bufi/market-data": "workspace:*",
-      },
-      "devDependencies": {
-        "@types/node": "20",
-        "typescript": "5",
-      },
-    },
     "apps/keeper-spot": {
       "name": "@bufi/keeper-spot",
       "version": "0.1.0",
@@ -781,8 +768,6 @@
     "@bufi/keeper-gateway-signer": ["@bufi/keeper-gateway-signer@workspace:apps/keeper-gateway-signer"],
 
     "@bufi/keeper-perps-liquidator": ["@bufi/keeper-perps-liquidator@workspace:apps/keeper-perps-liquidator"],
-
-    "@bufi/keeper-pyth": ["@bufi/keeper-pyth@workspace:apps/keeper-pyth"],
 
     "@bufi/keeper-runtime": ["@bufi/keeper-runtime@workspace:packages/keeper-runtime"],
 

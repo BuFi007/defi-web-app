@@ -38,12 +38,6 @@ dockerfilePath = "services/matcher/deploy/Dockerfile"
 # ── Keepers (background workers, no HTTP) ────────────────
 
 [[services]]
-name = "keeper-pyth"
-rootDirectory = "."
-buildCommand = "bun install --no-save"
-startCommand = "bun apps/keeper-pyth/src/index.ts"
-
-[[services]]
 name = "keeper-perps-liquidator"
 rootDirectory = "."
 buildCommand = "bun install --no-save"

@@ -53,7 +53,6 @@ bun run \
   --filter @bufi/keeper-arcade-settler \
   --filter @bufi/keeper-gateway-signer \
   --filter @bufi/keeper-perps-liquidator \
-  --filter @bufi/keeper-pyth \
   --filter @bufi/keeper-spot \
   --filter @bufi/keeper-telarana-liquidator \
   dev >"$REST_LOG" 2>&1 &

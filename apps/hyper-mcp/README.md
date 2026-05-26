@@ -293,7 +293,6 @@ graph TB
     end
 
     subgraph "Keepers (independent background loops)"
-        KP[keeper-pyth<br/>Push oracle prices<br/>~10s tick]
         KL[keeper-perps-liquidator<br/>Liquidate positions<br/>~30s tick]
         KS[keeper-spot<br/>Settle FX swaps<br/>~5s tick]
         KG[keeper-gateway-signer<br/>CCTP relay<br/>~10s tick]
@@ -310,7 +309,7 @@ graph TB
     PG --> API
     PG --> FX
 
-    KP --> ARC
+    MATCHER -->|pyth_pusher_ws| ARC
     KL --> ARC
     KS --> ARC
     KG --> ARC
@@ -325,7 +324,7 @@ graph TB
 | SQLite intent DB | API + MCP (create intents) | Matcher (pick up + fill) |
 | Arc chain state | Matcher + keepers (settle txs) | Ponder (index events) |
 | Ponder Postgres | Ponder (index) | API + frontend (query positions/trades) |
-| Pyth oracle prices | keeper-pyth (push to chain) | Clearinghouse (read for quotes/liquidations) |
+| Pyth oracle prices | Rust matcher pyth_pusher_ws | Clearinghouse (read for quotes/liquidations) |
 
 ### What happens if a service goes down
 
@@ -333,7 +332,7 @@ graph TB
 |-------------|--------|----------|
 | MCP | Agents can't submit new trades | Restart — intents in DB are durable |
 | Matcher | Intents accepted but not filled | Restart — picks up pending intents |
-| keeper-pyth | Oracle prices go stale, quotes degrade | Restart — Hermes fallback in API |
+| matcher pyth_pusher_ws | Oracle prices go stale, quotes degrade | Restart matcher — Hermes fallback in API |
 | keeper-liquidator | Underwater positions stay open | Restart — catches up on next tick |
 | Ponder | Frontend shows stale data | Restart — re-indexes from last block |
 

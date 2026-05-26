@@ -66,7 +66,7 @@ export const HUBS: Record<HubKey, HubChain> = {
 
 /**
  * Stable-order list of HubChain records, useful for `.map` over every hub
- * (matches preamble ordering in DynamicProviders evmNetworks).
+ * (matches the wagmi/connectkit hub ordering).
  */
 export const HUB_LIST: readonly HubChain[] = [HUBS.arc, HUBS.fuji];
 
