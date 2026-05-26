@@ -184,7 +184,7 @@ export interface MarketListEntry {
 function apiSymbolToUiSymbol(s: string): string {
   const map: Record<string, string> = {
     "EURC/USDC": "EUR/USD",
-    "tJPYC/USDC": "USD/JPY",
+    "JPYC/USDC": "USD/JPY",
     "tMXNB/USDC": "USD/MXN",
     "tCHFC/USDC": "USD/CHF",
     // Current on-chain symbols (no `t` prefix after issuer-token migration):
@@ -308,7 +308,7 @@ export function useMarketList(chainIdOverride?: number): {
  * keeping the same shape as `useMarketList()`.
  *
  * Why this exists: perp markets are split across hubs — Arc registers
- * FX (EURC/USDC, tJPYC/USDC, …) while Fuji is the EVM hub for crypto
+ * FX (EURC/USDC, JPYC/USDC,…) while Fuji is the EVM hub for crypto
  * perps. A single-chain picker only sees half of the catalogue
  * depending on which network wagmi is currently on, which silently
  * hides selectable markets and confuses the chart's "no data" state.

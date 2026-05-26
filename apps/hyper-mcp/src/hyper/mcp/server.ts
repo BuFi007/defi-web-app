@@ -69,6 +69,34 @@ export function mcpServer(app: HyperApp, cfg: McpServerConfig = {}): McpServer {
   }
 
   const handle = async (req: Request): Promise<Response> => {
+    if (req.method === "GET") {
+      const accept = req.headers.get("accept") ?? ""
+      if (accept.includes("text/event-stream")) {
+        const sessionId = crypto.randomUUID()
+        const encoder = new TextEncoder()
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(encoder.encode(`event: endpoint\ndata: /mcp?sessionId=${sessionId}\n\n`))
+          },
+        })
+        return new Response(stream, {
+          status: 200,
+          headers: {
+            "content-type": "text/event-stream",
+            "cache-control": "no-cache",
+            "connection": "keep-alive",
+            "mcp-session-id": sessionId,
+          },
+        })
+      }
+      return json(
+        { jsonrpc: "2.0", id: null, error: { code: -32600, message: "expected POST or SSE GET" } },
+        405,
+      )
+    }
+    if (req.method === "DELETE") {
+      return new Response(null, { status: 204 })
+    }
     if (req.method !== "POST") {
       return json(
         { jsonrpc: "2.0", id: null, error: { code: -32600, message: "expected POST" } },
@@ -84,13 +112,17 @@ export function mcpServer(app: HyperApp, cfg: McpServerConfig = {}): McpServer {
         400,
       )
     }
+    const sessionId = req.headers.get("mcp-session-id")
     try {
       switch (msg.method) {
         case "initialize":
-          return rpcOk(msg.id ?? null, {
+          return rpcOkWithSession(msg.id ?? null, {
+            protocolVersion: "2024-11-05",
             serverInfo: cfg.info ?? { name: "hyper-mcp", version: "0.0.0" },
             capabilities: { tools: {} },
-          })
+          }, sessionId ?? crypto.randomUUID())
+        case "notifications/initialized":
+          return new Response(null, { status: 204 })
         case "tools/list":
           return rpcOk(msg.id ?? null, {
             tools: manifest.tools.map((t) => ({
@@ -143,6 +175,17 @@ function rpcError(
 function rpcOk(id: number | string | null, result: unknown): Response {
   const body: JsonRpcResponse = { jsonrpc: "2.0", id, result }
   return json(body, 200)
+}
+
+function rpcOkWithSession(id: number | string | null, result: unknown, sessionId: string): Response {
+  const body: JsonRpcResponse = { jsonrpc: "2.0", id, result }
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: {
+      "content-type": "application/json",
+      "mcp-session-id": sessionId,
+    },
+  })
 }
 
 function rpcErr(

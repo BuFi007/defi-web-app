@@ -50,7 +50,10 @@ const borrowPreview = route
 
 const supplyAction = route
   .post("/lending/supply")
-  .body(z.object({ marketId: zMarketId, supplier: zAddress, amount: zAmount }))
+  .body(z.object({ marketId: zMarketId, supplier: zAddress.optional(), trader: zAddress.optional(), amount: zAmount }).refine(
+    (d) => d.supplier || d.trader,
+    { message: "supplier or trader address is required" },
+  ).transform((d) => ({ ...d, supplier: d.supplier ?? d.trader! })))
   .meta({
     mcp: {
       title: "Supply to Lending Pool",
@@ -76,7 +79,10 @@ const supplyAction = route
 
 const borrowAction = route
   .post("/lending/borrow")
-  .body(z.object({ marketId: zMarketId, borrower: zAddress, borrowAmount: zAmount, collateralAmount: zAmount }))
+  .body(z.object({ marketId: zMarketId, borrower: zAddress.optional(), trader: zAddress.optional(), borrowAmount: zAmount, collateralAmount: zAmount }).refine(
+    (d) => d.borrower || d.trader,
+    { message: "borrower or trader address is required" },
+  ).transform((d) => ({ ...d, borrower: d.borrower ?? d.trader! })))
   .meta({
     mcp: {
       title: "Borrow Against Collateral",
@@ -104,7 +110,10 @@ const borrowAction = route
 
 const repayAction = route
   .post("/lending/repay")
-  .body(z.object({ marketId: zMarketId, borrower: zAddress, amount: zAmount }))
+  .body(z.object({ marketId: zMarketId, borrower: zAddress.optional(), trader: zAddress.optional(), amount: zAmount }).refine(
+    (d) => d.borrower || d.trader,
+    { message: "borrower or trader address is required" },
+  ).transform((d) => ({ ...d, borrower: d.borrower ?? d.trader! })))
   .meta({
     mcp: {
       title: "Repay Loan",
@@ -118,7 +127,10 @@ const repayAction = route
 
 const withdrawAction = route
   .post("/lending/withdraw")
-  .body(z.object({ marketId: zMarketId, supplier: zAddress, amount: zAmount }))
+  .body(z.object({ marketId: zMarketId, supplier: zAddress.optional(), trader: zAddress.optional(), amount: zAmount }).refine(
+    (d) => d.supplier || d.trader,
+    { message: "supplier or trader address is required" },
+  ).transform((d) => ({ ...d, supplier: d.supplier ?? d.trader! })))
   .meta({
     mcp: {
       title: "Withdraw from Lending Pool",

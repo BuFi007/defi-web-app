@@ -8,7 +8,7 @@ const listMarkets = route
     mcp: {
       title: "List Markets",
       description:
-        "List available forex perpetual futures markets on Arc with current oracle prices and funding rates. Markets: EURC/USDC, tJPYC/USDC, MXNB/USDC, CIRBTC/USDC, AUDF/USDC.",
+        "List available forex perpetual futures markets on Arc with current oracle prices and funding rates. Markets: EURC/USDC, JPYC/USDC, MXNB/USDC, CIRBTC/USDC, AUDF/USDC.",
     },
   })
   .handle(async () => {

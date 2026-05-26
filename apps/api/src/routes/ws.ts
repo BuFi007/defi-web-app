@@ -228,7 +228,7 @@ export function resolvePythFeed(marketId: string): Hex | null {
   }
 
   // 2) Substring-based heuristic. Order matters — check more specific tokens
-  //    before generic three-letter codes so "tJPYC/USDC" maps before "JPY".
+  //    before generic three-letter codes so "JPYC/USDC" maps before "JPY".
   if (upper.includes("EURC") || upper.includes("EUR")) return PYTH_FEED_IDS.eurUsd;
   if (upper.includes("JPYC") || upper.includes("JPY")) return PYTH_FEED_IDS.jpyUsd;
   if (upper.includes("MXNB") || upper.includes("MXN")) return PYTH_FEED_IDS.mxnUsd;

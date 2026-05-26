@@ -169,7 +169,7 @@ export function OrderbookCard({ market }: { market: Market }) {
 
 // Resolve a user-facing market label (e.g. "EUR/USD") to one of the live
 // marketIds returned by /perps/markets. The live ARC universe is currency/
-// USDC pairs (EURC/USDC, tJPYC/USDC, etc.) so we match on the base currency.
+// USDC pairs (EURC/USDC, JPYC/USDC, etc.) so we match on the base currency.
 // Falls back to the first enabled market so the UI still produces a signed
 // intent during E2E even when symbols don't line up perfectly.
 function resolveLiveMarket(uiSym: string, markets: PerpsMarketDto[] | undefined): PerpsMarketDto | undefined {
