@@ -39,6 +39,38 @@ function envioGraphqlUrl(): string {
   );
 }
 
+function allowEmptyYieldFallback(): boolean {
+  if (process.env.ENVIO_EMPTY_YIELD_FALLBACK === "1") return true;
+  if (process.env.ENVIO_EMPTY_YIELD_FALLBACK === "0") return false;
+  return process.env.NODE_ENV !== "production";
+}
+
+function graphqlSource(body: string): string {
+  try {
+    const parsed = JSON.parse(body) as { query?: string };
+    if (typeof parsed?.query === "string") return parsed.query;
+  } catch {
+    // not JSON — treat raw body as GraphQL source
+  }
+  return body;
+}
+
+function looksLikeDailyMarketSnapshotQuery(body: string): boolean {
+  return /\bDailyMarketSnapshot\b/.test(graphqlSource(body));
+}
+
+function emptyDailyMarketSnapshotResponse(): Response {
+  return new Response(JSON.stringify({ data: { DailyMarketSnapshot: [] } }), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "public, max-age=2, stale-while-revalidate=10",
+      "X-Bufi-Gateway": "envio-v1",
+      "X-Bufi-Gateway-Fallback": "empty-daily-market-snapshot",
+    },
+  });
+}
+
 /**
  * Cheap mutation detector — strips comments + whitespace and looks for
  * a top-level `mutation` keyword. Avoids pulling in `graphql` as a dep
@@ -50,16 +82,7 @@ function envioGraphqlUrl(): string {
  * thing as the query.
  */
 export function looksLikeMutation(body: string): boolean {
-  let query: string | null = null;
-
-  // Try JSON first — handles { query, variables, operationName }.
-  try {
-    const parsed = JSON.parse(body) as { query?: string };
-    if (typeof parsed?.query === "string") query = parsed.query;
-  } catch {
-    // not JSON — treat raw body as GraphQL source
-    query = body;
-  }
+  const query = graphqlSource(body);
   if (!query) return false;
 
   // Strip GraphQL line comments + redundant whitespace.
@@ -134,6 +157,9 @@ graphRoutes.post("/", async (c) => {
       err: (err as Error).message,
       url,
     });
+    if (allowEmptyYieldFallback() && looksLikeDailyMarketSnapshotQuery(body)) {
+      return emptyDailyMarketSnapshotResponse();
+    }
     return c.json(
       {
         error: "upstream_unavailable",
@@ -144,6 +170,15 @@ graphRoutes.post("/", async (c) => {
   }
 
   const contentType = upstream.headers.get("Content-Type") ?? "application/json";
+  if (
+    allowEmptyYieldFallback() &&
+    upstream.status >= 500 &&
+    looksLikeDailyMarketSnapshotQuery(body)
+  ) {
+    void upstream.body?.cancel();
+    return emptyDailyMarketSnapshotResponse();
+  }
+
   // Pass through body verbatim; pin a short cache so identical reads
   // from a busy dashboard ride the CDN/edge instead of hammering Envio.
   return new Response(upstream.body, {

@@ -95,6 +95,19 @@ export function isOracleStaleError(err: unknown): boolean {
   return typeof e.message === "string" && /oracle.*stale|stale.*price/i.test(e.message);
 }
 
+function isEnvioYieldUnavailableError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { code?: string; message?: string; status?: number };
+  if (e.status && [502, 503, 504].includes(e.status)) return true;
+  if (e.code === "upstream_unavailable") return true;
+  return (
+    typeof e.message === "string" &&
+    /Envio GraphQL request failed: (502|503|504)|upstream_unavailable|GraphQL indexer .*not reachable|fetch failed|network error/i.test(
+      e.message,
+    )
+  );
+}
+
 /**
  * Module-level cooldown shared by every quote/submit caller. We dedupe
  * toasts so a burst of refresh polls only nags the user once per cooldown
@@ -288,8 +301,8 @@ export function useYieldSnapshots(marketIds?: string[]): YieldSnapshotsState {
       setError(null);
     } catch (err) {
       if (signal?.aborted) return;
-      setError(errMsg(err));
       setSnapshots([]);
+      setError(isEnvioYieldUnavailableError(err) ? null : errMsg(err));
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
