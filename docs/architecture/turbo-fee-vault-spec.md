@@ -255,9 +255,16 @@ However, the CREATE2 deployer IS present at
 `0x4e59b44847b379578588920cA78FbF26c0B4956C` — so we can deploy
 v4 ourselves at deterministic addresses.
 
-**Verified on-chain:**
-- CREATE2 deployer: EXISTS on Arc Testnet
-- PoolManager (`0x000000000004444c5dc75cb358380d2e3de08a90`): NOT DEPLOYED
+**Verified on-chain (2026-05-26):**
+
+| Chain | CREATE2 Deployer | PoolManager | Status |
+|-------|-----------------|-------------|--------|
+| Arc Testnet (5042002) | EXISTS | NOT DEPLOYED | We deploy |
+| Avalanche Fuji (43113) | EXISTS | NOT DEPLOYED | We deploy |
+
+Deploy on BOTH chains. Arc is the primary CLOB venue. Fuji has
+Morpho lending pools + Telarana gateway contracts. Multi-chain
+demo strengthens the hookathon pitch (hedge on Arc, lend on Fuji).
 
 **Deployment steps (fx-telarana repo, next session):**
 
@@ -265,22 +272,36 @@ v4 ourselves at deterministic addresses.
 # 1. Clone v4-core and deploy PoolManager
 git clone https://github.com/Uniswap/v4-core
 cd v4-core && forge install
+
+# Deploy on Arc Testnet
 forge script script/DeployPoolManager.s.sol \
   --rpc-url https://rpc.testnet.arc.network \
   --private-key $DEPLOYER_PRIVATE_KEY \
   --broadcast
 
-# 2. Clone v4-periphery and deploy PositionManager
+# Deploy on Avalanche Fuji
+forge script script/DeployPoolManager.s.sol \
+  --rpc-url https://api.avax-test.network/ext/bc/C/rpc \
+  --private-key $DEPLOYER_PRIVATE_KEY \
+  --broadcast
+
+# 2. Clone v4-periphery and deploy PositionManager (both chains)
 git clone https://github.com/Uniswap/v4-periphery
 cd v4-periphery && forge install
+
 forge script script/DeployPositionManager.s.sol \
   --rpc-url https://rpc.testnet.arc.network \
   --private-key $DEPLOYER_PRIVATE_KEY \
   --broadcast
 
-# 3. Verify on Arcscan
-# PoolManager should appear at the canonical CREATE2 address
-# https://testnet.arcscan.io/address/0x000000000004444c5dc75cb358380d2e3de08a90
+forge script script/DeployPositionManager.s.sol \
+  --rpc-url https://api.avax-test.network/ext/bc/C/rpc \
+  --private-key $DEPLOYER_PRIVATE_KEY \
+  --broadcast
+
+# 3. Verify on block explorers
+# Arc:  https://testnet.arcscan.io/address/0x000000000004444c5dc75cb358380d2e3de08a90
+# Fuji: https://testnet.snowtrace.io/address/0x000000000004444c5dc75cb358380d2e3de08a90
 ```
 
 **Why deploy ourselves:**
