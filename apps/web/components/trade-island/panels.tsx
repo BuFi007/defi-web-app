@@ -309,7 +309,7 @@ export function OrderPanelCard({
     if (!liveMarket) {
       toast({
         variant: "destructive",
-        title: "No market available",
+        title: t("noMarketAvailable"),
         description: "Live perps markets haven't loaded yet. Retry in a moment.",
       });
       return;
@@ -317,7 +317,7 @@ export function OrderPanelCard({
     if (!canTrade) {
       toast({
         variant: "destructive",
-        title: "Connect a wallet",
+        title: t("connectWallet"),
         description: "Connect your wallet (or set NEXT_PUBLIC_PERPS_REPLACEMENT_E2E=1 for dev).",
       });
       return;
@@ -330,7 +330,7 @@ export function OrderPanelCard({
     if (apiKind === "limit" && (!price || parseFloat(price) <= 0)) {
       toast({
         variant: "destructive",
-        title: "Enter a limit price",
+        title: t("enterLimitPrice"),
         description: "Limit orders need a non-zero price.",
       });
       return;
@@ -347,7 +347,7 @@ export function OrderPanelCard({
         postOnly: apiKind === "limit" ? postOnly : false,
       });
       const buyish = side === "long";
-      const verb = isSpot ? (buyish ? "Buy" : "Sell") : (buyish ? "Long" : "Short");
+      const verb = isSpot ? (buyish ? t("buy") : t("sell")) : (buyish ? t("long") : t("short"));
       toast({
         title: `${verb} submitted`,
         description: `${liveMarket.symbol} · ${apiKind.toUpperCase()} · intent ${shortDigest(result.digest)}`,
@@ -368,7 +368,7 @@ export function OrderPanelCard({
           <span className="card-icon">
             <Icon name="bolt" size={15} />
           </span>
-          <span>{isSpot ? t("spotOrder") : "Perp Order"}</span>
+          <span>{isSpot ? t("spotOrder") : t("perpOrder")}</span>
         </div>
         {/* Margin-mode tabs are perps-only — spot trades don't post
             collateral so Cross/Isolated has no meaning. */}
@@ -418,7 +418,7 @@ export function OrderPanelCard({
               <button onClick={() => setLev(Math.max(1, lev - 1))}>
                 <Icon name="minus" size={12} />
               </button>
-              <span className="lev-value">{isSpot ? "Spot" : `${lev}x`}</span>
+              <span className="lev-value">{isSpot ? t("spot") : `${lev}x`}</span>
               <button onClick={() => setLev(Math.min(market.leverage, lev + 1))}>
                 <Icon name="plus" size={12} />
               </button>
@@ -438,7 +438,7 @@ export function OrderPanelCard({
               .filter((p) => p <= market.leverage)
               .map((p) => (
                 <button key={p} className={lev === p ? "active" : ""} onClick={() => setLev(p)}>
-                  {p === 1 ? "Spot" : `${p}x`}
+                  {p === 1 ? t("spot") : `${p}x`}
                 </button>
               ))}
           </div>
@@ -665,7 +665,7 @@ export function ChartCard({
   // matches OrderPanelCard's new spot-first default. The pill renders
   // "Spot" at 1x, "Nx" otherwise.
   const displayLeverage = selectedLeverage ?? 1;
-  const leveragePillLabel = displayLeverage === 1 ? "Spot" : `${displayLeverage}x`;
+  const leveragePillLabel = displayLeverage === 1 ? t("spot") : `${displayLeverage}x`;
   const headerInner = (
     <>
       <div className="chart-head">

@@ -40,6 +40,7 @@ import { errMsg } from "@/utils";
 import { useMarkets, usePlaceOrder } from "@/lib/perps/hooks";
 import { getPerpsReplacementDevWallet } from "@/lib/perps/dev-mock-wallet";
 import type { PerpsMarketDto } from "@/lib/perps/client";
+import { useScopedI18n } from "@/locales/client";
 
 type Step = "mode" | "side" | "size" | "review";
 type Side = "long" | "short";
@@ -86,6 +87,7 @@ export function TradeDrawer({
   initialSide?: Side | null;
   onClose: () => void;
 }) {
+  const t = useScopedI18n('Panels');
   // 1× = spot default. The trader can opt into perps by dragging the
   // slider on the mode step; the rest of the flow re-renders to match.
   const [lev, setLev] = useState(1);
@@ -95,8 +97,8 @@ export function TradeDrawer({
   const [price, setPrice] = useState("");
 
   const isSpot = lev === 1;
-  const sideALabel = isSpot ? "Buy" : "Long";
-  const sideBLabel = isSpot ? "Sell" : "Short";
+  const sideALabel = isSpot ? t("buy") : t("long");
+  const sideBLabel = isSpot ? t("sell") : t("short");
 
   // Skip the side step when a CTA pre-selected it. The slide-direction
   // still feels natural because "mode" → "size" → "review" preserves
@@ -174,7 +176,7 @@ export function TradeDrawer({
     if (!liveMarket) {
       toast({
         variant: "destructive",
-        title: "No market available",
+        title: t("noMarketAvailable"),
         description: "Live perps markets haven't loaded yet. Retry in a moment.",
       });
       return;
@@ -192,7 +194,7 @@ export function TradeDrawer({
         postOnly: false,
       });
       const buyish = side === "long";
-      const verb = isSpot ? (buyish ? "Buy" : "Sell") : buyish ? "Long" : "Short";
+      const verb = isSpot ? (buyish ? t("buy") : t("sell")) : buyish ? t("long") : t("short");
       toast({
         title: `${verb} submitted`,
         description: `${liveMarket.symbol} · ${orderType.toUpperCase()} · ${result.digest.slice(0, 10)}…`,
@@ -204,17 +206,17 @@ export function TradeDrawer({
   }
 
   const ctaLabel = (() => {
-    if (placeOrder.isPending) return "Signing…";
+    if (placeOrder.isPending) return t("signing");
     if (step === "review") {
-      if (!canTrade) return "Connect wallet";
+      if (!canTrade) return t("connectWalletShort");
       const buyish = side === "long";
-      const verb = isSpot ? (buyish ? "Buy" : "Sell") : buyish ? "Long" : "Short";
+      const verb = isSpot ? (buyish ? t("buy") : t("sell")) : buyish ? t("long") : t("short");
       return `${verb} ${market.sym}`;
     }
-    return "Next";
+    return t("next");
   })();
 
-  const headerTitle = isSpot ? "Spot order" : "Perp order";
+  const headerTitle = isSpot ? t("spotOrder") : t("perpOrder");
 
   return (
     <div className="td-backdrop" onClick={onClose} role="presentation">
@@ -326,6 +328,7 @@ function ModeStep({
   lev: number;
   setLev: (n: number) => void;
 }) {
+  const t = useScopedI18n('Panels');
   const isSpot = lev === 1;
   const presets = [1, 2, 5, 10, 25, 50, 100].filter((p) => p <= market.leverage);
   return (
@@ -339,7 +342,7 @@ function ModeStep({
           collateral; a small move can liquidate at high leverage.
         </Hint>
       </p>
-      <div className="td-mode-value mono">{isSpot ? "Spot" : `${lev}×`}</div>
+      <div className="td-mode-value mono">{isSpot ? t("spot") : `${lev}×`}</div>
       <Slider
         value={[lev]}
         min={1}
@@ -355,7 +358,7 @@ function ModeStep({
             className={lev === p ? "active" : ""}
             onClick={() => setLev(p)}
           >
-            {p === 1 ? "Spot" : `${p}×`}
+            {p === 1 ? t("spot") : `${p}×`}
           </button>
         ))}
       </div>
@@ -498,6 +501,7 @@ function ReviewStep({
   liqShort: number;
   decimals: number;
 }) {
+  const t = useScopedI18n('Panels');
   const sideLabel = side === "long" ? sideALabel : side === "short" ? sideBLabel : "—";
   return (
     <div className="td-step">
@@ -509,21 +513,21 @@ function ReviewStep({
           </span>
         </div>
         <div className="td-summary-row">
-          <span className="l">Mode</span>
-          <span className="v">{isSpot ? "Spot" : `${lev}× perps`}</span>
+          <span className="l">{t("mode")}</span>
+          <span className="v">{isSpot ? t("spot") : `${lev}× perps`}</span>
         </div>
         <div className="td-summary-row">
           <span className="l">Order type</span>
           <span className="v">{orderType.toUpperCase()}</span>
         </div>
         <div className="td-summary-row">
-          <span className="l">Order value</span>
+          <span className="l">{t("orderValue")}</span>
           <span className="v mono">{fmtUSD(notional)}</span>
         </div>
         {!isSpot && (
           <>
             <div className="td-summary-row">
-              <span className="l">Required margin</span>
+              <span className="l">{t("requiredMargin")}</span>
               <span className="v mono">{fmtUSD(reqMargin)}</span>
             </div>
             {side === "long" && (
@@ -541,7 +545,7 @@ function ReviewStep({
           </>
         )}
         <div className="td-summary-row">
-          <span className="l">Est. fee</span>
+          <span className="l">{t("estFee")}</span>
           <span className="v mono">{fmtUSD(notional * 0.0005)}</span>
         </div>
       </div>

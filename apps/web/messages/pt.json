@@ -250,7 +250,14 @@
     "connectForBalance": "Conecte uma carteira para ver seu saldo de USDC.",
     "high24h": "24H MÁXIMA",
     "low24h": "24H MÍNIMA",
-    "vol24h": "24H VOL"
+    "vol24h": "24H VOL",
+    "noMarketAvailable": "Mercado indisponível",
+    "connectWallet": "Conecte uma carteira",
+    "enterLimitPrice": "Insira um preço limite",
+    "spot": "Spot",
+    "perpOrder": "Ordem de Perps",
+    "next": "Próximo",
+    "connectWalletShort": "Conectar carteira"
   },
   "MobileTrade": {
     "all": "Todos",
@@ -267,6 +274,41 @@
   "Wallet": {
     "connectWallet": "Conectar carteira",
     "pleaseConnectWallet": "Por favor, conecte sua carteira"
+  },
+  "Lending": {
+    "markets": "Mercados",
+    "all": "Todos",
+    "market": "Mercado",
+    "supply": "Oferta",
+    "borrow": "Empréstimo",
+    "util": "Util",
+    "tvl": "TVL",
+    "lend": "Emprestar",
+    "withdraw": "Retirar",
+    "repay": "Pagar",
+    "hintLend": "Deposite o ativo de empréstimo para ganhar rendimento.",
+    "hintWithdraw": "Retire os fundos fornecidos para sua carteira.",
+    "hintBorrow": "Bloqueie colateral e faça um empréstimo no ativo.",
+    "hintRepay": "Pague parte ou toda a sua dívida.",
+    "youWillEarn": "Você ganhará",
+    "youWillPay": "Você pagará",
+    "youWillReceive": "Você receberá",
+    "youWillFree": "Você liberará",
+    "connectWallet": "Conecte uma carteira",
+    "pickMarket": "Escolha um mercado ativo na lista à esquerda",
+    "enterAmount": "Insira um valor acima",
+    "wrongNetwork": "Rede incorreta",
+    "approveSubmitLanded": "Aprovação + envio confirmados",
+    "submittedOnChain": "Enviado on-chain",
+    "confirmPrefix": "Confirmar"
+  },
+  "Multiplayer": {
+    "live": "Ao vivo",
+    "hot": "Ativo",
+    "open": "Aberto",
+    "you": "Você",
+    "hotDescription": "Muitos jogadores entrando agora",
+    "liveDescription": "Uma rodada está em andamento"
   },
   "Errors": {
     "somethingWentWrong": "Algo deu errado",

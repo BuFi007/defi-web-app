@@ -250,7 +250,14 @@
     "connectForBalance": "지갑을 연결하여 USDC 잔액을 확인하세요.",
     "high24h": "24H 고가",
     "low24h": "24H 저가",
-    "vol24h": "24H 거래량"
+    "vol24h": "24H 거래량",
+    "noMarketAvailable": "마켓을 사용할 수 없습니다",
+    "connectWallet": "지갑을 연결하세요",
+    "enterLimitPrice": "지정가를 입력하세요",
+    "spot": "현물",
+    "perpOrder": "퍼프 주문",
+    "next": "다음",
+    "connectWalletShort": "지갑 연결"
   },
   "MobileTrade": {
     "all": "전체",
@@ -267,6 +274,41 @@
   "Wallet": {
     "connectWallet": "지갑 연결",
     "pleaseConnectWallet": "지갑을 연결해 주세요"
+  },
+  "Lending": {
+    "markets": "마켓",
+    "all": "전체",
+    "market": "마켓",
+    "supply": "공급",
+    "borrow": "대출",
+    "util": "사용률",
+    "tvl": "TVL",
+    "lend": "예치",
+    "withdraw": "출금",
+    "repay": "상환",
+    "hintLend": "대출 자산을 예치하여 수익을 획득하세요.",
+    "hintWithdraw": "공급한 자금을 지갑으로 인출하세요.",
+    "hintBorrow": "담보를 잠그고 대출 자산으로 대출을 받으세요.",
+    "hintRepay": "부채의 일부 또는 전부를 상환하세요.",
+    "youWillEarn": "예상 수익",
+    "youWillPay": "예상 비용",
+    "youWillReceive": "예상 수령",
+    "youWillFree": "예상 해제",
+    "connectWallet": "지갑을 연결하세요",
+    "pickMarket": "왼쪽 목록에서 활성 마켓을 선택하세요",
+    "enterAmount": "위에 금액을 입력하세요",
+    "wrongNetwork": "잘못된 네트워크",
+    "approveSubmitLanded": "승인 + 제출 완료",
+    "submittedOnChain": "온체인에 제출됨",
+    "confirmPrefix": "확인"
+  },
+  "Multiplayer": {
+    "live": "라이브",
+    "hot": "인기",
+    "open": "오픈",
+    "you": "나",
+    "hotDescription": "많은 플레이어가 참여 중",
+    "liveDescription": "라운드가 진행 중"
   },
   "Errors": {
     "somethingWentWrong": "문제가 발생했습니다",

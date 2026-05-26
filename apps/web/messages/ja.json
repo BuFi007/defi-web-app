@@ -250,7 +250,14 @@
     "connectForBalance": "ウォレットを接続してUSDC残高を確認。",
     "high24h": "24H 高値",
     "low24h": "24H 安値",
-    "vol24h": "24H 出来高"
+    "vol24h": "24H 出来高",
+    "noMarketAvailable": "マーケットが利用できません",
+    "connectWallet": "ウォレットを接続",
+    "enterLimitPrice": "指値を入力",
+    "spot": "スポット",
+    "perpOrder": "パープ注文",
+    "next": "次へ",
+    "connectWalletShort": "ウォレット接続"
   },
   "MobileTrade": {
     "all": "すべて",
@@ -267,6 +274,41 @@
   "Wallet": {
     "connectWallet": "ウォレットを接続",
     "pleaseConnectWallet": "ウォレットを接続してください"
+  },
+  "Lending": {
+    "markets": "マーケット",
+    "all": "すべて",
+    "market": "マーケット",
+    "supply": "供給",
+    "borrow": "借入",
+    "util": "使用率",
+    "tvl": "TVL",
+    "lend": "貸出",
+    "withdraw": "引き出し",
+    "repay": "返済",
+    "hintLend": "貸出資産を預けて利回りを獲得。",
+    "hintWithdraw": "供給した資金をウォレットに引き出し。",
+    "hintBorrow": "担保をロックして貸出資産でローンを取得。",
+    "hintRepay": "債務の一部または全額を返済。",
+    "youWillEarn": "獲得予想",
+    "youWillPay": "支払予想",
+    "youWillReceive": "受取予想",
+    "youWillFree": "解放予想",
+    "connectWallet": "ウォレットを接続してください",
+    "pickMarket": "左のリストからアクティブなマーケットを選択",
+    "enterAmount": "上に金額を入力",
+    "wrongNetwork": "ネットワークが違います",
+    "approveSubmitLanded": "承認+送信が完了",
+    "submittedOnChain": "オンチェーンに送信済み",
+    "confirmPrefix": "確認"
+  },
+  "Multiplayer": {
+    "live": "ライブ",
+    "hot": "ホット",
+    "open": "オープン",
+    "you": "あなた",
+    "hotDescription": "多くのプレイヤーが参加中",
+    "liveDescription": "ラウンドが進行中"
   },
   "Errors": {
     "somethingWentWrong": "問題が発生しました",

@@ -250,7 +250,14 @@
     "connectForBalance": "Connect a wallet to see your USDC balance.",
     "high24h": "24H HIGH",
     "low24h": "24H LOW",
-    "vol24h": "24H VOL"
+    "vol24h": "24H VOL",
+    "noMarketAvailable": "No market available",
+    "connectWallet": "Connect a wallet",
+    "enterLimitPrice": "Enter a limit price",
+    "spot": "Spot",
+    "perpOrder": "Perp Order",
+    "next": "Next",
+    "connectWalletShort": "Connect wallet"
   },
   "MobileTrade": {
     "all": "All",
@@ -290,7 +297,33 @@
     "supply": "Supply",
     "borrow": "Borrow",
     "util": "Util",
-    "tvl": "TVL"
+    "tvl": "TVL",
+    "lend": "Lend",
+    "withdraw": "Withdraw",
+    "repay": "Repay",
+    "hintLend": "Deposit the loan asset to earn yield.",
+    "hintWithdraw": "Pull supplied funds back to your wallet.",
+    "hintBorrow": "Lock collateral and take a loan in the loan asset.",
+    "hintRepay": "Pay back some or all of your debt.",
+    "youWillEarn": "You will earn",
+    "youWillPay": "You will pay",
+    "youWillReceive": "You will receive",
+    "youWillFree": "You will free",
+    "connectWallet": "Connect a wallet",
+    "pickMarket": "Pick a live market from the list on the left",
+    "enterAmount": "Enter an amount above",
+    "wrongNetwork": "Wrong network",
+    "approveSubmitLanded": "Approve + submit landed",
+    "submittedOnChain": "Submitted on-chain",
+    "confirmPrefix": "Confirm"
+  },
+  "Multiplayer": {
+    "live": "Live",
+    "hot": "Hot",
+    "open": "Open",
+    "you": "You",
+    "hotDescription": "Lots of players joining right now",
+    "liveDescription": "A round is currently in progress"
   },
   "Errors": {
     "somethingWentWrong": "Something went wrong",

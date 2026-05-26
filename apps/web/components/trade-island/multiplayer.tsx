@@ -21,6 +21,7 @@ import {
 import { useDevWallet } from "@/lib/dev-wallet";
 import { useBufiAddress, useBufiIsDevMock } from "@/lib/session";
 import { truncateAddress } from "@/utils";
+import { useScopedI18n } from "@/locales/client";
 import {
   useBentoClaim,
   useBentoLeaderboard,
@@ -268,6 +269,13 @@ export function LobbyScreen({
   loading: boolean;
   onCreateRoom?: () => void;
 }) {
+  const t = useScopedI18n('Multiplayer');
+  const tagLabel: Record<string, string> = { Live: t('live'), Hot: t('hot'), Open: t('open') };
+  const tagDescription: Record<string, string> = {
+    Hot: t('hotDescription'),
+    Live: t('liveDescription'),
+    Open: "Room has slots open",
+  };
   return (
     <div className="lobby">
       <header className="lobby-head">
@@ -326,15 +334,9 @@ export function LobbyScreen({
                     <span className="room-name">{r.name}</span>
                     <span
                       className={"pill " + (r.tag === "Hot" ? "loss" : r.tag === "Live" ? "profit" : "muted")}
-                      title={
-                        r.tag === "Hot"
-                          ? "Lots of players joining right now"
-                          : r.tag === "Live"
-                          ? "A round is currently in progress"
-                          : "Room has slots open"
-                      }
+                      title={tagDescription[r.tag] ?? r.tag}
                     >
-                      {r.tag}
+                      {tagLabel[r.tag] ?? r.tag}
                     </span>
                   </div>
                   <div className="room-market mono" title="Market this room plays on">
@@ -422,6 +424,7 @@ export function LeaderboardPanel({
   chipBudget: number;
   you: Player;
 }) {
+  const t = useScopedI18n('Multiplayer');
   const sorted = [...players].sort((a, b) => b.score - a.score);
   return (
     <aside className="leaderboard-panel">
@@ -465,7 +468,7 @@ export function LeaderboardPanel({
           >
             <div className="lb-rank">{i + 1}</div>
             <div className="lb-avatar">{p.emoji}</div>
-            <div className="lb-name">{p.id === "you" ? "You" : p.name}</div>
+            <div className="lb-name">{p.id === "you" ? t('you') : p.name}</div>
             <div className="mono lb-score">{p.score}</div>
           </div>
         ))}
@@ -515,6 +518,7 @@ export function RoundEndOverlay({
   onClaim?: () => Promise<void> | void;
   claim?: ClaimPanelState;
 }) {
+  const t = useScopedI18n('Multiplayer');
   const sorted = [...players].sort((a, b) => b.score - a.score);
   const showClaim = isFinal && !!claim;
   const youWonOnchain = !!claim?.amount && claim.amount !== "0";
@@ -538,7 +542,7 @@ export function RoundEndOverlay({
             >
               <div className="re-rank">{i + 1}</div>
               <div className="re-avatar">{p.emoji}</div>
-              <div className="re-name">{p.id === "you" ? "You" : p.name}</div>
+              <div className="re-name">{p.id === "you" ? t('you') : p.name}</div>
               <div className="re-prize mono">
                 {isFinal
                   ? i === 0

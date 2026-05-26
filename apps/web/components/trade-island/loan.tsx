@@ -744,11 +744,11 @@ function MarketsTable({
       <div className="lo-table">
         <div className="lo-table-thead">
           <div className="lo-table-thead-row">
-            <span>{t('Lending.market')}</span>
-            <span style={{ textAlign: "right" }}>{t('Lending.supply')}</span>
-            <span style={{ textAlign: "right" }}>{t('Lending.borrow')}</span>
-            <span style={{ textAlign: "right" }}>{t('Lending.util')}</span>
-            <span style={{ textAlign: "right" }}>{t('Lending.tvl')}</span>
+            <span>{t('market')}</span>
+            <span style={{ textAlign: "right" }}>{t('supply')}</span>
+            <span style={{ textAlign: "right" }}>{t('borrow')}</span>
+            <span style={{ textAlign: "right" }}>{t('util')}</span>
+            <span style={{ textAlign: "right" }}>{t('tvl')}</span>
           </div>
           <span className="lo-table-thead-spark" aria-hidden="true">
             30d
@@ -1097,6 +1097,7 @@ export function ActionCard({
   popoverPositions,
   activePosition,
 }: ActionCardProps) {
+  const t = useScopedI18n('Lending');
   const loan = LOAN_TOKENS[market.loan] ?? LOAN_TOKENS.USDC;
   const A = ACTIONS.find((a) => a.id === action) || ACTIONS[0];
   // rate is nullable until the /fx-telarana/markets feed lands. The
@@ -1220,7 +1221,7 @@ export function ActionCard({
   let impactMini1: [string, string];
   let impactMini2: [string, string];
   if (action === "lend") {
-    impactTitle = "You will earn";
+    impactTitle = t('youWillEarn');
     if (rate == null) {
       // Market is empty or rate not yet established — can't project
       impactBig = "—";
@@ -1234,7 +1235,7 @@ export function ActionCard({
       impactMini2 = ["per day", "+$" + daily.toFixed(2)];
     }
   } else if (action === "borrow") {
-    impactTitle = "You will pay";
+    impactTitle = t('youWillPay');
     if (rate == null) {
       impactBig = "—";
       impactBigClass = "ink";
@@ -1251,7 +1252,7 @@ export function ActionCard({
     // demote the USDC dollar value to the small line. Previous order
     // ($0.66 big + "1 AUDF" small) read as "you'll receive 66 cents" —
     // confusing when the user's input was "1 AUDF".
-    impactTitle = "You will receive";
+    impactTitle = t('youWillReceive');
     impactBig = `${amt.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${loan.sym}`;
     impactBigClass = "ink";
     impactMini1 = ["≈ USDC", "$" + usd.toFixed(2)];
@@ -1262,7 +1263,7 @@ export function ActionCard({
     // wallet connected, or position hasn't loaded), show the input as
     // "—" rather than fake numbers.
     const debt = liveDebt;
-    impactTitle = "You will free";
+    impactTitle = t('youWillFree');
     impactBig = `${amt.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${loan.sym}`;
     impactBigClass = "ink";
     impactMini1 = [
@@ -1304,20 +1305,24 @@ export function ActionCard({
       </div>
 
       <div className="lo-tabs">
-        {ACTIONS.map((a, i) => (
+        {ACTIONS.map((a, i) => {
+          const labelMap: Record<string, string> = { lend: t('lend'), withdraw: t('withdraw'), borrow: t('borrow'), repay: t('repay') };
+          const hintMap: Record<string, string> = { lend: t('hintLend'), withdraw: t('hintWithdraw'), borrow: t('hintBorrow'), repay: t('hintRepay') };
+          return (
           <Fragment key={a.id}>
             <button
               className={"lo-tab tone-" + (i + 1) + (action === a.id ? " active" : "")}
               onClick={() => setAction(a.id)}
-              title={a.hint}
+              title={hintMap[a.id] ?? a.hint}
             >
-              <span>{a.label}</span>
+              <span>{labelMap[a.id] ?? a.label}</span>
             </button>
             {/* Vertical rule between the supply pair (lend / withdraw) and the
                 debt pair (borrow / repay). Pure visual grouping — not focusable. */}
             {i === 1 && <span className="lo-tab-divider" aria-hidden="true" />}
           </Fragment>
-        ))}
+          );
+        })}
       </div>
 
       {/* Quick-pick rail sits ABOVE the input and OUTSIDE its border —
@@ -1415,28 +1420,22 @@ export function ActionCard({
       </div>
 
       {onConfirm && (() => {
-        const actionVerb =
-          action === "lend"
-            ? "Lend"
-            : action === "withdraw"
-            ? "Withdraw"
-            : action === "borrow"
-            ? "Borrow"
-            : "Repay";
+        const verbMap: Record<string, string> = { lend: t('lend'), withdraw: t('withdraw'), borrow: t('borrow'), repay: t('repay') };
+        const actionVerb = verbMap[action] ?? t('lend');
         const ctaLabel = submitting
           ? "Signing…"
           : needsNetworkSwitch
           ? `Switch to ${targetHubName} & ${actionVerb}`
-          : submitLabelOverride ?? `Confirm ${actionVerb}`;
+          : submitLabelOverride ?? `${t('confirmPrefix')} ${actionVerb}`;
         const ctaTitle = !walletAddress
-          ? "Connect a wallet"
+          ? t('connectWallet')
           : !market.onchain
-          ? "Pick a live market from the list on the left"
+          ? t('pickMarket')
           : !(parseFloat(amount) > 0)
-          ? "Enter an amount above"
+          ? t('enterAmount')
           : needsNetworkSwitch
           ? `Wallet is on the wrong network. Click to switch to ${targetHubName} and ${actionVerb.toLowerCase()}.`
-          : submitLabelOverride ?? `Confirm ${actionVerb}`;
+          : submitLabelOverride ?? `${t('confirmPrefix')} ${actionVerb}`;
         return (
           <div className="lo-confirm-row">
             <button
@@ -1459,7 +1458,7 @@ export function ActionCard({
                     await switchChainAsync({ chainId: targetChainId });
                   } catch (err) {
                     toast({
-                      title: "Wrong network",
+                      title: t('wrongNetwork'),
                       description: `Switch your wallet to ${targetHubName} to ${actionVerb.toLowerCase()}.`,
                       variant: "destructive",
                     });
@@ -1548,6 +1547,7 @@ export interface LoanTabIntent {
 }
 
 export function LoanTab({ initialIntent, onActiveMarketChange }: { initialIntent?: LoanTabIntent | null; onActiveMarketChange?: (info: { loan: string; coll: string; supply: number | null; borrow: number | null }) => void }) {
+  const t = useScopedI18n('Lending');
   const { address } = useAccount();
   const { toast } = useToast();
   const { markets: liveMarkets, error: marketsError } = useMarkets();
@@ -1651,15 +1651,15 @@ export function LoanTab({ initialIntent, onActiveMarketChange }: { initialIntent
     atomicAmount: bigint,
   ) => {
     if (!address) {
-      toast({ title: "Connect a wallet", description: "Connect to sign the lending intent.", variant: "destructive" });
+      toast({ title: t('connectWallet'), description: "Connect to sign the lending intent.", variant: "destructive" });
       return;
     }
     if (!pickedMarket.onchain) {
-      toast({ title: "Pick a live market", description: "This row is a placeholder.", variant: "destructive" });
+      toast({ title: t('pickMarket'), description: "This row is a placeholder.", variant: "destructive" });
       return;
     }
     if (atomicAmount <= 0n) {
-      toast({ title: "Enter an amount", description: "Amount must be greater than zero.", variant: "destructive" });
+      toast({ title: t('enterAmount'), description: "Amount must be greater than zero.", variant: "destructive" });
       return;
     }
     try {
@@ -1675,7 +1675,7 @@ export function LoanTab({ initialIntent, onActiveMarketChange }: { initialIntent
       };
       const result = await submitAction(payload);
       toast({
-        title: result.approveTx ? "Approve + submit landed" : "Submitted on-chain",
+        title: result.approveTx ? t('approveSubmitLanded') : t('submittedOnChain'),
         description: `${kind} tx ${result.tx.slice(0, 10)}… confirmed. Position will refresh on next poll.`,
       });
       setAmount("");

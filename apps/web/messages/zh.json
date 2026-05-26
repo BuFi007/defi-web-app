@@ -250,7 +250,14 @@
     "connectForBalance": "连接钱包查看你的 USDC 余额。",
     "high24h": "24H 最高",
     "low24h": "24H 最低",
-    "vol24h": "24H 成交量"
+    "vol24h": "24H 成交量",
+    "noMarketAvailable": "市场不可用",
+    "connectWallet": "连接钱包",
+    "enterLimitPrice": "输入限价",
+    "spot": "现货",
+    "perpOrder": "永续订单",
+    "next": "下一步",
+    "connectWalletShort": "连接钱包"
   },
   "MobileTrade": {
     "all": "全部",
@@ -267,6 +274,41 @@
   "Wallet": {
     "connectWallet": "连接钱包",
     "pleaseConnectWallet": "请连接你的钱包"
+  },
+  "Lending": {
+    "markets": "市场",
+    "all": "全部",
+    "market": "市场",
+    "supply": "供应",
+    "borrow": "借款",
+    "util": "使用率",
+    "tvl": "TVL",
+    "lend": "存入",
+    "withdraw": "提取",
+    "repay": "还款",
+    "hintLend": "存入借贷资产以赚取收益。",
+    "hintWithdraw": "将供应的资金提回钱包。",
+    "hintBorrow": "锁定抵押品并以借贷资产获取贷款。",
+    "hintRepay": "偿还部分或全部债务。",
+    "youWillEarn": "预计收益",
+    "youWillPay": "预计支出",
+    "youWillReceive": "预计收到",
+    "youWillFree": "预计释放",
+    "connectWallet": "连接钱包",
+    "pickMarket": "从左侧列表选择一个活跃市场",
+    "enterAmount": "在上方输入金额",
+    "wrongNetwork": "网络错误",
+    "approveSubmitLanded": "批准+提交已确认",
+    "submittedOnChain": "已提交上链",
+    "confirmPrefix": "确认"
+  },
+  "Multiplayer": {
+    "live": "实时",
+    "hot": "热门",
+    "open": "开放",
+    "you": "你",
+    "hotDescription": "大量玩家正在加入",
+    "liveDescription": "一轮比赛正在进行中"
   },
   "Errors": {
     "somethingWentWrong": "出了点问题",
