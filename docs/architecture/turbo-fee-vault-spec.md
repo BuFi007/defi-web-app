@@ -290,11 +290,41 @@ CLOB IS ARC-ONLY:
   LPs on BOTH chains pro-rata
 ```
 
-Both chains lend. Both chains have Morpho markets. Both chains
-have Uniswap v4 pools. Only Arc has the perps CLOB + spot executor.
+SPOKE CHAINS = Deposit Origins (7 chains):
+  - Ethereum Sepolia (11155111)
+  - Arbitrum Sepolia (421614)
+  - Base Sepolia (84532)
+  - OP Sepolia (11155420)
+  - Unichain Sepolia
+  - Worldchain Sepolia
+  - Tenderly Base Sepolia
+
+  Users deposit USDC/EURC/MXNB on any spoke.
+  The Telarana gateway routes deposits to a hub (Arc or Fuji).
+  Loans execute at the hub. Settlement on the hub.
+  User repays on the spoke. Gateway handles the relay.
+
+```
+SPOKE (Sepolia)           HUB (Fuji)              HUB (Arc)
+┌──────────┐    CCTP     ┌──────────┐   CCTP     ┌──────────┐
+│ User     │───────────→│ Morpho   │←──────────→│ Morpho   │
+│ deposits │            │ lending  │            │ lending  │
+│ USDC     │            │          │            │ + CLOB   │
+└──────────┘            └──────────┘            │ + Hooks  │
+                                                │ + Vault  │
+7 spoke chains           Lending hub            └──────────┘
+any-to-any               + gateway              Execution hub
+```
+
+Both hubs lend. Both hubs have Morpho markets. Both hubs get
+Uniswap v4 pools. Only Arc has the perps CLOB + spot executor.
+Seven spoke chains feed deposits into either hub via CCTP.
+
 The Telarana gateway already handles cross-chain lending — that's
-the protocol's core design. The yield engine just adds trading fees
-on top of what the gateway already routes.
+the protocol's core design. The yield engine adds trading fees on
+top of what the gateway already routes. LPs on ANY chain (hub or
+spoke) earn the composite yield — the vault distributes pro-rata
+regardless of which chain the LP deposited from.
 
 **Deployment steps (fx-telarana repo, next session):**
 
