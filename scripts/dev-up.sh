@@ -10,7 +10,7 @@ REST_LOG="$LOG_DIR/bufi-rest.log"
 PID_FILE="$LOG_DIR/bufi-dev.pids"
 
 # 1. Kill any stale procs on our ports
-for p in 3001 3002 3003 3004 3005 3006 42069; do
+for p in 3000 3001 3002 3003 3004 3005 3006 42069; do
   pids=$(lsof -ti :$p 2>/dev/null || true)
   [ -n "$pids" ] && kill -9 $pids 2>/dev/null || true
 done
@@ -35,7 +35,13 @@ fi
 mkdir -p .bufi
 export BUFI_DB_PATH="$PWD/.bufi/trading-machine.sqlite"
 
-bun run --filter @bufi/web dev:https >"$WEB_LOG" 2>&1 &
+# Use HTTPS only when explicitly requested (BUFI_HTTPS=1 or dev:complete:https).
+# Default to plain HTTP on :3000 — avoids self-signed cert pain in browsers.
+if [ "${BUFI_HTTPS:-}" = "1" ]; then
+  bun run --filter @bufi/web dev:https >"$WEB_LOG" 2>&1 &
+else
+  bun run --filter @bufi/web dev >"$WEB_LOG" 2>&1 &
+fi
 echo "$!" >>"$PID_FILE"
 
 # Bun's --filter doesn't support `!` negation, so list non-web packages
@@ -68,17 +74,21 @@ wait_port() {
   return 1
 }
 
-wait_port 3001 "web https"   60 || true
+if [ "${BUFI_HTTPS:-}" = "1" ]; then
+  WEB_PORT=3001; WEB_LABEL="web https"; WEB_URL="https://localhost:3001"
+else
+  WEB_PORT=3000; WEB_LABEL="web"; WEB_URL="http://localhost:3000"
+fi
+
+wait_port "$WEB_PORT" "$WEB_LABEL" 60 || true
 wait_port 3002 "api"         45 || true
 wait_port 3005 "matcher gRPC" 90 || true
 wait_port 42069 "ponder"     60 || true
-# HTTP /health on :3006 only exists on feat/wk1n15-matcher-http-health
-# worktree; this branch only ships gRPC. Probe is best-effort.
 lsof -i :3006 -sTCP:LISTEN >/dev/null 2>&1 && printf "  ✓ matcher HTTP :3006\n" || printf "  · matcher HTTP :3006  (not on this branch, gRPC is canonical)\n"
 
 cat <<EOF
 
-→ Web:      https://localhost:3001
+→ Web:      $WEB_URL
 → API:      http://localhost:3002
 → Matcher:  gRPC localhost:3005
 → Ponder:   http://localhost:42069

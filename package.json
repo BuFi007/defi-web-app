@@ -25,7 +25,7 @@
     "dev:up": "bash scripts/dev-up.sh",
     "dev:down": "bash scripts/dev-down.sh",
     "dev:logs": "tail -f /tmp/bufi-web.log /tmp/bufi-rest.log",
-    "dev:complete:https": "bash scripts/dev-up.sh",
+    "dev:complete:https": "BUFI_HTTPS=1 bash scripts/dev-up.sh",
     "matcher:dev": "bun run --filter @bufi/matcher dev",
     "matcher:build": "bun run --filter @bufi/matcher build",
     "matcher:test": "bun run --filter @bufi/matcher test",
