@@ -55,6 +55,14 @@ const localizedMetadata: Record<SupportedLocale, LocalizedMetadata> = {
     ogDescription:
       "오싹한 크립토 금융을 손쉽게! BUFI 는 신흥 시장에 맞춘 저축, 결제, 송금, 대출, DeFi 의 세계를 친절하게 안내하는 다정한 유령입니다.",
   },
+  zh: {
+    title: "BUFI | 轻松玩转加密金融",
+    description:
+      "让加密金融变得简单！BUFI 是一个友好的小幽灵，引导你探索储蓄、支付、汇款、贷款和 DeFi 的世界，专为新兴市场量身打造。",
+    ogTitle: "BUFI - 轻松玩转加密金融",
+    ogDescription:
+      "让加密金融变得简单！BUFI 是一个友好的小幽灵，引导你探索储蓄、支付、汇款、贷款和 DeFi 的世界，专为新兴市场量身打造。",
+  },
 };
 
 // Cached content (everything serializable). `metadataBase` is constructed

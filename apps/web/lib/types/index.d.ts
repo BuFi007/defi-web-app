@@ -298,6 +298,7 @@ export type ChainList =
   | 80002
   | 1301
   | 4801
+  | number
   | undefined;
 export interface WriteButtonProps {
   label: string;
