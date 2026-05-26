@@ -11,7 +11,7 @@ import CardSkeleton from "@/components/ui/card-skeleton";
 import { Button } from "@/components/ui/button";
 import { useMarketStore } from "@/store";
 import { MoneyMarketCard } from "@/components/money-market/bento-1/card/index";
-import { useNetworkManager } from "@/hooks/use-dynamic-network";
+import { useNetworkManager } from "@/hooks/use-network";
 import { useAppTranslations } from "@/context/TranslationContext";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";

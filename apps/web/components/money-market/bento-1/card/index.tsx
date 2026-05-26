@@ -9,7 +9,7 @@ import { useChainSelection } from "@/hooks/use-chain-selection";
 import { ChainSelect } from "@/components/chain-select";
 import { erc20Abi, formatUnits, Hex, parseUnits } from "viem";
 import { useGetTokensOrChain } from "@/hooks/use-tokens-or-chain";
-import { useNetworkManager } from "@/hooks/use-dynamic-network";
+import { useNetworkManager } from "@/hooks/use-network";
 import { toWagmiChainId } from "@/utils/chain";
 import { useUsdcChain } from "@/hooks/use-usdc-chain";
 import { useToast } from "@/components/ui/use-toast";

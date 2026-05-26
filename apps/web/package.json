@@ -9,7 +9,6 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "dynamic:webhooks:sync": "node scripts/sync-dynamic-webhooks.mjs",
     "e2e": "playwright test",
     "e2e:install": "playwright install --with-deps chromium",
     "e2e:report": "playwright show-report"
@@ -25,10 +24,6 @@
     "@bufi/perps-math": "workspace:*",
     "@bufi/shared-types": "workspace:*",
     "@bufi/wallet": "workspace:*",
-    "@dynamic-labs/ethereum": "4.83.1",
-    "@dynamic-labs/ethereum-aa": "4.83.1",
-    "@dynamic-labs/sdk-react-core": "4.83.1",
-    "@dynamic-labs/wagmi-connector": "4.83.1",
     "@gsap/react": "2.1.2",
     "@lifi/sdk": "3.4.1",
     "@lifi/widget": "3.12.0",

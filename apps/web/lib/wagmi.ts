@@ -12,24 +12,12 @@ import { useMemo } from "react";
 import { providers } from "ethers";
 import type { Account, Chain, Client, Transport } from "viem";
 
-// Avalanche mainnet (43114) AND Ethereum mainnet (1) are included for
-// AUTH SHAPE PARITY with the Dynamic provider config
-// (apps/web/context/DynamicProviders.tsx). When a chain lives in
-// Dynamic's evmNetworks but is missing here, WalletConnectProvider init
-// crashes (`r.bindings is not a function`) and Dynamic warns about the
-// asymmetry. Trading is still scoped to Fuji + Arc by every hook and
-// contract address; the two mainnet entries are read-only targets that
-// only exist to satisfy the auth handshake when the user has their
-// wallet on those chains at login time. Without Ethereum mainnet here,
-// MetaMask's default chain trips Dynamic's networkValidationMode and
-// fires a chain-switch popup; dismissing it surfaces as RPC 4100
-// "method not authorized" + revoked accounts.
+// Mainnets (43114, 1) are included so MetaMask wallets sitting on those
+// chains at login time pass ConnectKit's chain validation without a
+// forced switch popup. Trading is scoped to Fuji + Arc by every hook
+// and contract address.
 //
-// Sepolia + Arbitrum Sepolia are spoke chains: users can deposit a stable
-// issued on either of them and have the loan execute at the Fuji/Arc hub
-// of their choice. They're included here so the wallet dropdown can read
-// real per-chain balances (USDC, MXNB) instead of just hub balances —
-// without them, `useBalance({ chainId: 11155111 })` silently no-ops.
+// Sepolia + Arbitrum Sepolia are spoke chains for cross-chain deposits.
 export const config = createConfig(
   getDefaultConfig({
     chains: [

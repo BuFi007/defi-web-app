@@ -13,7 +13,7 @@ import { ethers } from "ethers";
 import { hubAbi } from "@/constants/ABI";
 import { AvalancheFujiTokens, ModeTestnetTokens } from "@/constants/Tokens";
 import { HUB_AVALANCHE_CONTRACT_ADDRESS } from "@/constants/Contracts";
-import { useNetworkManager } from "@/hooks/use-dynamic-network";
+import { useNetworkManager } from "@/hooks/use-network";
 import { getAllChains } from "@/utils";
 import { AvalancheFuji } from "@/constants/Chains";
 

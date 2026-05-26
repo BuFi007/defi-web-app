@@ -16,10 +16,9 @@ import {
  * Canonical hook for "who is signed in and how".
  *
  * Replaces every direct call to `useAccount().isConnected`,
- * `useIsLoggedIn()`, `useDynamicContext().primaryWallet`,
  * `getPerpsReplacementDevWallet()`, and `getBentoDevWallet()` in app code.
  *
- * The store is updated by SessionBridge in response to wagmi/Dynamic
+ * The store is updated by SessionBridge in response to wagmi
  * events — components subscribe via selectors so React only re-renders
  * when the field they care about actually changes (Zustand's default
  * shallow-equality subscription).
