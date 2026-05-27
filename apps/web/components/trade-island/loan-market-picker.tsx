@@ -42,11 +42,27 @@ export function LoanMarketPicker({
   onSelect,
   showHubFilter = true,
 }: LoanMarketPickerProps) {
-  const [filter, setFilter] = useState<"all" | "arc" | "fuji">("all");
+  // Spoke chain IDs that route deposits to hub markets via gateway.
+  // Clicking a spoke pill shows ALL hub markets (since every spoke
+  // deposit routes to a hub) with a "via gateway" badge on each row.
+  type SpokeFilter = "sepolia" | "arb-sepolia" | "base-sepolia" | "op-sepolia";
+  type FilterId = "all" | "arc" | "fuji" | SpokeFilter;
+  const SPOKE_PILLS: ReadonlyArray<{ id: SpokeFilter; label: string }> = [
+    { id: "sepolia", label: "Sepolia" },
+    { id: "arb-sepolia", label: "Arb Sepolia" },
+    { id: "base-sepolia", label: "Base Sepolia" },
+    { id: "op-sepolia", label: "OP Sepolia" },
+  ];
+  const isSpokeFilter = (f: FilterId): f is SpokeFilter =>
+    SPOKE_PILLS.some((s) => s.id === f);
+
+  const [filter, setFilter] = useState<FilterId>("all");
   const [query, setQuery] = useState("");
 
+  // Spoke pills show ALL hub markets (every spoke deposit routes to a
+  // hub via gateway), so spoke filters pass every market through.
   const filtered = markets.filter((m) => {
-    if (filter !== "all" && m.hub !== filter) return false;
+    if (filter !== "all" && !isSpokeFilter(filter) && m.hub !== filter) return false;
     if (!query.trim()) return true;
     const q = query.trim().toLowerCase();
     return (
@@ -140,7 +156,7 @@ export function LoanMarketPicker({
 
           <div className="mp-head">
             {showHubFilter && (
-              <div className="mp-filters">
+              <div className="mp-filters" style={{ flexWrap: "wrap", gap: 4 }}>
                 {(
                   [
                     ["all", "All", counts.all],
@@ -156,6 +172,19 @@ export function LoanMarketPicker({
                   >
                     {label}
                     <span className="mp-filter-count">{count}</span>
+                  </button>
+                ))}
+                <span style={{ width: 1, height: 16, background: "var(--ink-1)", opacity: 0.2, alignSelf: "center" }} aria-hidden="true" />
+                {SPOKE_PILLS.map((spoke) => (
+                  <button
+                    key={spoke.id}
+                    type="button"
+                    className={"mp-filter " + (filter === spoke.id ? "active" : "")}
+                    onClick={() => setFilter(spoke.id)}
+                    title={`Show hub markets reachable via gateway from ${spoke.label}`}
+                    style={{ fontSize: 10.5 }}
+                  >
+                    {spoke.label}
                   </button>
                 ))}
               </div>
@@ -208,6 +237,19 @@ export function LoanMarketPicker({
                     <span className="pill" style={{ fontSize: 9.5 }}>
                       {hubDisplayName(m.hub)}
                     </span>
+                    {isSpokeFilter(filter) && (
+                      <span
+                        className="pill"
+                        style={{
+                          fontSize: 8.5,
+                          background: "var(--accent-2)",
+                          color: "var(--accent-ink)",
+                          marginLeft: 2,
+                        }}
+                      >
+                        via gateway
+                      </span>
+                    )}
                   </button>
                 </li>
               );
