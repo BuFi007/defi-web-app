@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/utils";
+import TvlPill from "@/components/tvl-pill";
 import { type Channel } from "./channels";
 import { useChannelAvailability } from "./use-channel-availability";
 import { useChannelDiscovery, type ResolvedChannel } from "./use-channel-discovery";
@@ -213,6 +214,7 @@ export default function RadioBar() {
     <>
       {/* Footer line — chevrons together, island on far right */}
       <div className="relative z-10 flex items-center w-full mt-6 pb-5 gap-1.5 px-2">
+        <TvlPill />
         <span className="h-px flex-1 bg-purpleDanis" />
 
         <div className="flex items-center gap-0.5">
