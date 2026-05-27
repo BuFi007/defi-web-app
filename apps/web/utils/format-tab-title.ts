@@ -1,5 +1,9 @@
 const BRAND = "BUFX";
 
+function joinTitle(parts: Array<string | null | undefined>): string {
+  return parts.filter((part): part is string => Boolean(part)).join(" | ");
+}
+
 function fmtPrice(price: number, sym: string): string {
   const isFx =
     !sym.includes("-PERP") &&
@@ -23,7 +27,7 @@ export function tradeTabTitle(
   price: number,
   changePct: number,
 ): string {
-  return `${sym} ${fmtPrice(price, sym)} ${fmtChange(changePct)} | ${BRAND}`;
+  return joinTitle([sym, fmtPrice(price, sym), fmtChange(changePct), BRAND]);
 }
 
 export function loanTabTitle(
@@ -37,10 +41,8 @@ export function loanTabTitle(
   const rate =
     ratePct != null && Number.isFinite(ratePct)
       ? `${ratePct.toFixed(2)}%`
-      : "";
-  return rate
-    ? `${pair} ${label} ${rate} | ${BRAND}`
-    : `${pair} ${label} | ${BRAND}`;
+      : null;
+  return joinTitle([pair, label, rate, BRAND]);
 }
 
 export const DEFAULT_TAB_TITLE = `${BRAND} | Agentic Forex Stablecoin Trading`;
