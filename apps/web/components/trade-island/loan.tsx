@@ -1081,7 +1081,7 @@ function YieldHistorySpark({ points }: { points: LoanYieldPoint[] }) {
     .filter((value): value is number => value != null && Number.isFinite(value));
 
   if (values.length < 2) {
-    return <div className="lo-yield-spark lo-yield-spark-empty" aria-hidden="true" />;
+    return null;
   }
 
   const min = Math.min(...values);
@@ -1130,14 +1130,62 @@ function YieldHistorySpark({ points }: { points: LoanYieldPoint[] }) {
   );
 }
 
-function YieldHistoryPanel({ breakdown }: { breakdown?: LoanYieldBreakdown }) {
+type ImpactTone = "profit" | "loss" | "ink";
+type ImpactMini = [label: string, value: string];
+
+function RateImpactPanel({
+  title,
+  period,
+  big,
+  tone,
+  mini1,
+  mini2,
+  projectionRate,
+  projectionRateLabel,
+  breakdown,
+}: {
+  title: string;
+  period: string;
+  big: string;
+  tone: ImpactTone;
+  mini1: ImpactMini;
+  mini2: ImpactMini;
+  projectionRate: number | null;
+  projectionRateLabel: string;
+  breakdown?: LoanYieldBreakdown;
+}) {
+  const history = breakdown?.history ?? [];
+
   return (
-    <div className="lo-yield-panel">
-      <div className="lo-yield-panel-head">
-        <span className="lo-yield-title">Yield</span>
-        <span className="lo-yield-date mono">{breakdown?.latestDate ?? "Envio"}</span>
+    <div className="lo-impact">
+      <div className="lo-impact-head">
+        <span className="lo-impact-title">{title}</span>
+        <span className="lo-impact-period">{period}</span>
       </div>
-      <YieldHistorySpark points={breakdown?.history ?? []} />
+      <div className={"lo-impact-big mono " + tone}>{big}</div>
+      <div className="lo-impact-grid">
+        <div className="lo-impact-mini">
+          <span className="lo-impact-mini-l">{mini1[0]}</span>
+          <span className={"mono lo-impact-mini-v " + tone}>{mini1[1]}</span>
+        </div>
+        <div className="lo-impact-mini">
+          <span className="lo-impact-mini-l">{mini2[0]}</span>
+          <span className={"mono lo-impact-mini-v " + tone}>{mini2[1]}</span>
+        </div>
+      </div>
+
+      <div className="lo-yield-strip">
+        <div className="lo-yield-panel-head">
+          <span className="lo-yield-title">Market yield</span>
+          <span className="lo-yield-date mono">{breakdown?.latestDate ? `Envio ${breakdown.latestDate}` : "Envio"}</span>
+        </div>
+        <div className="lo-rate-source">
+          <span>{projectionRateLabel}</span>
+          <b className="mono">{formatApy(projectionRate)}</b>
+        </div>
+        <YieldHistorySpark points={history} />
+      </div>
+
       <div className="lo-yield-breakdown">
         <span>
           <b>IRM</b>
@@ -1548,12 +1596,15 @@ export function ActionCard({
   const t = useScopedI18n('Lending');
   const loan = LOAN_TOKENS[market.loan] ?? LOAN_TOKENS.USDC;
   const A = ACTIONS.find((a) => a.id === action) || ACTIONS[0];
-  // rate is nullable until the /fx-telarana/markets feed lands. The
-  // earnings projection treats null as 0 for math purposes (no fake
-  // yearly/monthly/daily) but the header pill renders "—" instead of a
-  // fabricated APR/APY.
-  const rate: number | null = A.side === "supply" ? market.yield?.compositeApy ?? market.supply : market.borrow;
+  // Rate is nullable until the /fx-telarana/markets + Envio feeds land.
+  // Supply-side actions project from the Envio composite APY when present
+  // (Morpho IRM + TurboFeeVault boost). Debt-side actions use borrow APR;
+  // LP fee boost is yield paid to suppliers, not an extra borrower cost.
+  const supplyCompositeRate = market.yield?.compositeApy ?? market.supply;
+  const borrowCostRate = market.borrow;
+  const rate: number | null = A.side === "supply" ? supplyCompositeRate : borrowCostRate;
   const rateLabel = A.side === "supply" ? "APY" : "APR";
+  const projectionRateLabel = A.side === "supply" ? "Composite APY" : "Borrow APR";
   const rateForMath = rate ?? 0;
 
   // Wallet balance for the loan token on the hub chain. The card lists
@@ -1761,9 +1812,10 @@ export function ActionCard({
 
   let impactTitle: string;
   let impactBig: string;
-  let impactBigClass: string;
-  let impactMini1: [string, string];
-  let impactMini2: [string, string];
+  let impactBigClass: ImpactTone;
+  let impactPeriod = action === "lend" || action === "borrow" ? "per year" : "one-time";
+  let impactMini1: ImpactMini;
+  let impactMini2: ImpactMini;
   if (action === "lend") {
     impactTitle = t('youWillEarn');
     if (rate == null) {
@@ -2089,25 +2141,17 @@ export function ActionCard({
         </span>
       </div>
 
-      <div className="lo-impact">
-        <div className="lo-impact-head">
-          <span className="lo-impact-title">{impactTitle}</span>
-          <span className="lo-impact-period">per year</span>
-        </div>
-        <div className={"lo-impact-big mono " + impactBigClass}>{impactBig}</div>
-        <div className="lo-impact-grid">
-          <div className="lo-impact-mini">
-            <span className="lo-impact-mini-l">{impactMini1[0]}</span>
-            <span className={"mono lo-impact-mini-v " + impactBigClass}>{impactMini1[1]}</span>
-          </div>
-          <div className="lo-impact-mini">
-            <span className="lo-impact-mini-l">{impactMini2[0]}</span>
-            <span className={"mono lo-impact-mini-v " + impactBigClass}>{impactMini2[1]}</span>
-          </div>
-        </div>
-      </div>
-
-      <YieldHistoryPanel breakdown={market.yield} />
+      <RateImpactPanel
+        title={impactTitle}
+        period={impactPeriod}
+        big={impactBig}
+        tone={impactBigClass}
+        mini1={impactMini1}
+        mini2={impactMini2}
+        projectionRate={rate}
+        projectionRateLabel={projectionRateLabel}
+        breakdown={market.yield}
+      />
 
       {spokeDepositSelected && (
         <GatewayProgress

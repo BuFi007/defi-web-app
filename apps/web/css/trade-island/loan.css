@@ -1281,8 +1281,8 @@
 /* Impact readout — large outcome numbers below the CTA */
 .lo-impact {
   display: flex; flex-direction: column;
-  gap: 6px;
-  padding: 10px 14px 10px;
+  gap: 8px;
+  padding: 12px 14px;
   background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-3) 100%);
   border-radius: 14px;
   border: 1px solid var(--border);
@@ -1336,20 +1336,43 @@
 .lo-impact-mini-v.loss   { color: var(--loss-ink); }
 .lo-impact-mini-v.ink    { color: var(--ink); }
 
-.lo-yield-panel {
+.lo-yield-strip {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  gap: 7px;
+  padding-top: 9px;
+  margin-top: 1px;
+  border-top: 1px dashed var(--border);
 }
 .lo-yield-panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+.lo-rate-source {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 30px;
+  padding: 6px 8px;
+  background: color-mix(in oklab, var(--surface) 72%, transparent);
+  border-radius: 8px;
+}
+.lo-rate-source span {
+  min-width: 0;
+  font-size: 9.5px;
+  font-weight: 800;
+  color: var(--ink-4);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.lo-rate-source b {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
+  white-space: nowrap;
 }
 .lo-yield-title {
   font-family: 'Nunito', sans-serif;
@@ -1366,20 +1389,15 @@
 }
 .lo-yield-spark {
   width: 100%;
-  height: 54px;
+  height: 42px;
   display: block;
   border-radius: 8px;
   background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-3) 100%);
 }
-.lo-yield-spark-empty {
-  height: 54px;
-  border: 1px dashed var(--border);
-  opacity: .72;
-}
 .lo-yield-breakdown {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
 }
 .lo-yield-breakdown > span {
   display: flex;
