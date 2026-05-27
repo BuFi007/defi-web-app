@@ -22,7 +22,8 @@
         "type": "bytes32",
         "name": "commitment"
       }
-    ]
+    ],
+    "anonymous": false
   },
   {
     "name": "SelectionRevealed",
@@ -47,7 +48,8 @@
         "type": "bytes32",
         "name": "selectedTilesHash"
       }
-    ]
+    ],
+    "anonymous": false
   },
   {
     "name": "hashSelection",

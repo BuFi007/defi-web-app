@@ -13,7 +13,8 @@
         "name": "player",
         "indexed": true
       }
-    ]
+    ],
+    "anonymous": false
   },
   {
     "name": "RoomLeft",
@@ -29,7 +30,8 @@
         "name": "player",
         "indexed": true
       }
-    ]
+    ],
+    "anonymous": false
   },
   {
     "name": "RoomCancelled",
@@ -40,7 +42,8 @@
         "name": "roomId",
         "indexed": true
       }
-    ]
+    ],
+    "anonymous": false
   },
   {
     "name": "RoomLocked",
@@ -55,7 +58,8 @@
         "type": "uint256",
         "name": "escrowed"
       }
-    ]
+    ],
+    "anonymous": false
   },
   {
     "name": "RoomSettled",
@@ -84,7 +88,8 @@
         "type": "uint256",
         "name": "protocolFee"
       }
-    ]
+    ],
+    "anonymous": false
   },
   {
     "name": "SettlementManagerUpdated",
@@ -95,7 +100,8 @@
         "name": "settlementManager",
         "indexed": true
       }
-    ]
+    ],
+    "anonymous": false
   },
   {
     "name": "Refunded",
@@ -115,7 +121,8 @@
         "type": "uint256",
         "name": "amount"
       }
-    ]
+    ],
+    "anonymous": false
   },
   {
     "name": "PrizeClaimed",
@@ -135,7 +142,8 @@
         "type": "uint256",
         "name": "amount"
       }
-    ]
+    ],
+    "anonymous": false
   },
   {
     "name": "ProtocolFeeClaimed",
@@ -150,7 +158,8 @@
         "type": "uint256",
         "name": "amount"
       }
-    ]
+    ],
+    "anonymous": false
   },
   {
     "name": "joinRoom",

@@ -22,7 +22,8 @@
         "type": "uint256",
         "name": "entryFee"
       }
-    ]
+    ],
+    "anonymous": false
   },
   {
     "name": "RoomStatusUpdated",
@@ -37,7 +38,8 @@
         "type": "uint8",
         "name": "status"
       }
-    ]
+    ],
+    "anonymous": false
   },
   {
     "name": "EntryTokenAllowed",
@@ -52,7 +54,8 @@
         "type": "bool",
         "name": "allowed"
       }
-    ]
+    ],
+    "anonymous": false
   },
   {
     "name": "LimitsUpdated",
@@ -66,7 +69,8 @@
         "type": "uint16",
         "name": "protocolMaxPlayers"
       }
-    ]
+    ],
+    "anonymous": false
   },
   {
     "name": "EscrowUpdated",
@@ -77,7 +81,8 @@
         "name": "escrow",
         "indexed": true
       }
-    ]
+    ],
+    "anonymous": false
   },
   {
     "name": "createRoom",

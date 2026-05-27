@@ -205,7 +205,7 @@ contracts:
         field_selection:
           transaction_fields:
             - hash
-      - event: RoomSettled(uint256 indexed roomId, bytes32 resultsRoot, bytes32 payoutSchemaHash, uint256 payoutTotal, uint256 protocolFee)
+      - event: RoomSettled(uint256 indexed roomId, bytes32 indexed resultsRoot, bytes32 indexed payoutSchemaHash, uint256 payoutTotal, uint256 protocolFee)
         field_selection:
           transaction_fields:
             - hash
@@ -222,11 +222,11 @@ contracts:
     abi_file_path: ./abis/FxBentoCommitmentManager.json
     handler: ./src/handlers/bento.ts
     events:
-      - event: SelectionCommitted(uint256 indexed roomId, uint256 roundIndex, address indexed player, bytes32 commitment)
+      - event: SelectionCommitted(uint256 indexed roomId, uint16 indexed roundIndex, address indexed player, bytes32 commitment)
         field_selection:
           transaction_fields:
             - hash
-      - event: SelectionRevealed(uint256 indexed roomId, uint256 roundIndex, address indexed player, bytes32 selectedTilesHash)
+      - event: SelectionRevealed(uint256 indexed roomId, uint16 indexed roundIndex, address indexed player, bytes32 selectedTilesHash)
         field_selection:
           transaction_fields:
             - hash
@@ -235,15 +235,15 @@ contracts:
     abi_file_path: ./abis/FxBentoRoundManager.json
     handler: ./src/handlers/bento.ts
     events:
-      - event: RoundStarted(uint256 indexed roomId, uint256 roundIndex, uint64 startTime, uint64 lockTime, uint64 endTime, uint256 anchorSnapshotId)
+      - event: RoundStarted(uint256 indexed roomId, uint16 indexed roundIndex, uint64 startTime, uint64 lockTime, uint64 endTime, uint256 anchorSnapshotId)
         field_selection:
           transaction_fields:
             - hash
-      - event: AnchorRecorded(uint256 indexed roomId, uint256 roundIndex, int256 price, uint256 snapshotId)
+      - event: AnchorRecorded(uint256 indexed roomId, uint16 indexed roundIndex, int256 price, uint256 snapshotId)
         field_selection:
           transaction_fields:
             - hash
-      - event: SettlementRecorded(uint256 indexed roomId, uint256 roundIndex, int256 price, uint256 snapshotId)
+      - event: SettlementRecorded(uint256 indexed roomId, uint16 indexed roundIndex, int256 price, uint256 snapshotId)
         field_selection:
           transaction_fields:
             - hash
@@ -252,11 +252,11 @@ contracts:
     abi_file_path: ./abis/FxBentoSettlementManager.json
     handler: ./src/handlers/bento.ts
     events:
-      - event: ResultsSubmitted(uint256 indexed roomId, bytes32 resultsRoot, string metadataURI)
+      - event: ResultsSubmitted(uint256 indexed roomId, bytes32 indexed resultsRoot, string metadataURI)
         field_selection:
           transaction_fields:
             - hash
-      - event: ResultsChallenged(uint256 indexed roomId, bytes32 proof)
+      - event: ResultsChallenged(uint256 indexed roomId, bytes proof)
         field_selection:
           transaction_fields:
             - hash
@@ -264,7 +264,7 @@ contracts:
         field_selection:
           transaction_fields:
             - hash
-      - event: ResultsFinalized(uint256 indexed roomId, bytes32 resultsRoot)
+      - event: ResultsFinalized(uint256 indexed roomId, bytes32 indexed resultsRoot)
         field_selection:
           transaction_fields:
             - hash
