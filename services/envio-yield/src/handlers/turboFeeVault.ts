@@ -33,12 +33,24 @@ indexer.onEvent(
       event.chainId,
     );
 
+    // Compute annualized fee APY: (daily_vault_inflow * 365) / total_deposits
+    // Both values are in token units (6 or 18 decimals). Result in 1e18 precision.
+    const totalDeposits = snap.totalSupply > 0n ? snap.totalSupply : 1n;
+    const dailyFeeInflow = snap.turboLpShare + event.params.lpShare;
+    const annualized = (dailyFeeInflow * 365n * 10n ** 18n) / totalDeposits;
+
+    const feeBoostApy = annualized;
+    const compositeApy = snap.morphoBaseApy + feeBoostApy;
+
     context.DailyMarketSnapshot.set({
       ...snap,
       turboFeeAmount: snap.turboFeeAmount + event.params.amount,
       turboProtocolShare: snap.turboProtocolShare + event.params.protocolShare,
       turboLpShare: snap.turboLpShare + event.params.lpShare,
       turboInsuranceShare: snap.turboInsuranceShare + event.params.insuranceShare,
+      annualizedFeeApy: annualized,
+      feeBoostApy,
+      compositeApy,
     });
   },
 );
