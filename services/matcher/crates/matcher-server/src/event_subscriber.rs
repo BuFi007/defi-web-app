@@ -112,7 +112,7 @@ impl EventSubscriber {
             .rpc_url
             .parse::<reqwest::Url>()
             .map_err(|e| SubscriberError::InvalidUrl(e.to_string()))?;
-        let provider = ProviderBuilder::new().on_http(url);
+        let provider = ProviderBuilder::new().connect_http(url);
         let head: u64 = provider
             .get_block_number()
             .await
@@ -203,7 +203,7 @@ impl EventSubscriber {
 fn decode_and_emit(log: &alloy_rpc_types_eth::Log) {
     // Per-event try-decode. The topic filter narrows this, so at most one
     // arm matches; ordering inside is cosmetic.
-    if let Ok(ev) = MatchSettled::decode_log(&log.inner, true) {
+    if let Ok(ev) = MatchSettled::decode_log(&log.inner) {
         info!(
             kind = "MatchSettled",
             market = ?ev.marketId,
@@ -217,7 +217,7 @@ fn decode_and_emit(log: &alloy_rpc_types_eth::Log) {
         );
         return;
     }
-    if let Ok(ev) = PositionIncreased::decode_log(&log.inner, true) {
+    if let Ok(ev) = PositionIncreased::decode_log(&log.inner) {
         info!(
             kind = "PositionIncreased",
             market = ?ev.marketId,
@@ -233,7 +233,7 @@ fn decode_and_emit(log: &alloy_rpc_types_eth::Log) {
         );
         return;
     }
-    if let Ok(ev) = PositionDecreased::decode_log(&log.inner, true) {
+    if let Ok(ev) = PositionDecreased::decode_log(&log.inner) {
         info!(
             kind = "PositionDecreased",
             market = ?ev.marketId,
@@ -250,7 +250,7 @@ fn decode_and_emit(log: &alloy_rpc_types_eth::Log) {
         );
         return;
     }
-    if let Ok(ev) = OrderCancelled::decode_log(&log.inner, true) {
+    if let Ok(ev) = OrderCancelled::decode_log(&log.inner) {
         info!(
             kind = "OrderCancelled",
             trader = ?ev.trader,
@@ -261,7 +261,7 @@ fn decode_and_emit(log: &alloy_rpc_types_eth::Log) {
         );
         return;
     }
-    if let Ok(ev) = AccountFlagged::decode_log(&log.inner, true) {
+    if let Ok(ev) = AccountFlagged::decode_log(&log.inner) {
         info!(
             kind = "AccountFlagged",
             market = ?ev.marketId,
@@ -273,7 +273,7 @@ fn decode_and_emit(log: &alloy_rpc_types_eth::Log) {
         );
         return;
     }
-    if let Ok(ev) = AccountFlagRescinded::decode_log(&log.inner, true) {
+    if let Ok(ev) = AccountFlagRescinded::decode_log(&log.inner) {
         info!(
             kind = "AccountFlagRescinded",
             market = ?ev.marketId,
@@ -286,7 +286,7 @@ fn decode_and_emit(log: &alloy_rpc_types_eth::Log) {
         );
         return;
     }
-    if let Ok(ev) = FundingPoked::decode_log(&log.inner, true) {
+    if let Ok(ev) = FundingPoked::decode_log(&log.inner) {
         info!(
             kind = "FundingPoked",
             market = ?ev.marketId,
@@ -299,7 +299,7 @@ fn decode_and_emit(log: &alloy_rpc_types_eth::Log) {
         );
         return;
     }
-    if let Ok(ev) = FundingSettled::decode_log(&log.inner, true) {
+    if let Ok(ev) = FundingSettled::decode_log(&log.inner) {
         info!(
             kind = "FundingSettled",
             market = ?ev.marketId,

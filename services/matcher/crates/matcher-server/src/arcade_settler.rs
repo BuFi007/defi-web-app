@@ -273,9 +273,8 @@ impl ArcadeSettler {
                 })?;
         let wallet = EthereumWallet::from(signer);
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(wallet)
-            .on_http(rpc_url_for_chain(room.chain_id)?);
+            .connect_http(rpc_url_for_chain(room.chain_id)?);
         let manager = settlement_manager_for_chain(room.chain_id)?;
         let contract = FxBentoSettlementManagerContract::new(manager, &provider);
         let pending = contract

@@ -15,7 +15,7 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use alloy_primitives::{Address, PrimitiveSignature, B256, I256, U256};
+use alloy_primitives::{Address, B256, I256, Signature as PrimitiveSignature, U256};
 use alloy_signer::SignerSync;
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::SolStruct;

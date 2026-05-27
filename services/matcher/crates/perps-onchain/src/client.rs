@@ -153,9 +153,8 @@ impl PerpsOnchain {
             .parse()
             .map_err(|e| PerpsOnchainError::InvalidRpcUrl(format!("{e}")))?;
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(wallet)
-            .on_http(url);
+            .connect_http(url);
         let engine = FxFundingEngine::new(self.funding_engine(), &provider);
         let state = engine
             .fundingState(market_id)
@@ -175,9 +174,8 @@ impl PerpsOnchain {
         let wallet = EthereumWallet::from(signer);
         let url = self.parse_url()?;
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(wallet)
-            .on_http(url);
+            .connect_http(url);
         let engine = FxFundingEngine::new(self.funding_engine(), &provider);
         let pending = engine
             .pokeFundingRate(market_id)
@@ -201,28 +199,24 @@ impl PerpsOnchain {
         let wallet = EthereumWallet::from(signer);
         let url = self.parse_url()?;
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(wallet)
-            .on_http(url);
+            .connect_http(url);
         let clearinghouse = FxPerpClearinghouse::new(self.clearinghouse(), &provider);
         let long = clearinghouse
             .openInterestLong(market_id)
             .call()
             .await
-            .map_err(|e| PerpsOnchainError::Rpc(format!("openInterestLong: {e}")))?
-            ._0;
+            .map_err(|e| PerpsOnchainError::Rpc(format!("openInterestLong: {e}")))?;
         let short = clearinghouse
             .openInterestShort(market_id)
             .call()
             .await
-            .map_err(|e| PerpsOnchainError::Rpc(format!("openInterestShort: {e}")))?
-            ._0;
+            .map_err(|e| PerpsOnchainError::Rpc(format!("openInterestShort: {e}")))?;
         let cap = clearinghouse
             .maxOpenInterest(market_id)
             .call()
             .await
-            .map_err(|e| PerpsOnchainError::Rpc(format!("maxOpenInterest: {e}")))?
-            ._0;
+            .map_err(|e| PerpsOnchainError::Rpc(format!("maxOpenInterest: {e}")))?;
         Ok(OiSnapshot { long, short, cap })
     }
 
@@ -240,16 +234,15 @@ impl PerpsOnchain {
         let wallet = EthereumWallet::from(signer);
         let url = self.parse_url()?;
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(wallet)
-            .on_http(url);
+            .connect_http(url);
         let health = FxHealthChecker::new(self.health_checker(), &provider);
         let result = health
             .isLiquidatable(market_id, trader)
             .call()
             .await
             .map_err(|e| PerpsOnchainError::Rpc(format!("isLiquidatable: {e}")))?;
-        Ok(result._0)
+        Ok(result)
     }
 
     /// Read the latest on-chain position size and return its absolute value.
@@ -262,16 +255,14 @@ impl PerpsOnchain {
         let wallet = EthereumWallet::from(signer);
         let url = self.parse_url()?;
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(wallet)
-            .on_http(url);
+            .connect_http(url);
         let clearinghouse = FxPerpClearinghouse::new(self.clearinghouse(), &provider);
         let position = clearinghouse
             .position(market_id, trader)
             .call()
             .await
-            .map_err(|e| PerpsOnchainError::Rpc(format!("position: {e}")))?
-            ._0;
+            .map_err(|e| PerpsOnchainError::Rpc(format!("position: {e}")))?;
         Ok(i256_abs_u256(position.sizeE18))
     }
 
@@ -287,9 +278,8 @@ impl PerpsOnchain {
         let wallet = EthereumWallet::from(signer);
         let url = self.parse_url()?;
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(wallet)
-            .on_http(url);
+            .connect_http(url);
         let router = LiquidationRouter::new(router_address, &provider);
         let pending = router
             .liquidateAtomic(market_id, trader, max_size_to_close_abs_e18)
@@ -326,16 +316,14 @@ impl PerpsOnchain {
         let wallet = EthereumWallet::from(signer);
         let url = self.parse_url()?;
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(wallet)
-            .on_http(url);
+            .connect_http(url);
         let pyth = IPyth::new(pyth_address, &provider);
         let fee = pyth
             .getUpdateFee(update_data.clone())
             .call()
             .await
-            .map_err(|e| PerpsOnchainError::Rpc(format!("getUpdateFee: {e}")))?
-            .feeAmount;
+            .map_err(|e| PerpsOnchainError::Rpc(format!("getUpdateFee: {e}")))?;
         let pending = pyth
             .updatePriceFeeds(update_data)
             .value(fee)
@@ -367,9 +355,8 @@ impl PerpsOnchain {
         let wallet = EthereumWallet::from(signer);
         let url = self.parse_url()?;
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(wallet)
-            .on_http(url);
+            .connect_http(url);
         let order_settlement = FxOrderSettlement::new(self.order_settlement(), &provider);
         let pending = order_settlement
             .settleMatch(

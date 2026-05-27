@@ -319,9 +319,8 @@ impl TelaranaLiquidator {
                 })?;
         let wallet = EthereumWallet::from(signer);
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(wallet)
-            .on_http(rpc_url);
+            .connect_http(rpc_url);
         let contract = FxLiquidator::new(liquidator, &provider);
         let pending = contract
             .liquidate(

@@ -10,7 +10,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use alloy_network::EthereumWallet;
-use alloy_primitives::{hex, Address, Bytes, PrimitiveSignature, B256, U256};
+use alloy_primitives::{hex, Address, Bytes, B256, Signature as PrimitiveSignature, U256};
 use alloy_provider::{Provider, ProviderBuilder};
 use alloy_signer::SignerSync;
 use alloy_signer_local::PrivateKeySigner;
@@ -331,8 +331,7 @@ impl GatewaySigner {
         let destination_chain_id = chain_id_for_domain(route.destination_domain)?;
         let destination_rpc = rpc_url_for_chain(destination_chain_id)?;
         let destination_provider = ProviderBuilder::new()
-            .with_recommended_fillers()
-            .on_http(destination_rpc);
+            .connect_http(destination_rpc);
         let read_contract = TelaranaGatewayHubHookContract::new(
             context.telarana_gateway_hook,
             &destination_provider,
@@ -342,7 +341,7 @@ impl GatewaySigner {
             .call()
             .await
             .map_err(|e| GatewaySignerError::Onchain(format!("gatewayRequestState: {e}")))?;
-        if state.state != 0 {
+        if state != 0 {
             return Ok(GatewayOutcome::Skipped);
         }
 
@@ -367,9 +366,8 @@ impl GatewaySigner {
                 })?;
         let wallet = EthereumWallet::from(signer);
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(wallet)
-            .on_http(rpc_url_for_chain(destination_chain_id)?);
+            .connect_http(rpc_url_for_chain(destination_chain_id)?);
         let contract =
             TelaranaGatewayHubHookContract::new(context.telarana_gateway_hook, &provider);
         let tx_context = TelaranaGatewayHubHookContract::GatewayMintContext {
@@ -414,7 +412,7 @@ impl GatewaySigner {
         route: &GatewayRoute,
     ) -> Result<SignedBurnIntent, GatewaySignerError> {
         let source_chain_id = chain_id_for_domain(route.source_domain)?;
-        let source_provider = ProviderBuilder::new().on_http(rpc_url_for_chain(source_chain_id)?);
+        let source_provider = ProviderBuilder::new().connect_http(rpc_url_for_chain(source_chain_id)?);
         let head = source_provider
             .get_block_number()
             .await

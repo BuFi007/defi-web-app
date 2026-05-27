@@ -61,16 +61,15 @@ impl PerpsOnchain {
             .parse()
             .map_err(|e: url::ParseError| PerpsOnchainError::InvalidRpcUrl(e.to_string()))?;
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(wallet)
-            .on_http(url);
+            .connect_http(url);
         let oracle = crate::bindings::IFxOracle::new(oracle_address, &provider);
         let feed = oracle
             .pythFeedOf(token)
             .call()
             .await
             .map_err(|e| PerpsOnchainError::Rpc(format!("pythFeedOf: {e}")))?;
-        Ok(feed._0)
+        Ok(feed)
     }
 
     /// Read `(mark_e18, published_at)` for `market_id` via the FxOracle path.
@@ -92,17 +91,15 @@ impl PerpsOnchain {
             .parse()
             .map_err(|e: url::ParseError| PerpsOnchainError::InvalidRpcUrl(e.to_string()))?;
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(wallet)
-            .on_http(url);
+            .connect_http(url);
 
         let clearinghouse = FxPerpClearinghouse::new(self.clearinghouse(), &provider);
         let cfg = clearinghouse
             .marketConfig(market_id)
             .call()
             .await
-            .map_err(|e| PerpsOnchainError::Rpc(format!("marketConfig: {e}")))?
-            ._0;
+            .map_err(|e| PerpsOnchainError::Rpc(format!("marketConfig: {e}")))?;
 
         let oracle = IFxOracle::new(oracle_address, &provider);
         let mid = oracle

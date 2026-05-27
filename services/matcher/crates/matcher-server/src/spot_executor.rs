@@ -284,9 +284,8 @@ impl SpotExecutor {
                 })?;
         let wallet = EthereumWallet::from(signer);
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(wallet)
-            .on_http(rpc_url);
+            .connect_http(rpc_url);
         let contract = FxSpotExecutorContract::new(self.executor, &provider);
 
         let hook = TelaranaGatewayHubHookReadContract::new(candidate.telarana_gateway_hook, &provider);
@@ -295,7 +294,7 @@ impl SpotExecutor {
             .call()
             .await
             .map_err(|e| SpotExecutorError::Onchain(format!("gatewayRequestState read: {e}")))?;
-        if gateway_state.state != 1 {
+        if gateway_state != 1 {
             return Ok(SpotOutcome::Skipped);
         }
 
@@ -304,7 +303,7 @@ impl SpotExecutor {
             .call()
             .await
             .map_err(|e| SpotExecutorError::Onchain(format!("executed read: {e}")))?;
-        if already_executed._0 {
+        if already_executed {
             return Ok(SpotOutcome::Skipped);
         }
 

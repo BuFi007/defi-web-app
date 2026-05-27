@@ -41,7 +41,7 @@ use std::time::Instant;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use alloy_primitives::{Address, PrimitiveSignature, B256, I256, U256};
+use alloy_primitives::{Address, B256, I256, Signature as PrimitiveSignature, U256};
 use alloy_sol_types::SolStruct;
 use bufi_matcher_types::eip712::{domain as eip712_domain, SignedOrder as TypedSignedOrder};
 use bufi_matcher_types::proto::matcher::v1::{

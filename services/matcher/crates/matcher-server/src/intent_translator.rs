@@ -13,7 +13,7 @@
 //! `bufi_orderbook::Intent`. The matcher-server layer NEVER calls the
 //! orderbook on an intent that hasn't passed signature verification.
 
-use alloy_primitives::{Address, FixedBytes, PrimitiveSignature, B256, U256};
+use alloy_primitives::{Address, B256, FixedBytes, Signature as PrimitiveSignature, U256};
 use alloy_sol_types::SolStruct;
 use thiserror::Error;
 
@@ -318,5 +318,4 @@ fn parse_signature_bytes(s: &str) -> Option<Vec<u8>> {
 fn recover_signer(sig_bytes: &[u8], digest: &B256) -> Result<Address, alloy_primitives::SignatureError> {
     let sig = PrimitiveSignature::try_from(sig_bytes)?;
     sig.recover_address_from_prehash(digest)
-        .map_err(|e| alloy_primitives::SignatureError::FromBytes(e.to_string().leak()))
 }

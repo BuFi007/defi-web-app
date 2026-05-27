@@ -364,16 +364,15 @@ impl PythPusher {
             .parse()
             .map_err(|e: url::ParseError| PerpsOnchainError::InvalidRpcUrl(e.to_string()))?;
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(wallet)
-            .on_http(url);
+            .connect_http(url);
         let clearinghouse = FxPerpClearinghouse::new(self.onchain.clearinghouse(), &provider);
         let cfg = clearinghouse
             .marketConfig(market_id)
             .call()
             .await
             .map_err(|e| PerpsOnchainError::Rpc(format!("marketConfig: {e}")))?;
-        Ok(cfg._0.baseToken)
+        Ok(cfg.baseToken)
     }
 
     async fn feed_publish_time(&self, feed: B256) -> Result<u64, PerpsOnchainError> {
@@ -391,9 +390,8 @@ impl PythPusher {
             .parse()
             .map_err(|e: url::ParseError| PerpsOnchainError::InvalidRpcUrl(e.to_string()))?;
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(wallet)
-            .on_http(url);
+            .connect_http(url);
         let pyth = IPyth::new(self.pyth_address, &provider);
         let r = pyth
             .getPriceUnsafe(feed)
