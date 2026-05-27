@@ -218,34 +218,46 @@ async fn main() -> ExitCode {
     };
 
     // ---------- Spot executor / gateway signer / arcade settler ----------
-    let spot_executor_handle = match spot_executor::SpotExecutor::new(&cfg) {
-        Some(executor) => {
+    let spot_executor_handle = match spot_executor::SpotExecutor::new(&cfg, &signer_key) {
+        Ok(Some(executor)) => {
             info!("spot executor enabled (Rust keeper consolidation)");
             Some(tokio::spawn(async move { executor.run().await }))
         }
-        None => {
+        Ok(None) => {
             info!("spot executor disabled (SPOT_EXECUTOR_ENABLED=false)");
             None
         }
+        Err(e) => {
+            error!(error = ?e, "spot executor boot: aborting");
+            return ExitCode::FAILURE;
+        }
     };
-    let gateway_signer_handle = match gateway_signer::GatewaySigner::new(&cfg) {
-        Some(signer) => {
+    let gateway_signer_handle = match gateway_signer::GatewaySigner::new(&cfg, &signer_key) {
+        Ok(Some(signer)) => {
             info!("gateway signer enabled (Rust keeper consolidation)");
             Some(tokio::spawn(async move { signer.run().await }))
         }
-        None => {
+        Ok(None) => {
             info!("gateway signer disabled (GATEWAY_SIGNER_ENABLED=false)");
             None
         }
+        Err(e) => {
+            error!(error = ?e, "gateway signer boot: aborting");
+            return ExitCode::FAILURE;
+        }
     };
-    let arcade_settler_handle = match arcade_settler::ArcadeSettler::new(&cfg) {
-        Some(settler) => {
+    let arcade_settler_handle = match arcade_settler::ArcadeSettler::new(&cfg, &signer_key) {
+        Ok(Some(settler)) => {
             info!("arcade settler enabled (Rust keeper consolidation)");
             Some(tokio::spawn(async move { settler.run().await }))
         }
-        None => {
+        Ok(None) => {
             info!("arcade settler disabled (ARCADE_SETTLER_ENABLED=false)");
             None
+        }
+        Err(e) => {
+            error!(error = ?e, "arcade settler boot: aborting");
+            return ExitCode::FAILURE;
         }
     };
 
