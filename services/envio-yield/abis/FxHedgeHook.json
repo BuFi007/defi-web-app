@@ -1,0 +1,29 @@
+[
+  {
+    "type": "event",
+    "name": "ExposureChanged",
+    "inputs": [
+      { "name": "poolId", "type": "bytes32", "indexed": true },
+      { "name": "marketId", "type": "bytes32", "indexed": true },
+      { "name": "hedgeToken", "type": "address", "indexed": true },
+      { "name": "oldExposureE18", "type": "int256", "indexed": false },
+      { "name": "newExposureE18", "type": "int256", "indexed": false },
+      { "name": "exposureDeltaE18", "type": "int256", "indexed": false }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "HedgeRebalanced",
+    "inputs": [
+      { "name": "poolId", "type": "bytes32", "indexed": true },
+      { "name": "marketId", "type": "bytes32", "indexed": true },
+      { "name": "hedgeToken", "type": "address", "indexed": true },
+      { "name": "oldHedgeSizeE18", "type": "int256", "indexed": false },
+      { "name": "newHedgeSizeE18", "type": "int256", "indexed": false },
+      { "name": "exposureE18", "type": "int256", "indexed": false },
+      { "name": "pythFeedId", "type": "bytes32", "indexed": false }
+    ],
+    "anonymous": false
+  }
+]

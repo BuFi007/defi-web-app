@@ -103,6 +103,31 @@ type TurboFeeVaultEvent {
   chainId: Int!
 }
 
+# ──────────────── Hedge (FxHedgeHook) ────────────────────────────────────────
+
+type HedgeExposure {
+  id: ID!
+  poolId: String! @index
+  oldExposure: BigInt!
+  newExposure: BigInt!
+  txHash: String!
+  blockNumber: Int!
+  timestamp: Int!
+  chainId: Int!
+}
+
+type HedgeRebalance {
+  id: ID!
+  poolId: String! @index
+  oldSize: BigInt!
+  newSize: BigInt!
+  exposure: BigInt!
+  txHash: String!
+  blockNumber: Int!
+  timestamp: Int!
+  chainId: Int!
+}
+
 # ──────────────── Perps position state (migrated from Ponder) ────────────────
 
 type PerpsPosition {

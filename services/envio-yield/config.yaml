@@ -70,6 +70,20 @@ contracts:
           transaction_fields:
             - hash
 
+  # ─────────────────── Hedge ────────────────────────────────────
+  - name: FxHedgeHook
+    abi_file_path: ./abis/FxHedgeHook.json
+    handler: ./src/handlers/hedge.ts
+    events:
+      - event: ExposureChanged(bytes32 indexed poolId, bytes32 indexed marketId, address indexed hedgeToken, int256 oldExposureE18, int256 newExposureE18, int256 exposureDeltaE18)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: HedgeRebalanced(bytes32 indexed poolId, bytes32 indexed marketId, address indexed hedgeToken, int256 oldHedgeSizeE18, int256 newHedgeSizeE18, int256 exposureE18, bytes32 pythFeedId)
+        field_selection:
+          transaction_fields:
+            - hash
+
   # ─────────────────── Lending ────────────────────────────────────
   - name: MorphoBlue
     abi_file_path: ./abis/MorphoBlue.json
@@ -322,6 +336,9 @@ chains:
       - name: FxBentoSettlementManager
         address:
           - "0x8f635571aaea4b1391534cd92932caa839e04bcd"
+      - name: FxHedgeHook
+        address:
+          - "0x466e2BBFbF3D2Ca1a90eCf25fFF1e275b548C540"
 
   - id: 43113
     start_block: 0
