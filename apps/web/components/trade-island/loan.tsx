@@ -81,12 +81,17 @@ export interface LoanYieldPoint {
   date: string;
   morphoBaseApy: number | null;
   feeBoostApy: number | null;
+  hedgeIncomeApy: number | null;
   compositeApy: number | null;
 }
 
 export interface LoanYieldBreakdown {
   morphoBaseApy: number | null;
   feeBoostApy: number | null;
+  /** Hedge income from external pools (e.g. Uniswap v4 hooks, LP
+   *  rebalancing). Derived as annualizedFeeApy - feeBoostApy when
+   *  hedge volume exists; 0 otherwise. */
+  hedgeIncomeApy: number | null;
   compositeApy: number | null;
   latestDate: string | null;
   history: LoanYieldPoint[];
@@ -765,18 +770,30 @@ function enrichMarketsWithYield(markets: LoanMarket[], snapshots: EnvioDailyMark
         : feeFromMarketFlow != null && feeFromMarketFlow > 0
           ? feeFromMarketFlow
           : latestGlobalFee;
+    // Hedge income: derived from annualizedFeeApy - feeBoostApy when
+    // the Envio snapshot carries a broader annualized fee that includes
+    // external pool hedging (Uniswap v4 hooks, LP rebalancing). Until
+    // hedge volume exists, this reads as 0.
+    const annualizedFeeFromWad = percentFromWad(snap?.annualizedFeeApy);
+    const hedgeIncome =
+      annualizedFeeFromWad != null && feeBoost != null && annualizedFeeFromWad > feeBoost
+        ? annualizedFeeFromWad - feeBoost
+        : 0;
     const composite =
       base == null
         ? feeBoost != null
-          ? feeBoost
-          : null
-        : base + (feeBoost ?? 0);
+          ? feeBoost + hedgeIncome
+          : hedgeIncome > 0
+            ? hedgeIncome
+            : null
+        : base + (feeBoost ?? 0) + hedgeIncome;
     const history = globalDates.slice(-14).map((date): LoanYieldPoint => {
       const fee = globalFeeByDate.get(date) ?? 0;
       return {
         date,
         morphoBaseApy: base,
         feeBoostApy: fee,
+        hedgeIncomeApy: 0,
         compositeApy: base == null ? fee : base + fee,
       };
     });
@@ -786,6 +803,7 @@ function enrichMarketsWithYield(markets: LoanMarket[], snapshots: EnvioDailyMark
       yield: {
         morphoBaseApy: base,
         feeBoostApy: feeBoost,
+        hedgeIncomeApy: hedgeIncome,
         compositeApy: composite,
         latestDate: snap?.date ?? latestGlobalDate,
         history,
@@ -1186,18 +1204,30 @@ function RateImpactPanel({
         <YieldHistorySpark points={history} />
       </div>
 
-      <div className="lo-yield-breakdown">
-        <span>
-          <b>IRM</b>
+      <div className="lo-yield-breakdown lo-yield-3col">
+        <span className="lo-yield-line">
+          <span className="lo-yield-dot" style={{ background: "var(--ink-2)" }} />
+          <b>Lending (IRM)</b>
           <span className="mono">{formatApy(breakdown?.morphoBaseApy)}</span>
         </span>
-        <span>
-          <b>Fee</b>
+        <span className="lo-yield-line">
+          <span className="lo-yield-dot" style={{ background: "var(--profit-ink)" }} />
+          <b>Trading fees</b>
           <span className="mono profit">
             {breakdown?.feeBoostApy == null ? "—" : `+${breakdown.feeBoostApy.toFixed(2)}%`}
           </span>
         </span>
-        <span>
+        <span className="lo-yield-line">
+          <span className="lo-yield-dot" style={{ background: "var(--accent-ink, #6366f1)" }} />
+          <b>Hedge income</b>
+          <span className="mono" style={{ color: "var(--accent-ink, #6366f1)" }}>
+            {breakdown?.hedgeIncomeApy == null || breakdown.hedgeIncomeApy === 0
+              ? "—"
+              : `+${breakdown.hedgeIncomeApy.toFixed(2)}%`}
+          </span>
+        </span>
+        <span className="lo-yield-line lo-yield-total">
+          <span className="lo-yield-dot" style={{ background: "transparent" }} />
           <b>Total</b>
           <span className="mono">{formatApy(breakdown?.compositeApy)}</span>
         </span>
@@ -1424,10 +1454,16 @@ function MarketsTable({
                 <div className="lo-trow-detail-item">
                   <span className="lo-trow-detail-l">APY breakdown</span>
                   <span className="lo-trow-detail-v mono lo-yield-formula">
-                    <span>{formatApy(baseApy)}</span>
+                    <span title="Lending (IRM)">{formatApy(baseApy)}</span>
                     <span className="lo-yield-op">+</span>
-                    <span className="profit">
+                    <span className="profit" title="Trading fees">
                       {feeBoostApy == null ? "—" : `${feeBoostApy.toFixed(2)}%`}
+                    </span>
+                    <span className="lo-yield-op">+</span>
+                    <span style={{ color: "var(--accent-ink, #6366f1)" }} title="Hedge income">
+                      {m.yield?.hedgeIncomeApy == null || m.yield.hedgeIncomeApy === 0
+                        ? "0%"
+                        : `${m.yield.hedgeIncomeApy.toFixed(2)}%`}
                     </span>
                     <span className="lo-yield-op">=</span>
                     <span>{formatApy(supplyApy)}</span>

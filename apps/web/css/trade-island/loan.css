@@ -1399,6 +1399,11 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
 }
+/* 3-source layout: stacked rows instead of 3-column grid */
+.lo-yield-breakdown.lo-yield-3col {
+  grid-template-columns: 1fr;
+  gap: 2px;
+}
 .lo-yield-breakdown > span {
   display: flex;
   flex-direction: column;
@@ -1407,6 +1412,32 @@
   padding: 6px 8px;
   background: var(--surface-2);
   border-radius: 8px;
+}
+.lo-yield-line {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 6px !important;
+  padding: 5px 8px !important;
+  background: var(--surface-2);
+  border-radius: 6px;
+}
+.lo-yield-line.lo-yield-total {
+  border-top: 1px solid var(--border);
+  margin-top: 2px;
+  padding-top: 6px !important;
+}
+.lo-yield-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.lo-yield-line b {
+  flex: 1;
+  min-width: 0;
+}
+.lo-yield-line .mono {
+  margin-left: auto;
 }
 .lo-yield-breakdown b {
   font-size: 9.5px;
