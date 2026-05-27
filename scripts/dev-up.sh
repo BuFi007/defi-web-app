@@ -50,11 +50,6 @@ bun run \
   --filter @bufi/api \
   --filter @bufi/ponder \
   --filter @bufi/matcher \
-  --filter @bufi/keeper-arcade-settler \
-  --filter @bufi/keeper-gateway-signer \
-  --filter @bufi/keeper-perps-liquidator \
-  --filter @bufi/keeper-spot \
-  --filter @bufi/keeper-telarana-liquidator \
   dev >"$REST_LOG" 2>&1 &
 echo "$!" >>"$PID_FILE"
 

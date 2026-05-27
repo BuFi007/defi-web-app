@@ -30,12 +30,14 @@ use crate::lp_signer::LpSigner;
 use crate::lp_state::PathALpStateView;
 
 mod batch_flusher;
+mod arcade_settler;
 mod book_wal;
 mod canary;
 mod config;
 mod event_subscriber;
 mod expiry_sweeper;
 mod funding_poker;
+mod gateway_signer;
 mod grpc;
 mod http_health;
 mod insurance_fund;
@@ -52,6 +54,8 @@ mod realtime;
 mod replacement_events;
 mod sequencer;
 mod settlement;
+mod spot_executor;
+mod telarana_liquidator;
 mod tick;
 mod ws_gateway;
 
@@ -194,6 +198,54 @@ async fn main() -> ExitCode {
         Err(e) => {
             error!(error = ?e, "perps liquidator boot: aborting");
             return ExitCode::FAILURE;
+        }
+    };
+
+    // ---------- Telarana liquidator (Rust keeper consolidation) ----------
+    let telarana_liquidator_handle = match telarana_liquidator::TelaranaLiquidator::new(&cfg, &signer_key) {
+        Ok(Some(liquidator)) => {
+            info!("telarana liquidator enabled (Rust keeper consolidation)");
+            Some(tokio::spawn(async move { liquidator.run().await }))
+        }
+        Ok(None) => {
+            info!("telarana liquidator disabled (TELARANA_LIQUIDATOR_ENABLED=false)");
+            None
+        }
+        Err(e) => {
+            error!(error = ?e, "telarana liquidator boot: aborting");
+            return ExitCode::FAILURE;
+        }
+    };
+
+    // ---------- Spot executor / gateway signer / arcade settler ----------
+    let spot_executor_handle = match spot_executor::SpotExecutor::new(&cfg) {
+        Some(executor) => {
+            info!("spot executor enabled (Rust keeper consolidation)");
+            Some(tokio::spawn(async move { executor.run().await }))
+        }
+        None => {
+            info!("spot executor disabled (SPOT_EXECUTOR_ENABLED=false)");
+            None
+        }
+    };
+    let gateway_signer_handle = match gateway_signer::GatewaySigner::new(&cfg) {
+        Some(signer) => {
+            info!("gateway signer enabled (Rust keeper consolidation)");
+            Some(tokio::spawn(async move { signer.run().await }))
+        }
+        None => {
+            info!("gateway signer disabled (GATEWAY_SIGNER_ENABLED=false)");
+            None
+        }
+    };
+    let arcade_settler_handle = match arcade_settler::ArcadeSettler::new(&cfg) {
+        Some(settler) => {
+            info!("arcade settler enabled (Rust keeper consolidation)");
+            Some(tokio::spawn(async move { settler.run().await }))
+        }
+        None => {
+            info!("arcade settler disabled (ARCADE_SETTLER_ENABLED=false)");
+            None
         }
     };
 
@@ -438,6 +490,54 @@ async fn main() -> ExitCode {
         }
     };
     tokio::pin!(liquidator_future);
+    let telarana_liquidator_future = async {
+        match telarana_liquidator_handle {
+            Some(h) => {
+                let res = h.await;
+                error!(result = ?res, "telarana liquidator exited unexpectedly");
+            }
+            None => {
+                std::future::pending::<()>().await;
+            }
+        }
+    };
+    tokio::pin!(telarana_liquidator_future);
+    let spot_executor_future = async {
+        match spot_executor_handle {
+            Some(h) => {
+                let res = h.await;
+                error!(result = ?res, "spot executor exited unexpectedly");
+            }
+            None => {
+                std::future::pending::<()>().await;
+            }
+        }
+    };
+    tokio::pin!(spot_executor_future);
+    let gateway_signer_future = async {
+        match gateway_signer_handle {
+            Some(h) => {
+                let res = h.await;
+                error!(result = ?res, "gateway signer exited unexpectedly");
+            }
+            None => {
+                std::future::pending::<()>().await;
+            }
+        }
+    };
+    tokio::pin!(gateway_signer_future);
+    let arcade_settler_future = async {
+        match arcade_settler_handle {
+            Some(h) => {
+                let res = h.await;
+                error!(result = ?res, "arcade settler exited unexpectedly");
+            }
+            None => {
+                std::future::pending::<()>().await;
+            }
+        }
+    };
+    tokio::pin!(arcade_settler_future);
     let grpc_future = async {
         match grpc_handle {
             Some(h) => {
@@ -526,6 +626,10 @@ async fn main() -> ExitCode {
         _ = &mut canary_future => {}
         _ = &mut pyth_future => {}
         _ = &mut liquidator_future => {}
+        _ = &mut telarana_liquidator_future => {}
+        _ = &mut spot_executor_future => {}
+        _ = &mut gateway_signer_future => {}
+        _ = &mut arcade_settler_future => {}
         _ = &mut grpc_future => {}
         _ = &mut http_future => {}
         _ = &mut realtime_future => {}

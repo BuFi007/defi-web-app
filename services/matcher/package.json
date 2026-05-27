@@ -2,7 +2,7 @@
   "name": "@bufi/matcher",
   "version": "0.1.0",
   "private": true,
-  "description": "BUFX Rust matcher service — perp orderbook + LP backstop + funding poker + canary keeper. Replaces apps/keeper-perps-matcher and apps/keeper-perps-funding.",
+  "description": "BUFX Rust matcher service — perp orderbook, LP backstop, funding poker, liquidation, gateway, spot, and arcade keeper roles.",
   "scripts": {
     "dev": "cargo run --release -p bufi-matcher-server --bin bufi-matcher",
     "dev:debug": "cargo run -p bufi-matcher-server --bin bufi-matcher",

@@ -73,7 +73,7 @@ interface PositionSnapshot {
 
 if (!process.env.BUFI_DB_PATH) {
   throw new Error(
-    "BUFI_DB_PATH must be set to the same absolute SQLite path used by apps/api and apps/keeper-perps-matcher",
+    "BUFI_DB_PATH must be set to the same absolute SQLite path used by apps/api and services/matcher",
   );
 }
 

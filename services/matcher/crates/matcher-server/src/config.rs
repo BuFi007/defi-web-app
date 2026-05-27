@@ -131,6 +131,24 @@ pub struct Config {
     /// Optional explicit LiquidationRouter address. If absent, the matcher
     /// reads `liquidation-router-{chainId}.json` from the deployments dir.
     pub liquidation_router_address: Option<String>,
+    /// Enable the Rust Telarana money-market liquidator.
+    pub telarana_liquidator_enabled: bool,
+    /// BUFI API base URL used for Telarana liquidation candidates.
+    pub telarana_api_url: String,
+    /// Hub chain ids scanned by the Telarana liquidator.
+    pub telarana_liquidator_chain_ids: Vec<u64>,
+    /// Telarana candidate scan cadence.
+    pub telarana_liquidator_interval: Duration,
+    /// If true, log liquidatable candidates but do not submit txs.
+    pub telarana_liquidator_dry_run: bool,
+    /// Max Telarana liquidation candidates requested per hub scan.
+    pub telarana_liquidator_candidate_limit: usize,
+    /// Enable the Rust spot executor role.
+    pub spot_executor_enabled: bool,
+    /// Enable the Rust gateway signer role.
+    pub gateway_signer_enabled: bool,
+    /// Enable the Rust arcade settler role.
+    pub arcade_settler_enabled: bool,
     /// gRPC server bind address. Default `127.0.0.1:3005` (loopback —
     /// container or multi-host deployments override to `0.0.0.0:<port>`).
     /// Set to empty string via `MATCHER_GRPC_BIND=` to disable the
@@ -258,6 +276,29 @@ impl Config {
         let liquidation_router_address = env::var("LIQUIDATION_ROUTER_ADDRESS")
             .or_else(|_| env::var("LIQUIDATOR_ROUTER_ADDRESS"))
             .ok();
+        let telarana_liquidator_enabled = parse_env_bool("TELARANA_LIQUIDATOR_ENABLED", true);
+        let telarana_api_url = env::var("TELARANA_API_URL")
+            .or_else(|_| env::var("BUFI_API_URL"))
+            .unwrap_or_else(|_| "http://localhost:3002".to_string());
+        let telarana_liquidator_chain_ids = parse_chain_ids(
+            env::var("TELARANA_LIQUIDATOR_CHAIN_IDS")
+                .or_else(|_| env::var("TELARANA_CHAIN_IDS"))
+                .as_deref()
+                .ok(),
+        );
+        let telarana_liquidator_interval = Duration::from_millis(parse_env_u64(
+            "TELARANA_LIQUIDATOR_INTERVAL_MS",
+            parse_env_u64("LIQUIDATOR_INTERVAL_MS", 30_000)?,
+        )?);
+        let telarana_liquidator_dry_run = parse_env_bool(
+            "TELARANA_LIQUIDATOR_DRY_RUN",
+            parse_env_bool("LIQUIDATOR_DRY_RUN", false),
+        );
+        let telarana_liquidator_candidate_limit =
+            parse_env_u64("TELARANA_LIQUIDATOR_CANDIDATE_LIMIT", 50)? as usize;
+        let spot_executor_enabled = parse_env_bool("SPOT_EXECUTOR_ENABLED", true);
+        let gateway_signer_enabled = parse_env_bool("GATEWAY_SIGNER_ENABLED", true);
+        let arcade_settler_enabled = parse_env_bool("ARCADE_SETTLER_ENABLED", true);
         let grpc_bind = env::var("MATCHER_GRPC_BIND")
             .unwrap_or_else(|_| "127.0.0.1:3005".to_string());
         let http_bind = env::var("MATCHER_HTTP_BIND")
@@ -306,6 +347,15 @@ impl Config {
             liquidator_page_size,
             liquidator_max_concurrent_checks,
             liquidation_router_address,
+            telarana_liquidator_enabled,
+            telarana_api_url,
+            telarana_liquidator_chain_ids,
+            telarana_liquidator_interval,
+            telarana_liquidator_dry_run,
+            telarana_liquidator_candidate_limit,
+            spot_executor_enabled,
+            gateway_signer_enabled,
+            arcade_settler_enabled,
             grpc_bind,
             http_bind,
             ready_max_tick_age,
@@ -359,6 +409,14 @@ fn parse_funding_market_ids(raw: Option<&str>) -> Vec<[u8; 32]> {
         }
     }
     out
+}
+
+fn parse_chain_ids(raw: Option<&str>) -> Vec<u64> {
+    let source: Vec<&str> = match raw {
+        Some(s) => s.split(',').map(|p| p.trim()).filter(|p| !p.is_empty()).collect(),
+        None => vec!["43113", "5042002"],
+    };
+    source.into_iter().filter_map(|s| s.parse::<u64>().ok()).collect()
 }
 
 fn parse_b256_hex(s: &str) -> Option<[u8; 32]> {

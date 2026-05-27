@@ -7,11 +7,11 @@ client, DB layer, and reconciler.
 
 ## Status
 
-**Phases 0–7 shipped** (PR #107). Replaces `apps/keeper-perps-matcher` and
-`apps/keeper-perps-funding`. 86 active tests + 2 ignored live-Arc smoke
-tests. Clippy clean under `-D warnings`. See `docs/matcher-architecture.md`
-for the spec + phase amendments and `docs/matcher-mainnet-readiness.md`
-for the mainnet sign-off gate.
+**Phases 0–8 shipped.** Replaces all retired `apps/keeper-*` processes:
+perps matcher, funding, Pyth push, perps liquidation, Telarana liquidation,
+spot execution, gateway signing, and arcade settlement bootstrapping. See
+`docs/matcher-architecture.md` for the spec + phase amendments and
+`docs/matcher-mainnet-readiness.md` for the mainnet sign-off gate.
 
 ## Layout
 
@@ -137,11 +137,9 @@ without renaming. Resolution order (first hit wins):
 The matcher polls `perp_order_intents` in the same SQLite DB the API
 writes to. Make sure:
 
-1. `apps/keeper-perps-matcher` (TS) is **NOT running** alongside — both
-   processes would race to settle the same intent.
-2. `apps/keeper-perps-funding` (TS) is **NOT running** alongside — the
-   Rust matcher's `funding_poker` task replaces it.
-3. **`BUFI_DB_PATH` must point at the same file from BOTH apps/api and
+1. No retired `apps/keeper-*` TS process is running alongside the matcher.
+   The Rust binary owns those roles now.
+2. **`BUFI_DB_PATH` must point at the same file from BOTH apps/api and
    the matcher.** The default `.bufi/trading-machine.sqlite` is
    resolved relative to each process's working directory, which means
    if you launch `apps/api` from `apps/api/` and the matcher from

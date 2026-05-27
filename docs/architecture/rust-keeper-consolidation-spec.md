@@ -15,16 +15,14 @@ RUST (inside bufi-matcher binary):
   ✓ Event subscriber (on-chain event indexing)
   ✓ Canary (liveness probe trades)
   ✓ Expiry sweeper + Book WAL
+  ✓ Perps liquidator
+  ✓ Telarana liquidator
+  ✓ Spot executor
+  ✓ Gateway signer
+  ✓ Arcade settler
 
 TYPESCRIPT (separate bun processes, separate Railway services):
-  ✗ keeper-perps-liquidator    105 lines  ← CRITICAL to migrate
-  ✗ keeper-telarana-liquidator 260 lines  ← CRITICAL to migrate
-  ✗ keeper-spot                 24 lines  ← migrate
-  ✗ keeper-gateway-signer       23 lines  ← migrate
-  ✗ keeper-pyth                 25 lines  ← DELETE (Rust duplicate exists)
-  ✗ keeper-perps-matcher         0 lines  ← DELETE (Rust CLOB replaced it)
-  ✗ keeper-perps-funding         0 lines  ← DELETE (Rust funding_poker replaced it)
-  ✗ keeper-arcade-settler        19 lines ← KEEP as TS (game feature, not critical)
+  none — all `apps/keeper-*` packages have been retired.
 ```
 
 ## Target State
@@ -45,7 +43,8 @@ ONE BINARY: bufi-matcher (services/matcher/)
   ├── perps_liquidator.rs    ← from keeper-perps-liquidator
   ├── telarana_liquidator.rs ← from keeper-telarana-liquidator
   ├── spot_executor.rs       ← from keeper-spot
-  └── gateway_signer.rs      ← from keeper-gateway-signer
+  ├── gateway_signer.rs      ← from keeper-gateway-signer
+  └── arcade_settler.rs      ← from keeper-arcade-settler
 
 ONE INDEXER: Envio HyperIndex (services/envio-yield/)
   ├── All position tracking (replaces SQLite DB scanning)
@@ -53,8 +52,7 @@ ONE INDEXER: Envio HyperIndex (services/envio-yield/)
   └── GraphQL API consumed by UI + matcher
 
 STAYS TYPESCRIPT:
-  ├── apps/api/ (HTTP REST + WS price feeds — not latency critical)
-  └── apps/keeper-arcade-settler/ (game feature, 19 lines)
+  └── apps/api/ (HTTP REST + WS price feeds — not latency critical)
 ```
 
 ## Migration Plan
@@ -65,6 +63,11 @@ Remove from the monorepo and Railway:
 - `apps/keeper-perps-matcher/` — empty, Rust CLOB replaced it
 - `apps/keeper-perps-funding/` — empty, Rust funding_poker replaced it
 - `apps/keeper-pyth/` — duplicate, Rust pyth_pusher_ws replaced it
+- `apps/keeper-perps-liquidator/` — Rust `perps_liquidator.rs`
+- `apps/keeper-telarana-liquidator/` — Rust `telarana_liquidator.rs`
+- `apps/keeper-spot/` — Rust `spot_executor.rs`
+- `apps/keeper-gateway-signer/` — Rust `gateway_signer.rs`
+- `apps/keeper-arcade-settler/` — Rust `arcade_settler.rs`
 
 Remove from `scripts/dev-up.sh` and Railway service list.
 
@@ -253,14 +256,14 @@ keeper-perps-liquidator  ← TS (bun)
 keeper-telarana-liquidator ← TS (bun)
 keeper-spot       ← TS (bun)
 keeper-gateway-signer ← TS (bun)
-keeper-pyth       ← TS (bun)
+keeper-arcade-settler ← TS (bun)
 ```
 
 **After (3 services):**
 ```
-matcher           ← Rust binary (runs everything)
+matcher           ← Rust binary (runs CLOB + all keeper roles)
 bufi-api          ← TS API server
-envio-yield       ← Envio HyperIndex (hosted or Railway)
+ponder/envio      ← indexer (Ponder locally, Envio target)
 ```
 
 Cost reduction: 7 → 3 Railway services. Fewer processes to monitor.

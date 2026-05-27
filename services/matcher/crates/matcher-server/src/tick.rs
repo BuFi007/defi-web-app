@@ -431,6 +431,15 @@ mod tests {
             liquidator_page_size: 100,
             liquidator_max_concurrent_checks: 1,
             liquidation_router_address: None,
+            telarana_liquidator_enabled: false,
+            telarana_api_url: "http://localhost:0".into(),
+            telarana_liquidator_chain_ids: Vec::new(),
+            telarana_liquidator_interval: Duration::from_millis(1),
+            telarana_liquidator_dry_run: true,
+            telarana_liquidator_candidate_limit: 50,
+            spot_executor_enabled: false,
+            gateway_signer_enabled: false,
+            arcade_settler_enabled: false,
             grpc_bind: String::new(), // disabled in tick unit tests
             http_bind: String::new(), // ditto for HTTP /health
             ready_max_tick_age: Duration::from_secs(60),

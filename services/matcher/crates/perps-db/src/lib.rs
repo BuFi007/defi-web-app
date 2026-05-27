@@ -1,14 +1,14 @@
 //! SQLite store for `perp_order_intents`.
 //!
 //! Mirrors `@bufi/db` (bun:sqlite, `packages/db/src/index.ts`) so the Rust
-//! matcher and the TS keeper at `apps/keeper-perps-matcher/` can run
-//! against the same SQLite file during the Phase 3 cutover. Once Phase 3d
-//! deletes the TS keeper, this crate stays as the single DB layer.
+//! matcher reads the same SQLite file that `apps/api` writes. The former TS
+//! keeper was retired; this crate is the single DB layer for matcher-side
+//! intent consumption.
 //!
 //! ## Why SQLite, not Postgres
 //!
-//! The TS keeper today imports `createTradingMachineDbFromEnv` from
-//! `@bufi/db`, which is a `bun:sqlite` adapter. Path resolution honours
+//! The API imports `createTradingMachineDbFromEnv` from `@bufi/db`, which is a
+//! `bun:sqlite` adapter. Path resolution honours
 //! `BUFI_DB_PATH` → `TRADING_MACHINE_DB_PATH` →
 //! `DATABASE_URL=sqlite://…` → `.bufi/trading-machine.sqlite`. Until the
 //! Postgres migration on `feat/wk1j-db-postgres-ready` lands, the Rust

@@ -25,7 +25,7 @@ healthcheckPath = "/health"
   [services.variables]
   PORT = "3002"
 
-# ── Rust Matcher (gRPC + HTTP) ───────────────────────────
+# ── Rust Matcher (gRPC + HTTP + consolidated keepers) ─────
 
 [[services]]
 name = "matcher"
@@ -34,38 +34,6 @@ dockerfilePath = "services/matcher/deploy/Dockerfile"
 
   [services.variables]
   RUST_LOG = "info"
-
-# ── Keepers (background workers, no HTTP) ────────────────
-
-[[services]]
-name = "keeper-perps-liquidator"
-rootDirectory = "."
-buildCommand = "bun install --no-save"
-startCommand = "bun apps/keeper-perps-liquidator/src/index.ts"
-
-[[services]]
-name = "keeper-telarana-liquidator"
-rootDirectory = "."
-buildCommand = "bun install --no-save"
-startCommand = "bun apps/keeper-telarana-liquidator/src/index.ts"
-
-[[services]]
-name = "keeper-gateway-signer"
-rootDirectory = "."
-buildCommand = "bun install --no-save"
-startCommand = "bun apps/keeper-gateway-signer/src/index.ts"
-
-[[services]]
-name = "keeper-spot"
-rootDirectory = "."
-buildCommand = "bun install --no-save"
-startCommand = "bun apps/keeper-spot/src/index.ts"
-
-[[services]]
-name = "keeper-arcade-settler"
-rootDirectory = "."
-buildCommand = "bun install --no-save"
-startCommand = "bun apps/keeper-arcade-settler/src/index.ts"
 
 # ── Indexer ──────────────────────────────────────────────
 

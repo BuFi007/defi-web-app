@@ -1,6 +1,6 @@
 [package]
 name = "bufi-matcher-server"
-description = "BUFI matcher server binary — Postgres-backed tick loop, on-chain settlement, event subscriber. Replaces apps/keeper-perps-matcher."
+description = "BUFI matcher server binary — on-chain settlement, CLOB, and consolidated keeper roles."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

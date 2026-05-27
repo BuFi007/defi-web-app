@@ -104,7 +104,6 @@ apps/
   api/              Hono API: realtime + agentic surface
   hyper-mcp/        MCP trading gateway (22 tools)
   ponder/           Onchain indexer
-  keeper-*          Always-on keepers (Gateway, spot, perps, Pyth)
 packages/
   x402/             Nanopayment-gated route middleware
   mcp/              Tool registry + workflow state machine
@@ -116,10 +115,11 @@ packages/
   db/               Durable SQLite trading DB
   market-data/      Pyth Hermes client + oracle freshness
   liveblocks/       Realtime rooms
-  keeper-runtime/   Shared keeper loop
   env/              Zod-validated env
   shared-types/     Cross-package types
   logger/           JSON structured logger
+services/
+  matcher/          Rust CLOB + all always-on keeper roles
 ```
 
 ## Rust Matcher (Hybrid CLOB)

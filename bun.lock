@@ -68,70 +68,6 @@
         "typescript": "^5.6.0",
       },
     },
-    "apps/keeper-arcade-settler": {
-      "name": "@bufi/keeper-arcade-settler",
-      "version": "0.1.0",
-      "dependencies": {
-        "@bufi/keeper-runtime": "workspace:*",
-      },
-      "devDependencies": {
-        "@types/node": "20",
-        "typescript": "5",
-      },
-    },
-    "apps/keeper-gateway-signer": {
-      "name": "@bufi/keeper-gateway-signer",
-      "version": "0.1.0",
-      "dependencies": {
-        "@bufi/contracts": "workspace:*",
-        "@bufi/keeper-runtime": "workspace:*",
-        "viem": "2.45.3",
-      },
-      "devDependencies": {
-        "@types/node": "20",
-        "typescript": "5",
-      },
-    },
-    "apps/keeper-perps-liquidator": {
-      "name": "@bufi/keeper-perps-liquidator",
-      "version": "0.1.0",
-      "dependencies": {
-        "@bufi/contracts": "workspace:*",
-        "@bufi/db": "workspace:*",
-        "@bufi/keeper-runtime": "workspace:*",
-      },
-      "devDependencies": {
-        "@types/node": "20",
-        "typescript": "5",
-      },
-    },
-    "apps/keeper-spot": {
-      "name": "@bufi/keeper-spot",
-      "version": "0.1.0",
-      "dependencies": {
-        "@bufi/contracts": "workspace:*",
-        "@bufi/keeper-runtime": "workspace:*",
-        "viem": "2.45.3",
-      },
-      "devDependencies": {
-        "@types/node": "20",
-        "typescript": "5",
-      },
-    },
-    "apps/keeper-telarana-liquidator": {
-      "name": "@bufi/keeper-telarana-liquidator",
-      "version": "0.1.0",
-      "dependencies": {
-        "@bufi/contracts": "workspace:*",
-        "@bufi/fx-telarana": "workspace:*",
-        "@bufi/keeper-runtime": "workspace:*",
-        "viem": "2.45.3",
-      },
-      "devDependencies": {
-        "@types/node": "20",
-        "typescript": "5",
-      },
-    },
     "apps/ponder": {
       "name": "@bufi/ponder",
       "version": "0.1.0",
@@ -322,20 +258,6 @@
         "zod": "3.25.76",
       },
       "devDependencies": {
-        "typescript": "5",
-      },
-    },
-    "packages/keeper-runtime": {
-      "name": "@bufi/keeper-runtime",
-      "version": "0.1.0",
-      "dependencies": {
-        "@bufi/contracts": "workspace:*",
-        "@bufi/env": "workspace:*",
-        "@bufinance/logger": "0.1.1",
-        "viem": "2.45.3",
-      },
-      "devDependencies": {
-        "@types/node": "20",
         "typescript": "5",
       },
     },
@@ -762,18 +684,6 @@
     "@bufi/fx-telarana": ["@bufi/fx-telarana@workspace:packages/fx-telarana"],
 
     "@bufi/hyper-mcp": ["@bufi/hyper-mcp@workspace:apps/hyper-mcp"],
-
-    "@bufi/keeper-arcade-settler": ["@bufi/keeper-arcade-settler@workspace:apps/keeper-arcade-settler"],
-
-    "@bufi/keeper-gateway-signer": ["@bufi/keeper-gateway-signer@workspace:apps/keeper-gateway-signer"],
-
-    "@bufi/keeper-perps-liquidator": ["@bufi/keeper-perps-liquidator@workspace:apps/keeper-perps-liquidator"],
-
-    "@bufi/keeper-runtime": ["@bufi/keeper-runtime@workspace:packages/keeper-runtime"],
-
-    "@bufi/keeper-spot": ["@bufi/keeper-spot@workspace:apps/keeper-spot"],
-
-    "@bufi/keeper-telarana-liquidator": ["@bufi/keeper-telarana-liquidator@workspace:apps/keeper-telarana-liquidator"],
 
     "@bufi/liveblocks": ["@bufi/liveblocks@workspace:packages/liveblocks"],
 
