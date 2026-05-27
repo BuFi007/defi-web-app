@@ -290,6 +290,10 @@ contracts:
 chains:
   - id: 5042002
     start_block: 0
+    hypersync_config:
+      url: https://5042002.rpc.hypersync.xyz
+    rpc:
+      url: https://rpc.testnet.arc.network
     contracts:
       - name: FxOrderSettlement
         address:
@@ -342,6 +346,8 @@ chains:
 
   - id: 43113
     start_block: 0
+    rpc:
+      url: https://api.avax-test.network/ext/bc/C/rpc
     contracts:
       - name: MorphoBlue
         address:
