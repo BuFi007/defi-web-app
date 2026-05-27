@@ -2,7 +2,7 @@
   "name": "fx-arcade-monorepo",
   "version": "0.1.0",
   "private": true,
-  "description": "BUFX unified trading machine monorepo: web, API, Ponder, Rust matcher keepers, MCP, x402, and contract helpers.",
+  "description": "BUFX unified trading machine monorepo: web, API, Envio HyperIndex, Rust matcher, MCP, x402, and contract helpers.",
   "workspaces": [
     "apps/*",
     "packages/*",
@@ -18,8 +18,7 @@
     "setup": "bun install && bun run --filter @bufi/matcher build",
     "dev": "bun run --filter ./apps/web dev",
     "dev:api": "bun run --filter ./apps/api dev",
-    "dev:ponder": "bun run --filter ./apps/ponder dev",
-    "dev:core": "bun run --filter ./apps/web --filter ./apps/api --filter ./apps/ponder dev",
+    "dev:core": "bun run --filter ./apps/web --filter ./apps/api dev",
     "dev:complete": "bash scripts/dev-up.sh",
     "dev:complete:raw": "bun run --filter './apps/*' --filter './services/*' dev",
     "dev:up": "bash scripts/dev-up.sh",

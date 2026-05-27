@@ -2,11 +2,16 @@
 name: bufx-yield-engine
 
 contracts:
+  # ─────────────────── Perps ───────────────────────────────────────
   - name: FxOrderSettlement
     abi_file_path: ./abis/FxOrderSettlement.json
     handler: ./src/handlers/perps.ts
     events:
       - event: MatchSettled(bytes32 indexed marketId, address indexed maker, address indexed taker, uint256 fillSizeE18, uint256 fillPriceE18)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: OrderCancelled(address indexed trader, uint256 nonce)
         field_selection:
           transaction_fields:
             - hash
@@ -25,6 +30,7 @@ contracts:
     events:
       - event: FundingPoked(bytes32 indexed marketId, uint64 version, int256 rateE18PerSecond, int256 cumulativeFundingE18)
 
+  # ─────────────────── Spot ────────────────────────────────────────
   - name: FxSpotExecutor
     abi_file_path: ./abis/FxSpotExecutor.json
     handler: ./src/handlers/spot.ts
@@ -38,6 +44,7 @@ contracts:
           transaction_fields:
             - hash
 
+  # ─────────────────── TurboFeeVault ──────────────────────────────
   - name: TurboFeeVault
     abi_file_path: ./abis/TurboFeeVault.json
     handler: ./src/handlers/turboFeeVault.ts
@@ -63,6 +70,7 @@ contracts:
           transaction_fields:
             - hash
 
+  # ─────────────────── Lending ────────────────────────────────────
   - name: MorphoBlue
     abi_file_path: ./abis/MorphoBlue.json
     handler: ./src/handlers/lending.ts
@@ -71,6 +79,199 @@ contracts:
       - event: Withdraw(bytes32 indexed id, address caller, address indexed onBehalf, address indexed receiver, uint256 assets, uint256 shares)
       - event: Borrow(bytes32 indexed id, address caller, address indexed onBehalf, address indexed receiver, uint256 assets, uint256 shares)
       - event: Repay(bytes32 indexed id, address indexed caller, address indexed onBehalf, uint256 assets, uint256 shares)
+
+  # ─────────────────── Telarana gateway + oracle ──────────────────
+  - name: TelaranaGatewayHubHook
+    abi_file_path: ./abis/TelaranaGatewayHubHook.json
+    handler: ./src/handlers/telarana.ts
+    events:
+      - event: GatewayHubRouteConfigured(bytes32 indexed routeId, uint32 sourceDomain, uint32 destinationDomain, address sourceUsdc, address destinationUsdc, address sourceGatewayWallet, address destinationGatewayMinter, uint8 signerMode, bool enabled, bytes32 metadataRef)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: GatewayHubTransferRequested(bytes32 indexed requestId, bytes32 indexed routeId, address sourceSigner, uint256 amount)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: GatewayAtomicFxSwapRequested(bytes32 indexed requestId, bytes32 indexed routeId, address recipient, uint256 amountIn, uint256 minAmountOut)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: GatewayAtomicFxSwapSettled(bytes32 indexed requestId, address tokenOut, uint256 amountOut)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: GatewayHubLiquidityReceived(bytes32 indexed requestId, uint256 amount)
+        field_selection:
+          transaction_fields:
+            - hash
+
+  - name: FxOracle
+    abi_file_path: ./abis/FxOracle.json
+    handler: ./src/handlers/telarana.ts
+    events:
+      - event: ConfigUpdated(uint256 maxOracleAge, uint256 maxDeviationBps, uint256 maxConfidenceBps)
+        field_selection:
+          transaction_fields:
+            - hash
+
+  - name: FxHubMessageReceiver
+    abi_file_path: ./abis/FxHubMessageReceiver.json
+    handler: ./src/handlers/telarana.ts
+    events:
+      - event: DepositExecuted(bytes32 indexed messageNonce, address indexed beneficiary, uint256 amount)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: DepositStranded(bytes32 indexed messageNonce, address indexed beneficiary, uint256 amount, bytes32 reason)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: DepositSwept(bytes32 indexed messageNonce, address indexed beneficiary, uint256 amount)
+        field_selection:
+          transaction_fields:
+            - hash
+
+  # ─────────────────── BuFx request routers ───────────────────────
+  - name: BuFxVenueRequestRouter
+    abi_file_path: ./abis/BuFxVenueRequestRouter.json
+    handler: ./src/handlers/bufx.ts
+    events:
+      - event: BuFxRequestAccepted(bytes32 indexed requestId, bytes32 requestType, bytes32 marketId, address trader, address referrer, bytes32 campaignId, uint256 amount)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: BuFxRfqAccepted(bytes32 indexed requestId, bytes32 marketId, address trader, uint256 amountIn)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: BuFxPerpLiquidityAccepted(bytes32 indexed requestId, bytes32 marketId, address trader, uint256 notionalUsd)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: BuFxRequestFeeQuoted(bytes32 indexed requestId, bytes32 requestType, bytes32 marketId, address trader, address referrer, uint256 amount)
+        field_selection:
+          transaction_fields:
+            - hash
+
+  - name: BuFxTelaranaRequestRouter
+    abi_file_path: ./abis/BuFxTelaranaRequestRouter.json
+    handler: ./src/handlers/bufx.ts
+    events:
+      - event: TelaranaRequestSubmitted(bytes32 indexed requestId, bytes32 marketId, address trader, address referrer, bytes32 campaignId, uint256 amount)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: TelaranaGatewayMintContextPrepared(bytes32 indexed requestId, bytes32 routeId, address telaranaGatewayHook, uint8 gatewayAction, address sourceDepositor, address sourceSigner, address recipient, address tokenOut, uint256 amount, uint256 minAmountOut, bytes32 spotRouteId, bytes32 metadataRef)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: TelaranaRequestCancelled(bytes32 indexed requestId, address trader)
+        field_selection:
+          transaction_fields:
+            - hash
+
+  # ─────────────────── Bento / Arcade ──────────────────────────────
+  - name: FxBentoRoomFactory
+    abi_file_path: ./abis/FxBentoRoomFactory.json
+    handler: ./src/handlers/bento.ts
+    events:
+      - event: RoomCreated(uint256 indexed roomId, bytes32 indexed poolId, address indexed entryToken, uint256 entryFee)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: RoomStatusUpdated(uint256 indexed roomId, uint8 status)
+        field_selection:
+          transaction_fields:
+            - hash
+
+  - name: FxBentoRoomEscrow
+    abi_file_path: ./abis/FxBentoRoomEscrow.json
+    handler: ./src/handlers/bento.ts
+    events:
+      - event: RoomJoined(uint256 indexed roomId, address indexed player)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: RoomLeft(uint256 indexed roomId, address indexed player)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: RoomCancelled(uint256 indexed roomId)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: RoomLocked(uint256 indexed roomId, uint256 escrowed)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: RoomSettled(uint256 indexed roomId, bytes32 resultsRoot, bytes32 payoutSchemaHash, uint256 payoutTotal, uint256 protocolFee)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: Refunded(uint256 indexed roomId, address indexed player, uint256 amount)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: PrizeClaimed(uint256 indexed roomId, address indexed player, uint256 amount)
+        field_selection:
+          transaction_fields:
+            - hash
+
+  - name: FxBentoCommitmentManager
+    abi_file_path: ./abis/FxBentoCommitmentManager.json
+    handler: ./src/handlers/bento.ts
+    events:
+      - event: SelectionCommitted(uint256 indexed roomId, uint256 roundIndex, address indexed player, bytes32 commitment)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: SelectionRevealed(uint256 indexed roomId, uint256 roundIndex, address indexed player, bytes32 selectedTilesHash)
+        field_selection:
+          transaction_fields:
+            - hash
+
+  - name: FxBentoRoundManager
+    abi_file_path: ./abis/FxBentoRoundManager.json
+    handler: ./src/handlers/bento.ts
+    events:
+      - event: RoundStarted(uint256 indexed roomId, uint256 roundIndex, uint64 startTime, uint64 lockTime, uint64 endTime, uint256 anchorSnapshotId)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: AnchorRecorded(uint256 indexed roomId, uint256 roundIndex, int256 price, uint256 snapshotId)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: SettlementRecorded(uint256 indexed roomId, uint256 roundIndex, int256 price, uint256 snapshotId)
+        field_selection:
+          transaction_fields:
+            - hash
+
+  - name: FxBentoSettlementManager
+    abi_file_path: ./abis/FxBentoSettlementManager.json
+    handler: ./src/handlers/bento.ts
+    events:
+      - event: ResultsSubmitted(uint256 indexed roomId, bytes32 resultsRoot, string metadataURI)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: ResultsChallenged(uint256 indexed roomId, bytes32 proof)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: ChallengeResolved(uint256 indexed roomId, bool accepted)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: ResultsFinalized(uint256 indexed roomId, bytes32 resultsRoot)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: SettlementRescued(uint256 indexed roomId)
+        field_selection:
+          transaction_fields:
+            - hash
 
 chains:
   - id: 5042002
@@ -94,6 +295,33 @@ chains:
       - name: TurboFeeVault
         address:
           - "0x929e222CBbC154f8e75a8DEF951288886Df70531"
+      - name: TelaranaGatewayHubHook
+        address:
+          - "0x74E894aFf25c89d707873347cd2554d30E0541fa"
+      - name: FxOracle
+        address:
+          - "0xF181caF51bD2450211CB9e72d5Cc853d3789698B"
+      - name: BuFxVenueRequestRouter
+        address:
+          - "0xa73208b62AF9a87fb5e2b694B27f510D70e17746"
+      - name: BuFxTelaranaRequestRouter
+        address:
+          - "0xea11AfDc70eD0489346AC9d488C17155384B459c"
+      - name: FxBentoRoomFactory
+        address:
+          - "0x385bbd57d0dc2008e4446af7b12dcd158d56034d"
+      - name: FxBentoRoomEscrow
+        address:
+          - "0xab2f146507854334464c4b2326654775d9d947ed"
+      - name: FxBentoCommitmentManager
+        address:
+          - "0x6b2c047fa0deb963a9ede1db7d0e4df258880414"
+      - name: FxBentoRoundManager
+        address:
+          - "0xfb956d033b15276da21579afd5f5b6bf6320869e"
+      - name: FxBentoSettlementManager
+        address:
+          - "0x8f635571aaea4b1391534cd92932caa839e04bcd"
 
   - id: 43113
     start_block: 0
@@ -101,6 +329,30 @@ chains:
       - name: MorphoBlue
         address:
           - "0xeF64621D41093144D9ED8aB8327eE381ECdB79E6"
+      - name: FxHubMessageReceiver
+        address:
+          - "0x7eAdfD0c08dd6544f763285bBD31be14179d594B"
+      - name: BuFxVenueRequestRouter
+        address:
+          - "0x84EE03C52B89B01315C9572520192274b570D2c3"
+      - name: BuFxTelaranaRequestRouter
+        address:
+          - "0x46cC11feD4F497C0C091b7bE5a1A21af133c26f1"
+      - name: FxBentoRoomFactory
+        address:
+          - "0xc7ade54428d51b5d0ceb42e7dd5a47d48515ace1"
+      - name: FxBentoRoomEscrow
+        address:
+          - "0x5d10d2c3b9951054845534b2f60a68ebc0898cd3"
+      - name: FxBentoCommitmentManager
+        address:
+          - "0xaad184861726627968718fde8b94ecac87eb5c5b"
+      - name: FxBentoRoundManager
+        address:
+          - "0x27dbda42adb904115cade37c949bbf670e0ff09d"
+      - name: FxBentoSettlementManager
+        address:
+          - "0xa73208b62af9a87fb5e2b694b27f510d70e17746"
 
 field_selection:
   transaction_fields:

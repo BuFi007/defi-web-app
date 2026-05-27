@@ -36,7 +36,7 @@ export interface PonderPerpsSettlementReader {
 export function createPonderPerpsSettlementReaderFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): PonderPerpsSettlementReader | null {
-  const graphqlUrl = env.PONDER_GRAPHQL_URL ?? env.PONDER_URL;
+  const graphqlUrl = env.ENVIO_GRAPHQL_URL ?? env.ENVIO_URL ?? env.PONDER_GRAPHQL_URL ?? env.PONDER_URL;
   if (!graphqlUrl) return null;
   return createPonderPerpsSettlementReader(graphqlUrl);
 }
@@ -75,7 +75,7 @@ export function createPonderPerpsSettlementReader(graphqlUrl: string): PonderPer
 export function createPonderPerpsPositionReaderFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): PerpsPositionReader | null {
-  const graphqlUrl = env.PONDER_GRAPHQL_URL ?? env.PONDER_URL;
+  const graphqlUrl = env.ENVIO_GRAPHQL_URL ?? env.ENVIO_URL ?? env.PONDER_GRAPHQL_URL ?? env.PONDER_URL;
   if (!graphqlUrl) return null;
   return createPonderPerpsPositionReader(graphqlUrl);
 }

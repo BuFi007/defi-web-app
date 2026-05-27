@@ -35,13 +35,6 @@ dockerfilePath = "services/matcher/deploy/Dockerfile"
   [services.variables]
   RUST_LOG = "info"
 
-# ── Indexer ──────────────────────────────────────────────
-
-[[services]]
-name = "ponder"
-rootDirectory = "."
-buildCommand = "bun install --no-save"
-startCommand = "cd apps/ponder && bun run start"
-
-  [services.variables]
-  PORT = "42069"
+# ── Indexer (migrated to Envio hosted service) ──────────
+# Ponder service removed — all indexing now via Envio HyperIndex
+# at https://indexer.envio.dev/bufx-yield-engine/graphql

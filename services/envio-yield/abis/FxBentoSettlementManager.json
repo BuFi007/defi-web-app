@@ -1,0 +1,418 @@
+[
+  {
+    "name": "ResultsSubmitted",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId",
+        "indexed": true
+      },
+      {
+        "type": "bytes32",
+        "name": "resultsRoot",
+        "indexed": true
+      },
+      {
+        "type": "string",
+        "name": "metadataURI"
+      }
+    ]
+  },
+  {
+    "name": "ResultsChallenged",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId",
+        "indexed": true
+      },
+      {
+        "type": "bytes",
+        "name": "proof"
+      }
+    ]
+  },
+  {
+    "name": "ChallengeResolved",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId",
+        "indexed": true
+      },
+      {
+        "type": "bool",
+        "name": "accepted"
+      }
+    ]
+  },
+  {
+    "name": "ResultsFinalized",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId",
+        "indexed": true
+      },
+      {
+        "type": "bytes32",
+        "name": "resultsRoot",
+        "indexed": true
+      }
+    ]
+  },
+  {
+    "name": "SettlementRescueDelayUpdated",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint64",
+        "name": "settlementRescueDelay"
+      }
+    ]
+  },
+  {
+    "name": "SettlementRescued",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId",
+        "indexed": true
+      }
+    ]
+  },
+  {
+    "name": "setChallengeWindow",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint64",
+        "name": "challengeWindow"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "setRoundManager",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "roundManager"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "setSettlementRescueDelay",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint64",
+        "name": "settlementRescueDelay"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "submitResults",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      },
+      {
+        "type": "tuple",
+        "name": "payout",
+        "components": [
+          {
+            "type": "uint256",
+            "name": "roomId"
+          },
+          {
+            "type": "bytes32",
+            "name": "winnerRoot"
+          },
+          {
+            "type": "bytes32",
+            "name": "rosterHash"
+          },
+          {
+            "type": "bytes32",
+            "name": "leaderboardHash"
+          },
+          {
+            "type": "bytes32",
+            "name": "scoreRoot"
+          },
+          {
+            "type": "bytes32",
+            "name": "settlementPriceRoot"
+          },
+          {
+            "type": "uint256",
+            "name": "payoutTotal"
+          },
+          {
+            "type": "uint256",
+            "name": "protocolFee"
+          },
+          {
+            "type": "bytes32",
+            "name": "metadataHash"
+          }
+        ]
+      },
+      {
+        "type": "string",
+        "name": "metadataURI"
+      },
+      {
+        "type": "bytes",
+        "name": "attestation"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "challengeResults",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      },
+      {
+        "type": "bytes",
+        "name": "proof"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "resolveChallenge",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      },
+      {
+        "type": "bool",
+        "name": "acceptChallenge"
+      },
+      {
+        "type": "tuple",
+        "name": "replacement",
+        "components": [
+          {
+            "type": "uint256",
+            "name": "roomId"
+          },
+          {
+            "type": "bytes32",
+            "name": "winnerRoot"
+          },
+          {
+            "type": "bytes32",
+            "name": "rosterHash"
+          },
+          {
+            "type": "bytes32",
+            "name": "leaderboardHash"
+          },
+          {
+            "type": "bytes32",
+            "name": "scoreRoot"
+          },
+          {
+            "type": "bytes32",
+            "name": "settlementPriceRoot"
+          },
+          {
+            "type": "uint256",
+            "name": "payoutTotal"
+          },
+          {
+            "type": "uint256",
+            "name": "protocolFee"
+          },
+          {
+            "type": "bytes32",
+            "name": "metadataHash"
+          }
+        ]
+      },
+      {
+        "type": "string",
+        "name": "metadataURI"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "finalizeResults",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "rescueFailedSettlement",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "challengeWindow",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "uint64"
+      }
+    ]
+  },
+  {
+    "name": "settlementRescueDelay",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "uint64"
+      }
+    ]
+  },
+  {
+    "name": "settlementRescueDeadline",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "uint64"
+      }
+    ]
+  },
+  {
+    "name": "pendingResults",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "tuple",
+        "name": "payout",
+        "components": [
+          {
+            "type": "uint256",
+            "name": "roomId"
+          },
+          {
+            "type": "bytes32",
+            "name": "winnerRoot"
+          },
+          {
+            "type": "bytes32",
+            "name": "rosterHash"
+          },
+          {
+            "type": "bytes32",
+            "name": "leaderboardHash"
+          },
+          {
+            "type": "bytes32",
+            "name": "scoreRoot"
+          },
+          {
+            "type": "bytes32",
+            "name": "settlementPriceRoot"
+          },
+          {
+            "type": "uint256",
+            "name": "payoutTotal"
+          },
+          {
+            "type": "uint256",
+            "name": "protocolFee"
+          },
+          {
+            "type": "bytes32",
+            "name": "metadataHash"
+          }
+        ]
+      },
+      {
+        "type": "bytes32",
+        "name": "payoutSchemaHash"
+      },
+      {
+        "type": "string",
+        "name": "metadataURI"
+      },
+      {
+        "type": "bytes",
+        "name": "attestation"
+      },
+      {
+        "type": "uint64",
+        "name": "submittedAt"
+      },
+      {
+        "type": "uint64",
+        "name": "challengedAt"
+      },
+      {
+        "type": "uint8",
+        "name": "challengeStatus"
+      },
+      {
+        "type": "bool",
+        "name": "challenged"
+      },
+      {
+        "type": "bool",
+        "name": "finalized"
+      },
+      {
+        "type": "bool",
+        "name": "resolved"
+      }
+    ]
+  }
+]

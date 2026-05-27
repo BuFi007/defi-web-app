@@ -1,0 +1,236 @@
+[
+  {
+    "name": "RoundStarted",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId",
+        "indexed": true
+      },
+      {
+        "type": "uint16",
+        "name": "roundIndex",
+        "indexed": true
+      },
+      {
+        "type": "uint64",
+        "name": "startTime"
+      },
+      {
+        "type": "uint64",
+        "name": "lockTime"
+      },
+      {
+        "type": "uint64",
+        "name": "endTime"
+      },
+      {
+        "type": "uint256",
+        "name": "anchorSnapshotId"
+      }
+    ]
+  },
+  {
+    "name": "AnchorRecorded",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId",
+        "indexed": true
+      },
+      {
+        "type": "uint16",
+        "name": "roundIndex",
+        "indexed": true
+      },
+      {
+        "type": "int256",
+        "name": "price"
+      },
+      {
+        "type": "uint256",
+        "name": "snapshotId"
+      }
+    ]
+  },
+  {
+    "name": "SettlementRecorded",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId",
+        "indexed": true
+      },
+      {
+        "type": "uint16",
+        "name": "roundIndex",
+        "indexed": true
+      },
+      {
+        "type": "int256",
+        "name": "price"
+      },
+      {
+        "type": "uint256",
+        "name": "snapshotId"
+      }
+    ]
+  },
+  {
+    "name": "startRound",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      },
+      {
+        "type": "uint16",
+        "name": "roundIndex"
+      },
+      {
+        "type": "uint64",
+        "name": "startTime"
+      },
+      {
+        "type": "uint64",
+        "name": "endTime"
+      },
+      {
+        "type": "uint64",
+        "name": "lockTime"
+      },
+      {
+        "type": "bytes32",
+        "name": "gridConfigHash"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "recordAnchor",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      },
+      {
+        "type": "uint16",
+        "name": "roundIndex"
+      },
+      {
+        "type": "int256",
+        "name": "price"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "recordSettlement",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      },
+      {
+        "type": "uint16",
+        "name": "roundIndex"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "getRound",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      },
+      {
+        "type": "uint16",
+        "name": "roundIndex"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "tuple",
+        "components": [
+          {
+            "type": "uint256",
+            "name": "roomId"
+          },
+          {
+            "type": "uint16",
+            "name": "roundIndex"
+          },
+          {
+            "type": "bytes32",
+            "name": "poolId"
+          },
+          {
+            "type": "uint64",
+            "name": "startTime"
+          },
+          {
+            "type": "uint64",
+            "name": "endTime"
+          },
+          {
+            "type": "uint64",
+            "name": "lockTime"
+          },
+          {
+            "type": "int256",
+            "name": "anchorPrice"
+          },
+          {
+            "type": "int256",
+            "name": "settlementPrice"
+          },
+          {
+            "type": "uint256",
+            "name": "anchorSnapshotId"
+          },
+          {
+            "type": "uint256",
+            "name": "settlementSnapshotId"
+          },
+          {
+            "type": "bytes32",
+            "name": "gridConfigHash"
+          },
+          {
+            "type": "uint8",
+            "name": "status"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "allRoundsEnded",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "bool"
+      }
+    ]
+  }
+]

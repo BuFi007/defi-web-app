@@ -103,6 +103,223 @@ type TurboFeeVaultEvent {
   chainId: Int!
 }
 
+# ──────────────── Perps position state (migrated from Ponder) ────────────────
+
+type PerpsPosition {
+  id: ID!
+  chainId: Int!
+  marketId: String! @index
+  trader: String! @index
+  sizeE18: BigInt!
+  entryPriceE18: BigInt!
+  marginReserved: BigInt!
+  lastFundingVersion: BigInt!
+  lastEventKind: String!
+  isOpen: Boolean! @index
+  updatedAt: Int!
+  updatedBlockNumber: Int!
+  updatedTxHash: String!
+}
+
+type PerpsOrderCancellation {
+  id: ID!
+  chainId: Int!
+  trader: String! @index
+  nonce: BigInt!
+  blockNumber: Int!
+  blockTimestamp: Int!
+  txHash: String!
+}
+
+# ──────────────── Telarana (migrated from Ponder) ────────────────────────────
+
+type TelaranaMarket {
+  id: ID!
+  chainId: Int!
+  routeId: String! @index
+  sourceDomain: Int!
+  destinationDomain: Int!
+  sourceUsdc: String!
+  destinationUsdc: String!
+  sourceGatewayWallet: String!
+  destinationGatewayMinter: String!
+  signerMode: Int!
+  enabled: Boolean!
+  metadataRef: String!
+  registeredAt: Int!
+  updatedAt: Int!
+}
+
+type TelaranaLoan {
+  id: ID!
+  chainId: Int!
+  borrower: String! @index
+  marketId: String! @index
+  collateralAmount: BigInt!
+  borrowAmount: BigInt!
+  healthFactorBps: Int!
+  status: String! @index
+  openedAt: Int!
+  openedTxHash: String!
+  repaidAt: Int!
+  repaidTxHash: String!
+  liquidatedAt: Int!
+  liquidatedTxHash: String!
+  updatedAt: Int!
+}
+
+type TelaranaOracleConfig {
+  id: ID!
+  chainId: Int!
+  maxAge: BigInt!
+  maxDeviationBps: BigInt!
+  maxConfidenceBps: BigInt!
+  updatedAt: Int!
+  updatedTxHash: String!
+}
+
+type TelaranaDeposit {
+  id: ID!
+  chainId: Int!
+  beneficiary: String! @index
+  amount: BigInt!
+  status: String! @index
+  reason: String!
+  executedAt: Int!
+  strandedAt: Int!
+  sweptAt: Int!
+  updatedTxHash: String!
+}
+
+type TelaranaGatewayContext {
+  id: ID!
+  chainId: Int!
+  routeId: String! @index
+  telaranaGatewayHook: String!
+  gatewayAction: Int!
+  sourceDepositor: String!
+  sourceSigner: String! @index
+  recipient: String! @index
+  tokenOut: String!
+  amount: BigInt!
+  minAmountOut: BigInt!
+  spotRouteId: String!
+  metadataRef: String!
+}
+
+# ──────────────── BuFx request router (migrated from Ponder) ─────────────────
+
+type BufxRequest {
+  id: ID!
+  chainId: Int!
+  requestType: String!
+  marketId: String! @index
+  trader: String! @index
+  referrer: String!
+  campaignId: String!
+  amount: BigInt!
+  status: String! @index
+  acceptedAt: Int!
+  cancelledAt: Int!
+  txHash: String!
+}
+
+# ──────────────── Bento / Arcade (migrated from Ponder) ──────────────────────
+
+type ArcadeRoom {
+  id: ID!
+  chainId: Int!
+  marketId: String! @index
+  entryFeeUsdc: BigInt!
+  chipsPerPlayer: Int!
+  maxPlayers: Int!
+  status: String! @index
+  startsAt: BigInt!
+  endsAt: BigInt!
+  prizePoolUsdc: BigInt!
+  rakeBps: Int!
+  poolId: String!
+  entryToken: String!
+  minPlayers: Int!
+  rounds: Int!
+  roundDuration: Int!
+  lockBuffer: Int!
+  gridConfigHash: String!
+  payoutHash: String!
+  isPrivate: Boolean!
+  lockedAt: BigInt!
+  settledAt: BigInt!
+  finalizedAt: BigInt!
+  cancelledAt: BigInt!
+  resultsRoot: String!
+  payoutSchemaHash: String!
+  payoutTotal: BigInt!
+  protocolFee: BigInt!
+  metadataURI: String!
+  eventBlock: Int!
+  eventTxHash: String!
+  eventLogIndex: Int!
+  updatedAt: Int!
+}
+
+type ArcadePlacement {
+  id: ID!
+  roomId: String! @index
+  player: String! @index
+  tileId: String!
+  chips: Int!
+  commitment: String!
+  revealedAt: BigInt!
+  chainId: Int!
+  roundIndex: Int!
+  joinedAt: BigInt!
+  joinedTxHash: String!
+  leftAt: BigInt!
+  refundedAt: BigInt!
+  refundedAmount: BigInt!
+  commitmentTxHash: String!
+  revealedSelectionHash: String!
+  revealedTxHash: String!
+  prizeAmount: BigInt!
+  claimedAt: BigInt!
+  claimedTxHash: String!
+  eventBlock: Int!
+  eventTxHash: String!
+  eventLogIndex: Int!
+}
+
+type ArcadeRound {
+  id: ID!
+  roomId: String! @index
+  chainId: Int!
+  roundIndex: Int!
+  startTime: BigInt!
+  lockTime: BigInt!
+  endTime: BigInt!
+  anchorSnapshotId: BigInt!
+  anchorPrice: String!
+  settlementSnapshotId: BigInt!
+  settlementPrice: String!
+  status: String! @index
+  eventBlock: Int!
+  eventTxHash: String!
+  eventLogIndex: Int!
+  updatedAt: Int!
+}
+
+type ArcadeSettlement {
+  id: ID!
+  roomId: String! @index
+  chainId: Int!
+  stage: String! @index
+  resultsRoot: String!
+  metadataURI: String!
+  challengeAccepted: Boolean!
+  blockTimestamp: Int!
+  txHash: String!
+  logIndex: Int!
+}
+
 # Aggregated daily snapshot per market — derived by handlers.
 type DailyMarketSnapshot {
   id: ID!

@@ -1,0 +1,321 @@
+[
+  {
+    "name": "RoomCreated",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId",
+        "indexed": true
+      },
+      {
+        "type": "bytes32",
+        "name": "poolId",
+        "indexed": true
+      },
+      {
+        "type": "address",
+        "name": "entryToken",
+        "indexed": true
+      },
+      {
+        "type": "uint256",
+        "name": "entryFee"
+      }
+    ]
+  },
+  {
+    "name": "RoomStatusUpdated",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId",
+        "indexed": true
+      },
+      {
+        "type": "uint8",
+        "name": "status"
+      }
+    ]
+  },
+  {
+    "name": "EntryTokenAllowed",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "token",
+        "indexed": true
+      },
+      {
+        "type": "bool",
+        "name": "allowed"
+      }
+    ]
+  },
+  {
+    "name": "LimitsUpdated",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint16",
+        "name": "maxRakeBps"
+      },
+      {
+        "type": "uint16",
+        "name": "protocolMaxPlayers"
+      }
+    ]
+  },
+  {
+    "name": "EscrowUpdated",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "escrow",
+        "indexed": true
+      }
+    ]
+  },
+  {
+    "name": "createRoom",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "tuple",
+        "name": "config",
+        "components": [
+          {
+            "type": "tuple",
+            "name": "poolKey",
+            "components": [
+              {
+                "type": "address",
+                "name": "currency0"
+              },
+              {
+                "type": "address",
+                "name": "currency1"
+              },
+              {
+                "type": "uint24",
+                "name": "fee"
+              },
+              {
+                "type": "int24",
+                "name": "tickSpacing"
+              },
+              {
+                "type": "address",
+                "name": "hooks"
+              }
+            ]
+          },
+          {
+            "type": "address",
+            "name": "entryToken"
+          },
+          {
+            "type": "uint256",
+            "name": "entryFee"
+          },
+          {
+            "type": "uint16",
+            "name": "minPlayers"
+          },
+          {
+            "type": "uint16",
+            "name": "maxPlayers"
+          },
+          {
+            "type": "uint16",
+            "name": "rounds"
+          },
+          {
+            "type": "uint32",
+            "name": "roundDuration"
+          },
+          {
+            "type": "uint32",
+            "name": "lockBuffer"
+          },
+          {
+            "type": "uint64",
+            "name": "startTime"
+          },
+          {
+            "type": "uint16",
+            "name": "rakeBps"
+          },
+          {
+            "type": "uint16[]",
+            "name": "payoutBps"
+          },
+          {
+            "type": "bytes32",
+            "name": "gridConfigHash"
+          },
+          {
+            "type": "bool",
+            "name": "isPrivate"
+          },
+          {
+            "type": "bytes32",
+            "name": "inviteCodeHash"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      }
+    ]
+  },
+  {
+    "name": "transitionRoomStatus",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      },
+      {
+        "type": "uint8",
+        "name": "expectedStatus"
+      },
+      {
+        "type": "uint8",
+        "name": "nextStatus"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "setEscrow",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "escrow"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "setEntryToken",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "token"
+      },
+      {
+        "type": "bool",
+        "name": "allowed"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "setLimits",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint16",
+        "name": "maxRakeBps"
+      },
+      {
+        "type": "uint16",
+        "name": "protocolMaxPlayers"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "getRoom",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "tuple",
+        "components": [
+          {
+            "type": "bytes32",
+            "name": "poolId"
+          },
+          {
+            "type": "address",
+            "name": "entryToken"
+          },
+          {
+            "type": "uint256",
+            "name": "entryFee"
+          },
+          {
+            "type": "uint16",
+            "name": "minPlayers"
+          },
+          {
+            "type": "uint16",
+            "name": "maxPlayers"
+          },
+          {
+            "type": "uint16",
+            "name": "rounds"
+          },
+          {
+            "type": "uint32",
+            "name": "roundDuration"
+          },
+          {
+            "type": "uint32",
+            "name": "lockBuffer"
+          },
+          {
+            "type": "uint64",
+            "name": "startTime"
+          },
+          {
+            "type": "uint16",
+            "name": "rakeBps"
+          },
+          {
+            "type": "bytes32",
+            "name": "payoutHash"
+          },
+          {
+            "type": "bytes32",
+            "name": "gridConfigHash"
+          },
+          {
+            "type": "bool",
+            "name": "isPrivate"
+          },
+          {
+            "type": "bytes32",
+            "name": "inviteCodeHash"
+          },
+          {
+            "type": "uint8",
+            "name": "status"
+          }
+        ]
+      }
+    ]
+  }
+]

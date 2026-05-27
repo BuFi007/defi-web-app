@@ -1,0 +1,222 @@
+[
+  {
+    "name": "SelectionCommitted",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId",
+        "indexed": true
+      },
+      {
+        "type": "uint16",
+        "name": "roundIndex",
+        "indexed": true
+      },
+      {
+        "type": "address",
+        "name": "player",
+        "indexed": true
+      },
+      {
+        "type": "bytes32",
+        "name": "commitment"
+      }
+    ]
+  },
+  {
+    "name": "SelectionRevealed",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId",
+        "indexed": true
+      },
+      {
+        "type": "uint16",
+        "name": "roundIndex",
+        "indexed": true
+      },
+      {
+        "type": "address",
+        "name": "player",
+        "indexed": true
+      },
+      {
+        "type": "bytes32",
+        "name": "selectedTilesHash"
+      }
+    ]
+  },
+  {
+    "name": "hashSelection",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      },
+      {
+        "type": "uint16",
+        "name": "roundIndex"
+      },
+      {
+        "type": "address",
+        "name": "player"
+      },
+      {
+        "type": "bytes32",
+        "name": "selectedTilesHash"
+      },
+      {
+        "type": "bytes32",
+        "name": "nonce"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "bytes32"
+      }
+    ]
+  },
+  {
+    "name": "commitSelection",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      },
+      {
+        "type": "uint16",
+        "name": "roundIndex"
+      },
+      {
+        "type": "bytes32",
+        "name": "commitment"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "commitSelectionFor",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      },
+      {
+        "type": "uint16",
+        "name": "roundIndex"
+      },
+      {
+        "type": "address",
+        "name": "player"
+      },
+      {
+        "type": "bytes32",
+        "name": "commitment"
+      },
+      {
+        "type": "bytes",
+        "name": "signature"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "revealSelection",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      },
+      {
+        "type": "uint16",
+        "name": "roundIndex"
+      },
+      {
+        "type": "tuple",
+        "name": "selection",
+        "components": [
+          {
+            "type": "uint8[]",
+            "name": "rows"
+          },
+          {
+            "type": "uint8[]",
+            "name": "cols"
+          },
+          {
+            "type": "uint8",
+            "name": "chipCount"
+          },
+          {
+            "type": "bytes32",
+            "name": "clientStateHash"
+          }
+        ]
+      },
+      {
+        "type": "bytes32",
+        "name": "nonce"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "commitments",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      },
+      {
+        "type": "uint16",
+        "name": "roundIndex"
+      },
+      {
+        "type": "address",
+        "name": "player"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "bytes32"
+      }
+    ]
+  },
+  {
+    "name": "revealedSelectionHash",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      },
+      {
+        "type": "uint16",
+        "name": "roundIndex"
+      },
+      {
+        "type": "address",
+        "name": "player"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "bytes32"
+      }
+    ]
+  }
+]

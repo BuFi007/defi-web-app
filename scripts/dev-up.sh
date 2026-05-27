@@ -48,7 +48,6 @@ echo "$!" >>"$PID_FILE"
 # explicitly. Update this list when a new package gains a `dev` script.
 bun run \
   --filter @bufi/api \
-  --filter @bufi/ponder \
   --filter @bufi/matcher \
   dev >"$REST_LOG" 2>&1 &
 echo "$!" >>"$PID_FILE"
@@ -77,7 +76,6 @@ fi
 wait_port "$WEB_PORT" "$WEB_LABEL" 60 || true
 wait_port 3002 "api"         45 || true
 wait_port 3005 "matcher gRPC" 90 || true
-wait_port 42069 "ponder"     60 || true
 lsof -i :3006 -sTCP:LISTEN >/dev/null 2>&1 && printf "  ✓ matcher HTTP :3006\n" || printf "  · matcher HTTP :3006  (not on this branch, gRPC is canonical)\n"
 
 cat <<EOF
@@ -85,7 +83,7 @@ cat <<EOF
 → Web:      $WEB_URL
 → API:      http://localhost:3002
 → Matcher:  gRPC localhost:3005
-→ Ponder:   http://localhost:42069
+→ Envio:    https://indexer.envio.dev/bufx-yield-engine/graphql
 
 Logs:
   tail -f /tmp/bufi-web.log     # web only

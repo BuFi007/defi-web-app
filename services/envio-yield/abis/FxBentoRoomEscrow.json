@@ -1,0 +1,305 @@
+[
+  {
+    "name": "RoomJoined",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId",
+        "indexed": true
+      },
+      {
+        "type": "address",
+        "name": "player",
+        "indexed": true
+      }
+    ]
+  },
+  {
+    "name": "RoomLeft",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId",
+        "indexed": true
+      },
+      {
+        "type": "address",
+        "name": "player",
+        "indexed": true
+      }
+    ]
+  },
+  {
+    "name": "RoomCancelled",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId",
+        "indexed": true
+      }
+    ]
+  },
+  {
+    "name": "RoomLocked",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId",
+        "indexed": true
+      },
+      {
+        "type": "uint256",
+        "name": "escrowed"
+      }
+    ]
+  },
+  {
+    "name": "RoomSettled",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId",
+        "indexed": true
+      },
+      {
+        "type": "bytes32",
+        "name": "resultsRoot",
+        "indexed": true
+      },
+      {
+        "type": "bytes32",
+        "name": "payoutSchemaHash",
+        "indexed": true
+      },
+      {
+        "type": "uint256",
+        "name": "payoutTotal"
+      },
+      {
+        "type": "uint256",
+        "name": "protocolFee"
+      }
+    ]
+  },
+  {
+    "name": "SettlementManagerUpdated",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "settlementManager",
+        "indexed": true
+      }
+    ]
+  },
+  {
+    "name": "Refunded",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId",
+        "indexed": true
+      },
+      {
+        "type": "address",
+        "name": "player",
+        "indexed": true
+      },
+      {
+        "type": "uint256",
+        "name": "amount"
+      }
+    ]
+  },
+  {
+    "name": "PrizeClaimed",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId",
+        "indexed": true
+      },
+      {
+        "type": "address",
+        "name": "player",
+        "indexed": true
+      },
+      {
+        "type": "uint256",
+        "name": "amount"
+      }
+    ]
+  },
+  {
+    "name": "ProtocolFeeClaimed",
+    "type": "event",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId",
+        "indexed": true
+      },
+      {
+        "type": "uint256",
+        "name": "amount"
+      }
+    ]
+  },
+  {
+    "name": "joinRoom",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "leaveRoom",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "cancelRoom",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "refund",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "lockRoom",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "settleRoom",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      },
+      {
+        "type": "tuple",
+        "name": "payout",
+        "components": [
+          {
+            "type": "uint256",
+            "name": "roomId"
+          },
+          {
+            "type": "bytes32",
+            "name": "winnerRoot"
+          },
+          {
+            "type": "bytes32",
+            "name": "rosterHash"
+          },
+          {
+            "type": "bytes32",
+            "name": "leaderboardHash"
+          },
+          {
+            "type": "bytes32",
+            "name": "scoreRoot"
+          },
+          {
+            "type": "bytes32",
+            "name": "settlementPriceRoot"
+          },
+          {
+            "type": "uint256",
+            "name": "payoutTotal"
+          },
+          {
+            "type": "uint256",
+            "name": "protocolFee"
+          },
+          {
+            "type": "bytes32",
+            "name": "metadataHash"
+          }
+        ]
+      },
+      {
+        "type": "bytes",
+        "name": "attestation"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "claimPrize",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      },
+      {
+        "type": "uint256",
+        "name": "amount"
+      },
+      {
+        "type": "bytes32[]",
+        "name": "proof"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "claimProtocolFee",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "roomId"
+      }
+    ],
+    "outputs": []
+  }
+]

@@ -37,6 +37,21 @@ indexer.onEvent(
 );
 
 indexer.onEvent(
+  { contract: "FxOrderSettlement", event: "OrderCancelled" },
+  async ({ event, context }) => {
+    context.PerpsOrderCancellation.set({
+      id: `${event.chainId}_${event.transaction.hash}_${event.logIndex}`,
+      chainId: event.chainId,
+      trader: event.params.trader,
+      nonce: BigInt(event.params.nonce),
+      blockNumber: event.block.number,
+      blockTimestamp: event.block.timestamp,
+      txHash: event.transaction.hash,
+    });
+  },
+);
+
+indexer.onEvent(
   { contract: "FxPerpClearinghouse", event: "PositionIncreased" },
   async ({ event, context }) => {
     context.PositionChange.set({
@@ -53,6 +68,16 @@ indexer.onEvent(
       blockNumber: event.block.number,
       timestamp: event.block.timestamp,
       chainId: event.chainId,
+    });
+
+    upsertPosition(context, event.chainId, event.params.marketId, event.params.trader, {
+      sizeE18: event.params.resultingSizeE18,
+      entryPriceE18: event.params.entryPriceE18,
+      marginReserved: event.params.marginReserved,
+      lastEventKind: "increased",
+      blockNumber: event.block.number,
+      blockTimestamp: event.block.timestamp,
+      txHash: event.transaction.hash,
     });
 
     const snap = await getOrCreateDailyMarketSnapshot(
@@ -87,8 +112,51 @@ indexer.onEvent(
       timestamp: event.block.timestamp,
       chainId: event.chainId,
     });
+
+    upsertPosition(context, event.chainId, event.params.marketId, event.params.trader, {
+      sizeE18: event.params.resultingSizeE18,
+      entryPriceE18: event.params.priceE18,
+      marginReserved: event.params.marginReleased,
+      lastEventKind: "decreased",
+      blockNumber: event.block.number,
+      blockTimestamp: event.block.timestamp,
+      txHash: event.transaction.hash,
+    });
   },
 );
+
+function upsertPosition(
+  context: any,
+  chainId: number,
+  marketId: string,
+  trader: string,
+  data: {
+    sizeE18: bigint;
+    entryPriceE18: bigint;
+    marginReserved: bigint;
+    lastEventKind: string;
+    blockNumber: number;
+    blockTimestamp: number;
+    txHash: string;
+  },
+) {
+  const id = `${chainId}_${marketId}_${trader}`.toLowerCase();
+  context.PerpsPosition.set({
+    id,
+    chainId,
+    marketId: marketId.toLowerCase(),
+    trader: trader.toLowerCase(),
+    sizeE18: data.sizeE18,
+    entryPriceE18: data.entryPriceE18,
+    marginReserved: data.marginReserved,
+    lastFundingVersion: 0n,
+    lastEventKind: data.lastEventKind,
+    isOpen: data.sizeE18 !== 0n,
+    updatedAt: data.blockTimestamp,
+    updatedBlockNumber: data.blockNumber,
+    updatedTxHash: data.txHash.toLowerCase(),
+  });
+}
 
 indexer.onEvent(
   { contract: "FxPerpClearinghouse", event: "TradingFeeRouted" },
