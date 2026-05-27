@@ -95,7 +95,7 @@ export function createPonderPerpsPositionReader(graphqlUrl: string): PerpsPositi
 async function fetchPerpsPositions(graphqlUrl: string): Promise<PerpsIndexedPosition[]> {
   const query = `
     query PerpsPositions {
-      perpsPositions {
+      PerpsPosition {
         items {
           chainId
           marketId
@@ -121,15 +121,15 @@ async function fetchPerpsPositions(graphqlUrl: string): Promise<PerpsIndexedPosi
     throw new Error(`Ponder GraphQL request failed: ${response.status}`);
   }
   const payload = (await response.json()) as {
-    data?: { perpsPositions?: { items?: unknown[] } };
+    data?: { PerpsPosition?: { items?: unknown[] } };
     errors?: Array<{ message?: string }>;
   };
   if (payload.errors?.length) {
     throw new Error(payload.errors.map((error) => error.message ?? "GraphQL error").join("; "));
   }
-  const items = payload.data?.perpsPositions?.items;
+  const items = payload.data?.PerpsPosition?.items;
   if (!Array.isArray(items)) {
-    throw new Error("Ponder GraphQL response invalid: perpsPositions.items must be an array");
+    throw new Error("Envio GraphQL response invalid: PerpsPosition.items must be an array");
   }
   return items.map((row, index) => normalizePositionRow(row, index));
 }
@@ -171,29 +171,27 @@ async function fetchPerpsPositionEvents(
     chainId
     marketId
     trader
-    kind
+    kind: action
     sizeDeltaE18
     resultingSizeE18
-    priceE18
-    marginAmount
+    priceE18: entryPriceE18
     fee
-    pnl
+    pnl: realizedPnl
     badDebt
     blockNumber
-    blockTimestamp
+    blockTimestamp: timestamp
     txHash
-    logIndex
   `;
   const withArgs = `
     query PerpsPositionEvents($limit: Int!) {
-      perpsPositionEvents(limit: $limit, orderBy: "blockNumber", orderDirection: "desc") {
+      PositionChange(limit: $limit, orderBy: "blockNumber", orderDirection: "desc") {
         items { ${fields} }
       }
     }
   `;
   const withoutArgs = `
     query PerpsPositionEvents {
-      perpsPositionEvents {
+      PositionChange {
         items { ${fields} }
       }
     }
@@ -223,16 +221,16 @@ async function postPonderPositionEventQuery(
     throw new Error(`Ponder GraphQL request failed: ${response.status}`);
   }
   const payload = (await response.json()) as {
-    data?: { perpsPositionEvents?: { items?: unknown[] } };
+    data?: { PositionChange?: { items?: unknown[] } };
     errors?: Array<{ message?: string }>;
   };
   if (payload.errors?.length) {
     throw new Error(payload.errors.map((error) => error.message ?? "GraphQL error").join("; "));
   }
-  const items = payload.data?.perpsPositionEvents?.items;
+  const items = payload.data?.PositionChange?.items;
   if (!Array.isArray(items)) {
     throw new Error(
-      "Ponder GraphQL response invalid: perpsPositionEvents.items must be an array",
+      "Envio GraphQL response invalid: PositionChange.items must be an array",
     );
   }
   return items.map((row, index) => normalizePositionEventRow(row, index));
@@ -253,7 +251,7 @@ function normalizePositionEventRow(value: unknown, index: number): PerpsIndexedP
     sizeDeltaE18: requiredIntString(value, "sizeDeltaE18", index),
     resultingSizeE18: requiredIntString(value, "resultingSizeE18", index),
     priceE18: requiredUintString(value, "priceE18", index),
-    marginAmount: requiredUintString(value, "marginAmount", index),
+    marginAmount: optionalUintString(value, "marginAmount", index) ?? "0",
     fee: optionalUintString(value, "fee", index) ?? null,
     pnl: optionalIntString(value, "pnl", index) ?? null,
     badDebt: optionalUintString(value, "badDebt", index) ?? null,
@@ -271,38 +269,36 @@ async function fetchPerpsSettlements(
   const boundedLimit = Math.max(1, Math.min(limit, 500));
   const withArgs = `
     query PerpsSettlements($limit: Int!) {
-      perpsSettlements(limit: $limit, orderBy: "blockNumber", orderDirection: "desc") {
+      PerpTrade(limit: $limit, orderBy: "blockNumber", orderDirection: "desc") {
         items {
           id
           chainId
           marketId
           maker
           taker
-          fillSizeE18
-          fillPriceE18
+          fillSizeE18: sizeDeltaE18
+          fillPriceE18: priceE18
           blockNumber
-          blockTimestamp
+          blockTimestamp: timestamp
           txHash
-          logIndex
         }
       }
     }
   `;
   const withoutArgs = `
     query PerpsSettlements {
-      perpsSettlements {
+      PerpTrade {
         items {
           id
           chainId
           marketId
           maker
           taker
-          fillSizeE18
-          fillPriceE18
+          fillSizeE18: sizeDeltaE18
+          fillPriceE18: priceE18
           blockNumber
-          blockTimestamp
+          blockTimestamp: timestamp
           txHash
-          logIndex
         }
       }
     }
@@ -330,18 +326,18 @@ async function postPonderQuery(
     throw new Error(`Ponder GraphQL request failed: ${response.status}`);
   }
   const payload = (await response.json()) as {
-    data?: { perpsSettlements?: { items?: PerpsIndexedSettlement[] } };
+    data?: { PerpTrade?: { items?: PerpsIndexedSettlement[] } };
     errors?: Array<{ message?: string }>;
   };
   if (payload.errors?.length) {
     throw new Error(payload.errors.map((error) => error.message ?? "GraphQL error").join("; "));
   }
-  return normalizeSettlementRows(payload.data?.perpsSettlements?.items);
+  return normalizeSettlementRows(payload.data?.PerpTrade?.items);
 }
 
 function normalizeSettlementRows(value: unknown): PerpsIndexedSettlement[] {
   if (!Array.isArray(value)) {
-    throw new Error("Ponder GraphQL response invalid: perpsSettlements.items must be an array");
+    throw new Error("Envio GraphQL response invalid: PerpTrade.items must be an array");
   }
   return value.map((row, index) => normalizeSettlementRow(row, index));
 }
@@ -445,7 +441,7 @@ function optionalInteger(row: RawPonderSettlement, key: string, index: number): 
 }
 
 function invalidField(index: number, key: string, expected: string): Error {
-  return new Error(`Ponder GraphQL response invalid: settlement[${index}].${key} must be ${expected}`);
+  return new Error(`Envio GraphQL response invalid: settlement[${index}].${key} must be ${expected}`);
 }
 
 function isUnsupportedQueryShapeError(error: unknown): boolean {

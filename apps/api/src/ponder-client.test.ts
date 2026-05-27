@@ -8,7 +8,7 @@ const txHash = `0x${"22".repeat(32)}`;
 const maker = "0x0000000000000000000000000000000000000001";
 const taker = "0x0000000000000000000000000000000000000002";
 
-describe("Ponder perps settlement reader", () => {
+describe("Envio perps settlement reader", () => {
   afterEach(() => {
     globalThis.fetch = originalFetch;
   });
@@ -17,7 +17,7 @@ describe("Ponder perps settlement reader", () => {
     globalThis.fetch = mock(async () =>
       jsonResponse({
         data: {
-          perpsSettlements: {
+          PerpTrade: {
             items: [
               settlementRow(),
               settlementRow({ id: "other-chain", chainId: 43113 }),
@@ -32,7 +32,7 @@ describe("Ponder perps settlement reader", () => {
       }),
     ) as unknown as typeof fetch;
 
-    const reader = createPonderPerpsSettlementReader("http://ponder.local/graphql");
+    const reader = createPonderPerpsSettlementReader("http://envio.local/graphql");
     const rows = await reader.listSettlements({
       chainId: 5042002,
       marketId,
@@ -58,21 +58,21 @@ describe("Ponder perps settlement reader", () => {
     globalThis.fetch = mock(async () =>
       jsonResponse({
         data: {
-          perpsSettlements: {
+          PerpTrade: {
             items: [settlementRow({ fillSizeE18: "-1" })],
           },
         },
       }),
     ) as unknown as typeof fetch;
 
-    const reader = createPonderPerpsSettlementReader("http://ponder.local/graphql");
+    const reader = createPonderPerpsSettlementReader("http://envio.local/graphql");
     await expect(
       reader.listSettlements({
         chainId: 5042002,
         marketId,
         trader: taker,
       }),
-    ).rejects.toThrow("Ponder GraphQL response invalid");
+    ).rejects.toThrow("Envio GraphQL response invalid");
   });
 });
 

@@ -5,6 +5,7 @@ import { useAccount, useBalance, useChainId } from "wagmi";
 import { formatUnits } from "viem";
 
 import { liquidationPriceFloat, requiredMarginFloat } from "@bufi/perps-math";
+import { HUBS } from "@bufi/location/hubs";
 
 import { Icon, fmtUSD, fmtPct, type Market } from "./data";
 import { TokenIconPair } from "./token-icon";
@@ -59,7 +60,7 @@ function useUsdcBalance(address: `0x${string}` | undefined): {
 export function OrderbookCard({ market }: { market: Market }) {
   const t = useScopedI18n('Panels');
   const decimals = market.price < 10 ? 4 : market.price < 1000 ? 2 : 1;
-  const { data: markets } = useMarkets();
+  const { data: markets } = useMarkets(HUBS.arc.chainId);
   const liveMarket = useMemo(
     () => resolveLiveMarket(market.sym, markets),
     [market.sym, markets],
@@ -167,16 +168,30 @@ export function OrderbookCard({ market }: { market: Market }) {
   );
 }
 
+const UI_TO_PERP_SYMBOLS: Readonly<Record<string, readonly string[]>> = {
+  "EUR/USD": ["EURC/USDC"],
+  "USD/JPY": ["JPYC/USDC"],
+  "USD/MXN": ["MXNB/USDC"],
+  "AUD/USD": ["AUDF/USDC"],
+  "BTC-PERP": ["CIRBTC/USDC"],
+};
+
 // Resolve a user-facing market label (e.g. "EUR/USD") to one of the live
 // marketIds returned by /perps/markets. The live ARC universe is currency/
-// USDC pairs (EURC/USDC, JPYC/USDC, etc.) so we match on the base currency.
-// Falls back to the first enabled market so the UI still produces a signed
-// intent during E2E even when symbols don't line up perfectly.
+// USDC pairs (EURC/USDC, JPYC/USDC, etc.). Never fall back to an arbitrary
+// market: dogfood caught USD/JPY accidentally routing to EURC/USDC when the
+// symbol did not line up.
 function resolveLiveMarket(uiSym: string, markets: PerpsMarketDto[] | undefined): PerpsMarketDto | undefined {
   if (!markets || markets.length === 0) return undefined;
   const enabled = markets.filter((m) => m.enabled);
   const pool = enabled.length > 0 ? enabled : markets;
-  const base = uiSym.split(/[/-]/)[0]?.toUpperCase() ?? "";
+  const normalized = uiSym.toUpperCase();
+  const exactCandidates = UI_TO_PERP_SYMBOLS[normalized] ?? [normalized];
+  for (const symbol of exactCandidates) {
+    const hit = pool.find((m) => m.symbol.toUpperCase() === symbol);
+    if (hit) return hit;
+  }
+  const [base = "", quote = ""] = normalized.split(/[/-]/);
   const baseAliases: Record<string, string[]> = {
     EUR: ["EURC"],
     JPY: ["JPYC", "TJPYC"],
@@ -184,12 +199,17 @@ function resolveLiveMarket(uiSym: string, markets: PerpsMarketDto[] | undefined)
     BTC: ["CIRBTC"],
     AUD: ["AUDF"],
   };
-  const candidates = [base, ...(baseAliases[base] ?? [])];
+  const candidates = [
+    base,
+    ...(baseAliases[base] ?? []),
+    quote,
+    ...(baseAliases[quote] ?? []),
+  ].filter(Boolean);
   for (const c of candidates) {
     const hit = pool.find((m) => m.symbol.toUpperCase().startsWith(c));
     if (hit) return hit;
   }
-  return pool[0];
+  return undefined;
 }
 
 export function OrderPanelCard({
@@ -248,7 +268,7 @@ export function OrderPanelCard({
   const { address, isConnected } = useAccount();
   const devWallet = useMemo(() => getPerpsReplacementDevWallet(), []);
   const { toast } = useToast();
-  const { data: markets } = useMarkets();
+  const { data: markets } = useMarkets(HUBS.arc.chainId);
   const placeOrder = usePlaceOrder();
   const liveMarket = useMemo(() => resolveLiveMarket(market.sym, markets), [market.sym, markets]);
   const usdc = useUsdcBalance(address);
@@ -303,9 +323,26 @@ export function OrderPanelCard({
   const canTrade = Boolean(isConnected || devWallet);
   const hasSize = sizeV > 0;
   const needsLimitPrice = orderType === "limit" && (!price || parseFloat(price) <= 0);
-  const submitDisabled = !canTrade || !liveMarket || !hasSize || needsLimitPrice || placeOrder.isPending;
+  const spotUnavailableReason = isSpot
+    ? "Spot execution is disabled until the Arc venue route is configured and the spot executor holds inventory."
+    : null;
+  const submitDisabled =
+    !canTrade ||
+    !liveMarket ||
+    !hasSize ||
+    needsLimitPrice ||
+    Boolean(spotUnavailableReason) ||
+    placeOrder.isPending;
 
   const submit = async (side: "long" | "short") => {
+    if (spotUnavailableReason) {
+      toast({
+        variant: "destructive",
+        title: "Spot unavailable",
+        description: spotUnavailableReason,
+      });
+      return;
+    }
     if (!liveMarket) {
       toast({
         variant: "destructive",
@@ -338,6 +375,7 @@ export function OrderPanelCard({
     try {
       const result = await placeOrder.mutateAsync({
         marketId: liveMarket.marketId,
+        chainId: liveMarket.chainId ?? HUBS.arc.chainId,
         side,
         sizeUsdc: sizeV.toString(),
         leverage: lev,
@@ -590,8 +628,9 @@ export function OrderPanelCard({
           onClick={() => submit("long")}
           aria-busy={placeOrder.isPending}
           data-primed={initialSide === "long" ? "true" : undefined}
+          title={spotUnavailableReason ?? undefined}
         >
-          <Icon name="sparkle" size={14} /> {placeOrder.isPending ? t("signing") : sideALabel}
+          <Icon name="sparkle" size={14} /> {spotUnavailableReason ? "Spot unavailable" : placeOrder.isPending ? t("signing") : sideALabel}
         </button>
         <button
           className={"short" + (initialSide === "short" ? " primed" : "")}
@@ -599,8 +638,9 @@ export function OrderPanelCard({
           onClick={() => submit("short")}
           aria-busy={placeOrder.isPending}
           data-primed={initialSide === "short" ? "true" : undefined}
+          title={spotUnavailableReason ?? undefined}
         >
-          <Icon name="sparkle" size={14} /> {placeOrder.isPending ? t("signing") : sideBLabel}
+          <Icon name="sparkle" size={14} /> {spotUnavailableReason ? "Spot unavailable" : placeOrder.isPending ? t("signing") : sideBLabel}
         </button>
       </div>
       {lastIntentId && (
@@ -787,4 +827,3 @@ function statusLabel(status: PerpsIntentStatus | undefined): string {
 function shortAddress(value: string): string {
   return value.length > 10 ? `${value.slice(0, 6)}...${value.slice(-4)}` : value;
 }
-

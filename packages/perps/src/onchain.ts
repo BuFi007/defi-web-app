@@ -108,6 +108,7 @@ export function createViemPerpsNonceReader(
 
 export interface CreateHybridQuoteReaderOptions extends CreateViemPerpsQuoteReaderOptions {
   hermesBaseUrl?: string;
+  maxOracleStaleSeconds?: number;
   pythFeedByMarket: Record<string, { baseFeedId: string; quoteFeedId: string }>;
 }
 
@@ -116,12 +117,20 @@ export function createHybridPerpsQuoteReader(
 ): PerpsQuoteReader {
   const onchain = createViemPerpsQuoteReader(opts);
   const maxLeverage = opts.maxLeverage ?? 50;
+  const maxOracleStaleSeconds =
+    opts.maxOracleStaleSeconds ?? Number(process.env.PYTH_MAX_STALE_SECONDS ?? 30);
   const hermesUrl = opts.hermesBaseUrl ?? process.env.PYTH_HERMES_URL ?? "https://hermes.pyth.network";
 
   return {
     async quoteFee(req) {
       try {
-        return await onchain.quoteFee(req);
+        const quote = await onchain.quoteFee(req);
+        if (quote.oracleStaleSeconds > maxOracleStaleSeconds) {
+          throw new Error(
+            `on-chain oracle stale: age=${quote.oracleStaleSeconds}s max=${maxOracleStaleSeconds}s`,
+          );
+        }
+        return quote;
       } catch {
         // On-chain quoteFee failed (oracle stale / RedStone missing).
         // Fall back to Hermes API for a fresh mark price.

@@ -538,7 +538,7 @@ export const ARC_PERP_MARKETS: Record<ArcPerpMarketSymbol, ArcPerpMarket> = {
   },
   "JPYC/USDC": {
     chainId: 5042002,
-    marketId: "0x9ccad283db415085bf69329b696bfc7a34bff2d476f5cf7b1d4a3ba9bc0b70ab",
+    marketId: "0x848d2b05de70986fa3661af2a50953b537f05066eedc33c18cde1bd12cdd0a2d",
     baseToken: "jpyc",
     quoteToken: "usdc",
     pythFeedId: PYTH_FEED_IDS.jpyUsd,

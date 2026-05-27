@@ -8,9 +8,13 @@ import { createFxBentoSqlitePersistenceStore } from "@bufi/fx-bento/persistence-
 import { createFxTelaranaService } from "@bufi/fx-telarana";
 import { createHermesClient } from "@bufi/market-data";
 import {
+  ARC_PERP_MARKETS,
+  PYTH_FEED_IDS,
+} from "@bufi/contracts";
+import {
   createPerpsService,
+  createHybridPerpsQuoteReader,
   createViemPerpsNonceReader,
-  createViemPerpsQuoteReader,
   livePerpsMarkets,
 } from "@bufi/perps";
 import { createCircleGatewayVerifier, mockVerifier } from "@bufi/x402";
@@ -38,10 +42,20 @@ if (env.BENTO_DB_PATH) {
 }
 export const telaranaService = createFxTelaranaService();
 const perpsMarkets = livePerpsMarkets();
+const pythFeedByMarket: Record<string, { baseFeedId: string; quoteFeedId: string }> = {};
+for (const m of Object.values(ARC_PERP_MARKETS)) {
+  pythFeedByMarket[m.marketId.toLowerCase()] = {
+    baseFeedId: m.pythFeedId,
+    quoteFeedId: PYTH_FEED_IDS.usdUsdc,
+  };
+}
 export const perpsPositionReader = createPonderPerpsPositionReaderFromEnv(process.env);
 export const perpsService = createPerpsService({
   markets: perpsMarkets,
-  quoteReader: createViemPerpsQuoteReader({ markets: perpsMarkets }),
+  quoteReader: createHybridPerpsQuoteReader({
+    markets: perpsMarkets,
+    pythFeedByMarket,
+  }),
   nonceReader: createViemPerpsNonceReader(),
   positionReader: perpsPositionReader ?? undefined,
   intentStore: tradingDb.perpsIntents,

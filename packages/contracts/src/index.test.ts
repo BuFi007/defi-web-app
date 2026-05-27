@@ -5,12 +5,12 @@ import { ARC_PERP_MARKETS, CONTRACTS, loadContracts } from "./index";
 describe("contract address registry", () => {
   test("includes the Arc sprint-1 perp stack (2026-05-21 broadcast)", () => {
     expect(CONTRACTS[5042002].perps).toMatchObject({
-      clearinghouse: "0x39dc43E2133CF860c1d17d4DB75Ef4204eebD46A",
-      marginAccount: "0x4EB6018F988301417B93cb2b8899D74D42273e96",
-      fundingEngine: "0x859bA11A3693895f8B03C31C6AE3b8F04992115B",
-      healthChecker: "0xA00Be167609c02F3879138dA8530BC31527c02b8",
-      liquidationEngine: "0xF579e265EF1D5E67EfDbb1F20863465E94a9d3eA",
-      orderSettlement: "0x93C3d831D6F0657479d7Fb6Cf0D06e75aA05E4CC",
+      clearinghouse: "0x7707d108F6Ce3d95ceA38D3965448F00C21CaFdC",
+      marginAccount: "0x77BBAef17257AD4800BE12A5D36AF87f3a49FBb7",
+      fundingEngine: "0xE08a146B9081A8dd32203fC5e7B5988352489518",
+      healthChecker: "0x234E06a0761cde322E4Fc5065A8256247669F362",
+      liquidationEngine: "0x18DEA7845c36d45AaDbcCeC04aC6cFc103748D80",
+      orderSettlement: "0xCeae7846c8ED2Dd9E6f541798a657875305EA0d8",
     });
   });
 
@@ -21,7 +21,7 @@ describe("contract address registry", () => {
         config: { initialMarginBps: 500, maintenanceMarginBps: 300, tradingFeeBps: 5 },
       },
       "JPYC/USDC": {
-        marketId: "0x9ccad283db415085bf69329b696bfc7a34bff2d476f5cf7b1d4a3ba9bc0b70ab",
+        marketId: "0x848d2b05de70986fa3661af2a50953b537f05066eedc33c18cde1bd12cdd0a2d",
       },
       "MXNB/USDC": {
         marketId: "0xb698dfdbcbae088741081a53b9f1da11df8ff7c92c9278b66e15a34077ea5ca3",

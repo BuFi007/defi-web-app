@@ -31,6 +31,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
 
 import { liquidationPriceFloat, requiredMarginFloat } from "@bufi/perps-math";
+import { HUBS } from "@bufi/location/hubs";
 
 import { Icon, fmtUSD, type Market } from "./data";
 import { Hint } from "./hint";
@@ -44,6 +45,14 @@ import { useScopedI18n } from "@/locales/client";
 
 type Step = "mode" | "side" | "size" | "review";
 type Side = "long" | "short";
+
+const UI_TO_PERP_SYMBOLS: Readonly<Record<string, readonly string[]>> = {
+  "EUR/USD": ["EURC/USDC"],
+  "USD/JPY": ["JPYC/USDC"],
+  "USD/MXN": ["MXNB/USDC"],
+  "AUD/USD": ["AUDF/USDC"],
+  "BTC-PERP": ["CIRBTC/USDC"],
+};
 
 function priceToE18(value: string): string {
   const trimmed = value.trim();
@@ -60,7 +69,13 @@ function resolveLiveMarket(
   if (!markets || markets.length === 0) return undefined;
   const enabled = markets.filter((m) => m.enabled);
   const pool = enabled.length > 0 ? enabled : markets;
-  const base = uiSym.split(/[/-]/)[0]?.toUpperCase() ?? "";
+  const normalized = uiSym.toUpperCase();
+  const exactCandidates = UI_TO_PERP_SYMBOLS[normalized] ?? [normalized];
+  for (const symbol of exactCandidates) {
+    const hit = pool.find((m) => m.symbol.toUpperCase() === symbol);
+    if (hit) return hit;
+  }
+  const [base = "", quote = ""] = normalized.split(/[/-]/);
   const baseAliases: Record<string, string[]> = {
     EUR: ["EURC"],
     JPY: ["JPYC", "TJPYC"],
@@ -68,12 +83,17 @@ function resolveLiveMarket(
     BTC: ["CIRBTC"],
     AUD: ["AUDF"],
   };
-  const candidates = [base, ...(baseAliases[base] ?? [])];
+  const candidates = [
+    base,
+    ...(baseAliases[base] ?? []),
+    quote,
+    ...(baseAliases[quote] ?? []),
+  ].filter(Boolean);
   for (const c of candidates) {
     const hit = pool.find((m) => m.symbol.toUpperCase().startsWith(c));
     if (hit) return hit;
   }
-  return pool[0];
+  return undefined;
 }
 
 export function TradeDrawer({
@@ -139,7 +159,7 @@ export function TradeDrawer({
   const { address, isConnected } = useAccount();
   const devWallet = useMemo(() => getPerpsReplacementDevWallet(), []);
   const { toast } = useToast();
-  const { data: markets } = useMarkets();
+  const { data: markets } = useMarkets(HUBS.arc.chainId);
   const placeOrder = usePlaceOrder();
   const liveMarket = useMemo(
     () => resolveLiveMarket(market.sym, markets),
@@ -155,7 +175,7 @@ export function TradeDrawer({
     if (step === "mode") return true; // any lev is fine
     if (step === "side") return side !== null;
     if (step === "size") return hasSize && !needsLimitPrice;
-    if (step === "review") return canTrade && hasSize && side !== null;
+    if (step === "review") return canTrade && hasSize && side !== null && !isSpot;
     return false;
   })();
 
@@ -173,6 +193,14 @@ export function TradeDrawer({
   };
 
   async function submit() {
+    if (isSpot) {
+      toast({
+        variant: "destructive",
+        title: "Spot unavailable",
+        description: "Spot execution is disabled until the Arc venue route is configured and the spot executor holds inventory.",
+      });
+      return;
+    }
     if (!liveMarket) {
       toast({
         variant: "destructive",
@@ -185,6 +213,7 @@ export function TradeDrawer({
     try {
       const result = await placeOrder.mutateAsync({
         marketId: liveMarket.marketId,
+        chainId: liveMarket.chainId ?? HUBS.arc.chainId,
         side,
         sizeUsdc: sizeV.toString(),
         leverage: lev,
@@ -208,6 +237,7 @@ export function TradeDrawer({
   const ctaLabel = (() => {
     if (placeOrder.isPending) return t("signing");
     if (step === "review") {
+      if (isSpot) return "Spot unavailable";
       if (!canTrade) return t("connectWalletShort");
       const buyish = side === "long";
       const verb = isSpot ? (buyish ? t("buy") : t("sell")) : buyish ? t("long") : t("short");

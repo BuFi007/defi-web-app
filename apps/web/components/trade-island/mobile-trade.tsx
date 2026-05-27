@@ -25,6 +25,7 @@ import {
   fmtUSD,
   type Market,
 } from "./data";
+import { HUBS } from "@bufi/location/hubs";
 import { TokenIconPair } from "./token-icon";
 import { CandleChart } from "./chart";
 import { TradeDrawer } from "./trade-drawer";
@@ -33,23 +34,42 @@ import { useScopedI18n } from "@/locales/client";
 import { usePendingIntents } from "@/lib/perps/use-pending-intents";
 import type { PerpsMarketDto } from "@/lib/perps/client";
 
+const UI_TO_PERP_SYMBOLS: Readonly<Record<string, readonly string[]>> = {
+  "EUR/USD": ["EURC/USDC"],
+  "USD/JPY": ["JPYC/USDC"],
+  "USD/MXN": ["MXNB/USDC"],
+  "AUD/USD": ["AUDF/USDC"],
+  "BTC-PERP": ["CIRBTC/USDC"],
+};
+
 // Same heuristic as panels.tsx → resolveLiveMarket. Inlined here to keep
 // mobile-trade dependency-free of the desktop panels module.
 function resolvePerpMarketId(uiSym: string, markets: PerpsMarketDto[] | undefined): string | undefined {
   if (!markets || markets.length === 0) return undefined;
   const enabled = markets.filter((m) => m.enabled);
   const pool = enabled.length > 0 ? enabled : markets;
-  const base = uiSym.split(/[/-]/)[0]?.toUpperCase() ?? "";
+  const normalized = uiSym.toUpperCase();
+  const exactCandidates = UI_TO_PERP_SYMBOLS[normalized] ?? [normalized];
+  for (const symbol of exactCandidates) {
+    const hit = pool.find((m) => m.symbol.toUpperCase() === symbol);
+    if (hit) return hit.marketId;
+  }
+  const [base = "", quote = ""] = normalized.split(/[/-]/);
   const baseAliases: Record<string, string[]> = {
     EUR: ["EURC"], JPY: ["JPYC", "TJPYC"], MXN: ["MXNB", "TMXNB"],
     BTC: ["CIRBTC"], AUD: ["AUDF"],
   };
-  const candidates = [base, ...(baseAliases[base] ?? [])];
+  const candidates = [
+    base,
+    ...(baseAliases[base] ?? []),
+    quote,
+    ...(baseAliases[quote] ?? []),
+  ].filter(Boolean);
   for (const c of candidates) {
     const hit = pool.find((m) => m.symbol.toUpperCase().startsWith(c));
     if (hit) return hit.marketId;
   }
-  return pool[0]?.marketId;
+  return undefined;
 }
 
 type InnerTab = "chart" | "book" | "trades";
@@ -87,7 +107,7 @@ function makeRecentTrades(price: number, seedKey: string): RecentTrade[] {
 
 function CompactOrderbook({ market }: { market: Market }) {
   const dec = market.price < 10 ? 4 : market.price < 1000 ? 2 : 1;
-  const { data: markets } = useMarkets();
+  const { data: markets } = useMarkets(HUBS.arc.chainId);
   const marketId = resolvePerpMarketId(market.sym, markets);
   const { data: book, isLoading } = usePendingIntents(marketId, 10);
   const bids = book?.bids ?? [];

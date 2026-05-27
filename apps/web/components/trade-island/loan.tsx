@@ -1737,6 +1737,23 @@ export function ActionCard({
   const amt = parseFloat(amount) || 0;
   const usd = amt * loan.price;
   const inverse = findInverse(market, marketsList ?? LOAN_MARKETS);
+  const enteredAmount = parseFloat(amount);
+  const hasEnteredAmount = Number.isFinite(enteredAmount) && enteredAmount > 0;
+  const amountExceedsActionBalance =
+    hasEnteredAmount && enteredAmount > balance + 1e-12;
+  const balanceLimitLabel =
+    action === "borrow"
+      ? "max borrow"
+      : action === "withdraw"
+        ? "supplied balance"
+        : action === "repay"
+          ? "debt balance"
+          : "wallet balance";
+  const actionLimitReason = amountExceedsActionBalance
+    ? action === "borrow" && balance <= 0
+      ? "Supply collateral first"
+      : `Amount exceeds ${balanceLimitLabel}`
+    : null;
 
   const yearly = (usd * rateForMath) / 100;
   const monthly = yearly / 12;
@@ -2110,6 +2127,8 @@ export function ActionCard({
             : "depositToHub()…"
           : gatewayUnavailableReason
           ? gatewayUnavailableReason
+          : actionLimitReason
+          ? actionLimitReason
           : submitting
           ? "Signing…"
           : needsNetworkSwitch
@@ -2123,6 +2142,10 @@ export function ActionCard({
           ? t('enterAmount')
           : gatewayUnavailableReason
           ? gatewayUnavailableReason
+          : actionLimitReason
+          ? action === "borrow" && balance <= 0
+            ? "This market shows no borrow capacity for your wallet yet. Supply collateral before borrowing."
+            : `Enter an amount within your ${balanceLimitLabel}.`
           : needsNetworkSwitch
           ? `Wallet is on the wrong network. Click to switch to ${targetNetworkName} and ${actionVerb.toLowerCase()}.`
           : submitLabelOverride ?? `${t('confirmPrefix')} ${actionVerb}`;
@@ -2184,6 +2207,7 @@ export function ActionCard({
                 !walletAddress ||
                 !market.onchain ||
                 !(parseFloat(amount) > 0) ||
+                Boolean(actionLimitReason) ||
                 Boolean(gatewayUnavailableReason)
               }
               title={ctaTitle}

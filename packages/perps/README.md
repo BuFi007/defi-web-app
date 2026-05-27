@@ -24,7 +24,7 @@ FX/stablecoin perpetuals backend domain. This package owns market metadata, EIP-
 `livePerpsMarkets()` is grounded in `fx-telarana/reports/CONFIG_ARC_PHASE_B_E_PERP_MARKETS.md` and currently exposes the configured Arc clearinghouse markets:
 
 - `EURC/USDC` - `0x565a6e2fab61800aa18813603b5b485af5bed7dea1aa0845bdaa61502063cab8`
-- `tJPYC/USDC` - `0x9ccad283db415085bf69329b696bfc7a34bff2d476f5cf7b1d4a3ba9bc0b70ab`
+- `JPYC/USDC` - `0x848d2b05de70986fa3661af2a50953b537f05066eedc33c18cde1bd12cdd0a2d`
 - `tMXNB/USDC` - `0xb698dfdbcbae088741081a53b9f1da11df8ff7c92c9278b66e15a34077ea5ca3`
 - `tCHFC/USDC` - `0x992a2a93cd7a43a9ca827907f708a00ef88e9757e8aadab780ec4f58b161c7dd`
 
