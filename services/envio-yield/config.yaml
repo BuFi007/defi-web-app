@@ -289,7 +289,7 @@ contracts:
 
 chains:
   - id: 5042002
-    start_block: 0
+    start_block: 42600000
     hypersync_config:
       url: https://5042002.rpc.hypersync.xyz
     rpc:
@@ -345,7 +345,7 @@ chains:
           - "0x466e2BBFbF3D2Ca1a90eCf25fFF1e275b548C540"
 
   - id: 43113
-    start_block: 0
+    start_block: 42000000
     rpc:
       url: https://api.avax-test.network/ext/bc/C/rpc
     contracts:
