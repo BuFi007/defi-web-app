@@ -55,12 +55,17 @@ export type TelaranaOptionalContract =
   // `listPools()`).
   | "MorphoOracleAdapterM3"
   | "MorphoOracleAdapterM4"
+  // M5 + M6 oracle adapters (JPYC markets on Fuji).
+  | "MorphoOracleAdapterM5"
+  | "MorphoOracleAdapterM6"
   // Per-chain fresh FxOracle wired for the non-EURC asset; the original
   // FxOracle is owned by FxTimelock and not retrofittable.
   | "FxOracleMxnb"
   | "FxOracleAudf"
+  | "FxOracleJpyc"
   | "FxReceiptMXNB"
-  | "FxReceiptAUDF";
+  | "FxReceiptAUDF"
+  | "FxReceiptJPYC";
 
 export type TelaranaContractName =
   | TelaranaRequiredContract
@@ -71,7 +76,7 @@ export type TelaranaHubName = "fuji" | "arc";
 
 /** Stablecoin symbols that may appear as Telarana loan or collateral
  *  legs. Extend when a new market is added to the registry. */
-export type TelaranaMarketSymbol = "USDC" | "EURC" | "MXNB" | "AUDF";
+export type TelaranaMarketSymbol = "USDC" | "EURC" | "MXNB" | "AUDF" | "JPYC";
 
 /** Canonical market keys, mirroring `deployments/*.marketIds`. The M3/M4
  *  slots are per-chain: MXNB on Fuji, AUDF on Arc. The type stays a closed
@@ -82,7 +87,9 @@ export type TelaranaMarketKey =
   | "M3_MXNB_USDC"
   | "M4_USDC_MXNB"
   | "M3_AUDF_USDC"
-  | "M4_USDC_AUDF";
+  | "M4_USDC_AUDF"
+  | "M5_JPYC_USDC"
+  | "M6_USDC_JPYC";
 
 export interface TelaranaMarket {
   /** Morpho-Blue market id (bytes32) computed from MarketParams. */
@@ -175,13 +182,19 @@ function buildDeployment(
   // Both keep the same numeric slot in deployments; the symbol differs.
   const loanMXNB = tryAddress(external.MXNB);
   const loanAUDF = tryAddress(external.AUDF);
+  // M5/M6 are JPYC markets (Fuji only for now).
+  const loanJPYC = tryAddress(external.JPYC);
 
   const adapterM3 = tryAddress(contracts.MorphoOracleAdapterM3);
   const adapterM4 = tryAddress(contracts.MorphoOracleAdapterM4);
+  const adapterM5 = tryAddress(contracts.MorphoOracleAdapterM5);
+  const adapterM6 = tryAddress(contracts.MorphoOracleAdapterM6);
   const m3MxnbId = tryHex(marketIds.M3_MXNB_USDC);
   const m4MxnbId = tryHex(marketIds.M4_USDC_MXNB);
   const m3AudfId = tryHex(marketIds.M3_AUDF_USDC);
   const m4AudfId = tryHex(marketIds.M4_USDC_AUDF);
+  const m5JpycId = tryHex(marketIds.M5_JPYC_USDC);
+  const m6JpycId = tryHex(marketIds.M6_USDC_JPYC);
 
   const markets: TelaranaMarket[] = [
     // Morpho M1 is EURC borrowed against USDC collateral; M2 is the inverse.
@@ -262,6 +275,32 @@ function buildDeployment(
     });
   }
 
+  // JPYC markets (M5 + M6) — Fuji only for now.
+  if (loanJPYC && adapterM5 && m5JpycId) {
+    markets.push({
+      id: m5JpycId,
+      key: "M5_JPYC_USDC",
+      loanSymbol: "JPYC",
+      collateralSymbol: "USDC",
+      loanToken: loanJPYC,
+      collateralToken: loanUSDC,
+      morphoOracleAdapter: adapterM5,
+      lltv: lltvFromManifest(marketLltvs, "M5_JPYC_USDC"),
+    });
+  }
+  if (loanJPYC && adapterM6 && m6JpycId) {
+    markets.push({
+      id: m6JpycId,
+      key: "M6_USDC_JPYC",
+      loanSymbol: "USDC",
+      collateralSymbol: "JPYC",
+      loanToken: loanUSDC,
+      collateralToken: loanJPYC,
+      morphoOracleAdapter: adapterM6,
+      lltv: lltvFromManifest(marketLltvs, "M6_USDC_JPYC"),
+    });
+  }
+
   return {
     chainId: raw.chainId as TelaranaHubChainId,
     hubName,
@@ -277,6 +316,8 @@ function buildDeployment(
       ...(m4MxnbId ? { M4_USDC_MXNB: m4MxnbId } : {}),
       ...(m3AudfId ? { M3_AUDF_USDC: m3AudfId } : {}),
       ...(m4AudfId ? { M4_USDC_AUDF: m4AudfId } : {}),
+      ...(m5JpycId ? { M5_JPYC_USDC: m5JpycId } : {}),
+      ...(m6JpycId ? { M6_USDC_JPYC: m6JpycId } : {}),
     },
     markets,
   };
