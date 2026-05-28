@@ -79,7 +79,7 @@ post__api_spot_buy(symbol="EURC", trader="0x...", amountUsdc="100")
   // (default slippageBps=100 = 1%). Override with slippageBps, or pin an
   // explicit minAmountOut (atomic) if you want exact control. No pre-quote
   // needed — post__api_spot_quote is optional, just for previewing a price.
-  // The response also includes a `preflight` block (USDC balance + router
+  // The response also includes a "preflight" block (USDC balance + router
   // allowance on Fuji): if hasSufficientAllowance is false, approve the spender
   // it names BEFORE signing, or the on-chain order will revert.
 

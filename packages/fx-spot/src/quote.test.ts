@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { quoteSpotOut } from "./index.ts";
+import { quoteSpotOut } from "./index";
 
 describe("quoteSpotOut", () => {
   // 1:1 price (1.0 at expo -8): 10 USDC -> 10 tokens (6 decimals both sides).
