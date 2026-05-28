@@ -1,9 +1,45 @@
 import { Hyper, ok, route } from "@hyper/core";
 import { z } from "zod";
+import { createPublicClient, http, erc20Abi, type Address } from "viem";
 import { hermes, jsonSafe } from "../services.ts";
-import { SPOT_FX_ROUTES } from "@bufi/contracts";
+import { SPOT_FX_ROUTES, CONTRACTS } from "@bufi/contracts";
 import { buildVenueSpotIntent, quoteSpotOut } from "@bufi/fx-spot";
 import { zAddress, zAmount, zUint, generateDeadlineAndNonce } from "../shared.ts";
+
+// Spot settles on Avalanche Fuji (43113): the trader spends USDC there and must
+// have approved the venue router. A best-effort pre-check reads balance + allowance
+// so an agent doesn't sign a doomed order. NEVER blocks the intent — on any RPC
+// error it returns a note and the order is still returned.
+const SPOT_CHAIN_ID = 43113;
+const FUJI_USDC = CONTRACTS[SPOT_CHAIN_ID].tokens.usdc as Address;
+const FUJI_VENUE_ROUTER = CONTRACTS[SPOT_CHAIN_ID].bufx.venueRequestRouter as Address;
+const FUJI_RPC = process.env.AVALANCHE_FUJI_RPC_URL ?? "https://avalanche-fuji-c-chain-rpc.publicnode.com";
+const fujiClient = createPublicClient({ transport: http(FUJI_RPC) });
+
+async function spotPreflight(trader: Address, amountInAtomic: bigint) {
+  try {
+    const [balance, allowance] = await Promise.race([
+      Promise.all([
+        fujiClient.readContract({ address: FUJI_USDC, abi: erc20Abi, functionName: "balanceOf", args: [trader] }) as Promise<bigint>,
+        fujiClient.readContract({ address: FUJI_USDC, abi: erc20Abi, functionName: "allowance", args: [trader, FUJI_VENUE_ROUTER] }) as Promise<bigint>,
+      ]),
+      new Promise<never>((_, rej) => setTimeout(() => rej(new Error("preflight timeout")), 2500)),
+    ]);
+    return {
+      chainId: SPOT_CHAIN_ID,
+      usdcBalanceAtomic: balance.toString(),
+      hasSufficientBalance: balance >= amountInAtomic,
+      allowanceAtomic: allowance.toString(),
+      hasSufficientAllowance: allowance >= amountInAtomic,
+      spender: FUJI_VENUE_ROUTER,
+      ...(allowance < amountInAtomic && {
+        approvalNeeded: { token: FUJI_USDC, spender: FUJI_VENUE_ROUTER, atLeastAtomic: amountInAtomic.toString() },
+      }),
+    };
+  } catch (e) {
+    return { checked: false, note: `pre-check unavailable (${(e as Error).message}); the order is still valid and may succeed`, chainId: SPOT_CHAIN_ID };
+  }
+}
 
 // Price-freshness bound for spot quotes (mirrors the perp oracle staleness gate).
 // Lets an agent see how old the price is and whether it's past the staleness
@@ -99,6 +135,8 @@ const spotBuy = route
     });
     const minAmountOut = body.minAmountOut ?? quoted.minAmountOut;
 
+    const preflight = await spotPreflight(body.trader as Address, BigInt(amountInAtomic));
+
     const built = buildVenueSpotIntent({
       symbol: body.symbol,
       trader: body.trader,
@@ -120,6 +158,7 @@ const spotBuy = route
         maxStaleSeconds: SPOT_MAX_STALE_SECONDS,
         validUntilUnix: deadline,
       },
+      preflight,
       digest: built.digest,
       typedData: built.typedData,
       calldata: built.calldata,
