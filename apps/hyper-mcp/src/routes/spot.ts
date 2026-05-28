@@ -5,6 +5,11 @@ import { SPOT_FX_ROUTES } from "@bufi/contracts";
 import { buildVenueSpotIntent, quoteSpotOut } from "@bufi/fx-spot";
 import { zAddress, zAmount, zUint, generateDeadlineAndNonce } from "../shared.ts";
 
+// Price-freshness bound for spot quotes (mirrors the perp oracle staleness gate).
+// Lets an agent see how old the price is and whether it's past the staleness
+// threshold, instead of inferring freshness only from the EIP-712 deadline.
+const SPOT_MAX_STALE_SECONDS = Number(process.env.PYTH_MAX_STALE_SECONDS ?? 300);
+
 const spotQuote = route
   .post("/spot/quote")
   .body(
@@ -24,13 +29,14 @@ const spotQuote = route
     const route = SPOT_FX_ROUTES[body.symbol];
     const latest = await hermes.latestPriceUpdates([route.pythFeedId]);
     const price = latest.prices[0];
+    const ageSeconds = price ? Math.floor(Date.now() / 1000) - price.price.publish_time : null;
     return ok(jsonSafe({
       symbol: body.symbol,
       amountUsdc: body.amountUsdc,
       price: price?.price.price ?? null,
-      oracleStaleSeconds: price
-        ? Math.floor(Date.now() / 1000) - price.price.publish_time
-        : null,
+      oracleStaleSeconds: ageSeconds,
+      maxStaleSeconds: SPOT_MAX_STALE_SECONDS,
+      priceStale: ageSeconds === null ? null : ageSeconds > SPOT_MAX_STALE_SECONDS,
       routeId: route.routeId,
       tokenOut: route.tokenOut,
     }));
@@ -109,6 +115,11 @@ const spotBuy = route
       minAmountOut,
       slippageBps: body.minAmountOut !== undefined ? null : quoted.slippageBps,
       oracleStaleSeconds: Math.floor(Date.now() / 1000) - price.price.publish_time,
+      freshness: {
+        priceAgeSeconds: Math.floor(Date.now() / 1000) - price.price.publish_time,
+        maxStaleSeconds: SPOT_MAX_STALE_SECONDS,
+        validUntilUnix: deadline,
+      },
       digest: built.digest,
       typedData: built.typedData,
       calldata: built.calldata,
