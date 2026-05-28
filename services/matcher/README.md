@@ -92,7 +92,7 @@ CANARY_NOTIONAL_USDC_E6=1000000
 
 # --- Perps liquidator (optional, Hookathon Phase 6) ---
 LIQUIDATOR_ENABLED=true
-LIQUIDATOR_ENVIO_URL=https://indexer.envio.dev/bufx-yield-engine/graphql
+LIQUIDATOR_ENVIO_URL=https://indexer.dev.hyperindex.xyz/6ff8fed/v1/graphql
 LIQUIDATOR_CHECK_INTERVAL_MS=1000
 LIQUIDATION_ROUTER_ADDRESS=0xc98c0DAAe36F8755933051419c6919bFC038152d
 ```
