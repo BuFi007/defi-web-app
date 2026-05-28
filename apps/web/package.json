@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "test": "bun test utils",
     "e2e": "playwright test",
     "e2e:install": "playwright install --with-deps chromium",
     "e2e:report": "playwright show-report"

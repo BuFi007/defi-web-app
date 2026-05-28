@@ -204,15 +204,47 @@ pub async fn settle_batch(
     now_secs: i64,
     grpc_state: Option<&GrpcState>,
 ) -> usize {
-    let mut succeeded = 0usize;
+    settle_batch_with_results(db, onchain, fills, now_secs, grpc_state)
+        .await
+        .into_iter()
+        .filter(|r| matches!(r, BatchSettleResult::Settled))
+        .count()
+}
+
+/// Per-fill outcome of a batch settle attempt. Used by the batch flusher
+/// to keep transient failures in the pending queue for retry without
+/// losing the maker/taker/fill context.
+#[derive(Debug, Clone)]
+pub enum BatchSettleResult {
+    /// On-chain settleMatch succeeded.
+    Settled,
+    /// OI gate blocked the settlement. Re-checking on a later tick may
+    /// succeed once other fills relieve OI pressure.
+    OiBlocked,
+    /// RPC / network / chain error. Almost always transient. The flusher
+    /// should keep this fill in the pending queue and retry.
+    TransientFailure,
+    /// Permanent failure (DB write, malformed payload, etc.). Retrying
+    /// is unlikely to help; the flusher should drop the fill.
+    PermanentFailure,
+}
+
+/// Settle a batch of fills sequentially, returning a parallel `Vec` of
+/// per-fill outcomes the caller can use to decide which fills to retry.
+/// Order matches `fills`.
+pub async fn settle_batch_with_results(
+    db: &PerpsDb,
+    onchain: &PerpsOnchain,
+    fills: &[(TranslatedIntent, TranslatedIntent, Fill)],
+    now_secs: i64,
+    grpc_state: Option<&GrpcState>,
+) -> Vec<BatchSettleResult> {
+    let mut out = Vec::with_capacity(fills.len());
     for (maker, taker, fill) in fills {
         match settle_one(db, onchain, maker, taker, fill, now_secs, grpc_state).await {
             Ok(outcome) => {
-                info!(
-                    tx = outcome.tx_hash,
-                    "fill settled"
-                );
-                succeeded += 1;
+                info!(tx = outcome.tx_hash, "fill settled");
+                out.push(BatchSettleResult::Settled);
             }
             Err(SettleError::OiGate(OiGateError::CapBreach { .. })) => {
                 warn!(
@@ -220,18 +252,38 @@ pub async fn settle_batch(
                     taker_intent = taker.db_intent_id,
                     "OI gate blocked settlement; leaving intents pending"
                 );
+                out.push(BatchSettleResult::OiBlocked);
+            }
+            Err(SettleError::Onchain(_)) => {
+                error!(
+                    maker_intent = maker.db_intent_id,
+                    taker_intent = taker.db_intent_id,
+                    "settleMatch on-chain failure; keeping fill in pending queue for retry"
+                );
+                out.push(BatchSettleResult::TransientFailure);
+            }
+            Err(SettleError::OiGate(_)) => {
+                // Non-CapBreach OI gate error (e.g. RPC during gate read).
+                // Treat as transient — the next tick may succeed.
+                error!(
+                    maker_intent = maker.db_intent_id,
+                    taker_intent = taker.db_intent_id,
+                    "OI gate read failed (transient); keeping fill in pending queue"
+                );
+                out.push(BatchSettleResult::TransientFailure);
             }
             Err(e) => {
                 error!(
                     maker_intent = maker.db_intent_id,
                     taker_intent = taker.db_intent_id,
                     error = ?e,
-                    "settleMatch failed; leaving intents pending for next tick"
+                    "settleMatch permanent failure; dropping fill"
                 );
+                out.push(BatchSettleResult::PermanentFailure);
             }
         }
     }
-    succeeded
+    out
 }
 
 // ---------------------------------------------------------------------------

@@ -4,11 +4,12 @@ import { getOrCreateDailyMarketSnapshot } from "./snapshot";
 
 function lendingHandler(action: string) {
   return async ({ event, context }: any) => {
+    const marketId = event.params.id.toLowerCase();
     context.LendingEvent.set({
-      id: `${event.chainId}_${event.transaction.hash}_${event.logIndex}`,
-      marketId: event.params.id,
-      caller: event.params.caller,
-      onBehalf: event.params.onBehalf,
+      id: `${event.chainId}_${event.transaction.hash.toLowerCase()}_${event.logIndex}`,
+      marketId,
+      caller: event.params.caller.toLowerCase(),
+      onBehalf: event.params.onBehalf.toLowerCase(),
       assets: event.params.assets,
       shares: event.params.shares,
       action,
@@ -17,7 +18,7 @@ function lendingHandler(action: string) {
       chainId: event.chainId,
     });
 
-    const snap = await getOrCreateDailyMarketSnapshot(context, event.params.id, event.block.timestamp, event.chainId);
+    const snap = await getOrCreateDailyMarketSnapshot(context, marketId, event.block.timestamp, event.chainId);
     const isSupplySide = action === "supply" || action === "withdraw";
     const nextTotalSupply =
       action === "supply"

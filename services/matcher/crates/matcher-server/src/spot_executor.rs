@@ -7,11 +7,10 @@
 
 use std::collections::BTreeSet;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 
-use alloy_network::EthereumWallet;
 use alloy_primitives::{Address, B256};
-use alloy_provider::ProviderBuilder;
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::sol;
 use serde::Deserialize;
@@ -21,9 +20,9 @@ use tokio::time::sleep;
 use tracing::{debug, info, warn};
 
 use crate::config::Config;
+use crate::tx_submitter::{TxSubmitter, TxSubmitterRegistry};
 
 const ARC_CHAIN_ID: u64 = 5_042_002;
-const DEFAULT_ARC_RPC_URL: &str = "https://rpc.testnet.arc.network";
 const DEFAULT_EXECUTOR: &str = "0x4e7372108529C0e7cb3aa0fF92B1c52e06e9e72f";
 const FALLBACK_SPOT_ROUTE_IDS: [&str; 3] = [
     "0x4b50d101784ab33ee4adc9ca42080b10cdd2b23d71004a34a9625f3554e97f19",
@@ -75,8 +74,8 @@ enum SpotExecutorError {
     ApiGraphql(String),
     #[error("api parse: {0}")]
     ApiParse(String),
-    #[error("invalid RPC URL: {0}")]
-    InvalidRpcUrl(String),
+    #[error("no tx_submitter registered for chain {0}")]
+    NoTxSubmitter(u64),
     #[error("on-chain: {0}")]
     Onchain(String),
 }
@@ -88,18 +87,23 @@ pub struct SpotExecutor {
     interval: Duration,
     dry_run: bool,
     candidate_limit: usize,
-    signer_key_hex: String,
+    tx_submitters: TxSubmitterRegistry,
     http: reqwest::Client,
 }
 
 impl SpotExecutor {
-    pub fn new(cfg: &Config, signer_key_hex: &str) -> Result<Option<Self>, SpotExecutorBootError> {
+    pub fn new(
+        cfg: &Config,
+        signer_key_hex: &str,
+        tx_submitters: TxSubmitterRegistry,
+    ) -> Result<Option<Self>, SpotExecutorBootError> {
         if !cfg.spot_executor_enabled {
             return Ok(None);
         }
 
         let api_url = normalize_api_url(&cfg.telarana_api_url)
             .map_err(SpotExecutorBootError::InvalidApiUrl)?;
+        // tx_submitter owns signing; this is a fail-fast sanity check.
         let _signer: PrivateKeySigner =
             signer_key_hex
                 .parse()
@@ -125,7 +129,7 @@ impl SpotExecutor {
             interval,
             dry_run,
             candidate_limit,
-            signer_key_hex: signer_key_hex.to_string(),
+            tx_submitters,
             http,
         }))
     }
@@ -275,20 +279,14 @@ impl SpotExecutor {
         &self,
         candidate: SpotRequest,
     ) -> Result<SpotOutcome, SpotExecutorError> {
-        let rpc_url = arc_rpc_url()?;
-        let signer: PrivateKeySigner =
-            self.signer_key_hex
-                .parse()
-                .map_err(|e: alloy_signer_local::LocalSignerError| {
-                    SpotExecutorError::Onchain(format!("invalid signer: {e}"))
-                })?;
-        let wallet = EthereumWallet::from(signer);
-        let provider = ProviderBuilder::new()
-            .wallet(wallet)
-            .connect_http(rpc_url);
-        let contract = FxSpotExecutorContract::new(self.executor, &provider);
+        let submitter = self
+            .tx_submitters
+            .get(self.chain_id)
+            .ok_or(SpotExecutorError::NoTxSubmitter(self.chain_id))?;
+        let contract = FxSpotExecutorContract::new(self.executor, submitter.provider());
 
-        let hook = TelaranaGatewayHubHookReadContract::new(candidate.telarana_gateway_hook, &provider);
+        let hook =
+            TelaranaGatewayHubHookReadContract::new(candidate.telarana_gateway_hook, submitter.provider());
         let gateway_state = hook
             .gatewayRequestState(candidate.request_id)
             .call()
@@ -316,23 +314,24 @@ impl SpotExecutor {
             return Ok(SpotOutcome::DryRun);
         }
 
-        let pending = contract
-            .executeSpotFx(candidate.request_id)
-            .send()
+        let tx_request = build_execute_request(&submitter, self.executor, candidate.request_id);
+        let tx = submitter
+            .submit_tx(tx_request, "spot.executeSpotFx")
             .await
-            .map_err(|e| SpotExecutorError::Onchain(format!("executeSpotFx send: {e}")))?;
-        let receipt = pending
-            .get_receipt()
-            .await
-            .map_err(|e| SpotExecutorError::Onchain(format!("executeSpotFx receipt: {e}")))?;
-        let tx = receipt.transaction_hash;
-        if !receipt.status() {
-            return Err(SpotExecutorError::Onchain(format!(
-                "executeSpotFx reverted (tx {tx:#x})"
-            )));
-        }
+            .map_err(|e| SpotExecutorError::Onchain(e.to_string()))?;
         Ok(SpotOutcome::Executed(tx))
     }
+}
+
+/// Build the `executeSpotFx(requestId)` tx request against the spot
+/// executor contract using the submitter's shared provider.
+fn build_execute_request(
+    submitter: &Arc<TxSubmitter>,
+    executor: Address,
+    request_id: B256,
+) -> alloy_rpc_types_eth::TransactionRequest {
+    let contract = FxSpotExecutorContract::new(executor, submitter.provider());
+    contract.executeSpotFx(request_id).into_transaction_request()
 }
 
 enum SpotOutcome {
@@ -411,15 +410,6 @@ fn normalize_api_url(raw: &str) -> Result<String, String> {
         out.pop();
     }
     Ok(out)
-}
-
-fn arc_rpc_url() -> Result<reqwest::Url, SpotExecutorError> {
-    let raw = std::env::var("SPOT_EXECUTOR_RPC_URL")
-        .or_else(|_| std::env::var("TELARANA_ARC_RPC_URL"))
-        .or_else(|_| std::env::var("ARC_RPC_URL"))
-        .unwrap_or_else(|_| DEFAULT_ARC_RPC_URL.to_string());
-    raw.parse::<reqwest::Url>()
-        .map_err(|e| SpotExecutorError::InvalidRpcUrl(e.to_string()))
 }
 
 fn env_u64(name: &str, default: u64) -> u64 {

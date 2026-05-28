@@ -108,8 +108,11 @@ type TurboFeeVaultEvent {
 type HedgeExposure {
   id: ID!
   poolId: String! @index
+  marketId: String! @index
+  hedgeToken: String!
   oldExposure: BigInt!
   newExposure: BigInt!
+  exposureDelta: BigInt!
   txHash: String!
   blockNumber: Int!
   timestamp: Int!
@@ -119,9 +122,12 @@ type HedgeExposure {
 type HedgeRebalance {
   id: ID!
   poolId: String! @index
+  marketId: String! @index
+  hedgeToken: String!
   oldSize: BigInt!
   newSize: BigInt!
   exposure: BigInt!
+  pythFeedId: String!
   txHash: String!
   blockNumber: Int!
   timestamp: Int!

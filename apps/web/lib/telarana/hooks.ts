@@ -589,6 +589,19 @@ export function useLendingAction(): UseLendingActionResult {
         throw new Error("Wallet client not ready. Try again once your wallet finishes connecting.");
       }
 
+      // Defence in depth: callers SHOULD have switched the wallet before
+      // invoking this action, but if they didn't (race, dropped switch,
+      // bug upstream) we must not let the wallet sign a tx against the
+      // wrong chain — funds end up on a different network than the user
+      // thinks. Read the live chainId from the wallet itself (not the
+      // wagmi store, which can lag) and refuse the action on mismatch.
+      const walletChainId = await walletClient.getChainId();
+      if (walletChainId !== input.hubChainId) {
+        throw new Error(
+          `Wallet on chain ${walletChainId}, market on ${input.hubChainId} — switch wallet first`,
+        );
+      }
+
       // Get a fresh public client for the TARGET hub chain. The hook-level
       // usePublicClient() is stale after switchChainAsync — the closure
       // captures the old chain's client, causing allowance reads to hit

@@ -16,6 +16,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { errMsg } from "@/utils";
 import { useScopedI18n } from "@/locales/client";
 import { useIntentStatusStream, useMarkets, usePlaceOrder } from "@/lib/perps/hooks";
+import { parseFiniteDecimal } from "@/utils/numeric";
 import type { PerpsIntentStatus } from "@/lib/perps/client";
 import { useMarketStats } from "@/lib/perps/use-market-stats";
 import { usePendingIntents } from "@/lib/perps/use-pending-intents";
@@ -248,8 +249,13 @@ export function OrderPanelCard({
   const [reduceOnly, setReduceOnly] = useState(false);
   const [postOnly, setPostOnly] = useState(false);
   const decimals = market.price < 10 ? 4 : market.price < 1000 ? 2 : 1;
-  const sizeV = parseFloat(size) || 0;
-  const priceV = parseFloat(price) || market.price;
+  // Strict input parsing: reject Infinity / NaN / negatives / over-precise
+  // values BEFORE they reach onchain math. parseFloat used to swallow these
+  // silently and submit poisoned notionals/liq prices.
+  const sizeParsed = parseFiniteDecimal(size, 8);
+  const priceParsed = parseFiniteDecimal(price, 8);
+  const sizeV = sizeParsed ?? 0;
+  const priceV = priceParsed ?? market.price;
   const notional = sizeV * priceV;
   // Margin + liq price now go through @bufi/perps-math (bigint internally).
   // Semantics preserved: reqMargin = notional/lev; liq = price * (1 ∓ 0.8/lev).
@@ -322,7 +328,8 @@ export function OrderPanelCard({
 
   const canTrade = Boolean(isConnected || devWallet);
   const hasSize = sizeV > 0;
-  const needsLimitPrice = orderType === "limit" && (!price || parseFloat(price) <= 0);
+  const needsLimitPrice =
+    orderType === "limit" && (priceParsed === null || priceParsed <= 0);
   const spotUnavailableReason = isSpot
     ? "Spot execution is disabled until the Arc venue route is configured and the spot executor holds inventory."
     : null;
@@ -363,8 +370,16 @@ export function OrderPanelCard({
       toast({ variant: "destructive", title: "Enter a size", description: "Size must be greater than zero." });
       return;
     }
+    if (sizeParsed === null) {
+      toast({
+        variant: "destructive",
+        title: "Invalid size",
+        description: "Size must be a positive decimal (max 8 dp). No Infinity or scientific notation.",
+      });
+      return;
+    }
     const apiKind: "limit" | "market" = orderType === "market" ? "market" : "limit";
-    if (apiKind === "limit" && (!price || parseFloat(price) <= 0)) {
+    if (apiKind === "limit" && (priceParsed === null || priceParsed <= 0)) {
       toast({
         variant: "destructive",
         title: t("enterLimitPrice"),

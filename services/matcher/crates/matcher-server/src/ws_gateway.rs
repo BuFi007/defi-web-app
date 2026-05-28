@@ -156,17 +156,27 @@ async fn handle_place(parsed: &serde_json::Value, state: &WsState) -> String {
 
     match reply_rx.await {
         Ok(ack) => {
-            let status = match ack.status {
-                AckStatus::Filled => "filled",
-                AckStatus::Partial => "partial",
-                AckStatus::Resting => "resting",
-                AckStatus::Rejected(ref r) => "rejected",
-                _ => "unknown",
+            let (status, reason) = match &ack.status {
+                AckStatus::Filled => ("filled", None),
+                AckStatus::Partial => ("partial", None),
+                AckStatus::Resting => ("resting", None),
+                AckStatus::Rejected(r) => ("rejected", Some(r.as_str())),
+                _ => ("unknown", None),
             };
             let fill_count = ack.fills.len();
-            format!(
-                r#"{{"type":"ack","intentId":"{intent_id_hex}","status":"{status}","fills":{fill_count}}}"#
-            )
+            match reason {
+                Some(r) => {
+                    // Escape inner double quotes — reject reasons are
+                    // engine-controlled strings, but keep this defensive.
+                    let escaped = r.replace('\\', "\\\\").replace('"', "\\\"");
+                    format!(
+                        r#"{{"type":"ack","intentId":"{intent_id_hex}","status":"{status}","fills":{fill_count},"reason":"{escaped}"}}"#
+                    )
+                }
+                None => format!(
+                    r#"{{"type":"ack","intentId":"{intent_id_hex}","status":"{status}","fills":{fill_count}}}"#
+                ),
+            }
         }
         Err(_) => r#"{"type":"error","message":"sequencer dropped reply"}"#.to_string(),
     }

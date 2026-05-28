@@ -7,7 +7,7 @@ indexer.onEvent(
   async ({ event, context }) => {
     const routeId = event.params.routeId.toLowerCase();
     context.TelaranaMarket.set({
-      id: routeId,
+      id: `${event.chainId}_${routeId}`,
       chainId: event.chainId,
       routeId,
       sourceDomain: Number(event.params.sourceDomain),
@@ -126,7 +126,7 @@ function openLoan(
     txHash: string;
   },
 ) {
-  const id = args.requestId.toLowerCase();
+  const id = `${args.chainId}_${args.requestId.toLowerCase()}`;
   context.TelaranaLoan.set({
     id,
     chainId: args.chainId,
@@ -154,7 +154,7 @@ async function closeLoan(
   blockTimestamp: number,
   txHash: string,
 ) {
-  const id = requestId.toLowerCase();
+  const id = `${chainId}_${requestId.toLowerCase()}`;
   const existing = await context.TelaranaLoan.get(id);
 
   if (existing) {
@@ -172,7 +172,7 @@ async function closeLoan(
       id,
       chainId,
       borrower: "",
-      marketId: id,
+      marketId: requestId.toLowerCase(),
       collateralAmount: 0n,
       borrowAmount: 0n,
       healthFactorBps: 0,
@@ -199,7 +199,7 @@ function upsertDeposit(
   blockTimestamp: number,
   txHash: string,
 ) {
-  const id = messageNonce.toLowerCase();
+  const id = `${chainId}_${messageNonce.toLowerCase()}`;
   context.TelaranaDeposit.set({
     id,
     chainId,

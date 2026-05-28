@@ -105,7 +105,7 @@ indexer.onEvent(
   { contract: "BuFxTelaranaRequestRouter", event: "TelaranaGatewayMintContextPrepared" },
   async ({ event, context }) => {
     context.TelaranaGatewayContext.set({
-      id: event.params.requestId.toLowerCase(),
+      id: `${event.chainId}_${event.params.requestId.toLowerCase()}`,
       chainId: event.chainId,
       routeId: event.params.routeId.toLowerCase(),
       telaranaGatewayHook: event.params.telaranaGatewayHook.toLowerCase(),
@@ -135,7 +135,7 @@ indexer.onEvent(
 indexer.onEvent(
   { contract: "BuFxTelaranaRequestRouter", event: "TelaranaRequestCancelled" },
   async ({ event, context }) => {
-    const id = event.params.requestId.toLowerCase();
+    const id = `${event.chainId}_${event.params.requestId.toLowerCase()}`;
     const existing = await context.BufxRequest.get(id);
 
     if (existing) {
@@ -181,7 +181,7 @@ interface UpsertArgs {
 }
 
 async function upsertRequest(context: any, args: UpsertArgs) {
-  const id = args.requestId.toLowerCase();
+  const id = `${args.chainId}_${args.requestId.toLowerCase()}`;
   const existing = await context.BufxRequest.get(id);
 
   const nextStatus =

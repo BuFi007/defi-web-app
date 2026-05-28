@@ -131,7 +131,9 @@ pub struct Config {
     /// Optional explicit LiquidationRouter address. If absent, the matcher
     /// reads `liquidation-router-{chainId}.json` from the deployments dir.
     pub liquidation_router_address: Option<String>,
-    /// Enable the Rust Telarana money-market liquidator.
+    /// Enable the Rust Telarana money-market liquidator. Defaults to FALSE
+    /// (safe-default): production deployments must set
+    /// `TELARANA_LIQUIDATOR_ENABLED=true` to opt in to tx broadcasting.
     pub telarana_liquidator_enabled: bool,
     /// BUFI API base URL used for Telarana liquidation candidates.
     pub telarana_api_url: String,
@@ -143,11 +145,14 @@ pub struct Config {
     pub telarana_liquidator_dry_run: bool,
     /// Max Telarana liquidation candidates requested per hub scan.
     pub telarana_liquidator_candidate_limit: usize,
-    /// Enable the Rust spot executor role.
+    /// Enable the Rust spot executor role. Defaults to FALSE (safe-default):
+    /// production deployments must set `SPOT_EXECUTOR_ENABLED=true` to opt in.
     pub spot_executor_enabled: bool,
-    /// Enable the Rust gateway signer role.
+    /// Enable the Rust gateway signer role. Defaults to FALSE (safe-default):
+    /// production deployments must set `GATEWAY_SIGNER_ENABLED=true` to opt in.
     pub gateway_signer_enabled: bool,
-    /// Enable the Rust arcade settler role.
+    /// Enable the Rust arcade settler role. Defaults to FALSE (safe-default):
+    /// production deployments must set `ARCADE_SETTLER_ENABLED=true` to opt in.
     pub arcade_settler_enabled: bool,
     /// gRPC server bind address. Default `127.0.0.1:3005` (loopback —
     /// container or multi-host deployments override to `0.0.0.0:<port>`).
@@ -276,7 +281,11 @@ impl Config {
         let liquidation_router_address = env::var("LIQUIDATION_ROUTER_ADDRESS")
             .or_else(|_| env::var("LIQUIDATOR_ROUTER_ADDRESS"))
             .ok();
-        let telarana_liquidator_enabled = parse_env_bool("TELARANA_LIQUIDATOR_ENABLED", true);
+        // SAFE-DEFAULT: tx-sending keepers default to OFF so a misconfigured
+        // local dev or fresh deploy cannot accidentally start broadcasting
+        // liquidations / settlements / gateway mints. Production must opt
+        // in explicitly by setting the corresponding env var to `true`.
+        let telarana_liquidator_enabled = parse_env_bool("TELARANA_LIQUIDATOR_ENABLED", false);
         let telarana_api_url = env::var("TELARANA_API_URL")
             .or_else(|_| env::var("BUFI_API_URL"))
             .unwrap_or_else(|_| "http://localhost:3002".to_string());
@@ -296,9 +305,11 @@ impl Config {
         );
         let telarana_liquidator_candidate_limit =
             parse_env_u64("TELARANA_LIQUIDATOR_CANDIDATE_LIMIT", 50)? as usize;
-        let spot_executor_enabled = parse_env_bool("SPOT_EXECUTOR_ENABLED", true);
-        let gateway_signer_enabled = parse_env_bool("GATEWAY_SIGNER_ENABLED", true);
-        let arcade_settler_enabled = parse_env_bool("ARCADE_SETTLER_ENABLED", true);
+        // SAFE-DEFAULT: see telarana_liquidator_enabled above. All three of
+        // these keepers sign + broadcast on-chain txs; default off.
+        let spot_executor_enabled = parse_env_bool("SPOT_EXECUTOR_ENABLED", false);
+        let gateway_signer_enabled = parse_env_bool("GATEWAY_SIGNER_ENABLED", false);
+        let arcade_settler_enabled = parse_env_bool("ARCADE_SETTLER_ENABLED", false);
         let grpc_bind = env::var("MATCHER_GRPC_BIND")
             .unwrap_or_else(|_| "127.0.0.1:3005".to_string());
         let http_bind = env::var("MATCHER_HTTP_BIND")
