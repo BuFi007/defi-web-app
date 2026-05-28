@@ -19,13 +19,31 @@ function lendingHandler(action: string) {
 
     const snap = await getOrCreateDailyMarketSnapshot(context, event.params.id, event.block.timestamp, event.chainId);
     const isSupplySide = action === "supply" || action === "withdraw";
+    const nextTotalSupply =
+      action === "supply"
+        ? snap.totalSupply + event.params.assets
+        : action === "withdraw"
+          ? subtractFloorZero(snap.totalSupply, event.params.assets)
+          : snap.totalSupply;
+    const nextTotalBorrow =
+      action === "borrow"
+        ? snap.totalBorrow + event.params.assets
+        : action === "repay"
+          ? subtractFloorZero(snap.totalBorrow, event.params.assets)
+          : snap.totalBorrow;
 
     context.DailyMarketSnapshot.set({
       ...snap,
+      totalSupply: nextTotalSupply,
+      totalBorrow: nextTotalBorrow,
       supplyEvents: isSupplySide ? snap.supplyEvents + 1 : snap.supplyEvents,
       borrowEvents: !isSupplySide ? snap.borrowEvents + 1 : snap.borrowEvents,
     });
   };
+}
+
+function subtractFloorZero(current: bigint, delta: bigint): bigint {
+  return delta >= current ? 0n : current - delta;
 }
 
 indexer.onEvent(

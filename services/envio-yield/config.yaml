@@ -11,7 +11,7 @@ contracts:
         field_selection:
           transaction_fields:
             - hash
-      - event: OrderCancelled(address indexed trader, uint256 nonce)
+      - event: OrderCancelled(address indexed trader, uint64 nonce)
         field_selection:
           transaction_fields:
             - hash
@@ -99,23 +99,23 @@ contracts:
     abi_file_path: ./abis/TelaranaGatewayHubHook.json
     handler: ./src/handlers/telarana.ts
     events:
-      - event: GatewayHubRouteConfigured(bytes32 indexed routeId, uint32 sourceDomain, uint32 destinationDomain, address sourceUsdc, address destinationUsdc, address sourceGatewayWallet, address destinationGatewayMinter, uint8 signerMode, bool enabled, bytes32 metadataRef)
+      - event: GatewayHubRouteConfigured(bytes32 indexed routeId, uint32 indexed sourceDomain, uint32 indexed destinationDomain, address sourceUsdc, address destinationUsdc, address sourceGatewayWallet, address destinationGatewayMinter, uint8 signerMode, bool enabled, bytes32 metadataRef)
         field_selection:
           transaction_fields:
             - hash
-      - event: GatewayHubTransferRequested(bytes32 indexed requestId, bytes32 indexed routeId, address sourceSigner, uint256 amount)
+      - event: GatewayHubTransferRequested(bytes32 indexed requestId, bytes32 indexed routeId, address indexed sourceSigner, address sourceDepositor, address destinationRecipient, uint256 amount, uint256 maxFee, uint256 deadline, bytes32 metadataRef)
         field_selection:
           transaction_fields:
             - hash
-      - event: GatewayAtomicFxSwapRequested(bytes32 indexed requestId, bytes32 indexed routeId, address recipient, uint256 amountIn, uint256 minAmountOut)
+      - event: GatewayAtomicFxSwapRequested(bytes32 indexed requestId, bytes32 indexed routeId, bytes32 indexed spotRouteId, address tokenOut, uint256 amountIn, uint256 minAmountOut, address recipient, bytes32 metadataRef)
         field_selection:
           transaction_fields:
             - hash
-      - event: GatewayAtomicFxSwapSettled(bytes32 indexed requestId, address tokenOut, uint256 amountOut)
+      - event: GatewayAtomicFxSwapSettled(bytes32 indexed requestId, bytes32 indexed spotRouteId, address indexed recipient, address tokenOut, uint256 amountOut)
         field_selection:
           transaction_fields:
             - hash
-      - event: GatewayHubLiquidityReceived(bytes32 indexed requestId, uint256 amount)
+      - event: GatewayHubLiquidityReceived(bytes32 indexed requestId, bytes32 indexed routeId, address indexed recipient, address destinationUsdc, uint256 amount)
         field_selection:
           transaction_fields:
             - hash
@@ -137,7 +137,7 @@ contracts:
         field_selection:
           transaction_fields:
             - hash
-      - event: DepositStranded(bytes32 indexed messageNonce, address indexed beneficiary, uint256 amount, bytes32 reason)
+      - event: DepositStranded(bytes32 indexed messageNonce, address indexed beneficiary, uint256 amount, bytes reason)
         field_selection:
           transaction_fields:
             - hash
@@ -151,19 +151,19 @@ contracts:
     abi_file_path: ./abis/BuFxVenueRequestRouter.json
     handler: ./src/handlers/bufx.ts
     events:
-      - event: BuFxRequestAccepted(bytes32 indexed requestId, bytes32 requestType, bytes32 marketId, address trader, address referrer, bytes32 campaignId, uint256 amount)
+      - event: BuFxRequestAccepted(bytes32 indexed requestId, bytes32 indexed requestType, bytes32 indexed marketId, address trader, address referrer, bytes32 campaignId, uint256 amount, uint256 timestamp)
         field_selection:
           transaction_fields:
             - hash
-      - event: BuFxRfqAccepted(bytes32 indexed requestId, bytes32 marketId, address trader, uint256 amountIn)
+      - event: BuFxRfqAccepted(bytes32 indexed requestId, bytes32 indexed marketId, bytes32 indexed quoteId, address trader, address maker, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint64 quoteExpiresAt)
         field_selection:
           transaction_fields:
             - hash
-      - event: BuFxPerpLiquidityAccepted(bytes32 indexed requestId, bytes32 marketId, address trader, uint256 notionalUsd)
+      - event: BuFxPerpLiquidityAccepted(bytes32 indexed requestId, bytes32 indexed marketId, bytes32 indexed accountId, address trader, uint256 notionalUsd, uint256 marginUsd, int256 sizeDelta, uint256 deadline)
         field_selection:
           transaction_fields:
             - hash
-      - event: BuFxRequestFeeQuoted(bytes32 indexed requestId, bytes32 requestType, bytes32 marketId, address trader, address referrer, uint256 amount)
+      - event: BuFxRequestFeeQuoted(bytes32 indexed requestId, bytes32 indexed requestType, bytes32 indexed marketId, address trader, address referrer, uint256 amount, uint256 grossFee, uint256 discount, uint256 netFee, uint256 referralAmount, uint256 treasuryAmount)
         field_selection:
           transaction_fields:
             - hash
@@ -172,15 +172,15 @@ contracts:
     abi_file_path: ./abis/BuFxTelaranaRequestRouter.json
     handler: ./src/handlers/bufx.ts
     events:
-      - event: TelaranaRequestSubmitted(bytes32 indexed requestId, bytes32 marketId, address trader, address referrer, bytes32 campaignId, uint256 amount)
+      - event: TelaranaRequestSubmitted(bytes32 indexed requestId, bytes32 indexed routeId, address indexed trader, uint8 action, address sourceSigner, address recipient, uint256 amount, uint256 maxExecutionFee, uint256 deadline, bytes32 spotRouteId, bytes32 marketId, address tokenOut, uint256 minAmountOut, address referrer, bytes32 campaignId, address telaranaReceiver)
         field_selection:
           transaction_fields:
             - hash
-      - event: TelaranaGatewayMintContextPrepared(bytes32 indexed requestId, bytes32 routeId, address telaranaGatewayHook, uint8 gatewayAction, address sourceDepositor, address sourceSigner, address recipient, address tokenOut, uint256 amount, uint256 minAmountOut, bytes32 spotRouteId, bytes32 metadataRef)
+      - event: TelaranaGatewayMintContextPrepared(bytes32 indexed requestId, bytes32 indexed routeId, address indexed telaranaGatewayHook, uint8 gatewayAction, address sourceDepositor, address sourceSigner, address recipient, address tokenOut, uint256 amount, uint256 minAmountOut, bytes32 spotRouteId, bytes32 metadataRef)
         field_selection:
           transaction_fields:
             - hash
-      - event: TelaranaRequestCancelled(bytes32 indexed requestId, address trader)
+      - event: TelaranaRequestCancelled(bytes32 indexed requestId, bytes32 indexed routeId, address indexed trader)
         field_selection:
           transaction_fields:
             - hash
