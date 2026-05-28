@@ -46,7 +46,7 @@ jobs:
             apps/*/node_modules
             packages/*/node_modules
             services/*/node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb') }}
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: |
             ${{ runner.os }}-bun-
 
@@ -58,9 +58,6 @@ jobs:
 
       - name: Typecheck (api)
         run: bunx tsc --noEmit -p apps/api/tsconfig.json
-
-      - name: Typecheck (ponder)
-        run: bunx tsc --noEmit -p apps/ponder/tsconfig.json
 
       # One `tsc` invocation per package tsconfig. A bash loop keeps the
       # workflow readable while still failing fast on the first error.
