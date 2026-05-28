@@ -37,6 +37,23 @@ const CROSS_CURRENCY_ROUTES = [
   { from: "EURC", to: "USDC", rate: "1.08" },
 ];
 
+// HONEST PRIVACY DISCLOSURE (see PRIVACY_DOGFOOD_REPORT.md).
+// The Groth16 proof hides which deposit a withdrawal spends (commitment↔nullifier
+// link). It does NOT hide amounts: Deposited and Relayed both emit `amount` in
+// cleartext, and amounts are arbitrary/user-chosen — so a withdrawal is linkable
+// to its deposit by amount-matching, collapsing the anonymity set toward 1.
+// Do NOT rely on this for unlinkability until fixed denominations ship.
+const PRIVACY_NOTICE = {
+  level: "weak",
+  hides: "which deposit a withdrawal spends (ZK commitment/nullifier link)",
+  leaks:
+    "deposit & withdrawal amounts are public and arbitrary — linkable by amount-matching; anonymity set ≈ 1 at current volume",
+  crossCurrencyLeak:
+    "cross-currency emits both amountIn and amountOut at a fixed rate, so the source amount is recoverable across assets",
+  doNotRelyFor: "unlinkability of depositor↔recipient",
+  trackedFix: "fixed denominations + anonymity-set gating (see DOGFOOD_PLAN.md Phase 3)",
+} as const;
+
 const ghostPools = route
   .get("/ghost/pools")
   .use(cache({ maxAge: 60, staleWhileRevalidate: 120 }))
@@ -44,7 +61,7 @@ const ghostPools = route
     mcp: {
       title: "Ghost Mode — Privacy Pools",
       description:
-        "List all 6 shielded privacy pools on Arc. Agents deposit tokens into these pools to trade privately — positions and balances are hidden behind Groth16 zero-knowledge proofs. Pools: USDC, EURC, MXNB, QCAD, cirBTC, AUDF. Returns TVL, merkle root, and cross-currency swap routes.",
+        "List all 6 shielded pools on Arc (USDC, EURC, MXNB, QCAD, cirBTC, AUDF). The Groth16 layer hides WHICH deposit a withdrawal spends, but amounts are public and arbitrary, so deposits and withdrawals are currently LINKABLE by amount-matching — treat this as weak/experimental privacy, not unlinkability. Returns TVL, merkle root, cross-currency routes, and a privacyNotice describing the current limits.",
     },
   })
   .handle(async () => {
@@ -72,7 +89,8 @@ const ghostPools = route
       })),
       crossCurrencyRoutes: CROSS_CURRENCY_ROUTES,
       proofSystem: "Groth16 (snarkjs)",
-      note: "Deposits are public (on-chain event). Withdrawals (relay) are private — the recipient is hidden behind a ZK proof. Cross-currency relay swaps inside the pool without revealing the trader.",
+      note: "Deposits are public (on-chain event reveals depositor + amount). The ZK proof hides which deposit a later withdrawal spends, but withdrawal amounts are public — so deposits and withdrawals are linkable by amount-matching at current volume. See privacyNotice.",
+      privacyNotice: PRIVACY_NOTICE,
     });
   });
 
@@ -93,7 +111,7 @@ const ghostDeposit = route
     mcp: {
       title: "Ghost Mode — Shield Tokens",
       description:
-        "Deposit tokens into a shielded privacy pool. After depositing, the balance is hidden and can only be withdrawn with a Groth16 zero-knowledge proof. The deposit event is public (reveals depositor + amount), but subsequent withdrawals and trades are private. Returns the contract call parameters for the deposit transaction.",
+        "Deposit tokens into a shielded pool. The deposit event is PUBLIC (reveals depositor + amount). Withdrawal requires a Groth16 proof that hides which deposit it spends — but because withdrawal amounts are also public and arbitrary, a withdrawal is linkable back to this deposit by amount-matching. Use only for experimental/weak privacy; see privacyNotice. Returns the contract call parameters for the deposit transaction.",
     },
   })
   .handle(async ({ body }) => {
@@ -140,7 +158,7 @@ const ghostRelay = route
     mcp: {
       title: "Ghost Mode — Private Withdrawal",
       description:
-        "Withdraw tokens from a shielded privacy pool. Requires a Groth16 zero-knowledge proof generated client-side. The proof verifies: (1) the commitment exists in the merkle tree, (2) the nullifier hasn't been spent, (3) the recipient is authorized. The on-chain relay reveals nothing about the depositor. Returns the contract parameters and proof requirements.",
+        "Withdraw tokens from a shielded pool via a client-side Groth16 proof (verifies merkle inclusion + nullifier uniqueness + recipient). The proof hides WHICH deposit is being spent — but it does NOT hide the amount: the Relayed event emits the recipient and amount in cleartext, so the withdrawal is linkable to a same-amount deposit. This does NOT currently give depositor↔recipient unlinkability. See privacyNotice. Returns the contract parameters and proof requirements.",
     },
   })
   .handle(async ({ body }) => {
@@ -177,6 +195,7 @@ const ghostRelay = route
       pool: pool.pool,
       chainId: ARC_CHAIN_ID,
       maxRelayFeeBPS: pool.maxRelayFeeBPS,
+      privacyNotice: PRIVACY_NOTICE,
     });
   });
 
@@ -198,7 +217,7 @@ const ghostSwap = route
     mcp: {
       title: "Ghost Mode — Private Cross-Currency Swap",
       description:
-        "Swap between USDC and EURC inside the privacy pool without revealing the trader. Uses relayCrossCurrency — the swap happens atomically inside the shielded pool via the swap adapter. Current rates: 1 USDC → 0.92 EURC, 1 EURC → 1.08 USDC.",
+        "Swap between USDC and EURC inside the shielded pool via relayCrossCurrency. WARNING: this leaks MORE than a same-asset withdrawal — the CrossCurrencyRelayed event emits both amountIn and amountOut at a fixed published rate (1 USDC → 0.92 EURC), so the source amount is recoverable and the swap is linkable across assets. Does not hide the trader in practice. See privacyNotice.",
     },
   })
   .handle(async ({ body }) => {
@@ -223,6 +242,7 @@ const ghostSwap = route
         note: "Same Groth16 proof as relay, but the swap adapter handles the cross-currency conversion atomically.",
       },
       chainId: ARC_CHAIN_ID,
+      privacyNotice: PRIVACY_NOTICE,
     });
   });
 
@@ -238,7 +258,7 @@ const ghostPnl = route
     mcp: {
       title: "Ghost Mode — ZK PnL Attestation",
       description:
-        "Generate a zero-knowledge proof attesting that a trader's PnL exceeds a threshold WITHOUT revealing positions, trade history, or exact PnL. The proof is commitment-based: the trader's deposit/withdrawal nullifiers prove net flow (deposits - withdrawals = PnL proxy) without revealing individual transactions. Used for the leaderboard — traders prove performance without exposing strategy.",
+        "Attest that a trader's PnL exceeds a threshold via a commitment-based net-flow proof (deposits − withdrawals). CAVEAT: net flow is only as private as the underlying deposits/withdrawals, and those are currently public + amount-linkable (see privacyNotice). At present this attestation hides little that a chain analyst couldn't already derive by amount-matching; its privacy improves only once denominations/confidential amounts ship. Useful as a leaderboard primitive, not as a confidentiality guarantee today.",
     },
   })
   .handle(async ({ body }) => {
@@ -261,7 +281,8 @@ const ghostPnl = route
         reputation: "ERC-8004 score factors in verified PnL proofs",
       },
       chainId: ARC_CHAIN_ID,
-      note: "This is the privacy-preserving alternative to public PnL tracking. Copy-traders see verified performance bands, not exact positions.",
+      note: "Leaderboard shows verified performance bands rather than exact numbers — but the underlying deposits/withdrawals are currently public + amount-linkable, so this is not yet a strong confidentiality guarantee. See privacyNotice.",
+      privacyNotice: PRIVACY_NOTICE,
     });
   });
 
