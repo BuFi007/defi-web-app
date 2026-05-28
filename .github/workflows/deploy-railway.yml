@@ -3,6 +3,7 @@ name: Deploy to Railway
 on:
   push:
     branches: [main]
+  workflow_dispatch: {} # allow manual redeploys
 
 jobs:
   deploy:
@@ -13,7 +14,16 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
 
-      - name: Deploy all services
+      # Deploy every HTTP service. Previously this only deployed `bufi-api`,
+      # so the MCP server (bufi-hyper-mcp → mcp.bu.finance) silently served
+      # stale code after every merge. No --detach: we wait for the build so a
+      # failed deploy fails the workflow instead of reporting a false success.
+      - name: Deploy bufi-hyper-mcp
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway up --detach --service bufi-api
+        run: railway up --service bufi-hyper-mcp
+
+      - name: Deploy bufi-api
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service bufi-api
