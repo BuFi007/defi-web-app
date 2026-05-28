@@ -98,11 +98,11 @@ export function isOracleStaleError(err: unknown): boolean {
 function isEnvioYieldUnavailableError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
   const e = err as { code?: string; message?: string; status?: number };
-  if (e.status && [502, 503, 504].includes(e.status)) return true;
+  if (e.status && [404, 502, 503, 504].includes(e.status)) return true;
   if (e.code === "upstream_unavailable") return true;
   return (
     typeof e.message === "string" &&
-    /Envio GraphQL request failed: (502|503|504)|upstream_unavailable|GraphQL indexer .*not reachable|fetch failed|network error/i.test(
+    /Envio GraphQL request failed: (404|502|503|504)|upstream_unavailable|GraphQL indexer .*not reachable|fetch failed|network error/i.test(
       e.message,
     )
   );

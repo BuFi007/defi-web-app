@@ -21,6 +21,10 @@ const graphRoutes = new Hono();
 
 const SCHEMA_CACHE_TTL_MS = 60_000;
 const UPSTREAM_TIMEOUT_MS = 10_000;
+const ENVIO_GRAPHQL_FALLBACK_URLS = [
+  "https://indexer.dev.hyperindex.xyz/cf36ea5/v1/graphql",
+  "https://indexer.envio.dev/bufx-yield-engine/graphql",
+] as const;
 const ENVIO_LIST_ENTITIES = [
   "ArcadePlacement",
   "ArcadeRoom",
@@ -58,14 +62,18 @@ interface GraphqlCompatBody {
 
 let schemaCache: SchemaCacheEntry | null = null;
 
-function envioGraphqlUrl(): string {
-  return (
-    process.env.ENVIO_GRAPHQL_URL ??
-    process.env.ENVIO_URL ??
-    process.env.PONDER_GRAPHQL_URL ??
-    process.env.PONDER_URL ??
-    "https://indexer.envio.dev/bufx-yield-engine/graphql"
-  );
+function envioGraphqlUrls(): string[] {
+  const candidates = [
+    process.env.ENVIO_GRAPHQL_URL,
+    process.env.ENVIO_URL,
+    process.env.NEXT_PUBLIC_ENVIO_GRAPHQL_URL,
+    process.env.NEXT_PUBLIC_ENVIO_URL,
+    process.env.PONDER_GRAPHQL_URL,
+    process.env.PONDER_URL,
+    ...ENVIO_GRAPHQL_FALLBACK_URLS,
+  ].filter((url): url is string => Boolean(url));
+
+  return [...new Set(candidates)];
 }
 
 function allowEmptyYieldFallback(): boolean {
@@ -229,24 +237,42 @@ graphRoutes.post("/", async (c) => {
     );
   }
 
-  const url = envioGraphqlUrl();
-  let upstream: Response;
-  try {
-    upstream = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": c.req.header("content-type") ?? "application/json",
-        Accept: "application/json",
-      },
-      body: compat.body,
-      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-    });
-  } catch (err) {
-    const log = c.get("log");
-    log?.warn?.("graph.upstream_unreachable", {
-      err: (err as Error).message,
-      url,
-    });
+  const log = c.get("log");
+  let upstream: Response | null = null;
+  let upstreamUrl = "";
+  let lastError: Error | null = null;
+
+  for (const url of envioGraphqlUrls()) {
+    try {
+      const candidate = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": c.req.header("content-type") ?? "application/json",
+          Accept: "application/json",
+        },
+        body: compat.body,
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      });
+
+      if (candidate.status === 404) {
+        void candidate.body?.cancel();
+        log?.warn?.("graph.upstream_not_found", { url });
+        continue;
+      }
+
+      upstream = candidate;
+      upstreamUrl = url;
+      break;
+    } catch (err) {
+      lastError = err as Error;
+      log?.warn?.("graph.upstream_unreachable", {
+        err: lastError.message,
+        url,
+      });
+    }
+  }
+
+  if (!upstream) {
     if (allowEmptyYieldFallback() && looksLikeDailyMarketSnapshotQuery(body)) {
       return emptyDailyMarketSnapshotResponse(
         compat.wrappedEntities.has("DailyMarketSnapshot"),
@@ -256,6 +282,7 @@ graphRoutes.post("/", async (c) => {
       {
         error: "upstream_unavailable",
         hint: "GraphQL indexer (Envio) is not reachable.",
+        detail: lastError?.message ?? "all configured Envio endpoints returned 404",
       },
       502,
     );
@@ -264,7 +291,7 @@ graphRoutes.post("/", async (c) => {
   const contentType = upstream.headers.get("Content-Type") ?? "application/json";
   if (
     allowEmptyYieldFallback() &&
-    upstream.status >= 500 &&
+    (upstream.status === 404 || upstream.status >= 500) &&
     looksLikeDailyMarketSnapshotQuery(body)
   ) {
     void upstream.body?.cancel();
@@ -284,6 +311,7 @@ graphRoutes.post("/", async (c) => {
       "Content-Type": contentType,
       "Cache-Control": "public, max-age=2, stale-while-revalidate=10",
       "X-Bufi-Gateway": "envio-v1",
+      "X-Bufi-Envio-Url": upstreamUrl,
     },
   });
 });
@@ -325,12 +353,28 @@ graphRoutes.get("/schema", async (c) => {
   };
 
   try {
-    const upstream = await fetch(envioGraphqlUrl(), {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify(introspection),
-      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-    });
+    let upstream: Response | null = null;
+    let upstreamUrl = "";
+    for (const url of envioGraphqlUrls()) {
+      const candidate = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(introspection),
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      });
+      if (candidate.status === 404) {
+        void candidate.body?.cancel();
+        continue;
+      }
+      upstream = candidate;
+      upstreamUrl = url;
+      break;
+    }
+
+    if (!upstream) {
+      return c.json({ error: "upstream_unavailable" }, 502);
+    }
+
     const text = await upstream.text();
     if (upstream.ok) {
       schemaCache = { body: text, fetchedAt: now };
@@ -341,6 +385,7 @@ graphRoutes.get("/schema", async (c) => {
         "Content-Type": upstream.headers.get("Content-Type") ?? "application/json",
         "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
         "X-Bufi-Gateway": "envio-v1",
+        "X-Bufi-Envio-Url": upstreamUrl,
         "X-Bufi-Schema-Cache": "miss",
       },
     });
