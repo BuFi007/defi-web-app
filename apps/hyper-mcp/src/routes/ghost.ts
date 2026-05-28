@@ -1,13 +1,16 @@
 import { Hyper, ok, route } from "@hyper/core";
 import { z } from "zod";
 import { cache } from "@hyper/cache";
-import { createPublicClient, http, type Address, formatUnits } from "viem";
+import { createPublicClient, http, fallback, type Address, formatUnits } from "viem";
 import { fxPrivacyEntrypointAbi } from "@bufi/contracts";
 
-const ARC_RPC = process.env.ARC_TESTNET_RPC ?? "https://rpc.testnet.arc.network";
+const ARC_RPC = process.env.ARC_TESTNET_RPC ?? "https://rpc.drpc.testnet.arc.network";
+const ARC_RPC_FALLBACK = process.env.ARC_TESTNET_RPC_FALLBACK ?? "https://rpc.testnet.arc.network";
 const ARC_CHAIN_ID = 5042002;
 
-const arcClient = createPublicClient({ transport: http(ARC_RPC) });
+const arcClient = createPublicClient({
+  transport: fallback([http(ARC_RPC), http(ARC_RPC_FALLBACK)]),
+});
 
 const PRIVACY_ENTRYPOINT = "0xd1bEB7Ba76D234c65e26F9F53e7efD1b1f36f985" as Address;
 

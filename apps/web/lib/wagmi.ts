@@ -1,4 +1,5 @@
 import { http, createConfig, useConnectorClient, Config } from "wagmi";
+import { fallback } from "viem";
 import {
   avalanche,
   avalancheFuji,
@@ -38,7 +39,10 @@ export const config = createConfig(
     ],
     transports: {
       [avalancheFuji.id]: http("https://api.avax-test.network/ext/bc/C/rpc"),
-      [arcTestnet.id]: http("https://rpc.testnet.arc.network"),
+      [arcTestnet.id]: fallback([
+        http("https://rpc.drpc.testnet.arc.network"),
+        http("https://rpc.testnet.arc.network"),
+      ]),
       [avalanche.id]: http("https://api.avax.network/ext/bc/C/rpc"),
       [mainnet.id]: http("https://cloudflare-eth.com"),
       [sepolia.id]: http("https://ethereum-sepolia-rpc.publicnode.com"),

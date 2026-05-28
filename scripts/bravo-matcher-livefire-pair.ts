@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 import { privateKeyToAccount } from "viem/accounts";
 import { createPublicClient, http, type Hex } from "viem";
 
-const ARC_RPC = "https://rpc.testnet.arc.network";
+const ARC_RPC = "https://rpc.drpc.testnet.arc.network";
 const MATCHER_HOST = "127.0.0.1:3005";
 const PROTO_DIR = "/Users/criptopoeta/coding-dojo/defi-web-app/services/matcher/proto";
 const PROTO = "matcher.v1.proto";

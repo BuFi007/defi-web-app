@@ -18,7 +18,7 @@ export const arcTestnet = defineChain({
     symbol: "USDC",
   },
   rpcUrls: {
-    default: { http: ["https://rpc.testnet.arc.network"] },
+    default: { http: ["https://rpc.drpc.testnet.arc.network", "https://rpc.testnet.arc.network"] },
   },
   blockExplorers: {
     default: {

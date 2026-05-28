@@ -84,7 +84,7 @@ import { privateKeyToAccount } from "viem/accounts";
 // ─────────────────────── canonical constants ──────────────────────────────
 
 const ARC_CHAIN_ID = 5042002 as const;
-const ARC_RPC = "https://rpc.testnet.arc.network";
+const ARC_RPC = "https://rpc.drpc.testnet.arc.network";
 const ARC_EXPLORER = "https://testnet.arcscan.app/tx/";
 const FUJI_DOMAIN = 1 as const;
 const ARC_DOMAIN = 26 as const;

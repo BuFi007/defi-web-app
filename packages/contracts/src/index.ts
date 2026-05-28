@@ -89,7 +89,7 @@ export const RPC_ENV_BY_CHAIN = {
 // Override via `AVALANCHE_FUJI_RPC_URL` for staging/prod RPC pinning.
 const HARDCODED_DEFAULT_RPC_URLS = {
   43113: "https://avalanche-fuji-c-chain-rpc.publicnode.com",
-  5042002: "https://rpc.testnet.arc.network",
+  5042002: "https://rpc.drpc.testnet.arc.network",
 } as const satisfies Record<(typeof SUPPORTED_CHAIN_IDS)[number], string>;
 
 const RPC_OVERRIDE_ENV_BY_CHAIN = {

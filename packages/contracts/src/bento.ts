@@ -74,7 +74,7 @@ export interface BentoDeploymentArtifact {
 export const BENTO_ARC_TESTNET_DEPLOYMENT: BentoDeploymentArtifact = {
   network: "arc-testnet",
   chainId: 5042002,
-  rpcUrl: "https://rpc.testnet.arc.network",
+  rpcUrl: "https://rpc.drpc.testnet.arc.network",
   contractsCommit: "c9d58bd36ba6f5580bf3eac8195c31ed568c2520",
   treasury: "0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69",
   indexerStartBlock: 44364271,

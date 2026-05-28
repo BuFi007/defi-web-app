@@ -6,7 +6,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 const ROOT = resolve(import.meta.dir, "..");
 const CANARY_NAME = "perps-arc-replacement";
 const startedAt = Date.now();
-const arcRpcUrl = process.env.ARC_RPC_URL ?? "https://rpc.testnet.arc.network";
+const arcRpcUrl = process.env.ARC_RPC_URL ?? "https://rpc.drpc.testnet.arc.network";
 const keeperPrivateKey =
   process.env.KEEPER_PRIVATE_KEY ??
   process.env.ARC_OPERATOR_PRIVATE_KEY ??

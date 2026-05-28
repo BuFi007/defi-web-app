@@ -35,7 +35,7 @@ import { privateKeyToAccount } from "viem/accounts";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 
-const RPC_URL = process.env.ARC_RPC_URL ?? "https://rpc.testnet.arc.network";
+const RPC_URL = process.env.ARC_RPC_URL ?? "https://rpc.drpc.testnet.arc.network";
 const KEY_HEX =
   process.env.DEPLOYER_PRIVATE_KEY ??
   process.env.KEEPER_PRIVATE_KEY ??

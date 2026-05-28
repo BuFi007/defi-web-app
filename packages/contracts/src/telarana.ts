@@ -364,7 +364,7 @@ export function listTelaranaMarkets(): Array<TelaranaMarket & { chainId: Telaran
 
 export const TELARANA_RPC_URLS: Record<TelaranaHubChainId, string> = {
   43113: "https://avalanche-fuji.gateway.tenderly.co",
-  5042002: "https://rpc.testnet.arc.network",
+  5042002: "https://rpc.drpc.testnet.arc.network",
 };
 
 export function getTelaranaRpcUrl(chainId: TelaranaHubChainId): string {

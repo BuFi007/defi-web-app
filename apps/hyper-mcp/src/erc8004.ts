@@ -1,13 +1,14 @@
-import { createPublicClient, http, type Address, type Hex, decodeEventLog, parseAbiItem } from "viem";
+import { createPublicClient, http, fallback, type Address, type Hex, decodeEventLog, parseAbiItem } from "viem";
 
 export const IDENTITY_REGISTRY = "0x8004A818BFB912233c491871b3d84c89A494BD9e" as Address;
 export const REPUTATION_REGISTRY = "0x8004B663056A597Dffe9eCcC1965A193B7388713" as Address;
 export const VALIDATION_REGISTRY = "0x8004Cb1BF31DAf7788923b405b754f57acEB4272" as Address;
 
-const ARC_TESTNET_RPC = process.env.ARC_TESTNET_RPC ?? "https://rpc-testnet.arc.network";
+const ARC_TESTNET_RPC = process.env.ARC_TESTNET_RPC ?? "https://rpc.drpc.testnet.arc.network";
+const ARC_TESTNET_RPC_FALLBACK = process.env.ARC_TESTNET_RPC_FALLBACK ?? "https://rpc.testnet.arc.network";
 
 const arcClient = createPublicClient({
-  transport: http(ARC_TESTNET_RPC),
+  transport: fallback([http(ARC_TESTNET_RPC), http(ARC_TESTNET_RPC_FALLBACK)]),
 });
 
 const IDENTITY_ABI = [

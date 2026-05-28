@@ -73,6 +73,6 @@ jobs:
       - name: Live Arc matcher replacement canary
         env:
           ARC_OPERATOR_PRIVATE_KEY: ${{ secrets.ARC_OPERATOR_PRIVATE_KEY }}
-          ARC_RPC_URL: ${{ vars.ARC_RPC_URL || 'https://rpc.testnet.arc.network' }}
+          ARC_RPC_URL: ${{ vars.ARC_RPC_URL || 'https://rpc.drpc.testnet.arc.network' }}
           SMOKE_WAIT_MS: "180000"
         run: bun run canary:perps-replacement:arc

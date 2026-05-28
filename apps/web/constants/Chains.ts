@@ -260,7 +260,7 @@ export const ModeTestnet = {
 export const ArcTestnet = {
   chainId: 5042002,
   name: "Arc Testnet",
-  rpcUrls: ["https://rpc.testnet.arc.network"],
+  rpcUrls: ["https://rpc.drpc.testnet.arc.network", "https://rpc.testnet.arc.network"],
   isMainnet: false,
   networkId: 5042002,
   // Arc Testnet brands its gas token as USDC (precompile at

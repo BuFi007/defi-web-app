@@ -1,7 +1,9 @@
 //! Env-var resolution for runtime configuration.
 //!
 //! ```text
-//!   ARC_RPC_URL                       JSON-RPC endpoint
+//!   ARC_RPC_URL                       JSON-RPC endpoint (primary)
+//!                                     (default https://rpc.drpc.testnet.arc.network)
+//!   ARC_RPC_FALLBACK_URL              JSON-RPC endpoint (fallback)
 //!                                     (default https://rpc.testnet.arc.network)
 //!   PERP_KEEPER_PRIVATE_KEY           Signer hex (preferred)
 //!   DEPLOYER_PRIVATE_KEY              Signer hex (fallback)
@@ -18,17 +20,28 @@
 use std::env;
 use std::path::PathBuf;
 
-/// Default Arc Testnet RPC. Matches `DEFAULT_ARC_RPC_URL` at
-/// `fx-telarana/packages/sdk/src/perps-keeper.ts:41`.
-pub const DEFAULT_ARC_RPC_URL: &str = "https://rpc.testnet.arc.network";
+/// Default Arc Testnet RPC (primary). dRPC mirror — benchmarked ~2x faster
+/// than the public endpoint (259ms vs 530ms avg).
+pub const DEFAULT_ARC_RPC_URL: &str = "https://rpc.drpc.testnet.arc.network";
+
+/// Default Arc Testnet RPC (fallback). Public Circle endpoint — used if
+/// dRPC has an outage. No API key needed for either.
+pub const DEFAULT_ARC_RPC_FALLBACK_URL: &str = "https://rpc.testnet.arc.network";
 
 /// Arc Testnet chain id (decimal). Matches `ARC_CHAIN_ID` in the TS keeper.
 pub const ARC_CHAIN_ID: u64 = 5_042_002;
 
 /// Resolve the Arc RPC URL from `ARC_RPC_URL` env, falling back to the
-/// public default.
+/// dRPC default (primary).
 pub fn arc_rpc_url() -> String {
     env::var("ARC_RPC_URL").unwrap_or_else(|_| DEFAULT_ARC_RPC_URL.to_string())
+}
+
+/// Resolve the fallback Arc RPC URL from `ARC_RPC_FALLBACK_URL` env, falling
+/// back to the public Circle endpoint.
+pub fn arc_rpc_fallback_url() -> String {
+    env::var("ARC_RPC_FALLBACK_URL")
+        .unwrap_or_else(|_| DEFAULT_ARC_RPC_FALLBACK_URL.to_string())
 }
 
 /// Resolve the keeper signing key from `PERP_KEEPER_PRIVATE_KEY` or

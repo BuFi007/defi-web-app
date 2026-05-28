@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use thiserror::Error;
 
-use bufi_perps_onchain::env::{ARC_CHAIN_ID, DEFAULT_ARC_RPC_URL};
+use bufi_perps_onchain::env::{ARC_CHAIN_ID, DEFAULT_ARC_RPC_FALLBACK_URL, DEFAULT_ARC_RPC_URL};
 
 /// Default cursor file location for the event subscriber.
 const DEFAULT_EVENT_CURSOR_PATH: &str = ".bufi/matcher-event-cursor.json";
@@ -34,8 +34,17 @@ pub enum ConfigError {
 pub struct Config {
     /// Target chain id (default Arc Testnet, 5_042_002).
     pub chain_id: u64,
-    /// JSON-RPC endpoint for that chain.
+    /// JSON-RPC endpoint for that chain (primary). Defaults to dRPC
+    /// (`rpc.drpc.testnet.arc.network`), ~2x faster than the public endpoint.
+    /// Override via `ARC_RPC_URL`.
     pub rpc_url: String,
+    /// JSON-RPC fallback endpoint. Defaults to the public Circle endpoint
+    /// (`rpc.testnet.arc.network`). Override via `ARC_RPC_FALLBACK_URL`.
+    /// Currently surfaced for callers that want explicit failover; the
+    /// matcher's alloy provider is built against `rpc_url` only — wire
+    /// a fallback transport once alloy's stable surface lands.
+    #[allow(dead_code)]
+    pub rpc_fallback_url: String,
     /// Keeper signing key (`PERP_KEEPER_PRIVATE_KEY` or `DEPLOYER_PRIVATE_KEY`).
     /// `None` causes the boot sequence to error in `Config::require_signer`.
     pub signer_key_hex: Option<String>,
@@ -197,6 +206,8 @@ impl Config {
         let chain_id = parse_env_u64("MATCHER_CHAIN_ID", ARC_CHAIN_ID)?;
         let rpc_url =
             env::var("ARC_RPC_URL").unwrap_or_else(|_| DEFAULT_ARC_RPC_URL.to_string());
+        let rpc_fallback_url = env::var("ARC_RPC_FALLBACK_URL")
+            .unwrap_or_else(|_| DEFAULT_ARC_RPC_FALLBACK_URL.to_string());
         // Resolution order matches the established defi-web-app keeper
         // conventions: PERP_KEEPER_PRIVATE_KEY (most explicit) →
         // KEEPER_PRIVATE_KEY (the name the .env.local at the monorepo root
@@ -328,6 +339,7 @@ impl Config {
         Ok(Self {
             chain_id,
             rpc_url,
+            rpc_fallback_url,
             signer_key_hex,
             lp_operator_key_hex,
             db_path,

@@ -4,7 +4,7 @@
 //!
 //! ```bash
 //! cd services/matcher
-//! export ARC_RPC_URL=https://rpc.testnet.arc.network
+//! export ARC_RPC_URL=https://rpc.drpc.testnet.arc.network
 //! export PERP_KEEPER_PRIVATE_KEY=0x<32 bytes hex>
 //! export FX_TELARANA_DEPLOYMENTS=/abs/path/to/fx-telarana/deployments
 //! cargo test -p bufi-matcher-server --test live_arc_testnet -- --ignored --nocapture
