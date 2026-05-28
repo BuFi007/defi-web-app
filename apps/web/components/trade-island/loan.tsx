@@ -12,6 +12,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { errMsg } from "@/utils";
 import { useScopedI18n } from "@/locales/client";
@@ -1452,7 +1459,19 @@ function MarketsTable({
                   </span>
                 </div>
                 <div className="lo-trow-detail-item">
-                  <span className="lo-trow-detail-l">APY breakdown</span>
+                  <span className="lo-trow-detail-l" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    APY breakdown
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info size={12} className="text-purpleDanis/50 dark:text-violetDanis/50 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent variant="curious" side="top">
+                          Lending IRM + Trading Fees + Hedge Income = Composite APY
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </span>
                   <span className="lo-trow-detail-v mono lo-yield-formula">
                     <span title="Lending (IRM)">{formatApy(baseApy)}</span>
                     <span className="lo-yield-op">+</span>

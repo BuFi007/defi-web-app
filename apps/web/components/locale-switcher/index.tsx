@@ -54,7 +54,7 @@ export default function LocaleSwitcher() {
       disabled={isPending}
     >
       <SelectTrigger
-        className="w-fit bg-white dark:bg-[#1B142D] shadow-xl rounded-md text-purpleDanis dark:text-[#E2D0FD] font-bold gap-2 border-purpleDanis/15 dark:border-white/10"
+        className="w-fit bg-white dark:bg-[#1B142D] shadow-xl rounded-md text-purpleDanis dark:text-[#E2D0FD] font-bold gap-2 border-none ring-1 ring-purpleDanis/15 dark:ring-white/10 backdrop-blur-xl focus:ring-2 focus:ring-purpleDanis/40 dark:focus:ring-white/40"
         aria-label="Change language"
       >
         <SelectValue />
