@@ -49,6 +49,11 @@ import bonds from "./routes/bonds.ts";
 import copyTrading from "./routes/copy-trading.ts";
 import stream from "./routes/stream.ts";
 
+// Defined before llmsTxt so the Connect section renders the real deployed URL
+// (BUFI_MCP_URL on prod = https://mcp.bu.finance) instead of a hardcoded localhost.
+const port = Number(process.env.PORT ?? 4002);
+const baseUrl = process.env.BUFI_MCP_URL ?? `http://localhost:${port}`;
+
 const llmsTxt = `# BUFI HYPER — Trading Infrastructure for AI Agents
 
 > Forex perpetual futures, spot FX, and lending/borrowing on Arc (Circle L1)
@@ -66,13 +71,14 @@ const llmsTxt = `# BUFI HYPER — Trading Infrastructure for AI Agents
    → returns { order: { digest, typedData, reduceOnly: true } }
 2. post__api_trade_execute(..., reduceOnly=true, signature)
 
-## Spot Buy (2 calls)
-1. post__api_spot_quote(symbol="EURC", amountUsdc="100")  // amountUsdc is human USDC, e.g. "100"
-   → returns { price, routeId }
-2. post__api_spot_buy(symbol="EURC", trader="0x...", amountUsdc="100", minAmountOut)
-   → returns { digest, typedData }
-   // amountUsdc = human USDC (server converts to atomic). minAmountOut = slippage
-   // floor in the FX token's atomic units (use the quote price to size it).
+## Spot Buy (1 call)
+post__api_spot_buy(symbol="EURC", trader="0x...", amountUsdc="100")
+  → returns { expectedOut, minAmountOut, slippageBps, digest, typedData }
+  // Pass only the human USDC amount. The server fetches the live price and
+  // derives expectedOut + the slippage-protected minAmountOut for you
+  // (default slippageBps=100 = 1%). Override with slippageBps, or pin an
+  // explicit minAmountOut (atomic) if you want exact control. No pre-quote
+  // needed — post__api_spot_quote is optional, just for previewing a price.
 
 ## Supply & Earn Yield
 1. get__api_lending_markets → see APYs (GLOBAL — pool totals, not your balances)
@@ -153,9 +159,9 @@ Trade (x402 $0.001-$0.005): perp open/close, spot buy, supply, borrow, repay, wi
 - Every trader gets an onchain identity NFT
 
 ## Connect
-- MCP: http://localhost:4002/mcp
-- OpenAPI: http://localhost:4002/openapi.json
-- Install: claude mcp add --transport http bufi-hyper http://localhost:4002/mcp
+- MCP: ${baseUrl}/mcp
+- OpenAPI: ${baseUrl}/openapi.json
+- Install: claude mcp add --transport http bufi-hyper ${baseUrl}/mcp
 
 ## Authentication
 - Open mode (default): no auth required — all tools accessible (hackathon/testnet)
@@ -254,9 +260,6 @@ if (jwtSecret) {
   hyper.use(authJwtPlugin({ secret: jwtSecret, allowShortSecret: true }));
 }
 
-const port = Number(process.env.PORT ?? 4002);
-
-const baseUrl = process.env.BUFI_MCP_URL ?? `http://localhost:${port}`;
 
 const hyperApp = hyper.build();
 // Expand each tool's `body` into a real JSON Schema (properties + required +

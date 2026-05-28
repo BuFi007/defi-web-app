@@ -110,6 +110,27 @@ FX-style `EUR/USD` vs token-pair `EURC/USDC` — unclear which string to pass to
 2. **`llms.txt`** — **concrete copy-paste request recipes** (3/4 loops). The mental model is there; the exact JSON bodies are not.
 3. **API** — **per-wallet portfolio reads** (loop 3): no unified holdings call, and lending has *no* per-wallet read at all.
 
+## Prod run — 2026-05-28 (against https://mcp.bu.finance, post-deploy-fix, Opus 4.8)
+
+First dogfood against **production** after fixing the Railway deploy (CI only ever deployed `bufi-api`→fx-api.bu.finance, never `bufi-hyper-mcp`→mcp.bu.finance — see DOGFOOD_PLAN / commit `3973449`). Phase 0/1 is now live on prod.
+
+**Transport handshake (Step 1.5) on prod — all PASS:** SSE GET ✓, initialize returns protocolVersion + mcp-session-id ✓, notifications/initialized → 204, cold tools/list → 39 tools (no NO_SESSION). The native MCP client (`claude mcp list`) shows `bufi-hyper: ✓ Connected` for the first time.
+
+Three fresh amnesia loops, all **success**:
+
+| Loop | Calls | Result |
+|---|---|---|
+| Lending positions read | 3 | `GET /api/lending/positions/{address}` found on call 1; no confusion with global markets or perps |
+| 1-call spot buy ($1 EURC) | 4 | accepted human `"1"`, server derived atomic + expectedOut + minAmountOut (100bps); single `POST /api/spot/buy` reached unsigned typed-data — no pre-quote needed |
+| Unified portfolio | 5 | `GET /api/portfolio/{address}` found in 2 calls, returns `{perp,lending}`, no fan-out |
+
+All three Phase-0/1 gaps confirmed CLOSED on prod. New (minor, doc-only) gaps surfaced:
+
+1. **llms.txt "Connect" section shows stale `localhost:4002` URLs** (MCP URL + `claude mcp add` snippet) instead of `https://mcp.bu.finance`. A fresh agent/user on prod copies the wrong install command. **Fix surface: llms.txt.**
+2. **llms.txt "Spot Buy" recipe undersells the new ergonomics** — still implies `minAmountOut` is a required caller-supplied atomic slippage floor, but `spot_buy` now derives it from a human amount + default slippage. Could mislead an agent into needless atomic/slippage math. **Fix surface: llms.txt.**
+
+Wins worth keeping: the spot-vs-perp table + chain labels gave zero endpoint ambiguity; human amounts + server-derived slippage removed all unit math; cross-product reads (lending/portfolio) self-described and cross-validated.
+
 ## Re-dogfood delta — 2026-05-28 (post-Gateman fixes, Opus 4.8)
 
 Gateman audit of the run above found ~40% of the headline findings false or misdiagnosed (verified against fresh-from-disk source):
