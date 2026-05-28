@@ -252,9 +252,72 @@ Withdrawing more shares than held triggers `Panic(17)` (arithmetic underflow). W
 
 ---
 
+## Adversarial Findings (Codex Pass)
+
+**Pass date:** 2026-05-27
+**Adversarial-base snapshot:** `0x7116dd337940a93e821624d4da78f0a0bebbc9ef2ae4a1592b9cff8b6955ed33`
+**Note:** Tenderly vnet write quota was exhausted mid-pass. Findings marked "(static)" relied on `eth_call` simulations rather than committed transactions. All committed findings have tx hashes.
+
+### Challenged PASS Rows
+
+| Defensive Case | Defensive Result | Adversarial Verdict | Evidence |
+|---|---|---|---|
+| S1 (Morpho supply/withdraw) | PASS | **UPHELD** | First-depositor inflation attack (ERC-4626 style) attempted: attacker supplied 1 wei (`0x9da6efad...`), then donated 100 USDC directly to Morpho (`0xe3f788b3...`). Morpho Blue tracks `totalSupplyAssets` internally, not via `balanceOf(token)`. Donated USDC is unreachable surplus -- share ratio unchanged. Victim's 50 USDC deposit (`0x42c23158...`) received correct shares (50000000000000). **Inflation attack mitigated by design.** |
+| S2 (Bento room lifecycle) | PARTIAL | **BROKEN -- see F1** | Owner set `settlementRescueDelay` to 0 (`0x012299c0...`) then called `rescueFailedSettlement` on Locked room 1 (`0x31ac1768...`). Room transitioned from Locked (1) to Cancelled (4). Static call confirms refund would succeed. Full PoC chain: `setSettlementRescueDelay(0)` -> `rescueFailedSettlement(roomId)` -> room cancelled -> players refund. |
+| S3 (CCTP gateway deposit) | PASS | **UPHELD (with correction)** | Three-tier length validation confirmed: (1) `>= 216 bytes` first check, (2) `mintRecipient == hub` at offset, (3) `>= 376 bytes` second check for hookData. Crafted 400-byte message with correct mintRecipient reverted with `HookDataMismatch` (`0xbab6cd03`). hookData malleability is blocked. Defensive report stated min check as 148 -- actual first tier is 216. |
+| S4 (Access control) | PASS | **UPHELD (with nuance)** | Critical setters (`setSettlementManager`, `setEscrow`) are **one-shot** -- revert with `SETTLEMENT_MANAGER_SET` / `ESCROW_SET` after first call. This mitigates the worst R1 scenarios. However, `setChallengeWindow`, `setRoundManager`, `setSettlementRescueDelay`, `setLimits`, and `setEntryToken` are all **repeatable** by owner. See F1 and F2. |
+| S5 (Edge cases) | PASS | **UPHELD** | Zero-fee room creation reverted (`0xec03e43e...`, status 0x0). Non-player refund on cancelled room reverted (`0xa7ef4f1e...`, status 0x0). Settle on cancelled room reverted (`0x011a7c88...`, status 0x0). Cancel of locked room by non-owner reverted (`0x0b111d92...`, status 0x0). All edge-case guards held. **Exception:** 1-wei entry fee room creation SUCCEEDED (`0xbc2471aa...`) -- see F3. |
+
+### New Findings
+
+| # | Class | Severity | Surface | One-liner | Preconditions | PoC Trace | Recommended Fix |
+|---|---|---|---|---|---|---|---|
+| F1 | Governance griefing | **High** | FxBentoSettlementManager: `setSettlementRescueDelay` + `rescueFailedSettlement` | Owner can set rescue delay to 0 and immediately force-cancel any Locked room, griefing all active games | Compromised or malicious owner EOA | `0x012299c0...` (setDelay=0), `0x31ac1768...` (rescue room 1: Locked->Cancelled) | Add minimum floor to `setSettlementRescueDelay` (e.g., >= 3600s). Alternatively, enforce a timelock on this setter via TimelockController. |
+| F2 | Governance griefing | **Medium** | FxBentoSettlementManager: `setChallengeWindow` | Owner can set challenge window to 0, allowing instant finalization of results with no dispute period | Compromised or malicious owner EOA | Static call `setChallengeWindow(0)` returns 0x (success) | Add minimum floor (e.g., >= 300s). Pair with timelock. |
+| F3 | Spam / DoS | **Low** | FxBentoRoomFactory: `createRoom` | Rooms can be created with 1 wei entry fee (effectively free). Attacker can spam room creation, polluting UI/indexer | Anyone (permissionless) | `0xbc2471aa...` (room 3 created with entryFee=1) | Add minimum entry fee check (e.g., >= 1 USDC = 1000000). |
+| F4 | Fee misconfiguration | **Low** | MorphoBlue: `setFee` + `feeRecipient` | Owner can enable non-zero market fees while `feeRecipient` is `address(0)`. Fees accrue but are permanently unclaimable (burned). | Owner calls `setFee` before `setFeeRecipient` | Static call `setFee(marketParams, 1e17)` returns 0x (success) while `feeRecipient()` is `address(0)` | Gate `setFee` to require `feeRecipient != address(0)`, or set fee recipient before any fee activation. |
+| F5 | Centralization | **Medium** | FxBentoSettlementManager: `setRoundManager` | Owner can change the round manager to an arbitrary address at any time (repeatable setter). A malicious round manager could manipulate round outcomes. | Compromised owner EOA | Static call `setRoundManager(attacker)` returns 0x (success) | Make `setRoundManager` one-shot (like `setSettlementManager`) or add timelock. |
+
+### Severity Reassessments
+
+| Defensive # | Defensive Severity | Adversarial Verdict | Justification |
+|---|---|---|---|
+| R1 | Medium | **Medium-High** | The one-shot protection on `setSettlementManager` and `setEscrow` prevents the worst-case fund theft. However, `setSettlementRescueDelay(0)` + `rescueFailedSettlement` (F1) demonstrates a concrete griefing path that can cancel ALL active rooms instantly. The repeatable setters (`setChallengeWindow`, `setRoundManager`, `setSettlementRescueDelay`) expand the attack surface beyond what "Medium" implies. Upgrade contingent on timelock deployment. |
+| R2 | Low | **Low (confirmed)** | Stale oracle freezes borrows but does not create exploitable conditions. Liquidations also freeze (no undercollateralized positions can be seized during oracle outage), which is actually a safety property. Combined with R5 (zero fee recipient): no amplification -- stale oracle + zero fee recipient is additive, not multiplicative. |
+| R3 | Info | **Info (confirmed)** | Panic(17) underflow on over-withdrawal is standard Morpho behavior. Not exploitable. |
+| R4 | Medium | **Medium (confirmed with F1 amplification)** | V4 pool dependency can lock rooms in Locked state. The escape hatch (rescue) was intended to require 86400s delay, but F1 shows the owner can bypass this. Without F1 fix, R4 + R1 = owner can lock rooms (by draining V4 pool) then immediately rescue-cancel them. |
+| R5 | Low | **Low (confirmed, see F4)** | Fee recipient at address(0) is currently harmless since fees are 0. F4 documents that fees CAN be enabled before a recipient is set, which would permanently burn accrued fees. No fund theft risk. |
+| R6 | Info | **Info (confirmed)** | 24h stranded deposit grace period is by-design. Cannot be shortened by attacker (no setter for `STRANDED_DEPOSIT_GRACE` -- it's immutable/constructor-set). |
+
+### Attack Vectors Tested but Not Exploitable
+
+| Vector | Agenda # | Result | Trace |
+|---|---|---|---|
+| First-depositor inflation (Morpho) | 5 | **Not exploitable** -- Morpho Blue uses internal accounting, not `balanceOf`. Direct USDC donation trapped as unreachable surplus. | `0x9da6efad...`, `0xe3f788b3...`, `0x42c23158...` |
+| CCTP hookData malleability | 6 | **Not exploitable** -- Three-tier validation: length >= 216, mintRecipient == hub, length >= 376 + hookData consistency check (`HookDataMismatch`). | Static calls with 148/216/256/375/400 byte messages |
+| Morpho reentrancy via callbacks | 7 | **Not exploitable** -- Supply/liquidate callbacks are pull-style (caller must transfer tokens during callback). Loan token is USDC (standard ERC-20, no reentrancy hooks). FlashLoan rejects 0-amount. | Flash loan 0-amount revert: `"zero assets"` |
+| Cancel Locked room as non-owner | 4 | **Not exploitable** -- Reverts. | `0x0b111d92...` (status 0x0) |
+| Refund from Locked room | 4 | **Not exploitable** -- Reverts. | `0x4c188788...` (status 0x0) |
+| Non-player refund from Cancelled room | 4 | **Not exploitable** -- Reverts. | `0xa7ef4f1e...` (status 0x0) |
+| Direct `transitionRoomStatus` bypass | 4 | **Not exploitable** -- `NOT_ESCROW` revert. | `0xa57641b1...` (status 0x0) |
+| Settlement manager swap to drain escrow | 3 (R1) | **Not exploitable** -- `setSettlementManager` is one-shot, reverts with `SETTLEMENT_MANAGER_SET`. | Static call revert |
+| Escrow redirect to drain funds | 3 (R1) | **Not exploitable** -- `setEscrow` is one-shot, reverts with `ESCROW_SET`. | Static call revert |
+| Escrow emergency drain functions | 2 | **Not exploitable** -- No `emergencyWithdraw`, `sweep`, or `rescue` functions exist on escrow contract. | Static call reverts (function not found) |
+
+### Staging Artefact Weaponization Assessment
+
+| Artefact | Production Equivalent | Weaponizable? | Notes |
+|---|---|---|---|
+| `tenderly_setBalance` | Governance mint / airdrop | **No** | Self-funding doesn't bypass Morpho internal accounting or escrow access control |
+| `tenderly_setErc20Balance` | Token admin mint | **No** | Same as above -- Morpho tracks assets internally, escrow tracks per-room |
+| `evm_increaseTime` | Natural time passage | **Partially** | Enables rescue after delay. Combined with F1 (delay=0), this is moot -- attacker doesn't even need time manipulation |
+| `evm_snapshot/revert` | N/A (no production equivalent) | **No** | State branching is a test-only capability |
+
+---
+
 ## Sign-off
 
 | Pass | Status |
 |------|--------|
 | Defensive | Complete |
-| Adversarial | Pending |
+| Adversarial | Complete |
