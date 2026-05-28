@@ -34,7 +34,21 @@ Sequencing principle: **stop the bleeding → bank the wins → harmonize → fi
 
 ## Phase 2 — KISS harmonization (design first, then migrate; M–L, medium risk)
 
-The AI-first-simple core. Each is back-compat-safe (add new, deprecate old on a date).
+**Status 2026-05-28: 2.2 DONE, 2.5 DONE, 2.6 met-via-alias. 2.1 / 2.3 / 2.4 / 2.7 deferred (rationale below) — they need a design pass or are already doc-mitigated; not safe to big-bang on a money path autonomously.**
+
+- **2.2 ✅** — `quoteSpotOut` tested helper in `@bufi/fx-spot` (8 unit tests); `spot_buy` is now a 1-call human-units flow with auto slippage. Also closed Phase 1.3.
+- **2.5 ✅** — `GET /api/portfolio/:address` unifies perp + lending reads.
+- **2.6 ✅ (externally)** — verified `trader=` works on perp, spot, lending, and ghost. The one-name goal is met; renaming the lending/ghost handler internals (still `supplier`/`depositor` under the alias) is cosmetic and deferred.
+- **2.3 / 2.4 deferred** — the spot-vs-perp + symbol-grammar confusion was already resolved by the llms.txt product/chain map (re-dogfood agent picked the right endpoint by call #2). Consolidating `/api/quote` + `/api/spot/quote` into one endpoint is tidiness with marginal added agent value now and real risk to the working perp-quote path. Do it as a deliberate, reviewed deprecation, not a drive-by.
+- **2.7 deferred** — partly a contract concern (chainId lives in the typedData); low marginal value once docs stopped surfacing it.
+- **2.1 deferred — NEEDS DESIGN.** This is the centerpiece and the largest change. Sketch for the design pass:
+  - Today: perp already has prepare→execute; spot signs offline (no execute); lending returns `{action,deadline,nonce}` with no typed data; ghost returns raw contract params. Four shapes.
+  - Target: every mutating action returns `{ intentId, typedData, digest, cost, expiresAt }`; one `POST /api/execute { intentId, signature }` verifies + submits.
+  - Building block already in-repo but unused: `packages/mcp/src/runner.ts` `WorkflowRunner` models exactly this (draft → pending_signature → resume/verify → run). Wire routes through it + an intent store.
+  - Migration: add the envelope + `/api/execute` alongside the current endpoints; keep `trade/execute` as an alias; deprecate per-product execute paths on a date.
+  - Risk: stateful (intent store), touches every mutating route, money path → needs review + a re-dogfood before the old paths are removed.
+
+Each remaining item is back-compat-safe (add new, deprecate old on a date).
 
 | # | Action | Why | Notes |
 |---|---|---|---|
@@ -47,6 +61,8 @@ The AI-first-simple core. Each is back-compat-safe (add new, deprecate old on a 
 | 2.7 | **Hide the two-chain split** (spot=Fuji 43113, perp=Arc 5042002) from the request contract. The `typedData` already carries `chainId`. | Agents shouldn't reason about chains. | |
 
 ## Phase 3 — Real privacy (contracts; highest severity, L, high effort)
+
+**Status: OUT OF SCOPE for this repo.** Phase 0 shipped the honesty fixes (false privacy claims removed, privacyNotice on every ghost response). The actual fixes below are Solidity changes to `FxPrivacyEntrypoint` + the ZK circuits, whose source lives in a **separate repo** (`~/coding-dojo/fx-telarana/contracts/` per the ABI header), not here. Tracked, not actionable from `defi-web-app`.
 
 The crypto is sound; the leak is amount handling. Re-dogfood until the adversary's anonymity set > 1.
 
