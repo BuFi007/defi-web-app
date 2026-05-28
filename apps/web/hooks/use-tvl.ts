@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { formatUnits } from "viem";
 import {
   fetchMarkets,
   type TelaranaMarketSerialized,
@@ -23,9 +24,15 @@ function symbolOf(addr: string): string {
   return TOKEN_SYMBOLS[addr.toLowerCase()] ?? addr.slice(0, 6);
 }
 
+function decimalsForSymbol(symbol: string): number {
+  return symbol.toUpperCase() === "JPYC" ? 18 : 6;
+}
+
 function parseSupply(market: TelaranaMarketSerialized): number {
   if (!market.state?.totalSupplyAssets) return 0;
-  return Number(market.state.totalSupplyAssets) / 1e6;
+  const pair = guessSymbols(market);
+  const symbol = pair?.loan ?? symbolOf(market.loanToken);
+  return Number(formatUnits(BigInt(market.state.totalSupplyAssets), decimalsForSymbol(symbol)));
 }
 
 export interface TvlAsset {
@@ -148,6 +155,7 @@ function guessSymbols(
     "0x3600000000000000000000000000000000000000": "USDC",
     "0x89b50855aa3be2f677cd6303cec089b5f319d72a": "EURC",
     "0x50c4ba39caa7f56152d0df4914e1f6b907194992": "EURC",
+    "0xe7c3d8c9a439fede00d2600032d5db0be71c3c29": "JPYC",
     "0xe7c3d8e0c82f73fd4fabbc73e68b328318c29000": "JPYC",
   };
 

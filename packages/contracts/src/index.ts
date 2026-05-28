@@ -293,6 +293,13 @@ export interface BentoContracts {
   treasury?: Address;
 }
 
+export interface YieldContracts {
+  turboFeeVault?: Address;
+  fxHedgeHook?: Address;
+  poolManager?: Address;
+  liquidationRouter?: Address;
+}
+
 export interface ChainContracts {
   name: string;
   chainId: ChainId;
@@ -303,6 +310,7 @@ export interface ChainContracts {
   perps: PerpsContracts;
   bento: BentoContracts;
   privacy: PrivacyContracts;
+  yield: YieldContracts;
 }
 
 export const CONTRACTS: Record<ChainId, ChainContracts> = {
@@ -312,6 +320,7 @@ export const CONTRACTS: Record<ChainId, ChainContracts> = {
     gatewayDomain: 1,
     tokens: {
       usdc: "0x5425890298aed601595a70AB815c96711a31Bc65",
+      jpyc: "0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29",
     },
     telarana: {
       fxHubMessageReceiver: "0x7eAdfD0c08dd6544f763285bBD31be14179d594B",
@@ -325,6 +334,9 @@ export const CONTRACTS: Record<ChainId, ChainContracts> = {
     },
     perps: {},
     bento: {},
+    yield: {
+      poolManager: "0x5A517f51edca02880542effb8b6a3bdFaAcaD8B2",
+    },
     // Privacy Hook v1 (Option A) on Fuji — shielded USDC pool only;
     // cross-currency relay NOT wired (Track B v2 lives on Arc only).
     // Source: ~/coding-dojo/fx-telarana/deployments/privacy-hook-fuji.json.
@@ -347,6 +359,7 @@ export const CONTRACTS: Record<ChainId, ChainContracts> = {
     perps: {},
     bento: {},
     privacy: {},
+    yield: {},
   },
   5042002: {
     name: "Arc Testnet",
@@ -397,6 +410,12 @@ export const CONTRACTS: Record<ChainId, ChainContracts> = {
       orderSettlement: "0xCeae7846c8ED2Dd9E6f541798a657875305EA0d8",
     },
     bento: {},
+    yield: {
+      turboFeeVault: "0x929e222CBbC154f8e75a8DEF951288886Df70531",
+      fxHedgeHook: "0x466e2BBFbF3D2Ca1a90eCf25fFF1e275b548C540",
+      poolManager: "0x403Aa1347a77195FB4dEddc362758AA9e0a48D2E",
+      liquidationRouter: "0xc98c0DAAe36F8755933051419c6919bFC038152d",
+    },
     // Privacy Hook v1 on Arc (sprint 2026-05-18) — shielded USDC + EURC
     // pools + Track B v2 fixed-rate swap adapter for atomic cross-currency
     // relay. `swapAdapter` is the v2 (codex round-11 patched) variant;

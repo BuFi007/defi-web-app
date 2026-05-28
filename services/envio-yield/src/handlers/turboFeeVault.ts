@@ -35,9 +35,11 @@ indexer.onEvent(
 
     // Compute annualized fee APY: (daily_vault_inflow * 365) / total_deposits
     // Both values are in token units (6 or 18 decimals). Result in 1e18 precision.
-    const totalDeposits = snap.totalSupply > 0n ? snap.totalSupply : 1n;
+    const totalDeposits = snap.totalSupply;
     const dailyFeeInflow = snap.turboLpShare + event.params.lpShare;
-    const annualized = (dailyFeeInflow * 365n * 10n ** 18n) / totalDeposits;
+    const annualized = totalDeposits > 0n
+      ? (dailyFeeInflow * 365n * 10n ** 18n) / totalDeposits
+      : 0n;
 
     const feeBoostApy = annualized;
     const compositeApy = snap.morphoBaseApy + feeBoostApy;

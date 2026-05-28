@@ -598,6 +598,7 @@ export function symbolForToken(address: Address): string {
     "0x3600000000000000000000000000000000000000": "USDC",
     "0x89b50855aa3be2f677cd6303cec089b5f319d72a": "EURC",
     "0xd2a530170d71a9cfe1651fb468e2b98f7ed7456b": "AUDF", // Forte canonical (same address on Eth Sepolia)
+    "0xe7c3d8c9a439fede00d2600032d5db0be71c3c29": "JPYC", // JPYC Inc official token
     // Ethereum Sepolia
     "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238": "USDC", // Circle canonical
     "0x5fd84259d66cd46123540766be93dfe6d43130d7": "USDC", // (legacy: actually OP Sepolia — kept for backward-compat)
@@ -611,11 +612,9 @@ export function symbolForToken(address: Address): string {
 }
 
 function decimalsForSymbol(sym: string): number {
-  // USDC, EURC, MXNB, and AUDF are all 6-dp on the live testnet deployments
-  // (Bitso ships MXNB at 6-dp, Forte ships AUDF at 6-dp; both match the
-  // Fuji/Arc USDC representation). The synthetic mJPYC / mKRW1 / mZCHF
-  // tokens shown in the static LOAN_MARKETS aren't backed by real onchain
-  // markets — they keep the table populated for demo purposes.
+  // USDC, EURC, MXNB, and AUDF are all 6-dp on the live testnet deployments.
+  // Official JPYC is 18-dp, verified on Arc at 0xE7C3D8C9...c29.
+  if (sym === "JPYC" || sym === "MJPYC") return 18;
   if (sym === "USDC" || sym === "EURC" || sym === "MXNB" || sym === "AUDF") return 6;
   return 6;
 }
@@ -701,17 +700,17 @@ function toLoanMarket(market: TelaranaMarketSerialized): LoanMarket {
   const hasState = Boolean(market.state);
   const supplyAssets = hasState ? BigInt(market.state!.totalSupplyAssets) : 0n;
   const borrowAssets = hasState ? BigInt(market.state!.totalBorrowAssets) : 0n;
+  const loanDecimals = decimalsForSymbol(loanSym);
+  const collateralDecimals = decimalsForSymbol(collSym);
   const util = hasState
     ? supplyAssets > 0n
       ? Number((borrowAssets * 10_000n) / supplyAssets) / 10_000
       : 0
     : null;
-  // 6-dp atomic → USD float. We assume both stables sit at 6 decimals
-  // on every deployed market (USDC, EURC, MXNB, AUDF are all 6-dp on
-  // testnets per their issuer docs); revisit when a 18-dp loan asset
-  // lands. Show 0 (not null) for TVL on empty markets — "$0" is honest
-  // and useful (tells user no capital is locked yet).
-  const tvl = hasState ? Number((supplyAssets - borrowAssets) / 10n ** 4n) / 100 : null;
+  // Net loan-token supply as a human float. JPYC markets use 18 decimals,
+  // so this must not assume 6-dp stablecoin accounting.
+  const netSupplyAssets = supplyAssets > borrowAssets ? supplyAssets - borrowAssets : 0n;
+  const tvl = hasState ? Number(formatUnits(netSupplyAssets, loanDecimals)) : null;
   // LLTV is an immutable MarketParams field — the SDK fills it even when
   // the runtime state read fails, so it's safe to surface unconditionally.
   const lltv = market.lltv ? Number(BigInt(market.lltv) / 10n ** 14n) / 10_000 : null;
@@ -748,8 +747,8 @@ function toLoanMarket(market: TelaranaMarketSerialized): LoanMarket {
       marketId: market.id,
       loanToken: market.loanToken,
       collateralToken: market.collateralToken,
-      loanDecimals: decimalsForSymbol(loanSym),
-      collateralDecimals: decimalsForSymbol(collSym),
+      loanDecimals,
+      collateralDecimals,
     },
   };
 }
@@ -1311,8 +1310,9 @@ function MarketsTable({
                   p.hubChainId === m.onchain!.hubChainId,
               )
             : undefined;
-          const supplyUsd = pos ? liveSupplyValueUsd(pos) : 0;
-          const borrowUsd = pos ? liveBorrowValueUsd(pos) : 0;
+          const loanDecimals = m.onchain?.loanDecimals ?? 6;
+          const supplyUsd = pos ? liveSupplyValueUsd(pos, loanDecimals) : 0;
+          const borrowUsd = pos ? liveBorrowValueUsd(pos, loanDecimals) : 0;
           const supplyApy = m.yield?.compositeApy ?? m.supply;
           const baseApy = m.yield?.morphoBaseApy ?? m.supply;
           const feeBoostApy = m.yield?.feeBoostApy;
@@ -2349,7 +2349,7 @@ function mergeMockAndLiveMarkets(live: LoanMarket[]): LoanMarket[] {
 // finite — keeps the input empty rather than showing "NaN".
 function formatAmountForInput(value: number, decimals: number): string {
   if (!Number.isFinite(value) || value <= 0) return "";
-  const cap = Math.max(0, Math.min(decimals, 8));
+  const cap = Math.max(0, Math.min(decimals, 18));
   const rounded = Number(value.toFixed(cap));
   if (Number.isInteger(rounded)) return rounded.toString();
   return rounded.toString();
