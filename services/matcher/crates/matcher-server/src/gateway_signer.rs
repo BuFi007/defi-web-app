@@ -7,11 +7,11 @@
 
 use std::collections::BTreeMap;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 
-use alloy_network::EthereumWallet;
 use alloy_primitives::{hex, Address, Bytes, B256, Signature as PrimitiveSignature, U256};
-use alloy_provider::{Provider, ProviderBuilder};
+use alloy_provider::Provider;
 use alloy_signer::SignerSync;
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::{eip712_domain, sol, SolStruct};
@@ -22,13 +22,12 @@ use tokio::time::sleep;
 use tracing::{debug, info, warn};
 
 use crate::config::Config;
+use crate::tx_submitter::{TxSubmitter, TxSubmitterRegistry};
 
 const ARC_CHAIN_ID: u64 = 5_042_002;
 const FUJI_CHAIN_ID: u64 = 43_113;
 const ARC_DOMAIN: u32 = 26;
 const FUJI_DOMAIN: u32 = 1;
-const DEFAULT_ARC_RPC_URL: &str = "https://rpc.testnet.arc.network";
-const DEFAULT_FUJI_RPC_URL: &str = "https://api.avax-test.network/ext/bc/C/rpc";
 const DEFAULT_GATEWAY_API_BASE: &str = "https://gateway-api-testnet.circle.com/v1";
 const DEFAULT_MAX_FEE: u64 = 2_010_000;
 const MAX_BLOCK_WINDOW: u64 = 7_200;
@@ -138,8 +137,8 @@ enum GatewaySignerError {
     ApiParse(String),
     #[error("Circle Gateway: {0}")]
     Circle(String),
-    #[error("invalid RPC URL for chain {chain_id}: {reason}")]
-    InvalidRpcUrl { chain_id: u64, reason: String },
+    #[error("no tx_submitter registered for chain {0}")]
+    NoTxSubmitter(u64),
     #[error("unsupported Gateway domain {0}")]
     UnsupportedDomain(u32),
     #[error("on-chain: {0}")]
@@ -154,13 +153,19 @@ pub struct GatewaySigner {
     interval: Duration,
     dry_run: bool,
     candidate_limit: usize,
+    /// EIP-712 signer for BurnIntent — kept local so we don't go through
+    /// the tx_submitter for the OFF-chain Circle Gateway attestation flow.
     signer: PrivateKeySigner,
-    signer_key_hex: String,
+    tx_submitters: TxSubmitterRegistry,
     http: reqwest::Client,
 }
 
 impl GatewaySigner {
-    pub fn new(cfg: &Config, signer_key_hex: &str) -> Result<Option<Self>, GatewaySignerBootError> {
+    pub fn new(
+        cfg: &Config,
+        signer_key_hex: &str,
+        tx_submitters: TxSubmitterRegistry,
+    ) -> Result<Option<Self>, GatewaySignerBootError> {
         if !cfg.gateway_signer_enabled {
             return Ok(None);
         }
@@ -193,7 +198,7 @@ impl GatewaySigner {
             dry_run,
             candidate_limit,
             signer,
-            signer_key_hex: signer_key_hex.to_string(),
+            tx_submitters,
             http,
         }))
     }
@@ -329,12 +334,16 @@ impl GatewaySigner {
         }
 
         let destination_chain_id = chain_id_for_domain(route.destination_domain)?;
-        let destination_rpc = rpc_url_for_chain(destination_chain_id)?;
-        let destination_provider = ProviderBuilder::new()
-            .connect_http(destination_rpc);
+        // Use the destination chain's tx_submitter provider for the
+        // read-only state check, so we don't spin up an extra HTTP
+        // client just to call eth_call.
+        let dest_submitter = self
+            .tx_submitters
+            .get(destination_chain_id)
+            .ok_or(GatewaySignerError::NoTxSubmitter(destination_chain_id))?;
         let read_contract = TelaranaGatewayHubHookContract::new(
             context.telarana_gateway_hook,
-            &destination_provider,
+            dest_submitter.provider(),
         );
         let state = read_contract
             .gatewayRequestState(context.request_id)
@@ -358,18 +367,10 @@ impl GatewaySigner {
         let intent = self.build_signed_intent(&context, route).await?;
         let attestation = self.request_attestation(&intent).await?;
 
-        let signer: PrivateKeySigner =
-            self.signer_key_hex
-                .parse()
-                .map_err(|e: alloy_signer_local::LocalSignerError| {
-                    GatewaySignerError::Onchain(format!("invalid signer: {e}"))
-                })?;
-        let wallet = EthereumWallet::from(signer);
-        let provider = ProviderBuilder::new()
-            .wallet(wallet)
-            .connect_http(rpc_url_for_chain(destination_chain_id)?);
-        let contract =
-            TelaranaGatewayHubHookContract::new(context.telarana_gateway_hook, &provider);
+        let submitter = self
+            .tx_submitters
+            .get(destination_chain_id)
+            .ok_or(GatewaySignerError::NoTxSubmitter(destination_chain_id))?;
         let tx_context = TelaranaGatewayHubHookContract::GatewayMintContext {
             routeId: context.route_id,
             requestId: context.request_id,
@@ -384,25 +385,16 @@ impl GatewaySigner {
             metadataRef: context.metadata_ref,
             hookData: Bytes::new(),
         };
-        let pending = contract
-            .receiveGatewayMint(
-                attestation.attestation_payload,
-                attestation.signature,
-                tx_context,
-            )
-            .send()
+        let tx_request = build_receive_mint_request(
+            &submitter,
+            context.telarana_gateway_hook,
+            attestation,
+            tx_context,
+        );
+        let tx = submitter
+            .submit_tx(tx_request, "gateway.receiveGatewayMint")
             .await
-            .map_err(|e| GatewaySignerError::Onchain(format!("receiveGatewayMint send: {e}")))?;
-        let receipt = pending
-            .get_receipt()
-            .await
-            .map_err(|e| GatewaySignerError::Onchain(format!("receiveGatewayMint receipt: {e}")))?;
-        let tx = receipt.transaction_hash;
-        if !receipt.status() {
-            return Err(GatewaySignerError::Onchain(format!(
-                "receiveGatewayMint reverted (tx {tx:#x})"
-            )));
-        }
+            .map_err(|e| GatewaySignerError::Onchain(e.to_string()))?;
         Ok(GatewayOutcome::Attested(tx))
     }
 
@@ -412,8 +404,12 @@ impl GatewaySigner {
         route: &GatewayRoute,
     ) -> Result<SignedBurnIntent, GatewaySignerError> {
         let source_chain_id = chain_id_for_domain(route.source_domain)?;
-        let source_provider = ProviderBuilder::new().connect_http(rpc_url_for_chain(source_chain_id)?);
-        let head = source_provider
+        let source_submitter = self
+            .tx_submitters
+            .get(source_chain_id)
+            .ok_or(GatewaySignerError::NoTxSubmitter(source_chain_id))?;
+        let head = source_submitter
+            .provider()
             .get_block_number()
             .await
             .map_err(|e| GatewaySignerError::Onchain(format!("source head: {e}")))?;
@@ -501,6 +497,25 @@ impl GatewaySigner {
                 .map_err(|e| GatewaySignerError::Circle(format!("signature hex: {e}")))?,
         })
     }
+}
+
+/// Build the `receiveGatewayMint(...)` tx request against the
+/// destination chain's `TelaranaGatewayHubHook`, using the submitter's
+/// shared provider so the call carries the cached nonce path.
+fn build_receive_mint_request(
+    submitter: &Arc<TxSubmitter>,
+    hook: Address,
+    attestation: GatewayAttestation,
+    context: TelaranaGatewayHubHookContract::GatewayMintContext,
+) -> alloy_rpc_types_eth::TransactionRequest {
+    let contract = TelaranaGatewayHubHookContract::new(hook, submitter.provider());
+    contract
+        .receiveGatewayMint(
+            attestation.attestation_payload,
+            attestation.signature,
+            context,
+        )
+        .into_transaction_request()
 }
 
 type RouteMap = BTreeMap<B256, GatewayRoute>;
@@ -701,30 +716,6 @@ fn parse_optional_b256(raw: &str) -> B256 {
 
 fn parse_bytes(raw: &str) -> Result<Bytes, String> {
     Bytes::from_str(raw).map_err(|e| e.to_string())
-}
-
-fn rpc_url_for_chain(chain_id: u64) -> Result<reqwest::Url, GatewaySignerError> {
-    let raw = match chain_id {
-        ARC_CHAIN_ID => std::env::var("GATEWAY_SIGNER_ARC_RPC_URL")
-            .or_else(|_| std::env::var("TELARANA_ARC_RPC_URL"))
-            .or_else(|_| std::env::var("ARC_RPC_URL"))
-            .unwrap_or_else(|_| DEFAULT_ARC_RPC_URL.to_string()),
-        FUJI_CHAIN_ID => std::env::var("GATEWAY_SIGNER_FUJI_RPC_URL")
-            .or_else(|_| std::env::var("TELARANA_FUJI_RPC_URL"))
-            .or_else(|_| std::env::var("FUJI_RPC_URL"))
-            .unwrap_or_else(|_| DEFAULT_FUJI_RPC_URL.to_string()),
-        other => {
-            return Err(GatewaySignerError::InvalidRpcUrl {
-                chain_id: other,
-                reason: "unsupported hub chain".to_string(),
-            })
-        }
-    };
-    raw.parse::<reqwest::Url>()
-        .map_err(|e| GatewaySignerError::InvalidRpcUrl {
-            chain_id,
-            reason: e.to_string(),
-        })
 }
 
 fn chain_id_for_domain(domain: u32) -> Result<u64, GatewaySignerError> {

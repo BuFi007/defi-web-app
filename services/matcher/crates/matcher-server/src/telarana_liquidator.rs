@@ -6,11 +6,10 @@
 //! the canonical lending-position indexer.
 
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 
-use alloy_network::EthereumWallet;
 use alloy_primitives::{Address, Bytes, B256, U256};
-use alloy_provider::ProviderBuilder;
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::sol;
 use serde::Deserialize;
@@ -20,6 +19,7 @@ use tokio::time::sleep;
 use tracing::{debug, info, warn};
 
 use crate::config::Config;
+use crate::tx_submitter::{TxSubmitter, TxSubmitterRegistry};
 
 const WAD: U256 = U256::from_limbs([1_000_000_000_000_000_000, 0, 0, 0]);
 const MAX_REPAY_ASSETS: U256 = U256::from_limbs([
@@ -55,10 +55,8 @@ pub enum TelaranaLiquidatorBootError {
 
 #[derive(Debug, Error)]
 enum TelaranaLiquidatorError {
-    #[error("unsupported hub chain id {0}")]
-    UnsupportedChain(u64),
-    #[error("invalid RPC URL for chain {chain_id}: {reason}")]
-    InvalidRpcUrl { chain_id: u64, reason: String },
+    #[error("no tx_submitter registered for chain {0}")]
+    NoTxSubmitter(u64),
     #[error("invalid liquidator address for chain {chain_id}: {reason}")]
     InvalidLiquidatorAddress { chain_id: u64, reason: String },
     #[error("api http: {0}")]
@@ -69,14 +67,14 @@ enum TelaranaLiquidatorError {
     Onchain(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct TelaranaLiquidator {
     api_url: String,
     chain_ids: Vec<u64>,
     interval: Duration,
     dry_run: bool,
     candidate_limit: usize,
-    signer_key_hex: String,
+    tx_submitters: TxSubmitterRegistry,
     http: reqwest::Client,
 }
 
@@ -84,12 +82,16 @@ impl TelaranaLiquidator {
     pub fn new(
         cfg: &Config,
         signer_key_hex: &str,
+        tx_submitters: TxSubmitterRegistry,
     ) -> Result<Option<Self>, TelaranaLiquidatorBootError> {
         if !cfg.telarana_liquidator_enabled {
             return Ok(None);
         }
         let api_url = normalize_api_url(&cfg.telarana_api_url)
             .map_err(TelaranaLiquidatorBootError::InvalidApiUrl)?;
+        // Validate the signer key matches what tx_submitter already
+        // initialised. tx_submitter owns the actual signing; we just
+        // fail-fast here if the caller hands us garbage.
         let _signer: PrivateKeySigner =
             signer_key_hex
                 .parse()
@@ -106,7 +108,7 @@ impl TelaranaLiquidator {
             interval: cfg.telarana_liquidator_interval,
             dry_run: cfg.telarana_liquidator_dry_run,
             candidate_limit: cfg.telarana_liquidator_candidate_limit.max(1),
-            signer_key_hex: signer_key_hex.to_string(),
+            tx_submitters,
             http,
         }))
     }
@@ -310,44 +312,45 @@ impl TelaranaLiquidator {
         position: LiquidationCandidate,
     ) -> Result<B256, TelaranaLiquidatorError> {
         let liquidator = liquidator_address_for_chain(chain_id)?;
-        let rpc_url = rpc_url_for_chain(chain_id)?;
-        let signer: PrivateKeySigner =
-            self.signer_key_hex
-                .parse()
-                .map_err(|e: alloy_signer_local::LocalSignerError| {
-                    TelaranaLiquidatorError::Onchain(format!("invalid signer: {e}"))
-                })?;
-        let wallet = EthereumWallet::from(signer);
-        let provider = ProviderBuilder::new()
-            .wallet(wallet)
-            .connect_http(rpc_url);
-        let contract = FxLiquidator::new(liquidator, &provider);
-        let pending = contract
-            .liquidate(
-                market.loan_token,
-                market.collateral_token,
-                position.account,
-                position.collateral,
-                U256::ZERO,
-                MAX_REPAY_ASSETS,
-                true,
-                Vec::<Bytes>::new(),
-            )
-            .send()
+        let submitter = self
+            .tx_submitters
+            .get(chain_id)
+            .ok_or(TelaranaLiquidatorError::NoTxSubmitter(chain_id))?;
+        let tx_request = build_liquidate_request(
+            &submitter,
+            liquidator,
+            market,
+            position,
+        );
+        submitter
+            .submit_tx(tx_request, "telarana.liquidate")
             .await
-            .map_err(|e| TelaranaLiquidatorError::Onchain(format!("liquidate send: {e}")))?;
-        let receipt = pending
-            .get_receipt()
-            .await
-            .map_err(|e| TelaranaLiquidatorError::Onchain(format!("liquidate receipt: {e}")))?;
-        let tx = receipt.transaction_hash;
-        if !receipt.status() {
-            return Err(TelaranaLiquidatorError::Onchain(format!(
-                "liquidate reverted (tx {tx:#x})"
-            )));
-        }
-        Ok(tx)
+            .map_err(|e| TelaranaLiquidatorError::Onchain(e.to_string()))
     }
+}
+
+/// Build the `liquidate(...)` transaction request using the shared
+/// provider attached to `submitter`. Goes through `into_transaction_request`
+/// so the submitter can stamp `nonce` + `from` and serialise the send.
+fn build_liquidate_request(
+    submitter: &Arc<TxSubmitter>,
+    liquidator: Address,
+    market: TelaranaMarket,
+    position: LiquidationCandidate,
+) -> alloy_rpc_types_eth::TransactionRequest {
+    let contract = FxLiquidator::new(liquidator, submitter.provider());
+    contract
+        .liquidate(
+            market.loan_token,
+            market.collateral_token,
+            position.account,
+            position.collateral,
+            U256::ZERO,
+            MAX_REPAY_ASSETS,
+            true,
+            Vec::<Bytes>::new(),
+        )
+        .into_transaction_request()
 }
 
 enum CandidateOutcome {
@@ -423,25 +426,6 @@ fn normalize_api_url(raw: &str) -> Result<String, String> {
         out.pop();
     }
     Ok(out)
-}
-
-fn rpc_url_for_chain(chain_id: u64) -> Result<reqwest::Url, TelaranaLiquidatorError> {
-    let raw = match chain_id {
-        43113 => std::env::var("TELARANA_FUJI_RPC_URL")
-            .or_else(|_| std::env::var("PONDER_RPC_URL_AVAX_FUJI"))
-            .or_else(|_| std::env::var("FUJI_RPC_URL"))
-            .unwrap_or_else(|_| "https://avalanche-fuji.gateway.tenderly.co".to_string()),
-        5042002 => std::env::var("TELARANA_ARC_RPC_URL")
-            .or_else(|_| std::env::var("PONDER_RPC_URL_ARC_TESTNET"))
-            .or_else(|_| std::env::var("ARC_RPC_URL"))
-            .unwrap_or_else(|_| "https://rpc.testnet.arc.network".to_string()),
-        other => return Err(TelaranaLiquidatorError::UnsupportedChain(other)),
-    };
-    raw.parse::<reqwest::Url>()
-        .map_err(|e| TelaranaLiquidatorError::InvalidRpcUrl {
-            chain_id,
-            reason: e.to_string(),
-        })
 }
 
 fn liquidator_address_for_chain(chain_id: u64) -> Result<Address, TelaranaLiquidatorError> {

@@ -5,11 +5,10 @@
 //! `FxBentoSettlementManager.submitResults(...)`.
 
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use alloy_network::EthereumWallet;
 use alloy_primitives::{keccak256, Address, Bytes, B256, U256};
-use alloy_provider::ProviderBuilder;
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::sol;
 use serde::Deserialize;
@@ -19,11 +18,10 @@ use tokio::time::sleep;
 use tracing::{debug, info, warn};
 
 use crate::config::Config;
+use crate::tx_submitter::{TxSubmitter, TxSubmitterRegistry};
 
 const ARC_CHAIN_ID: u64 = 5_042_002;
 const FUJI_CHAIN_ID: u64 = 43_113;
-const DEFAULT_ARC_RPC_URL: &str = "https://rpc.testnet.arc.network";
-const DEFAULT_FUJI_RPC_URL: &str = "https://api.avax-test.network/ext/bc/C/rpc";
 const DEFAULT_ARC_SETTLEMENT_MANAGER: &str = "0x8f635571aaea4b1391534cd92932caa839e04bcd";
 const DEFAULT_FUJI_SETTLEMENT_MANAGER: &str = "0xa73208b62af9a87fb5e2b694b27f510d70e17746";
 
@@ -89,8 +87,8 @@ enum ArcadeSettlerError {
     ApiGraphql(String),
     #[error("api parse: {0}")]
     ApiParse(String),
-    #[error("invalid RPC URL for chain {chain_id}: {reason}")]
-    InvalidRpcUrl { chain_id: u64, reason: String },
+    #[error("no tx_submitter registered for chain {0}")]
+    NoTxSubmitter(u64),
     #[error("invalid settlement manager for chain {chain_id}: {reason}")]
     InvalidSettlementManager { chain_id: u64, reason: String },
     #[error("on-chain: {0}")]
@@ -102,18 +100,23 @@ pub struct ArcadeSettler {
     interval: Duration,
     dry_run: bool,
     candidate_limit: usize,
-    signer_key_hex: String,
+    tx_submitters: TxSubmitterRegistry,
     http: reqwest::Client,
 }
 
 impl ArcadeSettler {
-    pub fn new(cfg: &Config, signer_key_hex: &str) -> Result<Option<Self>, ArcadeSettlerBootError> {
+    pub fn new(
+        cfg: &Config,
+        signer_key_hex: &str,
+        tx_submitters: TxSubmitterRegistry,
+    ) -> Result<Option<Self>, ArcadeSettlerBootError> {
         if !cfg.arcade_settler_enabled {
             return Ok(None);
         }
 
         let api_url = normalize_api_url(&cfg.telarana_api_url)
             .map_err(ArcadeSettlerBootError::InvalidApiUrl)?;
+        // tx_submitter owns signing; this validates the key shape only.
         let _signer: PrivateKeySigner =
             signer_key_hex
                 .parse()
@@ -133,7 +136,7 @@ impl ArcadeSettler {
             interval,
             dry_run,
             candidate_limit,
-            signer_key_hex: signer_key_hex.to_string(),
+            tx_submitters,
             http,
         }))
     }
@@ -265,35 +268,34 @@ impl ArcadeSettler {
             return Ok(ArcadeOutcome::DryRun);
         }
 
-        let signer: PrivateKeySigner =
-            self.signer_key_hex
-                .parse()
-                .map_err(|e: alloy_signer_local::LocalSignerError| {
-                    ArcadeSettlerError::Onchain(format!("invalid signer: {e}"))
-                })?;
-        let wallet = EthereumWallet::from(signer);
-        let provider = ProviderBuilder::new()
-            .wallet(wallet)
-            .connect_http(rpc_url_for_chain(room.chain_id)?);
+        let submitter = self
+            .tx_submitters
+            .get(room.chain_id)
+            .ok_or(ArcadeSettlerError::NoTxSubmitter(room.chain_id))?;
         let manager = settlement_manager_for_chain(room.chain_id)?;
-        let contract = FxBentoSettlementManagerContract::new(manager, &provider);
-        let pending = contract
-            .submitResults(room.room_id, payout, metadata_uri, Bytes::new())
-            .send()
+        let tx_request =
+            build_submit_results_request(&submitter, manager, &room, payout, metadata_uri);
+        submitter
+            .submit_tx(tx_request, "arcade.submitResults")
             .await
-            .map_err(|e| ArcadeSettlerError::Onchain(format!("submitResults send: {e}")))?;
-        let receipt = pending
-            .get_receipt()
-            .await
-            .map_err(|e| ArcadeSettlerError::Onchain(format!("submitResults receipt: {e}")))?;
-        let tx = receipt.transaction_hash;
-        if !receipt.status() {
-            return Err(ArcadeSettlerError::Onchain(format!(
-                "submitResults reverted (tx {tx:#x})"
-            )));
-        }
-        Ok(ArcadeOutcome::Submitted(tx))
+            .map(ArcadeOutcome::Submitted)
+            .map_err(|e| ArcadeSettlerError::Onchain(e.to_string()))
     }
+}
+
+/// Build the `submitResults(...)` tx request against the bento settlement
+/// manager using the submitter's shared provider.
+fn build_submit_results_request(
+    submitter: &Arc<TxSubmitter>,
+    manager: Address,
+    room: &ArcadeRoom,
+    payout: FxBentoSettlementManagerContract::PayoutRoot,
+    metadata_uri: String,
+) -> alloy_rpc_types_eth::TransactionRequest {
+    let contract = FxBentoSettlementManagerContract::new(manager, submitter.provider());
+    contract
+        .submitResults(room.room_id, payout, metadata_uri, Bytes::new())
+        .into_transaction_request()
 }
 
 enum ArcadeOutcome {
@@ -381,30 +383,6 @@ fn settlement_manager_for_chain(chain_id: u64) -> Result<Address, ArcadeSettlerE
     };
     raw.parse::<Address>()
         .map_err(|e| ArcadeSettlerError::InvalidSettlementManager {
-            chain_id,
-            reason: e.to_string(),
-        })
-}
-
-fn rpc_url_for_chain(chain_id: u64) -> Result<reqwest::Url, ArcadeSettlerError> {
-    let raw = match chain_id {
-        ARC_CHAIN_ID => std::env::var("ARCADE_SETTLER_ARC_RPC_URL")
-            .or_else(|_| std::env::var("TELARANA_ARC_RPC_URL"))
-            .or_else(|_| std::env::var("ARC_RPC_URL"))
-            .unwrap_or_else(|_| DEFAULT_ARC_RPC_URL.to_string()),
-        FUJI_CHAIN_ID => std::env::var("ARCADE_SETTLER_FUJI_RPC_URL")
-            .or_else(|_| std::env::var("TELARANA_FUJI_RPC_URL"))
-            .or_else(|_| std::env::var("FUJI_RPC_URL"))
-            .unwrap_or_else(|_| DEFAULT_FUJI_RPC_URL.to_string()),
-        other => {
-            return Err(ArcadeSettlerError::InvalidRpcUrl {
-                chain_id: other,
-                reason: "unsupported hub chain".to_string(),
-            })
-        }
-    };
-    raw.parse::<reqwest::Url>()
-        .map_err(|e| ArcadeSettlerError::InvalidRpcUrl {
             chain_id,
             reason: e.to_string(),
         })

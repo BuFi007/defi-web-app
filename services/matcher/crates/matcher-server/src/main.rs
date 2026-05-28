@@ -28,6 +28,7 @@ use crate::funding_poker::FundingPoker;
 use crate::insurance_fund::InsuranceFundWatchdog;
 use crate::lp_signer::LpSigner;
 use crate::lp_state::PathALpStateView;
+use crate::tx_submitter::{TxSubmitter, TxSubmitterRegistry};
 
 mod batch_flusher;
 mod arcade_settler;
@@ -57,6 +58,7 @@ mod settlement;
 mod spot_executor;
 mod telarana_liquidator;
 mod tick;
+mod tx_submitter;
 mod ws_gateway;
 
 #[tokio::main]
@@ -117,6 +119,19 @@ async fn main() -> ExitCode {
         Ok(c) => c,
         Err(e) => {
             error!(error = ?e, "build PerpsOnchain: aborting");
+            return ExitCode::FAILURE;
+        }
+    };
+
+    // ---------- TxSubmitter registry (shared nonce + retry, per chain) ----------
+    // The same signer key drives up to five tx-sending keepers across Arc
+    // and Fuji. Build one TxSubmitter per chain so they share a single
+    // cached pending-nonce and serialise submissions — no more "nonce too
+    // low" collisions when two keepers fire on the same tick.
+    let tx_submitters = match build_tx_submitter_registry(&cfg, &signer_key) {
+        Ok(reg) => reg,
+        Err(e) => {
+            error!(error = ?e, "build TxSubmitterRegistry: aborting");
             return ExitCode::FAILURE;
         }
     };
@@ -186,6 +201,7 @@ async fn main() -> ExitCode {
         &cfg,
         &dir,
         pyth_price_tx.subscribe(),
+        tx_submitters.clone(),
     ) {
         Ok(Some(liquidator)) => {
             info!("perps liquidator enabled (Hookathon Phase 6)");
@@ -202,7 +218,7 @@ async fn main() -> ExitCode {
     };
 
     // ---------- Telarana liquidator (Rust keeper consolidation) ----------
-    let telarana_liquidator_handle = match telarana_liquidator::TelaranaLiquidator::new(&cfg, &signer_key) {
+    let telarana_liquidator_handle = match telarana_liquidator::TelaranaLiquidator::new(&cfg, &signer_key, tx_submitters.clone()) {
         Ok(Some(liquidator)) => {
             info!("telarana liquidator enabled (Rust keeper consolidation)");
             Some(tokio::spawn(async move { liquidator.run().await }))
@@ -218,7 +234,7 @@ async fn main() -> ExitCode {
     };
 
     // ---------- Spot executor / gateway signer / arcade settler ----------
-    let spot_executor_handle = match spot_executor::SpotExecutor::new(&cfg, &signer_key) {
+    let spot_executor_handle = match spot_executor::SpotExecutor::new(&cfg, &signer_key, tx_submitters.clone()) {
         Ok(Some(executor)) => {
             info!("spot executor enabled (Rust keeper consolidation)");
             Some(tokio::spawn(async move { executor.run().await }))
@@ -232,7 +248,7 @@ async fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let gateway_signer_handle = match gateway_signer::GatewaySigner::new(&cfg, &signer_key) {
+    let gateway_signer_handle = match gateway_signer::GatewaySigner::new(&cfg, &signer_key, tx_submitters.clone()) {
         Ok(Some(signer)) => {
             info!("gateway signer enabled (Rust keeper consolidation)");
             Some(tokio::spawn(async move { signer.run().await }))
@@ -246,7 +262,7 @@ async fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let arcade_settler_handle = match arcade_settler::ArcadeSettler::new(&cfg, &signer_key) {
+    let arcade_settler_handle = match arcade_settler::ArcadeSettler::new(&cfg, &signer_key, tx_submitters.clone()) {
         Ok(Some(settler)) => {
             info!("arcade settler enabled (Rust keeper consolidation)");
             Some(tokio::spawn(async move { settler.run().await }))
@@ -664,6 +680,51 @@ fn init_tracing() {
         )
     });
     tracing_subscriber::fmt().with_env_filter(filter).json().init();
+}
+
+/// Build a `TxSubmitterRegistry` covering every chain the consolidated
+/// keepers might broadcast on. Today that's Arc (perps + most of the
+/// keepers) and Fuji (cross-chain telarana + arcade settlement). Add a
+/// new arm here when a fresh hub chain comes online — no other keeper
+/// touchpoints need to change.
+fn build_tx_submitter_registry(
+    cfg: &config::Config,
+    signer_key: &str,
+) -> Result<TxSubmitterRegistry, String> {
+    use std::collections::BTreeMap;
+    use std::sync::Arc;
+    let mut map: BTreeMap<u64, Arc<TxSubmitter>> = BTreeMap::new();
+
+    // Primary chain — whatever the matcher is built for (Arc by default).
+    let primary = TxSubmitter::new(cfg.chain_id, &cfg.rpc_url, signer_key)
+        .map_err(|e| format!("primary chain {}: {e}", cfg.chain_id))?;
+    info!(
+        chain_id = cfg.chain_id,
+        signer = ?primary.signer_address(),
+        "tx_submitter: registered primary chain"
+    );
+    map.insert(cfg.chain_id, Arc::new(primary));
+
+    // Fuji — used by telarana liquidator + arcade settler. Skip if the
+    // matcher is already pointed at Fuji as the primary chain.
+    const FUJI_CHAIN_ID: u64 = 43_113;
+    if cfg.chain_id != FUJI_CHAIN_ID {
+        let fuji_rpc = std::env::var("TELARANA_FUJI_RPC_URL")
+            .or_else(|_| std::env::var("PONDER_RPC_URL_AVAX_FUJI"))
+            .or_else(|_| std::env::var("FUJI_RPC_URL"))
+            .unwrap_or_else(|_| "https://avalanche-fuji.gateway.tenderly.co".to_string());
+        let fuji =
+            TxSubmitter::new(FUJI_CHAIN_ID, &fuji_rpc, signer_key)
+                .map_err(|e| format!("fuji chain {FUJI_CHAIN_ID}: {e}"))?;
+        info!(
+            chain_id = FUJI_CHAIN_ID,
+            signer = ?fuji.signer_address(),
+            "tx_submitter: registered fuji"
+        );
+        map.insert(FUJI_CHAIN_ID, Arc::new(fuji));
+    }
+
+    Ok(TxSubmitterRegistry::from_map(map))
 }
 
 async fn shutdown_signal() {

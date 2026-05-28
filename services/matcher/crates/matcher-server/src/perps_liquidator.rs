@@ -8,6 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use alloy_primitives::{Address, B256, U256};
@@ -19,10 +20,11 @@ use tokio::sync::broadcast;
 use tokio::time::{interval, MissedTickBehavior};
 use tracing::{debug, info, warn};
 
-use bufi_perps_onchain::{PerpsOnchain, PerpsOnchainError};
+use bufi_perps_onchain::{bindings::LiquidationRouter, PerpsOnchain, PerpsOnchainError};
 
 use crate::config::Config;
 use crate::pyth_pusher_ws::PythPriceTick;
+use crate::tx_submitter::{TxSubmitter, TxSubmitterError, TxSubmitterRegistry};
 
 const OPEN_POSITIONS_QUERY: &str = r#"
 query PerpsLiquidatorOpenPositions($limit: Int!, $chainId: Int!) {
@@ -58,6 +60,8 @@ pub enum PerpsLiquidatorBootError {
         path: PathBuf,
         source: serde_json::Error,
     },
+    #[error("no tx_submitter registered for chain {0}")]
+    NoTxSubmitter(u64),
 }
 
 #[derive(Debug, Error)]
@@ -68,6 +72,8 @@ enum PerpsLiquidatorError {
     EnvioGraphql(String),
     #[error("on-chain: {0}")]
     Onchain(#[from] PerpsOnchainError),
+    #[error("tx_submitter: {0}")]
+    TxSubmitter(#[from] TxSubmitterError),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -95,6 +101,10 @@ pub struct PerpsLiquidator {
     http: reqwest::Client,
     positions: BTreeMap<PositionKey, OpenPosition>,
     price_rx: broadcast::Receiver<PythPriceTick>,
+    /// Shared tx_submitter for this chain — owns the cached nonce and
+    /// serialises sends so concurrent liquidation attempts don't race
+    /// the perps settle + funding poke loops for the same nonce.
+    tx_submitter: Arc<TxSubmitter>,
 }
 
 impl PerpsLiquidator {
@@ -103,6 +113,7 @@ impl PerpsLiquidator {
         cfg: &Config,
         deployments_dir: &Path,
         price_rx: broadcast::Receiver<PythPriceTick>,
+        tx_submitters: TxSubmitterRegistry,
     ) -> Result<Option<Self>, PerpsLiquidatorBootError> {
         if !cfg.liquidator_enabled {
             return Ok(None);
@@ -120,6 +131,10 @@ impl PerpsLiquidator {
             .build()
             .expect("reqwest client builder");
 
+        let tx_submitter = tx_submitters
+            .get(cfg.chain_id)
+            .ok_or(PerpsLiquidatorBootError::NoTxSubmitter(cfg.chain_id))?;
+
         Ok(Some(Self {
             onchain,
             router_address,
@@ -131,6 +146,7 @@ impl PerpsLiquidator {
             http,
             positions: BTreeMap::new(),
             price_rx,
+            tx_submitter,
         }))
     }
 
@@ -239,11 +255,13 @@ impl PerpsLiquidator {
         }
         let router = self.router_address;
         let onchain = self.onchain.clone();
+        let submitter = self.tx_submitter.clone();
         let max_concurrent = self.max_concurrent_checks;
         let results = stream::iter(positions)
             .map(|position| {
                 let onchain = onchain.clone();
-                async move { check_and_liquidate(onchain, router, position).await }
+                let submitter = submitter.clone();
+                async move { check_and_liquidate(onchain, submitter, router, position).await }
             })
             .buffer_unordered(max_concurrent)
             .collect::<Vec<_>>()
@@ -277,6 +295,7 @@ impl PerpsLiquidator {
 
 async fn check_and_liquidate(
     onchain: PerpsOnchain,
+    submitter: Arc<TxSubmitter>,
     router_address: Address,
     position: OpenPosition,
 ) -> Result<Option<B256>, PerpsLiquidatorError> {
@@ -306,13 +325,15 @@ async fn check_and_liquidate(
         max_close = %max_close,
         "perps liquidator: submitting atomic liquidation"
     );
-    let tx = onchain
-        .submit_liquidation_router_atomic(
-            router_address,
-            position.market_id,
-            position.trader,
-            max_close,
-        )
+    // Route through the shared TxSubmitter so concurrent liquidations
+    // serialise behind the same cached nonce as the rest of the keeper
+    // stack. PerpsOnchain reads are still used for the gate checks above.
+    let router = LiquidationRouter::new(router_address, submitter.provider());
+    let tx_request = router
+        .liquidateAtomic(position.market_id, position.trader, max_close)
+        .into_transaction_request();
+    let tx = submitter
+        .submit_tx(tx_request, "perps.liquidateAtomic")
         .await?;
     Ok(Some(tx))
 }
