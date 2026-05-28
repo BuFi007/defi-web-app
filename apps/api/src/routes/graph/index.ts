@@ -22,8 +22,7 @@ const graphRoutes = new Hono();
 const SCHEMA_CACHE_TTL_MS = 60_000;
 const UPSTREAM_TIMEOUT_MS = 10_000;
 const ENVIO_GRAPHQL_FALLBACK_URLS = [
-  "https://indexer.dev.hyperindex.xyz/cf36ea5/v1/graphql",
-  "https://indexer.envio.dev/bufx-yield-engine/graphql",
+  "https://indexer.dev.hyperindex.xyz/6ff8fed/v1/graphql",
 ] as const;
 const ENVIO_LIST_ENTITIES = [
   "ArcadePlacement",

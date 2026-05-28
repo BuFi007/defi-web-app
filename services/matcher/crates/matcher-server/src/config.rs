@@ -272,7 +272,7 @@ impl Config {
         let liquidator_envio_url = env::var("LIQUIDATOR_ENVIO_URL")
             .or_else(|_| env::var("ENVIO_GRAPHQL_URL"))
             .or_else(|_| env::var("ENVIO_URL"))
-            .unwrap_or_else(|_| "https://indexer.envio.dev/bufx-yield-engine/graphql".to_string());
+            .unwrap_or_else(|_| "https://indexer.dev.hyperindex.xyz/6ff8fed/v1/graphql".to_string());
         let liquidator_check_interval =
             Duration::from_millis(parse_env_u64("LIQUIDATOR_CHECK_INTERVAL_MS", 1_000)?);
         let liquidator_page_size = parse_env_u64("LIQUIDATOR_PAGE_SIZE", 1_000)? as usize;

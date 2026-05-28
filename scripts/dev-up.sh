@@ -38,18 +38,18 @@ export BUFI_DB_PATH="$PWD/.bufi/trading-machine.sqlite"
 # Use HTTPS only when explicitly requested (BUFI_HTTPS=1 or dev:complete:https).
 # Default to plain HTTP on :3000 — avoids self-signed cert pain in browsers.
 if [ "${BUFI_HTTPS:-}" = "1" ]; then
-  bun run --filter @bufi/web dev:https >"$WEB_LOG" 2>&1 &
+  nohup bun run --filter @bufi/web dev:https </dev/null >"$WEB_LOG" 2>&1 &
 else
-  bun run --filter @bufi/web dev >"$WEB_LOG" 2>&1 &
+  nohup bun run --filter @bufi/web dev </dev/null >"$WEB_LOG" 2>&1 &
 fi
 echo "$!" >>"$PID_FILE"
 
-# Bun's --filter doesn't support `!` negation, so list non-web packages
-# explicitly. Update this list when a new package gains a `dev` script.
-bun run \
-  --filter @bufi/api \
-  --filter @bufi/matcher \
-  dev >"$REST_LOG" 2>&1 &
+# Keep API and matcher in separate process groups. The matcher touches live
+# RPCs during boot; if it exits, the API should stay up for UI/API dogfood.
+: >"$REST_LOG"
+nohup bun run --filter @bufi/api dev </dev/null >>"$REST_LOG" 2>&1 &
+echo "$!" >>"$PID_FILE"
+nohup bun run --filter @bufi/matcher dev </dev/null >>"$REST_LOG" 2>&1 &
 echo "$!" >>"$PID_FILE"
 
 # 3. Wait for web + key services to bind
@@ -78,12 +78,14 @@ wait_port 3002 "api"         45 || true
 wait_port 3005 "matcher gRPC" 90 || true
 lsof -i :3006 -sTCP:LISTEN >/dev/null 2>&1 && printf "  ✓ matcher HTTP :3006\n" || printf "  · matcher HTTP :3006  (not on this branch, gRPC is canonical)\n"
 
+ENVIO_URL_DISPLAY="${ENVIO_GRAPHQL_URL:-${ENVIO_URL:-https://indexer.dev.hyperindex.xyz/6ff8fed/v1/graphql}}"
+
 cat <<EOF
 
 → Web:      $WEB_URL
 → API:      http://localhost:3002
 → Matcher:  gRPC localhost:3005
-→ Envio:    https://indexer.envio.dev/bufx-yield-engine/graphql
+→ Envio:    $ENVIO_URL_DISPLAY
 
 Logs:
   tail -f /tmp/bufi-web.log     # web only

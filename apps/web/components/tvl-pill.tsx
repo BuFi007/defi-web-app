@@ -137,6 +137,26 @@ function ExpandedContent({
           <AnimatedDollar value={tvl.totalTvl} /> TVL
         </span>
       </div>
+
+      <a
+        href="https://drpc.org?ref=974ec1"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity"
+      >
+        <img
+          src="https://drpc.org/images/external/powered-by-drpc-dark.svg"
+          alt="Powered by dRPC"
+          className="block dark:hidden"
+          style={{ width: 90, height: "auto" }}
+        />
+        <img
+          src="https://drpc.org/images/external/powered-by-drpc-light.svg"
+          alt="Powered by dRPC"
+          className="hidden dark:block"
+          style={{ width: 90, height: "auto" }}
+        />
+      </a>
     </div>
   );
 }
