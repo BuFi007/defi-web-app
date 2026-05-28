@@ -131,6 +131,8 @@ All three Phase-0/1 gaps confirmed CLOSED on prod. New (minor, doc-only) gaps su
 
 Wins worth keeping: the spot-vs-perp table + chain labels gave zero endpoint ambiguity; human amounts + server-derived slippage removed all unit math; cross-product reads (lending/portfolio) self-described and cross-validated.
 
+**Both doc gaps fixed + re-verified on prod (commit `2fbdeaf`, deploy watched via gh):** a fresh agent now (1) finds the spot buy is a documented 1-call flow and does no atomic/slippage math (2 calls total), and (2) gets the correct install URL `https://mcp.bu.finance/mcp` (no localhost), verified live at 200. Zero new gaps on those paths. Minor future-polish ideas surfaced (not regressions): no balance/allowance pre-check on spot_buy, no spot cost pre-flight (only perps have /api/cost), no explicit quote-expiry beyond the EIP-712 deadline.
+
 ## Re-dogfood delta — 2026-05-28 (post-Gateman fixes, Opus 4.8)
 
 Gateman audit of the run above found ~40% of the headline findings false or misdiagnosed (verified against fresh-from-disk source):

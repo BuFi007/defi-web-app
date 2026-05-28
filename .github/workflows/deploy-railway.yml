@@ -3,6 +3,10 @@ name: Deploy to Railway
 on:
   push:
     branches: [main]
+    # Doc-only changes shouldn't trigger a full rebuild+redeploy of the services.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   workflow_dispatch: {} # allow manual redeploys
 
 jobs:
