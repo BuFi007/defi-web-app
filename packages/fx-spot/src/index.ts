@@ -130,6 +130,58 @@ export function buildVenueSpotIntent(input: SpotIntentRequest): BuiltSpotIntent 
   };
 }
 
+/**
+ * Convert a human USDC amount into the expected FX-token output in atomic units,
+ * plus a slippage-protected minimum, from a Pyth price.
+ *
+ * Direction: ALL bufi spot feeds (EURC, JPYC, MXNB) are quoted USD-per-token,
+ * so the conversion is uniformly out = in / price. Verified against live feeds
+ * 2026-05-28: EURC≈1.165, JPYC≈0.00159, MXNB≈0.0173 USD/token. (If a future feed
+ * were quoted token-per-USD this would invert — gate new symbols on a check.)
+ *
+ * Integer math only (no float drift); output is floored (conservative for a
+ * buyer's minimum). expo is the Pyth exponent (negative, e.g. -8).
+ *
+ *   out_atomic = amountUsdcAtomic * 10^(tokenDecimals - usdcDecimals - expo) / priceRaw
+ */
+export function quoteSpotOut(args: {
+  amountUsdc: string;
+  priceRaw: string;
+  expo: number;
+  tokenDecimals?: number;
+  usdcDecimals?: number;
+  slippageBps?: number;
+}): { expectedOut: string; minAmountOut: string; slippageBps: number } {
+  const tokenDecimals = args.tokenDecimals ?? 6;
+  const usdcDecimals = args.usdcDecimals ?? 6;
+  const slippageBps = args.slippageBps ?? 100;
+  if (slippageBps < 0 || slippageBps >= 10_000) {
+    throw new Error(`quoteSpotOut: slippageBps out of range: ${slippageBps}`);
+  }
+  if (!/^\d+(\.\d+)?$/.test(args.amountUsdc)) {
+    throw new Error(`quoteSpotOut: invalid amountUsdc: ${args.amountUsdc}`);
+  }
+  const priceRaw = BigInt(args.priceRaw);
+  if (priceRaw <= 0n) throw new Error("quoteSpotOut: priceRaw must be > 0");
+
+  const [whole, frac = ""] = args.amountUsdc.split(".");
+  const amountUsdcAtomic =
+    BigInt(whole) * 10n ** BigInt(usdcDecimals) +
+    BigInt((frac + "0".repeat(usdcDecimals)).slice(0, usdcDecimals));
+
+  const exp = tokenDecimals - usdcDecimals - args.expo;
+  const expectedOut =
+    exp >= 0
+      ? (amountUsdcAtomic * 10n ** BigInt(exp)) / priceRaw
+      : amountUsdcAtomic / (priceRaw * 10n ** BigInt(-exp));
+  const minAmountOut = (expectedOut * BigInt(10_000 - slippageBps)) / 10_000n;
+  return {
+    expectedOut: expectedOut.toString(),
+    minAmountOut: minAmountOut.toString(),
+    slippageBps,
+  };
+}
+
 export function buildVenueSpotTypedData(args: {
   chainId: number;
   verifyingContract: Address;
