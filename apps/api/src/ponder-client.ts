@@ -96,19 +96,17 @@ async function fetchPerpsPositions(graphqlUrl: string): Promise<PerpsIndexedPosi
   const query = `
     query PerpsPositions {
       PerpsPosition {
-        items {
-          chainId
-          marketId
-          trader
-          sizeE18
-          entryPriceE18
-          marginReserved
-          lastFundingVersion
-          isOpen
-          updatedAt
-          updatedBlockNumber
-          updatedTxHash
-        }
+        chainId
+        marketId
+        trader
+        sizeE18
+        entryPriceE18
+        marginReserved
+        lastFundingVersion
+        isOpen
+        updatedAt
+        updatedBlockNumber
+        updatedTxHash
       }
     }
   `;
@@ -121,13 +119,14 @@ async function fetchPerpsPositions(graphqlUrl: string): Promise<PerpsIndexedPosi
     throw new Error(`Ponder GraphQL request failed: ${response.status}`);
   }
   const payload = (await response.json()) as {
-    data?: { PerpsPosition?: { items?: unknown[] } };
+    data?: { PerpsPosition?: unknown[] | { items?: unknown[] } };
     errors?: Array<{ message?: string }>;
   };
   if (payload.errors?.length) {
     throw new Error(payload.errors.map((error) => error.message ?? "GraphQL error").join("; "));
   }
-  const items = payload.data?.PerpsPosition?.items;
+  const rows = payload.data?.PerpsPosition;
+  const items = Array.isArray(rows) ? rows : rows?.items;
   if (!Array.isArray(items)) {
     throw new Error("Envio GraphQL response invalid: PerpsPosition.items must be an array");
   }
@@ -184,16 +183,12 @@ async function fetchPerpsPositionEvents(
   `;
   const withArgs = `
     query PerpsPositionEvents($limit: Int!) {
-      PositionChange(limit: $limit, orderBy: "blockNumber", orderDirection: "desc") {
-        items { ${fields} }
-      }
+      PositionChange(limit: $limit) { ${fields} }
     }
   `;
   const withoutArgs = `
     query PerpsPositionEvents {
-      PositionChange {
-        items { ${fields} }
-      }
+      PositionChange { ${fields} }
     }
   `;
   try {
@@ -221,13 +216,14 @@ async function postPonderPositionEventQuery(
     throw new Error(`Ponder GraphQL request failed: ${response.status}`);
   }
   const payload = (await response.json()) as {
-    data?: { PositionChange?: { items?: unknown[] } };
+    data?: { PositionChange?: unknown[] | { items?: unknown[] } };
     errors?: Array<{ message?: string }>;
   };
   if (payload.errors?.length) {
     throw new Error(payload.errors.map((error) => error.message ?? "GraphQL error").join("; "));
   }
-  const items = payload.data?.PositionChange?.items;
+  const rows = payload.data?.PositionChange;
+  const items = Array.isArray(rows) ? rows : rows?.items;
   if (!Array.isArray(items)) {
     throw new Error(
       "Envio GraphQL response invalid: PositionChange.items must be an array",
@@ -269,37 +265,33 @@ async function fetchPerpsSettlements(
   const boundedLimit = Math.max(1, Math.min(limit, 500));
   const withArgs = `
     query PerpsSettlements($limit: Int!) {
-      PerpTrade(limit: $limit, orderBy: "blockNumber", orderDirection: "desc") {
-        items {
-          id
-          chainId
-          marketId
-          maker
-          taker
-          fillSizeE18: sizeDeltaE18
-          fillPriceE18: priceE18
-          blockNumber
-          blockTimestamp: timestamp
-          txHash
-        }
+      PerpTrade(limit: $limit) {
+        id
+        chainId
+        marketId
+        maker
+        taker
+        fillSizeE18: sizeDeltaE18
+        fillPriceE18: priceE18
+        blockNumber
+        blockTimestamp: timestamp
+        txHash
       }
     }
   `;
   const withoutArgs = `
     query PerpsSettlements {
       PerpTrade {
-        items {
-          id
-          chainId
-          marketId
-          maker
-          taker
-          fillSizeE18: sizeDeltaE18
-          fillPriceE18: priceE18
-          blockNumber
-          blockTimestamp: timestamp
-          txHash
-        }
+        id
+        chainId
+        marketId
+        maker
+        taker
+        fillSizeE18: sizeDeltaE18
+        fillPriceE18: priceE18
+        blockNumber
+        blockTimestamp: timestamp
+        txHash
       }
     }
   `;
@@ -326,13 +318,14 @@ async function postPonderQuery(
     throw new Error(`Ponder GraphQL request failed: ${response.status}`);
   }
   const payload = (await response.json()) as {
-    data?: { PerpTrade?: { items?: PerpsIndexedSettlement[] } };
+    data?: { PerpTrade?: PerpsIndexedSettlement[] | { items?: PerpsIndexedSettlement[] } };
     errors?: Array<{ message?: string }>;
   };
   if (payload.errors?.length) {
     throw new Error(payload.errors.map((error) => error.message ?? "GraphQL error").join("; "));
   }
-  return normalizeSettlementRows(payload.data?.PerpTrade?.items);
+  const rows = payload.data?.PerpTrade;
+  return normalizeSettlementRows(Array.isArray(rows) ? rows : rows?.items);
 }
 
 function normalizeSettlementRows(value: unknown): PerpsIndexedSettlement[] {

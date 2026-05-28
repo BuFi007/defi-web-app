@@ -158,7 +158,8 @@ export type ArcPerpMarketSymbol =
   | "JPYC/USDC"
   | "MXNB/USDC"
   | "CIRBTC/USDC"
-  | "AUDF/USDC";
+  | "AUDF/USDC"
+  | "QCAD/USDC";
 
 export interface TokenRegistry {
   usdc?: Address;
@@ -258,7 +259,7 @@ export interface BuFxProtocolPerpMarket {
 export interface ArcPerpMarket {
   chainId: 5042002;
   marketId: Hex;
-  baseToken: "eurc" | "jpyc" | "mxnb" | "cirbtc" | "audf";
+  baseToken: "eurc" | "jpyc" | "mxnb" | "cirbtc" | "audf" | "qcad";
   quoteToken: "usdc";
   pythFeedId: Hex;
   config: {
@@ -580,8 +581,8 @@ export const ARC_PERP_MARKETS: Record<ArcPerpMarketSymbol, ArcPerpMarket> = {
   "AUDF/USDC": {
     chainId: 5042002,
     // keccak256("AUDF") — broadcast via fx-telarana/contracts/script/
-    // ConfigureArcPerpAudf.s.sol (txs: setFeed 0x3ee0c09f…, configureMarket
-    // 0xa16dfeaf…, configureFunding 0xa36d037b…).
+    // ConfigureArcPerpAudf.s.sol. Re-deployed against current clearinghouse
+    // (0x7707d1…CaFdC) on 2026-05-27.
     marketId: "0x921b564f97b14b7d73c12a72af4b7847fb5e3414f98cbe5fb5f1d8a3168c0a00",
     baseToken: "audf",
     quoteToken: "usdc",
@@ -591,6 +592,22 @@ export const ARC_PERP_MARKETS: Record<ArcPerpMarketSymbol, ArcPerpMarket> = {
       // Pre-scaled by 1e12 to match the WAD-comparison fix raise-arc-max-oi
       // shipped for the existing 4 markets. Without this scale the OI gate
       // blocks every fill on the first cross.
+      maxOpenInterestUsd: "500000000000000000000",
+      maxSkewUsd: "500000000000000000000",
+    },
+    fundingConfig: ARC_PERP_DEFAULT_FUNDING_CONFIG,
+  },
+  "QCAD/USDC": {
+    chainId: 5042002,
+    // keccak256("QCAD") — broadcast via fx-telarana/contracts/script/
+    // ConfigureArcPerpQcad.s.sol on 2026-05-27.
+    marketId: "0x8ff4ca87809655d824803aa87eec8e3a7b15c73215aca5e72650c04072df4645",
+    baseToken: "qcad",
+    quoteToken: "usdc",
+    // Pyth USD/CAD feed, inverted on-chain to CAD/USD.
+    pythFeedId: PYTH_FEED_IDS.cadUsd,
+    config: {
+      ...ARC_PERP_DEFAULT_CONFIG,
       maxOpenInterestUsd: "500000000000000000000",
       maxSkewUsd: "500000000000000000000",
     },

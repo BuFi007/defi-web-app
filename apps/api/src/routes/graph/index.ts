@@ -21,22 +21,59 @@ const graphRoutes = new Hono();
 
 const SCHEMA_CACHE_TTL_MS = 60_000;
 const UPSTREAM_TIMEOUT_MS = 10_000;
+const ENVIO_GRAPHQL_FALLBACK_URLS = [
+  "https://indexer.dev.hyperindex.xyz/cf36ea5/v1/graphql",
+  "https://indexer.envio.dev/bufx-yield-engine/graphql",
+] as const;
+const ENVIO_LIST_ENTITIES = [
+  "ArcadePlacement",
+  "ArcadeRoom",
+  "ArcadeRound",
+  "ArcadeSettlement",
+  "BufxRequest",
+  "DailyMarketSnapshot",
+  "FundingEvent",
+  "HedgeExposure",
+  "HedgeRebalance",
+  "LendingEvent",
+  "PerpTrade",
+  "PerpsOrderCancellation",
+  "PerpsPosition",
+  "PositionChange",
+  "SpotSwap",
+  "TelaranaDeposit",
+  "TelaranaGatewayContext",
+  "TelaranaLoan",
+  "TelaranaMarket",
+  "TelaranaOracleConfig",
+  "TradingFeeRoute",
+  "TurboFeeVaultEvent",
+] as const;
 
 interface SchemaCacheEntry {
   body: string;
   fetchedAt: number;
 }
 
+interface GraphqlCompatBody {
+  body: string;
+  wrappedEntities: Set<string>;
+}
+
 let schemaCache: SchemaCacheEntry | null = null;
 
-function envioGraphqlUrl(): string {
-  return (
-    process.env.ENVIO_GRAPHQL_URL ??
-    process.env.ENVIO_URL ??
-    process.env.PONDER_GRAPHQL_URL ??
-    process.env.PONDER_URL ??
-    "https://indexer.envio.dev/bufx-yield-engine/graphql"
-  );
+function envioGraphqlUrls(): string[] {
+  const candidates = [
+    process.env.ENVIO_GRAPHQL_URL,
+    process.env.ENVIO_URL,
+    process.env.NEXT_PUBLIC_ENVIO_GRAPHQL_URL,
+    process.env.NEXT_PUBLIC_ENVIO_URL,
+    process.env.PONDER_GRAPHQL_URL,
+    process.env.PONDER_URL,
+    ...ENVIO_GRAPHQL_FALLBACK_URLS,
+  ].filter((url): url is string => Boolean(url));
+
+  return [...new Set(candidates)];
 }
 
 function allowEmptyYieldFallback(): boolean {
@@ -55,12 +92,71 @@ function graphqlSource(body: string): string {
   return body;
 }
 
+function rewritePonderConnectionItems(body: string): GraphqlCompatBody {
+  let parsed: { query?: string; variables?: unknown } | null = null;
+  try {
+    parsed = JSON.parse(body) as { query?: string; variables?: unknown };
+  } catch {
+    parsed = null;
+  }
+
+  const query = typeof parsed?.query === "string" ? parsed.query : body;
+  const wrappedEntities = new Set<string>();
+  const entityAlternation = ENVIO_LIST_ENTITIES.join("|");
+  const connectionPattern = new RegExp(
+    `\\b(${entityAlternation})(\\s*\\([^{}]*\\))?\\s*\\{\\s*items\\s*\\{([\\s\\S]*?)\\}\\s*\\}`,
+    "g",
+  );
+  const rewrittenQuery = query.replace(
+    connectionPattern,
+    (_match, entity: string, args: string | undefined, selection: string) => {
+      wrappedEntities.add(entity);
+      return `${entity}${args ?? ""} { ${selection} }`;
+    },
+  );
+
+  if (wrappedEntities.size === 0) return { body, wrappedEntities };
+  if (parsed) {
+    return {
+      body: JSON.stringify({ ...parsed, query: rewrittenQuery }),
+      wrappedEntities,
+    };
+  }
+  return { body: rewrittenQuery, wrappedEntities };
+}
+
+function wrapPonderConnectionItems(
+  text: string,
+  wrappedEntities: Set<string>,
+): string {
+  if (wrappedEntities.size === 0) return text;
+  try {
+    const payload = JSON.parse(text) as { data?: Record<string, unknown> };
+    if (!payload?.data || typeof payload.data !== "object") return text;
+    for (const entity of wrappedEntities) {
+      const value = payload.data[entity];
+      if (Array.isArray(value)) {
+        payload.data[entity] = { items: value };
+      }
+    }
+    return JSON.stringify(payload);
+  } catch {
+    return text;
+  }
+}
+
 function looksLikeDailyMarketSnapshotQuery(body: string): boolean {
   return /\bDailyMarketSnapshot\b/.test(graphqlSource(body));
 }
 
-function emptyDailyMarketSnapshotResponse(): Response {
-  return new Response(JSON.stringify({ data: { DailyMarketSnapshot: [] } }), {
+function emptyDailyMarketSnapshotResponse(wrapItems = false): Response {
+  return new Response(
+    JSON.stringify({
+      data: {
+        DailyMarketSnapshot: wrapItems ? { items: [] } : [],
+      },
+    }),
+    {
     status: 200,
     headers: {
       "Content-Type": "application/json",
@@ -68,7 +164,8 @@ function emptyDailyMarketSnapshotResponse(): Response {
       "X-Bufi-Gateway": "envio-v1",
       "X-Bufi-Gateway-Fallback": "empty-daily-market-snapshot",
     },
-  });
+    },
+  );
 }
 
 /**
@@ -128,6 +225,7 @@ graphRoutes.use("*", async (c, next) => {
 
 graphRoutes.post("/", async (c) => {
   const body = await c.req.text();
+  const compat = rewritePonderConnectionItems(body);
 
   if (looksLikeMutation(body)) {
     return c.json(
@@ -139,31 +237,52 @@ graphRoutes.post("/", async (c) => {
     );
   }
 
-  const url = envioGraphqlUrl();
-  let upstream: Response;
-  try {
-    upstream = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": c.req.header("content-type") ?? "application/json",
-        Accept: "application/json",
-      },
-      body,
-      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-    });
-  } catch (err) {
-    const log = c.get("log");
-    log?.warn?.("graph.upstream_unreachable", {
-      err: (err as Error).message,
-      url,
-    });
+  const log = c.get("log");
+  let upstream: Response | null = null;
+  let upstreamUrl = "";
+  let lastError: Error | null = null;
+
+  for (const url of envioGraphqlUrls()) {
+    try {
+      const candidate = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": c.req.header("content-type") ?? "application/json",
+          Accept: "application/json",
+        },
+        body: compat.body,
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      });
+
+      if (candidate.status === 404) {
+        void candidate.body?.cancel();
+        log?.warn?.("graph.upstream_not_found", { url });
+        continue;
+      }
+
+      upstream = candidate;
+      upstreamUrl = url;
+      break;
+    } catch (err) {
+      lastError = err as Error;
+      log?.warn?.("graph.upstream_unreachable", {
+        err: lastError.message,
+        url,
+      });
+    }
+  }
+
+  if (!upstream) {
     if (allowEmptyYieldFallback() && looksLikeDailyMarketSnapshotQuery(body)) {
-      return emptyDailyMarketSnapshotResponse();
+      return emptyDailyMarketSnapshotResponse(
+        compat.wrappedEntities.has("DailyMarketSnapshot"),
+      );
     }
     return c.json(
       {
         error: "upstream_unavailable",
         hint: "GraphQL indexer (Envio) is not reachable.",
+        detail: lastError?.message ?? "all configured Envio endpoints returned 404",
       },
       502,
     );
@@ -172,21 +291,27 @@ graphRoutes.post("/", async (c) => {
   const contentType = upstream.headers.get("Content-Type") ?? "application/json";
   if (
     allowEmptyYieldFallback() &&
-    upstream.status >= 500 &&
+    (upstream.status === 404 || upstream.status >= 500) &&
     looksLikeDailyMarketSnapshotQuery(body)
   ) {
     void upstream.body?.cancel();
-    return emptyDailyMarketSnapshotResponse();
+    return emptyDailyMarketSnapshotResponse(
+      compat.wrappedEntities.has("DailyMarketSnapshot"),
+    );
   }
+
+  const text = await upstream.text();
+  const responseText = wrapPonderConnectionItems(text, compat.wrappedEntities);
 
   // Pass through body verbatim; pin a short cache so identical reads
   // from a busy dashboard ride the CDN/edge instead of hammering Envio.
-  return new Response(upstream.body, {
+  return new Response(responseText, {
     status: upstream.status,
     headers: {
       "Content-Type": contentType,
       "Cache-Control": "public, max-age=2, stale-while-revalidate=10",
       "X-Bufi-Gateway": "envio-v1",
+      "X-Bufi-Envio-Url": upstreamUrl,
     },
   });
 });
@@ -228,12 +353,28 @@ graphRoutes.get("/schema", async (c) => {
   };
 
   try {
-    const upstream = await fetch(envioGraphqlUrl(), {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify(introspection),
-      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-    });
+    let upstream: Response | null = null;
+    let upstreamUrl = "";
+    for (const url of envioGraphqlUrls()) {
+      const candidate = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(introspection),
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      });
+      if (candidate.status === 404) {
+        void candidate.body?.cancel();
+        continue;
+      }
+      upstream = candidate;
+      upstreamUrl = url;
+      break;
+    }
+
+    if (!upstream) {
+      return c.json({ error: "upstream_unavailable" }, 502);
+    }
+
     const text = await upstream.text();
     if (upstream.ok) {
       schemaCache = { body: text, fetchedAt: now };
@@ -244,6 +385,7 @@ graphRoutes.get("/schema", async (c) => {
         "Content-Type": upstream.headers.get("Content-Type") ?? "application/json",
         "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
         "X-Bufi-Gateway": "envio-v1",
+        "X-Bufi-Envio-Url": upstreamUrl,
         "X-Bufi-Schema-Cache": "miss",
       },
     });
