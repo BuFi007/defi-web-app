@@ -51,9 +51,12 @@ declare global {
 
 export function getPerpsReplacementDevWallet(): PerpsReplacementDevWallet | null {
   if (process.env.NODE_ENV === "production") return null;
-  if (process.env.NEXT_PUBLIC_PERPS_REPLACEMENT_E2E !== "1") return null;
+  const perpsOn = process.env.NEXT_PUBLIC_PERPS_REPLACEMENT_E2E === "1";
+  const genericOn = process.env.NEXT_PUBLIC_DEV_WALLET === "1";
+  if (!perpsOn && !genericOn) return null;
 
   const privateKey =
+    process.env.NEXT_PUBLIC_DEV_WALLET_PRIVATE_KEY ??
     process.env.NEXT_PUBLIC_PERPS_REPLACEMENT_E2E_PRIVATE_KEY ??
     DEFAULT_PRIVATE_KEY;
   if (!/^0x[a-fA-F0-9]{64}$/.test(privateKey)) {
@@ -63,7 +66,9 @@ export function getPerpsReplacementDevWallet(): PerpsReplacementDevWallet | null
   }
 
   const chainId = Number(
-    process.env.NEXT_PUBLIC_PERPS_REPLACEMENT_E2E_CHAIN_ID ?? DEFAULT_CHAIN_ID,
+    process.env.NEXT_PUBLIC_DEV_WALLET_CHAIN_ID ??
+      process.env.NEXT_PUBLIC_PERPS_REPLACEMENT_E2E_CHAIN_ID ??
+      DEFAULT_CHAIN_ID,
   );
   if (!Number.isInteger(chainId) || chainId <= 0) {
     throw new Error(
@@ -96,7 +101,12 @@ export function publishPerpsReplacementE2eState(
   patch: NonNullable<Window["__BUFX_PERPS_REPLACEMENT_E2E__"]>,
 ): void {
   if (process.env.NODE_ENV === "production") return;
-  if (process.env.NEXT_PUBLIC_PERPS_REPLACEMENT_E2E !== "1") return;
+  if (
+    process.env.NEXT_PUBLIC_PERPS_REPLACEMENT_E2E !== "1" &&
+    process.env.NEXT_PUBLIC_DEV_WALLET !== "1"
+  ) {
+    return;
+  }
   if (typeof window === "undefined") return;
 
   window.__BUFX_PERPS_REPLACEMENT_E2E__ = {

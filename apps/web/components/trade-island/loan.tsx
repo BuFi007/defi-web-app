@@ -361,10 +361,10 @@ const GATEWAY_STEPS: ReadonlyArray<{
   id: GatewayStepId;
   label: string;
 }> = [
-  { id: "approve", label: "Approve" },
+  { id: "approve", label: "Approve USDC" },
   { id: "deposit", label: "depositToHub()" },
   { id: "relay", label: "CCTP relay" },
-  { id: "hub", label: "Hub deposit" },
+  { id: "hub", label: "Hub credit" },
 ];
 
 function deployedToken(
@@ -2224,6 +2224,8 @@ export function ActionCard({
           ? gatewayStep === "approve"
             ? "Approving…"
             : "depositToHub()…"
+          : !walletAddress && spokeDepositSelected && action === "lend"
+          ? "Connect Wallet for Gateway"
           : gatewayUnavailableReason
           ? gatewayUnavailableReason
           : actionLimitReason
@@ -2232,6 +2234,8 @@ export function ActionCard({
           ? "Signing…"
           : needsNetworkSwitch
           ? `Switch to ${targetNetworkName} & ${actionVerb}`
+          : spokeDepositSelected && action === "lend"
+          ? "Deposit via Gateway"
           : submitLabelOverride ?? `${t('confirmPrefix')} ${actionVerb}`;
         const ctaTitle = !walletAddress
           ? t('connectWallet')
