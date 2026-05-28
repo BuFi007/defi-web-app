@@ -46,7 +46,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .gstack/
-.claude/
+# .claude/ is per-developer scratch — ignore everything except the few
+# directories we explicitly check in for team-shared tools.
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/circle-agent-wallet-to-mcp-dogfooding/
 
 # External reference repos for matcher architecture (shallow clones, not deps)
 references/
