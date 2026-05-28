@@ -6,6 +6,18 @@
 > Loops: `{{ loop_count }}` ({{ task_pack }})
 > Wallet: `…{{ wallet_last4 }}`
 
+## Transport handshake (gating — read this before the discoverability findings)
+
+| Probe | Result | Detail |
+|---|---|---|
+| A — SSE GET (`Accept: text/event-stream`) | {{ probe_a }} | {{ probe_a_detail }} (event stream vs landing JSON vs 405) |
+| B — `initialize` returns `protocolVersion` + `mcp-session-id` | {{ probe_b }} | {{ probe_b_detail }} |
+| C — `notifications/initialized` accepted | {{ probe_c }} | {{ probe_c_detail }} (status code) |
+| D — `tools/call` arg envelope | {{ probe_d }} | nests under `body`: {{ envelope_nests_body }} / documented: {{ envelope_documented }} |
+| Real client — `claude mcp list` | {{ real_client_status }} | ✓ Connected / ✗ Failed to connect |
+
+> If the real client shows `✗ Failed to connect`, this run is `BLOCKED` at the transport layer. The discoverability findings below were gathered over curl and do not reflect what a real client sees until transport is fixed.
+
 ## Canonical surface snapshot
 
 | Surface | Status | Bytes | Notes |
@@ -58,6 +70,21 @@ Sort: severity (critical → low) then frequency (desc). Group by canonical surf
 | # | Severity | Frequency | Tool | Gap | Evidence | Suggested fix |
 |---|---|---|---|---|---|---|
 | 1 | medium | 2/4 | `post__api_trade` | overlaps with `post__api_spot_buy`; LLM picks wrong tool 50% of the time | … | Add `When to use` block in the tool description; cross-link the sibling tool |
+
+### Field-name consistency gaps (cross-tool)
+
+One row per concept that's named differently across tools. The acting-wallet parameter is the usual offender.
+
+| Concept | Names seen (tool → param) | Distinct count | Severity | Suggested fix |
+|---|---|---|---|---|
+| acting wallet | `trader` (trade), `supplier` (lending supply/withdraw), `borrower` (borrow/repay), `depositor` (ghost deposit), `recipient` (ghost relay/swap) | {{ n }} | high | one canonical name (`trader`) accepted everywhere via alias; keep originals for back-compat |
+
+### Type-shape gaps (wrong JSON type on first attempt)
+
+| # | Severity | Tool | Param | Expected | Commonly sent | Root cause | Suggested fix |
+|---|---|---|---|---|---|---|---|
+| 1 | high | `post__api_trade_execute` | `deadline` | number | string | `inputSchema.body` is a bare `object`, no property types | give the zod body a real shape so the type surfaces in `tools/list` |
+| 2 | high | `post__api_quote` | `sizeUsdc` | string | number | same | same |
 
 ### Error-body gaps
 

@@ -43,6 +43,15 @@ The sub-agent must complete the task using only what it can discover from:
 
 Anything the sub-agent reaches for outside those five sources (project source, GitHub, memory, manual hints) counts as a **gap**. The skill produces a report with every gap, ranked by frequency across loops.
 
+## Two layers of failure — keep them separate
+
+Discoverability dogfooding only matters if the client can connect at all. There are **two distinct failure layers** and this skill must test both:
+
+- **Transport layer** — can a real MCP client (Claude Code, Cursor, claude.ai) complete the streamable-HTTP handshake? This is invisible to a `curl /mcp` 200 check. A server can answer every JSON-RPC method over plain `curl` POST and still fail `claude mcp add` because it never implements SSE session init, omits `protocolVersion`/`mcp-session-id`, or 405s the `GET … Accept: text/event-stream` probe. **If the transport handshake fails, every "discoverability" finding is moot — the user falls back to curl and none of the tool descriptions are ever consumed by a real client.** Test this FIRST (Step 1.5) and treat a handshake failure as `BLOCKED`, not a low-severity doc nit.
+- **Semantic layer** — given a working connection, can a fresh LLM pick the right tool and call it correctly on the first try? This is the field-name, type-shape, description-quality layer the rest of the skill measures.
+
+Real history: a prior run of this MCP returned 200 on all five surfaces but `claude mcp list` showed `✗ Failed to connect`. The whole session ran over raw `curl` JSON-RPC. The 200 check passed; the actual client never connected. That is the exact blind spot Step 1.5 closes.
+
 ## Why amnesia matters
 
 End users will hit your MCP from a fresh ChatGPT, Claude.ai, Cursor, or a script-driven agent — none of which have read your codebase. If a real LLM has to choose between `post__api_trade`, `post__api_perp_open`, `post__api_spot_buy` based on tool descriptions alone, the descriptions must carry the full decision context. The only way to verify that is to forget what you already know.
@@ -128,6 +137,56 @@ curl -s -X POST "$URL/mcp" \
 
 Record byte sizes and the tool count. These become the "what was available" baseline in the report.
 
+### Step 1.5 — Transport handshake probe (the check the 200s hide)
+
+Before any discoverability work, prove a real MCP client can connect. Run these four probes against `$URL/mcp` and record pass/fail for each. This is the layer a plain 200 check cannot see.
+
+```bash
+URL="${TARGET_URL:-http://localhost:4002}"
+MCP="$URL/mcp"
+
+# Probe A — SSE session init. A streamable-HTTP server must answer
+# GET + Accept: text/event-stream with an event stream (not the landing JSON).
+echo "── Probe A: SSE GET"
+curl -s -m 3 -D - -H "Accept: text/event-stream" "$MCP" 2>&1 | grep -iE "^HTTP|^content-type|^mcp-session-id|^event:|^data:" | head -8
+
+# Probe B — initialize must return protocolVersion AND an mcp-session-id header.
+echo "── Probe B: initialize"
+curl -s -i -X POST "$MCP" -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"dogfood","version":"1.0"}}}' \
+  2>&1 | grep -iE "^HTTP|^mcp-session-id|protocolVersion" | head -5
+
+# Probe C — notifications/initialized must be accepted (200/202/204, not "method not found").
+echo "── Probe C: notifications/initialized"
+curl -s -o /dev/null -w "%{http_code}\n" -X POST "$MCP" -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+
+# Probe D — tools/call argument envelope. Discover whether args nest under `body`
+# or sit at the top level. Pick any read-only tool from tools-list.json.
+echo "── Probe D: tools/call envelope (read-only tool)"
+curl -s -X POST "$MCP" -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get__api_markets","arguments":{}}}' \
+  | head -c 200; echo
+```
+
+Scoring:
+
+- **Probe A fail** (returns JSON landing instead of `event: …` stream, or 405s the SSE GET) → transport gap, `critical`.
+- **Probe B fail** (no `protocolVersion` in result, or no `mcp-session-id` response header) → transport gap, `critical`. These are the two fields a real client reads to establish the session.
+- **Probe C fail** (`method not found` for `notifications/initialized`) → transport gap, `high`. Clients send this immediately after `initialize`; rejecting it can wedge the handshake.
+- **Probe D** is informational — record whether arguments nest under `body` (`{"arguments":{"body":{…}}}`) or sit flat. A fresh client cannot guess this; if the envelope is non-obvious and undocumented in `tools/list` `inputSchema`, that's a `high` semantic gap.
+
+If A or B fail: **also confirm against a real client** so the report isn't theoretical. Register the target and read the status line:
+
+```bash
+claude mcp remove dogfood-probe 2>/dev/null
+claude mcp add --transport http dogfood-probe "$MCP" >/dev/null 2>&1
+claude mcp list 2>/dev/null | grep dogfood-probe   # ✓ Connected vs ✗ Failed to connect
+claude mcp remove dogfood-probe 2>/dev/null
+```
+
+If the real client shows `✗ Failed to connect`, mark the run `BLOCKED` at the transport layer. The discoverability loops can still run over curl to gather semantic gaps, but the report must lead with the transport failure — it's the gating fix. Do not bury it under doc nits.
+
 ### Step 2 — Get the Circle agent wallet address
 
 The sub-agents need the wallet address as the only piece of carried-in state. Read it from `circle wallet status` output (do not echo private material):
@@ -152,7 +211,9 @@ Read `PROMPTS.md` for the task pack the user chose. For each task in the pack, s
 - Ask for a structured trace: `{ steps: [{ url, method, why, outcome, confused: bool, gap: "..." }] }`
 - Budget the sub-agent to <30 HTTP calls — anything more is a hard fail (gap report flags "task undiscoverable")
 
-Spawn loops **in parallel** (one Agent call per task in the same message — they're independent). Use `run_in_background: false` because we need the structured traces to write the report.
+Spawn the **read-only** loops in parallel (one Agent call per task in the same message — they're independent). Use `run_in_background: false` because we need the structured traces to write the report.
+
+Run the **signing/execution loop (4S)** separately, AFTER the read-only loops return, and only if Step 1.5 confirmed the chain id is `5042002` (testnet). It mutates real on-chain state (opens/closes a position) and gets the expanded `circle wallet` toolbelt, so it must not race the read-only fleet — a half-open position confuses the positions loop. Run it solo, sequentially. Skip it entirely if the target is not testnet or the wallet isn't funded.
 
 ### Step 4 — Score each loop
 
@@ -161,18 +222,22 @@ For each returned trace, compute:
 - **Discovery efficiency**: HTTP calls before the first successful API hit on the task's primary endpoint. Lower is better (3-5 is healthy; 10+ is a gap).
 - **Doc sufficiency**: Did the sub-agent need to guess endpoint shapes, parameter names, or auth headers? Each guess = 1 gap.
 - **Source leakage**: Any attempt to read repo files (count of forbidden reads). >0 = critical gap.
-- **Error helpfulness**: For every 4xx the sub-agent received, did the response body name the missing/wrong field? Count helpful vs unhelpful 4xx.
+- **Error helpfulness**: For every 4xx the sub-agent received, did the response body name the missing/wrong field? Count helpful vs unhelpful 4xx. (BUFI's validation errors are good here — they return `details.issues[].path` — credit that as a win when it shows.)
 - **Tool-name clarity**: If using MCP `tools/call`, did the sub-agent pick the right tool on the first try? Each wrong-tool retry = 1 gap.
+- **Field-name consistency** (cross-tool): Collect the address/principal parameter name each tool uses for "the acting wallet." If the same concept is called `trader` on one tool, `supplier` on another, `depositor` / `recipient` / `borrower` elsewhere, every distinct name beyond the first is a gap. A fresh agent re-guesses per tool and eats a validation failure each time. Severity scales with how many distinct names exist for one concept. (Observed: 5 different names for the acting wallet across perps/lending/ghost — a recurring `high` gap. The fix landed as a universal `trader` alias; verify the alias is present and documented.)
+- **Type-shape surprises**: For each parameter, did the sub-agent send the wrong JSON type on the first try? The classic traps here: numeric-looking values that must be **strings** (`sizeUsdc: "10"`, `amount: "20"`, `amountInAtomic`) versus values that must be **numbers** (`deadline: 1779820676`, `leverage: 5`). Each first-attempt type mismatch = 1 gap. If `tools/list` `inputSchema` doesn't pin the type (e.g. `body` typed as bare `object` with no properties), that's the root cause — flag it on the schema, not the agent.
+- **Signing-path completeness** (execution loops only): Did the prepare→sign→execute flow self-describe? Did the agent know which chain name the Circle CLI expects, that typed data is EIP-712, and that the signature feeds back into `…_execute`? Gaps here are why the wallet — the thing this skill is named after — fails to actually transact.
 
 ### Step 5 — Write the gap report
 
 Write `MCP_DOGFOOD_REPORT.md` to the **project root** (not the skill dir). Use the template in `REPORT_TEMPLATE.md`. Sections:
 
 1. **Run metadata** — target URL, loop count, task pack, wallet address (last 4 chars only), timestamp, MCP tool count, llms.txt byte size, OpenAPI byte size.
-2. **Per-task results** — task, status (✅/❌), discovery efficiency, gap count, summarized trace.
-3. **Aggregate gaps** — every gap observed across loops, frequency, severity, and the canonical surface that should fix it (`llms.txt` / OpenAPI description / MCP annotation).
-4. **Suggested patches** — concrete edits, file path + diff sketch. Don't write the patches — list them. The user reviews and applies separately.
-5. **What's working** — a positive ledger. Discoverability wins worth keeping when you refactor.
+2. **Transport handshake** — the Step 1.5 probe results (A/B/C/D), and the real-client `claude mcp list` status line. This section is FIRST after metadata because a transport failure gates everything else.
+3. **Per-task results** — task, status (✅/❌), discovery efficiency, gap count, summarized trace.
+4. **Aggregate gaps** — every gap observed across loops, frequency, severity, and the canonical surface that should fix it (`llms.txt` / OpenAPI description / MCP annotation / transport / zod schema).
+5. **Suggested patches** — concrete edits, file path + diff sketch. Don't write the patches — list them. The user reviews and applies separately.
+6. **What's working** — a positive ledger. Discoverability wins worth keeping when you refactor.
 
 ### Step 6 — Surface the top 3 fixes
 
@@ -200,8 +265,23 @@ Then STOP. Do not auto-patch — the user decides which gaps are worth filling.
 - `BLOCKED` — canonical endpoints not reachable, or the wallet bootstrap is missing.
 - `NEEDS_CONTEXT` — user didn't pick a target URL or task pack and you can't proceed without one.
 
+## Known gaps (carried forward — verify each run, don't re-derive from scratch)
+
+These are gaps confirmed in prior runs. Start each run by checking whether they're still present, so the report tracks regressions/fixes instead of rediscovering the same things. Update this list when a gap is fixed or a new recurring one appears.
+
+| Layer | Gap | Status as of last run | Fix shape |
+|---|---|---|---|
+| Transport | `GET /mcp` returned landing JSON for `Accept: text/event-stream`; no SSE init → `claude mcp` failed to connect | FIXED locally (server now SSE-inits + sets `mcp-session-id`); **verify prod deploy picked it up** | `apps/hyper-mcp/src/hyper/mcp/server.ts` handles SSE GET, DELETE, `notifications/initialized`, `protocolVersion` |
+| Transport | `initialize` omitted `protocolVersion` and the `mcp-session-id` header | FIXED locally | `rpcOkWithSession` in `server.ts` |
+| Semantic | 5 names for the acting wallet (`trader`/`supplier`/`depositor`/`recipient`/`borrower`) | FIXED via universal `trader` alias on lending + ghost routes | verify alias still present; push it to perps/spot for full consistency |
+| Semantic | `sizeUsdc`/`amount` must be strings; `deadline` must be a number — not pinned in `tools/list` inputSchema (`body` is a bare `object`) | OPEN | give each route's zod body a real shape so OpenAPI/MCP `inputSchema` carries types + examples |
+| Semantic | `tools/call` arguments nest under `body` (`{"arguments":{"body":{…}}}`) — undiscoverable from `tools/list` | OPEN | document the envelope in `llms.txt` and/or flatten the MCP arg mapping |
+| Execution | Borrow returned 500 "quote reader not configured" | FIXED (local borrow quote reader wired in `services.ts`) | verify `post__api_lending_borrow` returns a quote, not a 500 |
+| Execution | Circle CLI chain name is `ARC-TESTNET` (hyphen), not `ARC_TESTNET`; signing is `circle wallet sign typed-data '<json>' --address <addr> --chain ARC-TESTNET --quiet` | DOC-ONLY | belongs in `llms.txt` under a "Signing with Circle agent wallet" section |
+
 ## Notes for future iterations
 
 - Add a `--diff` mode that runs against a baseline `MCP_DOGFOOD_REPORT.md` to flag regressions.
-- Wire a CI variant that fails the build if gap count exceeds a threshold.
-- Once the MCP is JWT-gated in prod, the wallet address becomes the JWT subject — keep the skill's "wallet is the only carried-in state" invariant intact.
+- Wire a CI variant that fails the build if gap count exceeds a threshold OR the transport handshake probe fails.
+- Once the MCP is JWT-gated in prod, the wallet address becomes the JWT subject — keep the skill's "wallet is the only carried-in state" invariant intact. Add a probe that issues a token via `post__api_auth_token` and confirms a tool call works with `Authorization: Bearer <jwt>`.
+- The transport probe (Step 1.5) should eventually run as its own fast pre-flight skill — it's the highest-value, lowest-cost check and gates everything else.
