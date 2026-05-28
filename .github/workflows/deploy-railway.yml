@@ -31,3 +31,27 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: railway up --service bufi-api
+
+      # `railway up` returns 0 once the image builds — it does NOT prove the
+      # container actually boots. A startup crash (e.g. a syntax error) then
+      # leaves prod down while the workflow shows green. This gate curls each
+      # public /health and FAILS the deploy if it doesn't recover, so a
+      # crash-loop is an actionable red deploy instead of silent downtime.
+      - name: Post-deploy health gate
+        run: |
+          set -uo pipefail
+          check() {
+            name="$1"; url="$2"
+            echo "Health-checking $name: $url"
+            for i in $(seq 1 18); do
+              code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8 "$url" || echo 000)
+              if [ "$code" = "200" ]; then echo "  ✓ $name healthy on attempt $i"; return 0; fi
+              echo "  $name=$code, retry $i/18..."; sleep 10
+            done
+            echo "::error::$name did not return 200 within ~3min — deploy likely crash-looping"
+            return 1
+          }
+          rc=0
+          check "bufi-hyper-mcp" "https://mcp.bu.finance/health" || rc=1
+          check "bufi-api" "https://fx-api.bu.finance/health" || rc=1
+          exit $rc
