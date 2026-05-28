@@ -8,7 +8,7 @@ import { authJwtPlugin } from "@hyper/auth-jwt";
 import { rateLimit } from "@hyper/rate-limit";
 import { compress } from "@hyper/compress";
 import { idempotency } from "@hyper/idempotency";
-import { openapiPlugin } from "@hyper/openapi";
+import { openapiPlugin, openapiHandlers } from "@hyper/openapi";
 import { zodConverter } from "@hyper/openapi-zod";
 import { mcpServer } from "@hyper/mcp";
 import { z } from "zod";
@@ -66,10 +66,12 @@ const llmsTxt = `# BUFI HYPER — Trading Infrastructure for AI Agents
 2. post__api_trade_execute(..., reduceOnly=true, signature)
 
 ## Spot Buy (2 calls)
-1. post__api_spot_quote(symbol="EURC", amountUsdc="100")
+1. post__api_spot_quote(symbol="EURC", amountUsdc="100")  // amountUsdc is human USDC, e.g. "100"
    → returns { price, routeId }
-2. post__api_spot_buy(symbol="EURC", trader="0x...", amountInAtomic, minAmountOutAtomic)
+2. post__api_spot_buy(symbol="EURC", trader="0x...", amountUsdc="100", minAmountOut)
    → returns { digest, typedData }
+   // amountUsdc = human USDC (server converts to atomic). minAmountOut = slippage
+   // floor in the FX token's atomic units (use the quote price to size it).
 
 ## Supply & Earn Yield
 1. get__api_lending_markets → see APYs (GLOBAL — pool totals, not your balances)
@@ -204,6 +206,13 @@ const tokenRoute = route
     });
   });
 
+// Single source of truth for schema conversion. Feeds BOTH the OpenAPI spec
+// (/openapi.json) and the MCP manifest (tools/list inputSchema) so the two
+// never drift and every route self-describes by default — add a converter
+// here once and both surfaces pick it up. zodConverter understands our zod
+// bodies incl. .refine()/.transform() wrappers (see openapi-zod).
+const SCHEMA_CONVERTERS = [zodConverter];
+
 const llmsRoute = route.get("/llms.txt").handle(() => {
   return new Response(llmsTxt, {
     headers: { "content-type": "text/plain; charset=utf-8" },
@@ -220,7 +229,7 @@ const hyper = new Hyper()
   .use(compress())
   .use(rateLimit({ limit: 120, window: "1m" }))
   .use(idempotency())
-  .use(openapiPlugin({ converters: [zodConverter] }))
+  .use(openapiPlugin({ converters: SCHEMA_CONVERTERS }))
   .use([health, llmsRoute, tokenRoute])
   .use(markets)
   .use(quote)
@@ -254,8 +263,16 @@ const hyperApp = hyper.build();
 // converter the OpenAPI plugin uses; core stays validator-agnostic.
 const mcp = mcpServer(hyperApp, {
   manifest: hyperApp.toMCPManifest((schema) =>
-    zodConverter.toJsonSchema(schema) as Record<string, unknown>,
+    SCHEMA_CONVERTERS[0]!.toJsonSchema(schema) as Record<string, unknown>,
   ),
+});
+
+// Rich OpenAPI generator (inlines converted body/response schemas + examples).
+// The core app.toOpenAPI() is a placeholder that emits dangling Body refs, so we
+// serve /openapi.json from here instead, sharing the one SCHEMA_CONVERTERS source.
+const openapi = openapiHandlers(hyperApp, {
+  converters: SCHEMA_CONVERTERS,
+  title: "BUFI HYPER MCP",
 });
 
 const mcpLandingPage = {
@@ -302,8 +319,9 @@ export default {
     }
 
     if (url.pathname === "/openapi.json" && req.method === "GET") {
-      const spec = hyperApp.toOpenAPI?.() ?? { openapi: "3.1.0", info: { title: "BUFI HYPER MCP", version: "0.1.0" }, paths: {} };
-      return new Response(JSON.stringify(spec, null, 2), { headers: { "content-type": "application/json" } });
+      // Served by the rich generator so request/response bodies carry real
+      // schemas (properties, types, required) instead of dangling Body refs.
+      return openapi.spec(req);
     }
 
     if (url.pathname === "/mcp" || url.pathname.startsWith("/mcp/")) {

@@ -21,11 +21,16 @@ Sequencing principle: **stop the bleeding → bank the wins → harmonize → fi
 
 ## Phase 1 — Close residual dogfood gaps (this week, S–M, low risk)
 
+**Status 2026-05-28: 1.1 DONE, 1.2 DONE, 1.3 PARTIAL.**
+
 | # | Action | Why | Files |
 |---|---|---|---|
-| 1.1 | **Make self-describing MCP schemas a framework default,** not the `app.ts` wire-up. Expand `body` automatically when a converter is registered. | The `inputSchema` fix should apply to every future route for free. | `hyper/core/projection.ts`, `app.ts` |
-| 1.2 | **Point the OpenAPI generator at the same `zodConverter`** so it stops emitting generic `Body` refs. Both re-dogfood agents fell back to `tools/list` because OpenAPI was useless. | One schema source → OpenAPI + MCP + client never drift. Closes the top residual gap. | `hyper/openapi*`, `app.ts` |
-| 1.3 | **Spot-buy human units.** Accept `amountUsdc:"1"` (decimal string) on `spot_buy`; convert to atomic + derive `minAmountOut` server-side from the quote. Kill `amountInAtomic`/`minAmountOutAtomic` from the public surface. | The only real friction left in the spot path; llms.txt currently over-promises auto-conversion. | `routes/spot.ts` |
+| 1.1 ✅ | **Self-describing schemas from one source.** `SCHEMA_CONVERTERS` defined once in `app.ts` feeds both the MCP manifest and OpenAPI; `toMCPManifest` expands bodies via a validator-agnostic expander. (Full framework auto-discovery deferred — the converter is registered per-app, not stored on the instance; low marginal value.) | The `inputSchema` fix applies to every route, both surfaces, add-once. | `hyper/core/projection.ts`, `app.ts` |
+| 1.2 ✅ | **OpenAPI served by the rich generator** (`openapiHandlers`) with the shared converter, replacing the core placeholder that emitted dangling `#/components/schemas/Body` refs. Verified: `/openapi.json` now inlines properties/types/required/enum. | One schema source → OpenAPI + MCP never drift. Closes the top residual gap both agents hit. | `app.ts` (route now uses `openapiHandlers`) |
+| 1.3 ⚠️ | **Spot-buy input humanized:** `amountUsdc` (decimal string) replaces `amountInAtomic`; server converts via exact integer math (USDC = 6 decimals). **Deferred:** auto-deriving `minAmountOut` — pair direction varies per Pyth feed (EUR/USD divides, USD/JPY-style multiplies ~150×) and no conversion logic exists anywhere in the repo to verify against. `minAmountOut` stays an explicit atomic input until a **tested per-feed quote helper** lands in `@bufi/fx-spot`. Did not guess money math. | The worst spot friction (unknown decimals) is fixed; slippage math is not faked. | `routes/spot.ts` |
+
+> **New P1 follow-up surfaced:** the perp test suite depends on a live upstream Pyth feed being fresh — MXNB tests fail when its feed goes stale (`age > 300s`), which is external. Tests should mock the oracle or tolerate staleness so the suite isn't flaky on third-party feed lag.
+> **Phase 2 link:** 1.3's deferred `minAmountOut` derivation is the natural first slice of 2.2 (human units everywhere) — build the tested `quoteSpotOut` helper with explicit per-feed direction config there.
 
 ## Phase 2 — KISS harmonization (design first, then migrate; M–L, medium risk)
 
