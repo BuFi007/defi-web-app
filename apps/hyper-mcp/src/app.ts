@@ -39,6 +39,7 @@ import markets from "./routes/markets.ts";
 import quote from "./routes/quote.ts";
 import trade from "./routes/trade.ts";
 import positions from "./routes/positions.ts";
+import portfolio from "./routes/portfolio.ts";
 import spot from "./routes/spot.ts";
 import lending from "./routes/lending.ts";
 import leaderboard from "./routes/leaderboard.ts";
@@ -80,9 +81,10 @@ const llmsTxt = `# BUFI HYPER — Trading Infrastructure for AI Agents
 3. get__api_lending_positions/{address} → YOUR supplied/borrowed balances + health factor per market.
    (markets is global; this is the per-wallet read. The two are different calls.)
 
-## Reading a wallet's holdings (no single portfolio call yet — fan out)
-- Perp positions: get__api_positions/{address}
-- Lending positions: get__api_lending_positions/{address}
+## Reading a wallet's holdings
+- One call: get__api_portfolio/{address} → { perp, lending } together.
+- Or per-product: get__api_positions/{address} (perp), get__api_lending_positions/{address}.
+- Spot holdings are plain wallet token balances (read on-chain).
 - Shielded/ghost balances are not readable via HTTP. NOTE: ghost privacy is currently WEAK — deposits and withdrawals are amount-linkable (the ZK layer hides the merkle link, not amounts). Do not rely on it for unlinkability yet. Each ghost response carries a privacyNotice with the current limits.
 
 ## Borrow Against Collateral
@@ -235,6 +237,7 @@ const hyper = new Hyper()
   .use(quote)
   .use(trade)
   .use(positions)
+  .use(portfolio)
   .use(spot)
   .use(lending)
   .use(leaderboard)
