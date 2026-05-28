@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{info, warn};
 
-use bufi_orderbook::{cancel_intent, match_intent, Fill, OrderBook};
+use bufi_orderbook::{cancel_intent, match_intent, Fill, MatchStatus, OrderBook};
 
 use crate::intent_translator::TranslatedIntent;
 
@@ -99,6 +99,9 @@ impl Sequencer {
         let market_id = translated.orderbook_intent.market_id;
         let intent_id = translated.orderbook_intent.id;
 
+        // Stash the intent so fills produced below can resolve maker/taker.
+        // If the match outcome is Rejected, we remove it again before
+        // returning — rejected intents must never be retrievable as active.
         self.intent_store.insert(intent_id, translated.clone());
 
         let book = self
@@ -150,12 +153,25 @@ impl Sequencer {
             });
         }
 
-        let status = if outcome.residual.is_zero() && !ack_fills.is_empty() {
-            AckStatus::Filled
-        } else if !ack_fills.is_empty() {
-            AckStatus::Partial
-        } else {
-            AckStatus::Resting
+        // Drive AckStatus from the orderbook outcome — never assume Resting
+        // when no fills landed. A rejected IOC/FOK/expired/invalid intent
+        // produces a Rejected ack with the underlying reason, and the
+        // intent is purged from the active intent_store.
+        let status = match outcome.status {
+            MatchStatus::Filled => AckStatus::Filled,
+            MatchStatus::Partial => AckStatus::Partial,
+            MatchStatus::Resting => AckStatus::Resting,
+            MatchStatus::Rejected => {
+                let reason = outcome
+                    .reject_reason
+                    .map(|r| r.to_string())
+                    .unwrap_or_else(|| "rejected".to_string());
+                // Rejected intents are never live — drop them from the
+                // active store so a follow-up cancel returns NotFound
+                // (correct) instead of accidentally hitting this id.
+                self.intent_store.remove(&intent_id);
+                AckStatus::Rejected(reason)
+            }
         };
 
         PlaceAck {
