@@ -93,10 +93,29 @@ Show composite APY in lending table (IRM + fee boost).
 Migrate `keeper-perps-liquidator` to Rust module inside the matcher.
 Event-driven via Pyth WS feed. Envio for position set.
 
+## Perps EIP-712 Domain (Arc Testnet 5042002)
+
+The on-chain `verifyingContract` for perps order intents is
+**`FxOrderSettlement`** — `0xCeae7846c8ED2Dd9E6f541798a657875305EA0d8` —
+**NOT** `FxPerpClearinghouse`. Earlier drafts of this checklist had the
+wrong contract; this corrects the record so client signers and audit
+checklists match what `FxOrderSettlement.verifyOrderSignature()` actually
+recovers from.
+
+Authoritative source: `packages/perps/src/typed-data.ts`:
+
+```ts
+const verifyingContract = loadContracts()[req.chainId].perps.orderSettlement;
+```
+
+Signing any other `verifyingContract` (e.g. `FxPerpClearinghouse`) will
+recover a different address than the order owner and the settlement tx
+will revert with `InvalidSignature`.
+
 ## Key Contract Addresses (Arc Testnet 5042002)
 
 ```
-FxOrderSettlement:    0xCeae7846c8ED2Dd9E6f541798a657875305EA0d8
+FxOrderSettlement:    0xCeae7846c8ED2Dd9E6f541798a657875305EA0d8  ← EIP-712 verifyingContract
 FxPerpClearinghouse:  0x7707d108F6Ce3d95ceA38D3965448F00C21CaFdC
 FxSpotExecutor:       0x4e7372108529C0e7cb3aa0fF92B1c52e06e9e72f
 FxMarginAccount:      0x77BBAef17257AD4800BE12A5D36AF87f3a49FBb7

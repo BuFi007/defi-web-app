@@ -39,6 +39,7 @@ import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/components/ui/use-toast";
 import { errMsg } from "@/utils";
 import { useMarkets, usePlaceOrder } from "@/lib/perps/hooks";
+import { parseFiniteDecimal } from "@/utils/numeric";
 import { getPerpsReplacementDevWallet } from "@/lib/perps/dev-mock-wallet";
 import type { PerpsMarketDto } from "@/lib/perps/client";
 import { useScopedI18n } from "@/locales/client";
@@ -139,8 +140,14 @@ export function TradeDrawer({
   }, []);
 
   const decimals = market.price < 10 ? 4 : market.price < 1000 ? 2 : 1;
-  const sizeV = parseFloat(size) || 0;
-  const priceV = parseFloat(price) || market.price;
+  // See @/utils/numeric — parseFloat lets Infinity / NaN / negatives through
+  // and silently corrupts notional + liq calculations. parseFiniteDecimal
+  // returns null on any violation; we coerce to safe defaults for display
+  // and re-check before submit.
+  const sizeParsed = parseFiniteDecimal(size, 8);
+  const priceParsed = parseFiniteDecimal(price, 8);
+  const sizeV = sizeParsed ?? 0;
+  const priceV = priceParsed ?? market.price;
   const notional = sizeV * priceV;
   const reqMargin = requiredMarginFloat(notional, lev);
   const liqLong = liquidationPriceFloat({
@@ -168,7 +175,8 @@ export function TradeDrawer({
 
   const canTrade = Boolean(isConnected || devWallet);
   const hasSize = sizeV > 0;
-  const needsLimitPrice = orderType === "limit" && !priceV;
+  const needsLimitPrice =
+    orderType === "limit" && (priceParsed === null || priceParsed <= 0);
 
   // Per-step "can I advance" predicate. Drives the CTA enabled state.
   const stepReady = (() => {
@@ -210,6 +218,22 @@ export function TradeDrawer({
       return;
     }
     if (!canTrade || !side) return;
+    if (sizeParsed === null || sizeParsed <= 0) {
+      toast({
+        variant: "destructive",
+        title: "Invalid size",
+        description: "Size must be a positive decimal (max 8 dp). No Infinity or scientific notation.",
+      });
+      return;
+    }
+    if (orderType === "limit" && (priceParsed === null || priceParsed <= 0)) {
+      toast({
+        variant: "destructive",
+        title: t("enterLimitPrice"),
+        description: "Limit orders need a non-zero price.",
+      });
+      return;
+    }
     try {
       const result = await placeOrder.mutateAsync({
         marketId: liveMarket.marketId,
