@@ -109,6 +109,18 @@ function toJson(schema: ZodLike): JsonSchema {
       const options = (def as { options: readonly ZodLike[] }).options
       return { anyOf: options.map(toJson) }
     }
+    case "ZodEffects":
+    case "effects":
+    case "ZodPipeline":
+    case "pipe": {
+      // .refine() / .transform() / .preprocess() / .pipe() wrap an inner
+      // schema. For an INPUT schema we want the pre-effect shape, which is
+      // `_def.schema` (effects) or `_def.in` (pipeline). Unwrap and recurse
+      // so refined bodies still publish their real properties + types.
+      const d = def as { schema?: ZodLike; in?: ZodLike }
+      const inner = d.schema ?? d.in
+      return inner ? toJson(inner) : {}
+    }
     default:
       return {}
   }

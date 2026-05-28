@@ -166,7 +166,36 @@ export interface MCPTool {
   }
 }
 
-export function toMCPManifest(routes: readonly Route[]): MCPManifest {
+/**
+ * Optional schema expander. When supplied (by the app layer, which knows
+ * which validator is in use — e.g. `zodConverter.toJsonSchema`), the body's
+ * concrete shape is emitted into the MCP `inputSchema` instead of an opaque
+ * `{ type: "object" }`. Core stays validator-agnostic: it only calls the fn.
+ * Anything the expander can't understand falls back to `{ type: "object" }`.
+ */
+export type SchemaExpander = (schema: unknown) => Record<string, unknown>
+
+function expand(
+  schema: unknown,
+  convert: SchemaExpander | undefined,
+): Record<string, unknown> {
+  if (!convert) return { type: "object" }
+  try {
+    const out = convert(schema)
+    // A converter that returns {} (unrecognized, e.g. refine/transform wrappers)
+    // must not produce an empty, propertyless schema — keep the safe default.
+    return out && typeof out === "object" && Object.keys(out).length > 0
+      ? out
+      : { type: "object" }
+  } catch {
+    return { type: "object" }
+  }
+}
+
+export function toMCPManifest(
+  routes: readonly Route[],
+  convertBody?: SchemaExpander,
+): MCPManifest {
   const tools: MCPTool[] = []
   for (const r of routes) {
     if (r.meta.internal) continue
@@ -182,7 +211,7 @@ export function toMCPManifest(routes: readonly Route[]): MCPManifest {
         properties: {
           ...(r.params ? { params: { type: "object" } } : {}),
           ...(r.query ? { query: { type: "object" } } : {}),
-          ...(r.body ? { body: { type: "object" } } : {}),
+          ...(r.body ? { body: expand(r.body, convertBody) } : {}),
         },
       },
     })

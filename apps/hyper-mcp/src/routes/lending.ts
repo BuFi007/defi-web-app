@@ -20,6 +20,22 @@ const lendingMarkets = route
     return ok(jsonSafe({ markets }));
   });
 
+const lendingPositions = route
+  .get("/lending/positions/:address")
+  .meta({
+    mcp: {
+      title: "Lending Positions for Wallet",
+      description:
+        "View a wallet's lending positions: supplied collateral, borrowed amount, health factor, and status per market. The per-wallet counterpart to get__api_lending_markets (which is global). Use this to read a wallet's lending balances — markets alone cannot tell you what an address has supplied or borrowed.",
+    },
+  })
+  .handle(async (ctx) => {
+    const address = (ctx.params as Record<string, string>).address ?? "";
+    if (!address) return ok({ address: "", positions: [] });
+    const positions = await telaranaService.positionsFor(address);
+    return ok(jsonSafe({ address, positions }));
+  });
+
 const borrowPreview = route
   .post("/lending/borrow/preview")
   .body(z.object({ marketId: zMarketId, collateralAmount: zAmount, borrowAmount: zAmount }))
@@ -143,5 +159,5 @@ const withdrawAction = route
   });
 
 export default new Hyper({ prefix: "/api" }).use([
-  lendingMarkets, borrowPreview, supplyAction, borrowAction, repayAction, withdrawAction,
+  lendingMarkets, lendingPositions, borrowPreview, supplyAction, borrowAction, repayAction, withdrawAction,
 ]);

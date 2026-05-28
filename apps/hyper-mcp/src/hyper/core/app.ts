@@ -193,7 +193,8 @@ export function app(config: AppConfig = {}): HyperApp {
 
   const toOpenAPIFn = (cfg: OpenAPIManifestConfig = {}): OpenAPIManifest =>
     toOpenAPI(allRoutes, cfg)
-  const toMCPFn = (): MCPManifest => toMCPManifest(allRoutes)
+  const toMCPFn = (convertBody?: (schema: unknown) => Record<string, unknown>): MCPManifest =>
+    toMCPManifest(allRoutes, convertBody)
   const toClientFn = (): ClientManifest => toClientManifest(allRoutes)
 
   const instance: HyperApp = {

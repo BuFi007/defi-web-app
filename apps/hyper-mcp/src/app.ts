@@ -72,19 +72,46 @@ const llmsTxt = `# BUFI HYPER — Trading Infrastructure for AI Agents
    → returns { digest, typedData }
 
 ## Supply & Earn Yield
-1. get__api_lending_markets → see APYs
-2. post__api_lending_supply(marketId, supplier="0x...", amount="100")
+1. get__api_lending_markets → see APYs (GLOBAL — pool totals, not your balances)
+2. post__api_lending_supply(marketId, trader="0x...", amount="100")
    → returns { action: "supply", market, deadline, nonce }
+3. get__api_lending_positions/{address} → YOUR supplied/borrowed balances + health factor per market.
+   (markets is global; this is the per-wallet read. The two are different calls.)
+
+## Reading a wallet's holdings (no single portfolio call yet — fan out)
+- Perp positions: get__api_positions/{address}
+- Lending positions: get__api_lending_positions/{address}
+- Shielded/ghost balances are not readable via HTTP. NOTE: ghost privacy is currently WEAK — deposits and withdrawals are amount-linkable (the ZK layer hides the merkle link, not amounts). Do not rely on it for unlinkability yet. Each ghost response carries a privacyNotice with the current limits.
 
 ## Borrow Against Collateral
 1. post__api_lending_borrow_preview(marketId, collateralAmount, borrowAmount) → check health factor
-2. post__api_lending_borrow(marketId, borrower="0x...", borrowAmount, collateralAmount)
+2. post__api_lending_borrow(marketId, trader="0x...", borrowAmount, collateralAmount)
+
+## Acting-wallet param: always "trader"
+Every endpoint that needs the acting wallet accepts trader="0x...". Legacy
+aliases (supplier/borrower/depositor/recipient) still work for back-compat, but
+prefer "trader" everywhere — one name across spot, perp, lending, and ghost.
 
 ## Markets
 - Perps: EURC/USDC, JPYC/USDC, MXNB/USDC, CIRBTC/USDC, AUDF/USDC
 - Up to 50x leverage, EIP-712 signed intents, Pyth oracle prices
 - Spot: EURC, JPYC, MXNB (buy with USDC)
 - Lending: supply USDC to earn yield, borrow FX tokens against collateral
+
+## Spot vs Perp — pick the right endpoint (READ THIS, the families do NOT overlap)
+There are two separate product families on two different chains. They are NOT
+interchangeable; do not substitute one for the other.
+
+| You want… | Use | Settlement domain | chainId | Symbol format |
+|---|---|---|---|---|
+| A leveraged position (long/short, margin) | post__api_trade_prepare → sign → post__api_trade_execute | TelaranaFxOrderSettlement | 5042002 (Arc) | pair, e.g. "EURC/USDC" |
+| Price for a perp | post__api_quote | — | 5042002 | pair, e.g. "EURC/USDC" |
+| To buy an FX token outright with USDC (no leverage) | post__api_spot_buy | BUFX Venue Request Router | 43113 (Fuji) | bare token, e.g. "EURC" |
+| Price for a spot buy | post__api_spot_quote | — | 43113 | bare token, e.g. "EURC" |
+
+- Perp endpoints take the pair symbol ("EURC/USDC"). Spot endpoints take the bare token ("EURC").
+- post__api_quote (perp) and post__api_spot_quote (spot) are different products, not duplicates. Choose by whether you want leverage.
+- A spot buy does NOT route through /api/trade/*. Use post__api_spot_buy. Conversely, perps do NOT route through /api/spot/*.
 
 ## Defaults (omit unless overriding)
 - chainId: 5042002 (Arc Testnet — only chain, never specify)
@@ -220,7 +247,16 @@ const port = Number(process.env.PORT ?? 4002);
 const baseUrl = process.env.BUFI_MCP_URL ?? `http://localhost:${port}`;
 
 const hyperApp = hyper.build();
-const mcp = mcpServer(hyperApp);
+// Expand each tool's `body` into a real JSON Schema (properties + required +
+// types) in the MCP manifest, instead of an opaque `{ type: "object" }`. This
+// is what lets a fresh client see that e.g. `sizeUsdc` is a string and
+// `deadline` is a number without trial-and-error. Reuses the same zod
+// converter the OpenAPI plugin uses; core stays validator-agnostic.
+const mcp = mcpServer(hyperApp, {
+  manifest: hyperApp.toMCPManifest((schema) =>
+    zodConverter.toJsonSchema(schema) as Record<string, unknown>,
+  ),
+});
 
 const mcpLandingPage = {
   endpoint: `${baseUrl}/mcp`,

@@ -272,7 +272,9 @@ export interface HyperApp {
     description?: string
   }) => import("./projection.ts").OpenAPIManifest
   /** MCP manifest. @hyper/mcp adds the transport. */
-  readonly toMCPManifest: () => import("./projection.ts").MCPManifest
+  readonly toMCPManifest: (
+    convertBody?: (schema: unknown) => Record<string, unknown>,
+  ) => import("./projection.ts").MCPManifest
   /** Client manifest. @hyper/client consumes this. */
   readonly toClientManifest: () => import("./projection.ts").ClientManifest
   /** Original AppConfig — used by `app.test()` to produce scoped clones. */

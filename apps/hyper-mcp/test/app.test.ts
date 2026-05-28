@@ -75,11 +75,13 @@ describe("auth", () => {
 // ── Markets ──
 
 describe("markets", () => {
-  test("GET /api/markets lists 5 perp markets", async () => {
+  test("GET /api/markets lists the core perp markets", async () => {
     const res = await get("/api/markets");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.markets.length).toBe(5);
+    // Count is config-driven and grows as markets are added (e.g. QCAD).
+    // Assert the core set is present rather than pinning a brittle exact count.
+    expect(body.markets.length).toBeGreaterThanOrEqual(5);
     const symbols = body.markets.map((m: { symbol: string }) => m.symbol);
     expect(symbols).toContain("EURC/USDC");
     expect(symbols).toContain("JPYC/USDC");
