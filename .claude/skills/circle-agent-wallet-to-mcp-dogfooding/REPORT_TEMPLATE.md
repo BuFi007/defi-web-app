@@ -1,7 +1,8 @@
 # MCP Dogfood Report
 
 > Run started: `{{ timestamp }}`
-> Target URL: `{{ target_url }}`
+> Target MCP: `{{ mcp_name }}` → `{{ target_url }}`
+> Baseline (if diff mode): `{{ baseline_mcp_name }}` → `{{ baseline_url }}`
 > Loops: `{{ loop_count }}` ({{ task_pack }})
 > Wallet: `…{{ wallet_last4 }}`
 

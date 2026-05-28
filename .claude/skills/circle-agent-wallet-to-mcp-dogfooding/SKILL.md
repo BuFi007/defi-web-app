@@ -67,15 +67,35 @@ Do not use for code review, perf testing, or load testing. This skill measures *
 
 ## Workflow
 
-### Step 0 — Confirm scope
+### Step 0 — Confirm scope (Target MCP, Loop count, Task pack)
 
-Use `AskUserQuestion` to choose:
+Use `AskUserQuestion` to choose. The Target MCP can be supplied four ways — pick whichever fits the user's wording. Always print the resolved URL back before continuing; never silently fall back.
 
-1. **Target URL** — default `http://localhost:4002`, or user-supplied. Print whichever you'll use; do not silently fall back.
-2. **Loop count** — recommend 3 for a quick check, 8 for a full audit. Cap at 12 (each loop spawns a sub-agent + makes ~6–12 HTTP calls).
-3. **Task pack** — see `PROMPTS.md`. Default: `mvp` (markets → quote → trade → positions). Optional: `full` (adds lending, copy-trading, bonds, streaming).
+**Target MCP — resolution order**:
 
-If the wallet bootstrap or the target URL is missing, STOP and report `NEEDS_CONTEXT`.
+1. **User-supplied flag** — if the invocation includes `--url <URL>` or `--mcp <name>`, use it directly. `--url` wins if both are given.
+2. **Registered `claude mcp` name** — if the user mentions a name like `bufi-hyper-local`, `bufi-hyper-prod`, etc., resolve it from the local registry:
+   ```bash
+   # List registered MCPs, find URL by name
+   claude mcp list 2>/dev/null | awk -v name="$MCP_NAME" '$1==name {print $NF}'
+   ```
+   If the name is in the registry, derive the canonical base URL by stripping the trailing `/mcp` path: `http://localhost:4002/mcp` → `http://localhost:4002`.
+3. **Project default** — `http://localhost:4002` (the BUFI HYPER local dev port).
+4. **Ask** — if none of the above resolved and the user didn't say which to target, ASK explicitly. Default options to surface:
+   - `bufi-hyper-local` (`http://localhost:4002`) — local dev MCP
+   - `bufi-hyper-prod` (`https://mcp.bu.finance`) — production MCP (only if reachable)
+   - any other `claude mcp list` entries that look like BUFI MCPs (heuristic: name contains `bufi`, `hyper`, `mcp`)
+   - custom URL — let the user paste one
+
+Once resolved, do a 1-second `curl -s -o /dev/null -w "%{http_code}" "$URL/"` reachability ping. If non-200, ask whether to continue against an unreachable target (which will dogfood the failure mode) or pick a different MCP.
+
+**Loop count**: recommend 3 (quick), 8 (full audit). Cap at 12.
+
+**Task pack**: see `PROMPTS.md`. Default `mvp` (markets → quote → positions → trade). Optional `full` (adds lending, perps, copy-trading, streaming).
+
+**Multi-target diff mode**: if the user supplies two URLs (e.g. `--url http://localhost:4002 --baseline https://mcp.bu.finance`), run the same task pack against both and produce a side-by-side report. This is the right shape for "did local drift from prod?" or "did my llms.txt edit help vs the previous version?".
+
+If the wallet bootstrap, target URL, or task pack is missing AND the user hasn't given enough to infer them, STOP and report `NEEDS_CONTEXT` with the specific missing field.
 
 ### Step 1 — Sanity-check the canonical surfaces
 
