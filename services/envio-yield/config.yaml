@@ -291,7 +291,7 @@ chains:
   - id: 5042002
     start_block: 42600000
     hypersync_config:
-      url: https://5042002.rpc.hypersync.xyz
+      url: https://5042002.hypersync.xyz
     rpc:
       url: https://rpc.testnet.arc.network
     contracts:
@@ -346,6 +346,8 @@ chains:
 
   - id: 43113
     start_block: 42000000
+    hypersync_config:
+      url: https://43113.hypersync.xyz
     rpc:
       url: https://api.avax-test.network/ext/bc/C/rpc
     contracts:
