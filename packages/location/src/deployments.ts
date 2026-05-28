@@ -72,14 +72,12 @@ const DEPLOYMENTS: Record<
   // hasn't been listed yet. cirBTC is 8 dp (BTC satoshi precision),
   // NOT 6 — using 6 here displayed balances 100x too large.
   //
-  // TODO: QCAD ERC20 on Arc — address not yet indexed in
-  // @bufi/contracts (only `poolQCAD` privacy-pool entry exists). When
-  // the team commits the QCAD token address, add it here.
   5042002: {
     USDC: { address: "0x3600000000000000000000000000000000000000", decimals: 6 },
     EURC: { address: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a", decimals: 6 },
     JPYC: { address: "0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29", decimals: 18 },
     MXNB: { address: "0x836F73Fbc370A9329Ba4957E47912DfDBA6BA461", decimals: 6 },
+    QCAD: { address: "0x23d7CFFd0876f3ABb6B074287ba2aeefBc83825d", decimals: 6 },
     CIRBTC: { address: "0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF", decimals: 8 },
     AUDF: { address: "0xd2a530170D71a9Cfe1651Fb468E2B98F7Ed7456b", decimals: 6 },
   },
