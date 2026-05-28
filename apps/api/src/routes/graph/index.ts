@@ -21,10 +21,39 @@ const graphRoutes = new Hono();
 
 const SCHEMA_CACHE_TTL_MS = 60_000;
 const UPSTREAM_TIMEOUT_MS = 10_000;
+const ENVIO_LIST_ENTITIES = [
+  "ArcadePlacement",
+  "ArcadeRoom",
+  "ArcadeRound",
+  "ArcadeSettlement",
+  "BufxRequest",
+  "DailyMarketSnapshot",
+  "FundingEvent",
+  "HedgeExposure",
+  "HedgeRebalance",
+  "LendingEvent",
+  "PerpTrade",
+  "PerpsOrderCancellation",
+  "PerpsPosition",
+  "PositionChange",
+  "SpotSwap",
+  "TelaranaDeposit",
+  "TelaranaGatewayContext",
+  "TelaranaLoan",
+  "TelaranaMarket",
+  "TelaranaOracleConfig",
+  "TradingFeeRoute",
+  "TurboFeeVaultEvent",
+] as const;
 
 interface SchemaCacheEntry {
   body: string;
   fetchedAt: number;
+}
+
+interface GraphqlCompatBody {
+  body: string;
+  wrappedEntities: Set<string>;
 }
 
 let schemaCache: SchemaCacheEntry | null = null;
@@ -55,12 +84,71 @@ function graphqlSource(body: string): string {
   return body;
 }
 
+function rewritePonderConnectionItems(body: string): GraphqlCompatBody {
+  let parsed: { query?: string; variables?: unknown } | null = null;
+  try {
+    parsed = JSON.parse(body) as { query?: string; variables?: unknown };
+  } catch {
+    parsed = null;
+  }
+
+  const query = typeof parsed?.query === "string" ? parsed.query : body;
+  const wrappedEntities = new Set<string>();
+  const entityAlternation = ENVIO_LIST_ENTITIES.join("|");
+  const connectionPattern = new RegExp(
+    `\\b(${entityAlternation})(\\s*\\([^{}]*\\))?\\s*\\{\\s*items\\s*\\{([\\s\\S]*?)\\}\\s*\\}`,
+    "g",
+  );
+  const rewrittenQuery = query.replace(
+    connectionPattern,
+    (_match, entity: string, args: string | undefined, selection: string) => {
+      wrappedEntities.add(entity);
+      return `${entity}${args ?? ""} { ${selection} }`;
+    },
+  );
+
+  if (wrappedEntities.size === 0) return { body, wrappedEntities };
+  if (parsed) {
+    return {
+      body: JSON.stringify({ ...parsed, query: rewrittenQuery }),
+      wrappedEntities,
+    };
+  }
+  return { body: rewrittenQuery, wrappedEntities };
+}
+
+function wrapPonderConnectionItems(
+  text: string,
+  wrappedEntities: Set<string>,
+): string {
+  if (wrappedEntities.size === 0) return text;
+  try {
+    const payload = JSON.parse(text) as { data?: Record<string, unknown> };
+    if (!payload?.data || typeof payload.data !== "object") return text;
+    for (const entity of wrappedEntities) {
+      const value = payload.data[entity];
+      if (Array.isArray(value)) {
+        payload.data[entity] = { items: value };
+      }
+    }
+    return JSON.stringify(payload);
+  } catch {
+    return text;
+  }
+}
+
 function looksLikeDailyMarketSnapshotQuery(body: string): boolean {
   return /\bDailyMarketSnapshot\b/.test(graphqlSource(body));
 }
 
-function emptyDailyMarketSnapshotResponse(): Response {
-  return new Response(JSON.stringify({ data: { DailyMarketSnapshot: [] } }), {
+function emptyDailyMarketSnapshotResponse(wrapItems = false): Response {
+  return new Response(
+    JSON.stringify({
+      data: {
+        DailyMarketSnapshot: wrapItems ? { items: [] } : [],
+      },
+    }),
+    {
     status: 200,
     headers: {
       "Content-Type": "application/json",
@@ -68,7 +156,8 @@ function emptyDailyMarketSnapshotResponse(): Response {
       "X-Bufi-Gateway": "envio-v1",
       "X-Bufi-Gateway-Fallback": "empty-daily-market-snapshot",
     },
-  });
+    },
+  );
 }
 
 /**
@@ -128,6 +217,7 @@ graphRoutes.use("*", async (c, next) => {
 
 graphRoutes.post("/", async (c) => {
   const body = await c.req.text();
+  const compat = rewritePonderConnectionItems(body);
 
   if (looksLikeMutation(body)) {
     return c.json(
@@ -148,7 +238,7 @@ graphRoutes.post("/", async (c) => {
         "Content-Type": c.req.header("content-type") ?? "application/json",
         Accept: "application/json",
       },
-      body,
+      body: compat.body,
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
   } catch (err) {
@@ -158,7 +248,9 @@ graphRoutes.post("/", async (c) => {
       url,
     });
     if (allowEmptyYieldFallback() && looksLikeDailyMarketSnapshotQuery(body)) {
-      return emptyDailyMarketSnapshotResponse();
+      return emptyDailyMarketSnapshotResponse(
+        compat.wrappedEntities.has("DailyMarketSnapshot"),
+      );
     }
     return c.json(
       {
@@ -176,12 +268,17 @@ graphRoutes.post("/", async (c) => {
     looksLikeDailyMarketSnapshotQuery(body)
   ) {
     void upstream.body?.cancel();
-    return emptyDailyMarketSnapshotResponse();
+    return emptyDailyMarketSnapshotResponse(
+      compat.wrappedEntities.has("DailyMarketSnapshot"),
+    );
   }
+
+  const text = await upstream.text();
+  const responseText = wrapPonderConnectionItems(text, compat.wrappedEntities);
 
   // Pass through body verbatim; pin a short cache so identical reads
   // from a busy dashboard ride the CDN/edge instead of hammering Envio.
-  return new Response(upstream.body, {
+  return new Response(responseText, {
     status: upstream.status,
     headers: {
       "Content-Type": contentType,

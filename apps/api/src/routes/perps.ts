@@ -185,6 +185,44 @@ perpsRoutes.post("/quote", async (c) => {
   }
 });
 
+perpsRoutes.get("/quote", async (c) => {
+  const rawSizeDelta = c.req.query("sizeDelta");
+  let inferredSide: "long" | "short" = "long";
+  if (rawSizeDelta) {
+    try {
+      inferredSide = BigInt(rawSizeDelta) < 0n ? "short" : "long";
+    } catch {
+      return c.json({ error: "sizeDelta must be a signed integer string" }, 400);
+    }
+  }
+
+  const leverage = Number(c.req.query("leverage") ?? "1");
+  const parsed = perpsQuoteRequest.safeParse({
+    chainId: Number(c.req.query("chainId") ?? "5042002"),
+    marketId: c.req.query("marketId"),
+    trader: c.req.query("trader") || undefined,
+    side: c.req.query("side") ?? inferredSide,
+    sizeUsdc: c.req.query("sizeUsdc") ?? "1",
+    sizeDelta: rawSizeDelta,
+    leverage,
+  });
+  if (!parsed.success) {
+    return c.json(
+      {
+        error: "invalid_quote_query",
+        issues: parsed.error.issues,
+      },
+      400,
+    );
+  }
+
+  try {
+    return jsonOk(c, await perpsService.quote(parsed.data));
+  } catch (e) {
+    return jsonError(c, e);
+  }
+});
+
 perpsRoutes.use(
   "/quote/premium",
   paymentRequired({
