@@ -293,7 +293,7 @@ chains:
     hypersync_config:
       url: https://5042002.hypersync.xyz
     rpc:
-      url: https://rpc.testnet.arc.network
+      url: ${ENVIO_ARC_RPC_URL:-https://rpc.drpc.testnet.arc.network}
     contracts:
       - name: FxOrderSettlement
         address:
