@@ -11,7 +11,7 @@ Your wallet address: <WALLET_ADDR>
 Your base URL: <TARGET_URL>
 MCP name (if registered): <MCP_NAME, e.g. bufi-hyper-local — informational only, you still must discover via HTTP>
 
-You have access to: Bash (only curl/jq/grep), Read (only files under /tmp/bufi-dogfood-trace/<your-loop-id>/), Write (only your own trace file).
+You have access to: Bash (only curl/jq/grep — PLUS `circle wallet …` if and only if this is a signing/execution loop), Read (only files under /tmp/bufi-dogfood-trace/<your-loop-id>/), Write (only your own trace file).
 
 You DO NOT have access to: the project source tree, GitHub, any prior knowledge of the BUFI API, or anyone to ask.
 
@@ -19,6 +19,7 @@ Your task: <TASK>
 
 Constraints:
 - Discover the API only from the base URL. Allowed entry points are anything you can find by hitting `GET <TARGET_URL>` first and following whatever URLs that returns.
+- Connect the way a real MCP client would: try the `tools/list` / `tools/call` JSON-RPC over `POST <TARGET_URL>/mcp` and note whether the handshake (initialize → notifications/initialized → tool call) actually works. If you can only get results via raw one-shot `curl` and a real client wouldn't connect, that itself is the top finding — record it as a transport gap.
 - Do not read any file outside /tmp/bufi-dogfood-trace/<your-loop-id>/. If you find yourself wanting to `cat src/...` or `grep -r ...` over the project — STOP and record that as a gap; the discovery should not require source reading.
 - Budget: 30 HTTP requests max. If you exceed this, stop and write "task undiscoverable" in your trace.
 - Log every HTTP call. Each entry: { url, method, headers (redact auth), body_summary, status, response_summary, why_i_called_this, did_it_help }.
@@ -58,6 +59,21 @@ The trace JSON shape:
 
 ### Loop 4 — Place a spot order (dry-run preferred)
 > Place a market BUY order for $1 worth of EURC, paying in USDC. Use the cheapest path. If the API has a dry-run / simulation mode, prefer it. If no dry-run exists, surface that as a gap and stop before broadcasting a real signed tx. Return either the unsigned typed data, the dry-run result, or — if you went all the way — the tx hash + intent id.
+
+### Loop 4S — Full signing round-trip (testnet only, the wallet's reason to exist)
+> Open the smallest possible EURC/USDC long (e.g. $1 notional, 2x), sign it with the Circle agent wallet, execute it, then immediately close it. This is the prepare → sign → execute → close path end to end. Return every intent id and every signature digest.
+>
+> This loop gets an expanded toolbelt: **Bash may also call `circle wallet …`** (the Circle agent wallet CLI), because signing is the thing under test. Everything else stays amnesia-locked — no source reads, discover the API from the base URL only.
+>
+> The point of this loop is to find out whether the prepare→sign→execute handshake is **self-describing**. Record specifically:
+> - Did the `…_prepare` response tell you what to do next, or did you have to guess that you sign the `digest` and feed the signature to `…_execute`?
+> - Did anything tell you the Circle CLI chain identifier? (It is `ARC-TESTNET` with a hyphen — `ARC_TESTNET` is rejected. If you had to guess this, it's a gap; it should be in `llms.txt`.)
+> - Did the typed data self-identify as EIP-712 and name the signing command shape? The working invocation is:
+>   `circle wallet sign typed-data '<typedDataJson>' --address <WALLET_ADDR> --chain ARC-TESTNET --quiet`
+> - On `…_execute`, did you have to discover that `deadline` is a **number** but `sizeUsdc`/`sizeDelta` are **strings**? Each first-attempt type mismatch is a gap.
+> - Did the `tools/call` arguments nest under a `body` key? If you had to discover `{"arguments":{"body":{…}}}` by trial, record it.
+>
+> Safety: testnet only. Confirm the resolved chain id is `5042002` (Arc Testnet) before signing. If the target resolves to any mainnet chain id, STOP and record `refused — not testnet`.
 
 ## Task pack: `full` (extends `mvp`, ~9 loops total)
 
