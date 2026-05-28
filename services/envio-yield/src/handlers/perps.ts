@@ -5,17 +5,18 @@ import { getOrCreateDailyMarketSnapshot } from "./snapshot";
 indexer.onEvent(
   { contract: "FxOrderSettlement", event: "MatchSettled" },
   async ({ event, context }) => {
-    const id = `${event.chainId}_${event.transaction.hash}_${event.logIndex}`;
+    const id = `${event.chainId}_${event.transaction.hash.toLowerCase()}_${event.logIndex}`;
+    const marketId = event.params.marketId.toLowerCase();
 
     context.PerpTrade.set({
       id,
-      marketId: event.params.marketId,
-      maker: event.params.maker,
-      taker: event.params.taker,
+      marketId,
+      maker: event.params.maker.toLowerCase(),
+      taker: event.params.taker.toLowerCase(),
       sizeDeltaE18: event.params.fillSizeE18,
       priceE18: event.params.fillPriceE18,
       fee: 0n,
-      txHash: event.transaction.hash,
+      txHash: event.transaction.hash.toLowerCase(),
       blockNumber: event.block.number,
       timestamp: event.block.timestamp,
       chainId: event.chainId,
@@ -23,7 +24,7 @@ indexer.onEvent(
 
     const snap = await getOrCreateDailyMarketSnapshot(
       context,
-      event.params.marketId,
+      marketId,
       event.block.timestamp,
       event.chainId,
     );
@@ -40,13 +41,13 @@ indexer.onEvent(
   { contract: "FxOrderSettlement", event: "OrderCancelled" },
   async ({ event, context }) => {
     context.PerpsOrderCancellation.set({
-      id: `${event.chainId}_${event.transaction.hash}_${event.logIndex}`,
+      id: `${event.chainId}_${event.transaction.hash.toLowerCase()}_${event.logIndex}`,
       chainId: event.chainId,
-      trader: event.params.trader,
+      trader: event.params.trader.toLowerCase(),
       nonce: BigInt(event.params.nonce),
       blockNumber: event.block.number,
       blockTimestamp: event.block.timestamp,
-      txHash: event.transaction.hash,
+      txHash: event.transaction.hash.toLowerCase(),
     });
   },
 );
@@ -54,10 +55,12 @@ indexer.onEvent(
 indexer.onEvent(
   { contract: "FxPerpClearinghouse", event: "PositionIncreased" },
   async ({ event, context }) => {
+    const marketId = event.params.marketId.toLowerCase();
+    const trader = event.params.trader.toLowerCase();
     context.PositionChange.set({
-      id: `${event.chainId}_${event.transaction.hash}_${event.logIndex}`,
-      marketId: event.params.marketId,
-      trader: event.params.trader,
+      id: `${event.chainId}_${event.transaction.hash.toLowerCase()}_${event.logIndex}`,
+      marketId,
+      trader,
       action: "increase",
       sizeDeltaE18: event.params.sizeDeltaE18,
       resultingSizeE18: event.params.resultingSizeE18,
@@ -70,7 +73,7 @@ indexer.onEvent(
       chainId: event.chainId,
     });
 
-    upsertPosition(context, event.chainId, event.params.marketId, event.params.trader, {
+    upsertPosition(context, event.chainId, marketId, trader, {
       sizeE18: event.params.resultingSizeE18,
       entryPriceE18: event.params.entryPriceE18,
       marginReserved: event.params.marginReserved,
@@ -82,7 +85,7 @@ indexer.onEvent(
 
     const snap = await getOrCreateDailyMarketSnapshot(
       context,
-      event.params.marketId,
+      marketId,
       event.block.timestamp,
       event.chainId,
     );
@@ -97,10 +100,12 @@ indexer.onEvent(
 indexer.onEvent(
   { contract: "FxPerpClearinghouse", event: "PositionDecreased" },
   async ({ event, context }) => {
+    const marketId = event.params.marketId.toLowerCase();
+    const trader = event.params.trader.toLowerCase();
     context.PositionChange.set({
-      id: `${event.chainId}_${event.transaction.hash}_${event.logIndex}`,
-      marketId: event.params.marketId,
-      trader: event.params.trader,
+      id: `${event.chainId}_${event.transaction.hash.toLowerCase()}_${event.logIndex}`,
+      marketId,
+      trader,
       action: "decrease",
       sizeDeltaE18: event.params.sizeDeltaE18,
       resultingSizeE18: event.params.resultingSizeE18,
@@ -113,7 +118,7 @@ indexer.onEvent(
       chainId: event.chainId,
     });
 
-    upsertPosition(context, event.chainId, event.params.marketId, event.params.trader, {
+    upsertPosition(context, event.chainId, marketId, trader, {
       sizeE18: event.params.resultingSizeE18,
       entryPriceE18: event.params.priceE18,
       marginReserved: event.params.marginReleased,
@@ -162,13 +167,13 @@ indexer.onEvent(
   { contract: "FxPerpClearinghouse", event: "TradingFeeRouted" },
   async ({ event, context }) => {
     context.TradingFeeRoute.set({
-      id: `${event.chainId}_${event.transaction.hash}_${event.logIndex}`,
-      marketId: event.params.marketId,
-      trader: event.params.trader,
-      feeVault: event.params.feeVault,
+      id: `${event.chainId}_${event.transaction.hash.toLowerCase()}_${event.logIndex}`,
+      marketId: event.params.marketId.toLowerCase(),
+      trader: event.params.trader.toLowerCase(),
+      feeVault: event.params.feeVault.toLowerCase(),
       amount: event.params.amount,
       source: "perp",
-      txHash: event.transaction.hash,
+      txHash: event.transaction.hash.toLowerCase(),
       blockNumber: event.block.number,
       timestamp: event.block.timestamp,
       chainId: event.chainId,
@@ -179,9 +184,10 @@ indexer.onEvent(
 indexer.onEvent(
   { contract: "FxFundingEngine", event: "FundingPoked" },
   async ({ event, context }) => {
+    const marketId = event.params.marketId.toLowerCase();
     context.FundingEvent.set({
-      id: `${event.chainId}_${event.params.marketId}_${event.params.version}`,
-      marketId: event.params.marketId,
+      id: `${event.chainId}_${marketId}_${event.params.version}`,
+      marketId,
       version: BigInt(event.params.version),
       fundingRateE18: event.params.rateE18PerSecond,
       cumulativeFundingE18: event.params.cumulativeFundingE18,
@@ -191,7 +197,7 @@ indexer.onEvent(
 
     const snap = await getOrCreateDailyMarketSnapshot(
       context,
-      event.params.marketId,
+      marketId,
       event.block.timestamp,
       event.chainId,
     );

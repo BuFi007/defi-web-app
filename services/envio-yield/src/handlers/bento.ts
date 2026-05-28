@@ -23,7 +23,7 @@ const ROOM_STATUS_RANK: Record<string, number> = {
 indexer.onEvent(
   { contract: "FxBentoRoomFactory", event: "RoomCreated" },
   async ({ event, context }) => {
-    const id = event.params.roomId.toString();
+    const id = roomKey(event.chainId, event.params.roomId.toString());
     context.ArcadeRoom.set({
       id,
       chainId: event.chainId,
@@ -82,10 +82,11 @@ indexer.onEvent(
 indexer.onEvent(
   { contract: "FxBentoRoomEscrow", event: "RoomJoined" },
   async ({ event, context }) => {
-    const id = placementKey(event.params.roomId.toString(), event.params.player, "_pending");
+    const roomId = roomKey(event.chainId, event.params.roomId.toString());
+    const id = placementKey(roomId, event.params.player, "_pending");
     context.ArcadePlacement.set({
       id,
-      roomId: event.params.roomId.toString(),
+      roomId,
       player: event.params.player.toLowerCase(),
       tileId: "_pending",
       chips: 0,
@@ -114,7 +115,8 @@ indexer.onEvent(
 indexer.onEvent(
   { contract: "FxBentoRoomEscrow", event: "RoomLeft" },
   async ({ event, context }) => {
-    const id = placementKey(event.params.roomId.toString(), event.params.player, "_pending");
+    const roomId = roomKey(event.chainId, event.params.roomId.toString());
+    const id = placementKey(roomId, event.params.player, "_pending");
     const existing = await context.ArcadePlacement.get(id);
     if (existing) {
       context.ArcadePlacement.set({ ...existing, leftAt: BigInt(event.block.timestamp) });
@@ -175,7 +177,8 @@ indexer.onEvent(
 indexer.onEvent(
   { contract: "FxBentoRoomEscrow", event: "Refunded" },
   async ({ event, context }) => {
-    const id = placementKey(event.params.roomId.toString(), event.params.player, "_pending");
+    const roomId = roomKey(event.chainId, event.params.roomId.toString());
+    const id = placementKey(roomId, event.params.player, "_pending");
     const existing = await context.ArcadePlacement.get(id);
     if (existing) {
       context.ArcadePlacement.set({
@@ -190,7 +193,8 @@ indexer.onEvent(
 indexer.onEvent(
   { contract: "FxBentoRoomEscrow", event: "PrizeClaimed" },
   async ({ event, context }) => {
-    const id = placementKey(event.params.roomId.toString(), event.params.player, "_pending");
+    const roomId = roomKey(event.chainId, event.params.roomId.toString());
+    const id = placementKey(roomId, event.params.player, "_pending");
     const existing = await context.ArcadePlacement.get(id);
     if (existing) {
       context.ArcadePlacement.set({
@@ -208,7 +212,8 @@ indexer.onEvent(
 indexer.onEvent(
   { contract: "FxBentoCommitmentManager", event: "SelectionCommitted" },
   async ({ event, context }) => {
-    const id = placementKey(event.params.roomId.toString(), event.params.player, "_pending");
+    const roomId = roomKey(event.chainId, event.params.roomId.toString());
+    const id = placementKey(roomId, event.params.player, "_pending");
     const existing = await context.ArcadePlacement.get(id);
     if (existing) {
       context.ArcadePlacement.set({
@@ -220,7 +225,7 @@ indexer.onEvent(
     } else {
       context.ArcadePlacement.set({
         id,
-        roomId: event.params.roomId.toString(),
+        roomId,
         player: event.params.player.toLowerCase(),
         tileId: "_pending",
         chips: 0,
@@ -250,7 +255,8 @@ indexer.onEvent(
 indexer.onEvent(
   { contract: "FxBentoCommitmentManager", event: "SelectionRevealed" },
   async ({ event, context }) => {
-    const id = placementKey(event.params.roomId.toString(), event.params.player, "_pending");
+    const roomId = roomKey(event.chainId, event.params.roomId.toString());
+    const id = placementKey(roomId, event.params.player, "_pending");
     const existing = await context.ArcadePlacement.get(id);
     if (existing) {
       context.ArcadePlacement.set({
@@ -269,10 +275,11 @@ indexer.onEvent(
 indexer.onEvent(
   { contract: "FxBentoRoundManager", event: "RoundStarted" },
   async ({ event, context }) => {
-    const id = roundKey(event.params.roomId.toString(), Number(event.params.roundIndex));
+    const roomId = roomKey(event.chainId, event.params.roomId.toString());
+    const id = roundKey(roomId, Number(event.params.roundIndex));
     context.ArcadeRound.set({
       id,
-      roomId: event.params.roomId.toString(),
+      roomId,
       chainId: event.chainId,
       roundIndex: Number(event.params.roundIndex),
       startTime: BigInt(event.params.startTime),
@@ -294,9 +301,10 @@ indexer.onEvent(
 indexer.onEvent(
   { contract: "FxBentoRoundManager", event: "AnchorRecorded" },
   async ({ event, context }) => {
-    const id = roundKey(event.params.roomId.toString(), Number(event.params.roundIndex));
+    const roomId = roomKey(event.chainId, event.params.roomId.toString());
+    const id = roundKey(roomId, Number(event.params.roundIndex));
     const existing = await context.ArcadeRound.get(id);
-    const base = existing ?? emptyRound(id, event.params.roomId.toString(), event.chainId, Number(event.params.roundIndex));
+    const base = existing ?? emptyRound(id, roomId, event.chainId, Number(event.params.roundIndex));
     context.ArcadeRound.set({
       ...base,
       anchorPrice: event.params.price.toString(),
@@ -313,9 +321,10 @@ indexer.onEvent(
 indexer.onEvent(
   { contract: "FxBentoRoundManager", event: "SettlementRecorded" },
   async ({ event, context }) => {
-    const id = roundKey(event.params.roomId.toString(), Number(event.params.roundIndex));
+    const roomId = roomKey(event.chainId, event.params.roomId.toString());
+    const id = roundKey(roomId, Number(event.params.roundIndex));
     const existing = await context.ArcadeRound.get(id);
-    const base = existing ?? emptyRound(id, event.params.roomId.toString(), event.chainId, Number(event.params.roundIndex));
+    const base = existing ?? emptyRound(id, roomId, event.chainId, Number(event.params.roundIndex));
     context.ArcadeRound.set({
       ...base,
       settlementPrice: event.params.price.toString(),
@@ -393,17 +402,18 @@ indexer.onEvent(
 
 // ─────────────────── helpers ─────────────────────────────────────
 
-async function patchRoom(context: any, roomId: string, chainId: number, patch: Record<string, any>) {
-  const existing = await context.ArcadeRoom.get(roomId);
+async function patchRoom(context: any, rawRoomId: string, chainId: number, patch: Record<string, any>) {
+  const id = roomKey(chainId, rawRoomId);
+  const existing = await context.ArcadeRoom.get(id);
   if (existing) {
     const nextStatus = patch.status && (ROOM_STATUS_RANK[patch.status] ?? 0) >= (ROOM_STATUS_RANK[existing.status] ?? 0)
       ? patch.status : existing.status;
     context.ArcadeRoom.set({ ...existing, ...patch, status: nextStatus });
   } else {
     context.ArcadeRoom.set({
-      id: roomId,
+      id,
       chainId,
-      marketId: roomId,
+      marketId: rawRoomId,
       entryFeeUsdc: 0n,
       chipsPerPlayer: 0,
       maxPlayers: 0,
@@ -441,7 +451,7 @@ async function patchRoom(context: any, roomId: string, chainId: number, patch: R
 
 function insertSettlement(
   context: any,
-  roomId: string,
+  rawRoomId: string,
   chainId: number,
   stage: string,
   blockTimestamp: number,
@@ -449,8 +459,9 @@ function insertSettlement(
   logIndex: number,
   extra: { resultsRoot?: string; metadataURI?: string; challengeAccepted?: boolean },
 ) {
+  const roomId = roomKey(chainId, rawRoomId);
   context.ArcadeSettlement.set({
-    id: `${roomId}:${stage}:${logIndex}`,
+    id: `${chainId}_${rawRoomId}:${stage}:${logIndex}`,
     roomId,
     chainId,
     stage,
@@ -482,6 +493,10 @@ function emptyRound(id: string, roomId: string, chainId: number, roundIndex: num
     eventLogIndex: 0,
     updatedAt: 0,
   };
+}
+
+function roomKey(chainId: number, roomId: string): string {
+  return `${chainId}_${roomId}`;
 }
 
 function placementKey(roomId: string, player: string, tileId: string): string {

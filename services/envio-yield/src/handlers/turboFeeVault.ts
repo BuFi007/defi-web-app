@@ -7,12 +7,13 @@ const GLOBAL_VAULT_MARKET_ID = "turbo-vault";
 indexer.onEvent(
   { contract: "TurboFeeVault", event: "FeeDeposited" },
   async ({ event, context }) => {
+    const marketId = event.params.marketId.toLowerCase();
     context.TurboFeeVaultEvent.set({
-      id: `${event.chainId}_${event.transaction.hash}_${event.logIndex}`,
+      id: `${event.chainId}_${event.transaction.hash.toLowerCase()}_${event.logIndex}`,
       eventType: "fee_deposited",
-      marketId: event.params.marketId,
+      marketId,
       user: "",
-      token: event.params.token,
+      token: event.params.token.toLowerCase(),
       amount: event.params.amount,
       protocolShare: event.params.protocolShare,
       lpShare: event.params.lpShare,
@@ -20,7 +21,7 @@ indexer.onEvent(
       assets: 0n,
       shares: 0n,
       reason: "",
-      txHash: event.transaction.hash,
+      txHash: event.transaction.hash.toLowerCase(),
       blockNumber: event.block.number,
       timestamp: event.block.timestamp,
       chainId: event.chainId,
@@ -28,7 +29,7 @@ indexer.onEvent(
 
     const snap = await getOrCreateDailyMarketSnapshot(
       context,
-      event.params.marketId,
+      marketId,
       event.block.timestamp,
       event.chainId,
     );
@@ -61,10 +62,10 @@ indexer.onEvent(
   { contract: "TurboFeeVault", event: "Deposited" },
   async ({ event, context }) => {
     context.TurboFeeVaultEvent.set({
-      id: `${event.chainId}_${event.transaction.hash}_${event.logIndex}`,
+      id: `${event.chainId}_${event.transaction.hash.toLowerCase()}_${event.logIndex}`,
       eventType: "lp_deposited",
       marketId: GLOBAL_VAULT_MARKET_ID,
-      user: event.params.user,
+      user: event.params.user.toLowerCase(),
       token: "",
       amount: event.params.assets,
       protocolShare: 0n,
@@ -73,7 +74,7 @@ indexer.onEvent(
       assets: event.params.assets,
       shares: event.params.shares,
       reason: "",
-      txHash: event.transaction.hash,
+      txHash: event.transaction.hash.toLowerCase(),
       blockNumber: event.block.number,
       timestamp: event.block.timestamp,
       chainId: event.chainId,
@@ -97,10 +98,10 @@ indexer.onEvent(
   { contract: "TurboFeeVault", event: "Withdrawn" },
   async ({ event, context }) => {
     context.TurboFeeVaultEvent.set({
-      id: `${event.chainId}_${event.transaction.hash}_${event.logIndex}`,
+      id: `${event.chainId}_${event.transaction.hash.toLowerCase()}_${event.logIndex}`,
       eventType: "lp_withdrawn",
       marketId: GLOBAL_VAULT_MARKET_ID,
-      user: event.params.user,
+      user: event.params.user.toLowerCase(),
       token: "",
       amount: event.params.assets,
       protocolShare: 0n,
@@ -109,7 +110,7 @@ indexer.onEvent(
       assets: event.params.assets,
       shares: event.params.shares,
       reason: "",
-      txHash: event.transaction.hash,
+      txHash: event.transaction.hash.toLowerCase(),
       blockNumber: event.block.number,
       timestamp: event.block.timestamp,
       chainId: event.chainId,
@@ -133,10 +134,10 @@ indexer.onEvent(
   { contract: "TurboFeeVault", event: "YieldClaimed" },
   async ({ event, context }) => {
     context.TurboFeeVaultEvent.set({
-      id: `${event.chainId}_${event.transaction.hash}_${event.logIndex}`,
+      id: `${event.chainId}_${event.transaction.hash.toLowerCase()}_${event.logIndex}`,
       eventType: "yield_claimed",
       marketId: GLOBAL_VAULT_MARKET_ID,
-      user: event.params.user,
+      user: event.params.user.toLowerCase(),
       token: "",
       amount: event.params.amount,
       protocolShare: 0n,
@@ -145,7 +146,7 @@ indexer.onEvent(
       assets: 0n,
       shares: 0n,
       reason: "",
-      txHash: event.transaction.hash,
+      txHash: event.transaction.hash.toLowerCase(),
       blockNumber: event.block.number,
       timestamp: event.block.timestamp,
       chainId: event.chainId,
@@ -168,10 +169,11 @@ indexer.onEvent(
 indexer.onEvent(
   { contract: "TurboFeeVault", event: "InsurancePayout" },
   async ({ event, context }) => {
+    const marketId = event.params.marketId.toLowerCase();
     context.TurboFeeVaultEvent.set({
-      id: `${event.chainId}_${event.transaction.hash}_${event.logIndex}`,
+      id: `${event.chainId}_${event.transaction.hash.toLowerCase()}_${event.logIndex}`,
       eventType: "insurance_payout",
-      marketId: event.params.marketId,
+      marketId,
       user: "",
       token: "",
       amount: event.params.amount,
@@ -181,7 +183,7 @@ indexer.onEvent(
       assets: 0n,
       shares: 0n,
       reason: event.params.reason,
-      txHash: event.transaction.hash,
+      txHash: event.transaction.hash.toLowerCase(),
       blockNumber: event.block.number,
       timestamp: event.block.timestamp,
       chainId: event.chainId,
@@ -189,7 +191,7 @@ indexer.onEvent(
 
     const snap = await getOrCreateDailyMarketSnapshot(
       context,
-      event.params.marketId,
+      marketId,
       event.block.timestamp,
       event.chainId,
     );
