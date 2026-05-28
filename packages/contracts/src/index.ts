@@ -312,6 +312,7 @@ export const CONTRACTS: Record<ChainId, ChainContracts> = {
     gatewayDomain: 1,
     tokens: {
       usdc: "0x5425890298aed601595a70AB815c96711a31Bc65",
+      jpyc: "0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29",
     },
     telarana: {
       fxHubMessageReceiver: "0x7eAdfD0c08dd6544f763285bBD31be14179d594B",

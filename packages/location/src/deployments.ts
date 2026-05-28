@@ -55,6 +55,7 @@ const DEPLOYMENTS: Record<
   43113: {
     USDC: { address: "0x5425890298aed601595a70AB815c96711a31Bc65", decimals: 6 },
     EURC: { address: "0x5E44db7996c682E92a960b65AC713a54AD815c6B", decimals: 6 },
+    JPYC: { address: "0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29", decimals: 18 },
     MXNB: { address: "0xAB99d44185af87AeB08361588F00F59B0CE85eBb", decimals: 6 },
   },
   // Arc Testnet (5042002) -- hub. USDC is a special precompile at
@@ -77,6 +78,7 @@ const DEPLOYMENTS: Record<
   5042002: {
     USDC: { address: "0x3600000000000000000000000000000000000000", decimals: 6 },
     EURC: { address: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a", decimals: 6 },
+    JPYC: { address: "0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29", decimals: 18 },
     MXNB: { address: "0x836F73Fbc370A9329Ba4957E47912DfDBA6BA461", decimals: 6 },
     CIRBTC: { address: "0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF", decimals: 8 },
     AUDF: { address: "0xd2a530170D71a9Cfe1651Fb468E2B98F7Ed7456b", decimals: 6 },
@@ -85,6 +87,7 @@ const DEPLOYMENTS: Record<
   11155111: {
     USDC: { address: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238", decimals: 6 },
     EURC: { address: "0x08210F9170F89Ab7658F0B5E3fF39b0E03C594D4", decimals: 6 },
+    JPYC: { address: "0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29", decimals: 18 },
     MXNB: { address: "0x34D4CeBB03Af55b99B68342Ac4bD78e598D9A9fC", decimals: 6 },
     AUDF: { address: "0xd2a530170D71a9Cfe1651Fb468E2B98F7Ed7456b", decimals: 6 },
   },

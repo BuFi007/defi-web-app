@@ -139,7 +139,16 @@ Pyth JPY/USD feed: `0xef2c98c804ba503c6a707e38be4dfbb16683775f195b091252bf246930
 
 ## NEW: Official JPYC on Arc Testnet
 
-JPYC is now deployed at `0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29` on Arc.
+JPYC is deployed at the same address on ALL supported chains:
+- Arc Testnet (5042002): 0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29
+- Avalanche Fuji (43113): 0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29
+- Sepolia (11155111): 0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29
+- Polygon Amoy (80002): 0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29
+- Kaia Kairos (1001): 0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29
+
+Faucet: https://faucet.jpyc.co.jp (1 tx/day)
+User has 6M JPYC available for seeding.
+
 This replaces the old test synthetic `tJPYC`. Deploy the hookathon with
 BOTH demo pairs:
 
