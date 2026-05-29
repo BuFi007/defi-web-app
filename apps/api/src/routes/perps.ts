@@ -14,6 +14,7 @@ import { paymentRequired } from "@bufi/x402";
 import {
   compute24hStats,
   fetchBenchmarksHistory,
+  fetchFrankfurterDailyHistory,
 } from "@bufi/market-data";
 
 import {
@@ -38,11 +39,271 @@ import {
 // here so a misbehaving caller can't request 10k candles.
 const MAX_CANDLES = 500;
 const DEFAULT_CANDLE_LIMIT = 200;
+const CANDLE_CACHE_TTL_MS = 30 * 60 * 1000;
+const CANDLE_CACHE_MAX_ENTRIES = 768;
+const FRANKFURTER_ARCHIVE_LOOKBACK_DAYS = 12_000;
+const FRANKFURTER_ARCHIVE_TTL_MS = 12 * 60 * 60 * 1000;
+const FRANKFURTER_ARCHIVE_WAIT_MS = 750;
+const FRANKFURTER_FIAT_CODES = new Set([
+  "AUD",
+  "BRL",
+  "CAD",
+  "CHF",
+  "CNY",
+  "EUR",
+  "GBP",
+  "JPY",
+  "MXN",
+  "NOK",
+  "NZD",
+  "SEK",
+  "USD",
+]);
+
+type CandleSource = "pyth-benchmarks" | "frankfurter-daily" | "empty";
+type MarketCandle = Awaited<ReturnType<typeof fetchBenchmarksHistory>>[number];
+type CandleRoutePayload = {
+  sym: string;
+  tf: string;
+  from?: number;
+  to?: number;
+  source: CandleSource;
+  candles: MarketCandle[];
+};
+
+const candleRouteCache = new Map<string, { expiresAt: number; payload: CandleRoutePayload }>();
+const candleRouteInflight = new Map<string, Promise<CandleRoutePayload>>();
+const candlePrewarmInflight = new Set<string>();
+const pythArchiveFloorByMarketTf = new Map<string, number>();
+const frankfurterArchiveCache = new Map<string, { expiresAt: number; candles: MarketCandle[] }>();
+const frankfurterArchiveInflight = new Map<string, Promise<MarketCandle[]>>();
 
 const perpsRoutes = new Hono();
 
 const sellerForX402 = () =>
   process.env.X402_RECEIVER_ADDRESS ?? "0x000000000000000000000000000000000000dEaD";
+
+function candleRouteCacheKey(args: {
+  sym: string;
+  tf: string;
+  limit: number;
+  from?: number;
+  to?: number;
+}): string {
+  return [
+    args.sym.toUpperCase(),
+    args.tf,
+    args.limit,
+    args.from ?? "",
+    args.to ?? "",
+  ].join(":");
+}
+
+function marketTfKey(sym: string, tf: string): string {
+  return `${sym.toUpperCase()}:${tf}`;
+}
+
+function frankfurterArchiveKey(sym: string): string {
+  return sym.toUpperCase().replace(/\s+/g, "");
+}
+
+function isFrankfurterHistoryPair(sym: string): boolean {
+  const match = /^([A-Z]{3})\/([A-Z]{3})$/.exec(frankfurterArchiveKey(sym));
+  return !!match && FRANKFURTER_FIAT_CODES.has(match[1]!) && FRANKFURTER_FIAT_CODES.has(match[2]!);
+}
+
+function sliceFrankfurterArchive(args: {
+  candles: MarketCandle[];
+  limit: number;
+  from?: number;
+  to?: number;
+}): MarketCandle[] {
+  const now = Math.floor(Date.now() / 1000);
+  const to = Math.min(
+    Math.floor(Number.isFinite(args.to) ? args.to! : now),
+    now,
+  );
+  let from = Number.isFinite(args.from)
+    ? Math.floor(args.from!)
+    : to - args.limit * 86400;
+  if (from >= to) from = to - 86400;
+  const sliced = args.candles.filter((candle) => candle.time >= from && candle.time <= to);
+  return sliced.length > args.limit ? sliced.slice(-args.limit) : sliced;
+}
+
+function withArchiveWait<T>(promise: Promise<T>): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), FRANKFURTER_ARCHIVE_WAIT_MS)),
+  ]);
+}
+
+async function getFrankfurterArchive(sym: string): Promise<MarketCandle[]> {
+  if (!isFrankfurterHistoryPair(sym)) return [];
+  const key = frankfurterArchiveKey(sym);
+  const cached = frankfurterArchiveCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.candles;
+  if (cached) frankfurterArchiveCache.delete(key);
+  const inflight = frankfurterArchiveInflight.get(key);
+  if (inflight) return inflight;
+  const request = fetchFrankfurterDailyHistory({
+    uiSymbol: sym,
+    limit: FRANKFURTER_ARCHIVE_LOOKBACK_DAYS,
+    baseUrl: process.env.FRANKFURTER_URL,
+  }).then((candles) => {
+    frankfurterArchiveCache.set(key, {
+      expiresAt: Date.now() + FRANKFURTER_ARCHIVE_TTL_MS,
+      candles,
+    });
+    return candles;
+  }).finally(() => {
+    frankfurterArchiveInflight.delete(key);
+  });
+  frankfurterArchiveInflight.set(key, request);
+  return request;
+}
+
+function prewarmFrankfurterArchive(sym: string) {
+  if (!isFrankfurterHistoryPair(sym)) return;
+  const key = frankfurterArchiveKey(sym);
+  const cached = frankfurterArchiveCache.get(key);
+  if ((cached && cached.expiresAt > Date.now()) || frankfurterArchiveInflight.has(key)) {
+    return;
+  }
+  void getFrankfurterArchive(sym);
+}
+
+async function fetchFrankfurterPayload(args: {
+  sym: string;
+  limit: number;
+  from?: number;
+  to?: number;
+}): Promise<MarketCandle[]> {
+  if (isFrankfurterHistoryPair(args.sym)) {
+    const key = frankfurterArchiveKey(args.sym);
+    const cached = frankfurterArchiveCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) {
+      return sliceFrankfurterArchive({ ...args, candles: cached.candles });
+    }
+    if (cached) frankfurterArchiveCache.delete(key);
+    const inflight = frankfurterArchiveInflight.get(key);
+    if (inflight) {
+      const archive = await withArchiveWait(inflight);
+      if (archive) return sliceFrankfurterArchive({ ...args, candles: archive });
+    } else {
+      prewarmFrankfurterArchive(args.sym);
+    }
+  }
+  return fetchFrankfurterDailyHistory({
+    uiSymbol: args.sym,
+    limit: args.limit,
+    from: args.from,
+    to: args.to,
+    baseUrl: process.env.FRANKFURTER_URL,
+  });
+}
+
+function setCandleRouteCache(key: string, payload: CandleRoutePayload) {
+  candleRouteCache.set(key, { expiresAt: Date.now() + CANDLE_CACHE_TTL_MS, payload });
+  while (candleRouteCache.size > CANDLE_CACHE_MAX_ENTRIES) {
+    const oldest = candleRouteCache.keys().next().value;
+    if (!oldest) break;
+    candleRouteCache.delete(oldest);
+  }
+}
+
+async function fetchCandlePayload(args: {
+  sym: string;
+  tf: string;
+  limit: number;
+  from?: number;
+  to?: number;
+}): Promise<CandleRoutePayload> {
+  const floorKey = marketTfKey(args.sym, args.tf);
+  const knownPythFloor = pythArchiveFloorByMarketTf.get(floorKey);
+  const skipPyth =
+    args.to != null && knownPythFloor != null && args.to <= knownPythFloor;
+  let candles = skipPyth
+    ? []
+    : await fetchBenchmarksHistory({
+        uiSymbol: args.sym,
+        tf: args.tf,
+        limit: args.limit,
+        from: args.from,
+        to: args.to,
+        baseUrl: process.env.PYTH_BENCHMARKS_URL,
+      });
+  let source: CandleSource = candles.length ? "pyth-benchmarks" : "empty";
+  if (candles.length === 0) {
+    candles = await fetchFrankfurterPayload({
+      sym: args.sym,
+      limit: args.limit,
+      from: args.from,
+      to: args.to,
+    });
+    if (candles.length > 0) {
+      source = "frankfurter-daily";
+      if (args.to != null) {
+        pythArchiveFloorByMarketTf.set(
+          floorKey,
+          Math.min(knownPythFloor ?? args.to, args.to),
+        );
+      }
+    }
+  }
+  return {
+    sym: args.sym,
+    tf: args.tf,
+    from: args.from,
+    to: args.to,
+    source,
+    candles,
+  };
+}
+
+async function getCachedCandlePayload(args: {
+  sym: string;
+  tf: string;
+  limit: number;
+  from?: number;
+  to?: number;
+}): Promise<CandleRoutePayload> {
+  const key = candleRouteCacheKey(args);
+  const cached = candleRouteCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.payload;
+  if (cached) candleRouteCache.delete(key);
+  const inflight = candleRouteInflight.get(key);
+  if (inflight) return inflight;
+  const request = fetchCandlePayload(args).then((payload) => {
+    setCandleRouteCache(key, payload);
+    return payload;
+  }).finally(() => {
+    candleRouteInflight.delete(key);
+  });
+  candleRouteInflight.set(key, request);
+  return request;
+}
+
+function prewarmPreviousCandlePage(payload: CandleRoutePayload) {
+  if (payload.candles.length === 0) return;
+  const oldest = payload.candles[0]?.time;
+  if (!oldest) return;
+  const args = {
+    sym: payload.sym,
+    tf: payload.tf,
+    limit: payload.candles.length || DEFAULT_CANDLE_LIMIT,
+    to: oldest - 1,
+  };
+  const key = candleRouteCacheKey(args);
+  const cached = candleRouteCache.get(key);
+  if ((cached && cached.expiresAt > Date.now()) || candlePrewarmInflight.has(key)) {
+    return;
+  }
+  candlePrewarmInflight.add(key);
+  void getCachedCandlePayload(args).finally(() => {
+    candlePrewarmInflight.delete(key);
+  });
+}
 
 perpsRoutes.get("/markets", async (c) => {
   const cid = getChainIdFromQuery(c, 5042002);
@@ -51,10 +312,13 @@ perpsRoutes.get("/markets", async (c) => {
 });
 
 // GET /perps/markets/:sym/candles?tf=15m&limit=200
-// Historical OHLCV via Pyth Benchmarks (TradingView UDF shim).
+// Historical OHLCV via Pyth Benchmarks (TradingView UDF shim), with
+// Frankfurter daily FX as a deep-history fallback once the Pyth archive
+// stops returning candles.
 // `:sym` is the UI symbol ("EUR/USD"); the helper maps it to FX.EUR/USD.
-// Returns empty `candles` array when the symbol isn't mapped or
-// Benchmarks 404s — caller renders empty + the live tail.
+// Returns empty `candles` array only when neither archive can serve the pair.
+// Optional `from`/`to` unix-second cursors let the chart page older history
+// without loading a huge first response.
 perpsRoutes.get("/markets/:sym/candles", async (c) => {
   const sym = decodeURIComponent(c.req.param("sym"));
   const tf = c.req.query("tf") ?? "15m";
@@ -62,19 +326,21 @@ perpsRoutes.get("/markets/:sym/candles", async (c) => {
   const limit = Number.isFinite(limitRaw)
     ? Math.min(Math.max(1, Math.floor(limitRaw)), MAX_CANDLES)
     : DEFAULT_CANDLE_LIMIT;
+  const fromRaw = Number(c.req.query("from"));
+  const toRaw = Number(c.req.query("to"));
+  const from = Number.isFinite(fromRaw) ? Math.floor(fromRaw) : undefined;
+  const to = Number.isFinite(toRaw) ? Math.floor(toRaw) : undefined;
   try {
-    const candles = await fetchBenchmarksHistory({
-      uiSymbol: sym,
-      tf,
-      limit,
-      baseUrl: process.env.PYTH_BENCHMARKS_URL,
-    });
-    return jsonOk(c, {
+    const payload = await getCachedCandlePayload({
       sym,
       tf,
-      source: candles.length ? "pyth-benchmarks" : "empty",
-      candles,
+      limit,
+      from,
+      to,
     });
+    prewarmPreviousCandlePage(payload);
+    prewarmFrankfurterArchive(sym);
+    return jsonOk(c, payload);
   } catch (e) {
     return jsonError(c, e);
   }

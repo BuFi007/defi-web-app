@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useAccount, useBalance, useChainId } from "wagmi";
-import { formatUnits } from "viem";
+import { useAccount, useBalance } from "wagmi";
+import { formatUnits, type Address } from "viem";
 
 import { liquidationPriceFloat, requiredMarginFloat } from "@bufi/perps-math";
 import { HUBS } from "@bufi/location/hubs";
@@ -23,6 +23,12 @@ import { usePendingIntents } from "@/lib/perps/use-pending-intents";
 import { getPerpsReplacementDevWallet } from "@/lib/perps/dev-mock-wallet";
 import type { PerpsMarketDto } from "@/lib/perps/client";
 import {
+  buildFxSpotSwapPlan,
+  formatFxSpotAmount,
+  fxSpotUnavailableReason,
+} from "@/lib/fx-spot/plan";
+import { useFxSpotSwap } from "@/lib/fx-spot/use-fx-spot-swap";
+import {
   Dialog,
   DialogContent,
   DialogTitle,
@@ -30,28 +36,40 @@ import {
 
 // USDC token addresses per hub chain — perps margin is posted in USDC.
 // Spokes are excluded here because perps execution lives on the hubs.
-const USDC_BY_CHAIN: Record<number, `0x${string}`> = {
+const USDC_BY_CHAIN: Record<number, Address> = {
   43113: "0x5425890298aed601595a70AB815c96711a31Bc65", // Fuji
   5042002: "0x3600000000000000000000000000000000000000", // Arc
 };
 
-function useUsdcBalance(address: `0x${string}` | undefined): {
+function useTokenBalance(
+  address: Address | undefined,
+  token: Address | undefined,
+  chainId: number | undefined,
+): {
   formatted: string;
   isLoading: boolean;
 } {
-  const chainId = useChainId();
-  const token = USDC_BY_CHAIN[chainId];
   const { data, isLoading } = useBalance({
     address,
     token,
     chainId: (token ? chainId : undefined) as 43113 | 5042002 | undefined,
-    query: { enabled: Boolean(address && token) },
+    query: { enabled: Boolean(address && token && chainId) },
   });
   if (!data) return { formatted: "0", isLoading };
   return {
     formatted: formatUnits(data.value, data.decimals ?? 6),
     isLoading,
   };
+}
+
+function formatAvailableBalance(formatted: string, symbol: string): string {
+  const value = Number(formatted);
+  if (!Number.isFinite(value)) return formatted;
+  if (symbol === "USDC") return fmtUSD(value);
+  return value.toLocaleString(undefined, {
+    maximumFractionDigits: value > 0 && value < 1 ? 4 : 2,
+    minimumFractionDigits: 0,
+  });
 }
 
 // Replaces the legacy fake CLOB. This system uses a price-time matcher
@@ -173,6 +191,7 @@ const UI_TO_PERP_SYMBOLS: Readonly<Record<string, readonly string[]>> = {
   "EUR/USD": ["EURC/USDC"],
   "USD/JPY": ["JPYC/USDC"],
   "USD/MXN": ["MXNB/USDC"],
+  "USD/CAD": ["QCAD/USDC"],
   "AUD/USD": ["AUDF/USDC"],
   "BTC-PERP": ["CIRBTC/USDC"],
 };
@@ -197,6 +216,7 @@ function resolveLiveMarket(uiSym: string, markets: PerpsMarketDto[] | undefined)
     EUR: ["EURC"],
     JPY: ["JPYC", "TJPYC"],
     MXN: ["MXNB", "TMXNB"],
+    CAD: ["QCAD"],
     BTC: ["CIRBTC"],
     AUD: ["AUDF"],
   };
@@ -276,8 +296,8 @@ export function OrderPanelCard({
   const { toast } = useToast();
   const { data: markets } = useMarkets(HUBS.arc.chainId);
   const placeOrder = usePlaceOrder();
+  const spotSwap = useFxSpotSwap();
   const liveMarket = useMemo(() => resolveLiveMarket(market.sym, markets), [market.sym, markets]);
-  const usdc = useUsdcBalance(address);
 
   // Step 3: subscribe to the last-submitted intent's status stream so the
   // panel shows live transitions (pending → matched → settled) without a
@@ -326,43 +346,65 @@ export function OrderPanelCard({
     return () => window.removeEventListener("identity-registered", handler);
   }, [toast]);
 
-  const canTrade = Boolean(isConnected || devWallet);
+  const canTrade = isSpot ? Boolean(isConnected && address) : Boolean(isConnected || devWallet);
   const hasSize = sizeV > 0;
   const needsLimitPrice =
     orderType === "limit" && (priceParsed === null || priceParsed <= 0);
+  const spotExecutionPrice =
+    (orderType === "limit" || orderType === "stop") && priceParsed != null && priceParsed > 0
+      ? priceParsed
+      : market.price;
+  const spotPlan = useMemo(() => {
+    if (!isSpot || !hasSize) return null;
+    try {
+      return buildFxSpotSwapPlan({
+        marketSymbol: market.sym,
+        side: "long",
+        size: sizeV,
+        price: spotExecutionPrice,
+      });
+    } catch {
+      return null;
+    }
+  }, [hasSize, isSpot, market.sym, sizeV, spotExecutionPrice]);
+  const balanceChainId = isSpot ? HUBS.arc.chainId : (liveMarket?.chainId ?? HUBS.arc.chainId);
+  const primaryBalanceToken = isSpot && spotPlan
+    ? spotPlan.sellToken
+    : USDC_BY_CHAIN[balanceChainId];
+  const primaryBalanceSymbol = isSpot && spotPlan ? spotPlan.sellSymbol : "USDC";
+  const secondaryBalanceToken = isSpot && spotPlan ? spotPlan.buyToken : undefined;
+  const secondaryBalanceSymbol = isSpot && spotPlan ? spotPlan.buySymbol : null;
+  const primaryBalance = useTokenBalance(address, primaryBalanceToken, balanceChainId);
+  const secondaryBalance = useTokenBalance(address, secondaryBalanceToken, balanceChainId);
   const spotUnavailableReason = isSpot
-    ? "Spot execution is disabled until the Arc venue route is configured and the spot executor holds inventory."
+    ? fxSpotUnavailableReason(market.sym, spotExecutionPrice)
     : null;
+  const submitBusy = placeOrder.isPending || spotSwap.isPending;
+  const displayedNotional =
+    isSpot && spotPlan
+      ? Number(
+          formatUnits(
+            spotPlan.sellSymbol === "USDC" ? spotPlan.sellAmount : spotPlan.expectedBuyAmount,
+            6,
+          ),
+        )
+      : notional;
   const submitDisabled =
     !canTrade ||
-    !liveMarket ||
     !hasSize ||
     needsLimitPrice ||
+    (!isSpot && !liveMarket) ||
     Boolean(spotUnavailableReason) ||
-    placeOrder.isPending;
+    submitBusy;
 
   const submit = async (side: "long" | "short") => {
-    if (spotUnavailableReason) {
-      toast({
-        variant: "destructive",
-        title: "Spot unavailable",
-        description: spotUnavailableReason,
-      });
-      return;
-    }
-    if (!liveMarket) {
-      toast({
-        variant: "destructive",
-        title: t("noMarketAvailable"),
-        description: "Live perps markets haven't loaded yet. Retry in a moment.",
-      });
-      return;
-    }
     if (!canTrade) {
       toast({
         variant: "destructive",
         title: t("connectWallet"),
-        description: "Connect your wallet (or set NEXT_PUBLIC_PERPS_REPLACEMENT_E2E=1 for dev).",
+        description: isSpot
+          ? "Connect your wallet to sign the spot swap."
+          : "Connect your wallet (or set NEXT_PUBLIC_PERPS_REPLACEMENT_E2E=1 for dev).",
       });
       return;
     }
@@ -384,6 +426,47 @@ export function OrderPanelCard({
         variant: "destructive",
         title: t("enterLimitPrice"),
         description: "Limit orders need a non-zero price.",
+      });
+      return;
+    }
+    if (isSpot) {
+      if (spotUnavailableReason) {
+        toast({
+          variant: "destructive",
+          title: "Spot unavailable",
+          description: spotUnavailableReason,
+        });
+        return;
+      }
+      let plan: ReturnType<typeof buildFxSpotSwapPlan>;
+      try {
+        plan = buildFxSpotSwapPlan({
+          marketSymbol: market.sym,
+          side,
+          size: sizeV,
+          price: spotExecutionPrice,
+        });
+      } catch (error) {
+        toast({ variant: "destructive", title: "Spot unavailable", description: errMsg(error) });
+        return;
+      }
+      try {
+        const result = await spotSwap.execute(plan);
+        const verb = side === "long" ? t("buy") : t("sell");
+        toast({
+          title: `${verb} settled`,
+          description: `${result.sellSymbol} -> ${result.buySymbol} · ${formatFxSpotAmount(result.expectedBuyAmount)} ${result.buySymbol} · ${shortDigest(result.tx)}`,
+        });
+      } catch (error) {
+        toast({ variant: "destructive", title: "Spot swap failed", description: errMsg(error) });
+      }
+      return;
+    }
+    if (!liveMarket) {
+      toast({
+        variant: "destructive",
+        title: t("noMarketAvailable"),
+        description: "Live perps markets haven't loaded yet. Retry in a moment.",
       });
       return;
     }
@@ -593,7 +676,7 @@ export function OrderPanelCard({
             <span className="l">
               {t("orderValue")} <Hint w={220}>Notional value of the trade at the entry price.</Hint>
             </span>
-            <span className="v mono">{fmtUSD(notional)}</span>
+            <span className="v mono">{fmtUSD(displayedNotional)}</span>
           </div>
           {/* Margin + liquidation lines are perps-only — spot trades
               settle atomically and aren't liquidatable. */}
@@ -623,8 +706,18 @@ export function OrderPanelCard({
             <span className="l">
               {t("estFee")} <Hint w={220}>Trading fee paid on this order (taker rate, 5 bps).</Hint>
             </span>
-            <span className="v mono">{fmtUSD(notional * 0.0005)}</span>
+            <span className="v mono">{fmtUSD(displayedNotional * (isSpot ? 0.0001 : 0.0005))}</span>
           </div>
+          {isSpot && spotPlan && (
+            <div className="summary-row" style={{ opacity: 0.7 }}>
+              <span className="l">Route</span>
+              <span className="v mono" style={{ fontSize: 11 }}>
+                {spotPlan.sellSymbol}
+                {" -> "}
+                {spotPlan.buySymbol}
+              </span>
+            </div>
+          )}
           {liveMarket && (
             <div className="summary-row" style={{ opacity: 0.7 }}>
               <span className="l">{t("liveMarket")}</span>
@@ -641,21 +734,21 @@ export function OrderPanelCard({
           className={"long" + (initialSide === "long" ? " primed" : "")}
           disabled={submitDisabled}
           onClick={() => submit("long")}
-          aria-busy={placeOrder.isPending}
+          aria-busy={submitBusy}
           data-primed={initialSide === "long" ? "true" : undefined}
           title={spotUnavailableReason ?? undefined}
         >
-          <Icon name="sparkle" size={14} /> {spotUnavailableReason ? "Spot unavailable" : placeOrder.isPending ? t("signing") : sideALabel}
+          <Icon name="sparkle" size={14} /> {spotUnavailableReason ? "Spot unavailable" : submitBusy ? t("signing") : sideALabel}
         </button>
         <button
           className={"short" + (initialSide === "short" ? " primed" : "")}
           disabled={submitDisabled}
           onClick={() => submit("short")}
-          aria-busy={placeOrder.isPending}
+          aria-busy={submitBusy}
           data-primed={initialSide === "short" ? "true" : undefined}
           title={spotUnavailableReason ?? undefined}
         >
-          <Icon name="sparkle" size={14} /> {spotUnavailableReason ? "Spot unavailable" : placeOrder.isPending ? t("signing") : sideBLabel}
+          <Icon name="sparkle" size={14} /> {spotUnavailableReason ? "Spot unavailable" : submitBusy ? t("signing") : sideBLabel}
         </button>
       </div>
       {lastIntentId && (
@@ -672,9 +765,23 @@ export function OrderPanelCard({
           <>
             {t("available")}{" "}
             <span className="mono" style={{ color: "var(--ink)", fontWeight: 800 }}>
-              {usdc.isLoading ? "…" : fmtUSD(Number(usdc.formatted))}
+              {primaryBalance.isLoading
+                ? "…"
+                : formatAvailableBalance(primaryBalance.formatted, primaryBalanceSymbol)}
             </span>{" "}
-            USDC ·{" "}
+            {primaryBalanceSymbol}
+            {secondaryBalanceSymbol && (
+              <>
+                {" · "}
+                <span className="mono" style={{ color: "var(--ink)", fontWeight: 800 }}>
+                  {secondaryBalance.isLoading
+                    ? "…"
+                    : formatAvailableBalance(secondaryBalance.formatted, secondaryBalanceSymbol)}
+                </span>{" "}
+                {secondaryBalanceSymbol}
+              </>
+            )}
+            {" · "}
             <span className="mono" style={{ color: "var(--muted)" }}>
               {shortAddress(address)}
             </span>
@@ -792,10 +899,12 @@ export function ChartCard({
   );
   return (
     <>
-      <div className="card chart-card">
-        {headerInner}
-        <CandleChart market={market} timeframe={tf} source="ponder" liveSource="ws" />
-      </div>
+      {!expanded && (
+        <div className="card chart-card">
+          {headerInner}
+          <CandleChart market={market} timeframe={tf} source="ponder" liveSource="ws" />
+        </div>
+      )}
       <Dialog open={expanded} onOpenChange={setExpanded}>
         <DialogContent size="full" className="p-0 h-[90vh] flex flex-col">
           <DialogTitle className="sr-only">{market.sym} chart</DialogTitle>

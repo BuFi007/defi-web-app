@@ -38,6 +38,7 @@ const UI_TO_PERP_SYMBOLS: Readonly<Record<string, readonly string[]>> = {
   "EUR/USD": ["EURC/USDC"],
   "USD/JPY": ["JPYC/USDC"],
   "USD/MXN": ["MXNB/USDC"],
+  "USD/CAD": ["QCAD/USDC"],
   "AUD/USD": ["AUDF/USDC"],
   "BTC-PERP": ["CIRBTC/USDC"],
 };
@@ -57,7 +58,7 @@ function resolvePerpMarketId(uiSym: string, markets: PerpsMarketDto[] | undefine
   const [base = "", quote = ""] = normalized.split(/[/-]/);
   const baseAliases: Record<string, string[]> = {
     EUR: ["EURC"], JPY: ["JPYC", "TJPYC"], MXN: ["MXNB", "TMXNB"],
-    BTC: ["CIRBTC"], AUD: ["AUDF"],
+    CAD: ["QCAD"], BTC: ["CIRBTC"], AUD: ["AUDF"],
   };
   const candidates = [
     base,
@@ -375,7 +376,7 @@ export function MobileTrade({
       <div className="mt-body">
         {inner === "chart" && (
           <div className="mt-chart-wrap">
-            <CandleChart market={market} timeframe={tf} />
+            <CandleChart market={market} timeframe={tf} source="ponder" liveSource="ws" />
           </div>
         )}
         {inner === "book" && <CompactOrderbook market={market} />}

@@ -191,6 +191,7 @@ function apiSymbolToUiSymbol(s: string): string {
     "MXNB/USDC": "USD/MXN",
     "CIRBTC/USDC": "BTC-PERP",
     "AUDF/USDC": "AUD/USD",
+    "QCAD/USDC": "USD/CAD",
   };
   return map[s] ?? s;
 }
@@ -359,15 +360,19 @@ export function useMarketCandles(args: {
   sym: string | undefined;
   tf?: string;
   limit?: number;
+  from?: number;
+  to?: number;
 }): UseQueryResult<PerpsCandlesResponseDto> {
   return useQuery({
-    queryKey: ["perps", "candles", args.sym, args.tf, args.limit],
+    queryKey: ["perps", "candles", args.sym, args.tf, args.limit, args.from, args.to],
     enabled: Boolean(args.sym),
     queryFn: ({ signal }) =>
       fetchPerpsCandles({
         sym: args.sym!,
         tf: args.tf,
         limit: args.limit,
+        from: args.from,
+        to: args.to,
         signal,
       }),
     staleTime: 15_000,

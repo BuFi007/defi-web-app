@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAccount } from "wagmi";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -1202,6 +1202,9 @@ export default function TradeIsland() {
   const [arcade, setArcade] = useState(false);
   const [loanIntent, setLoanIntent] = useState<LoanTabIntent | null>(null);
   const [activeLoanMarket, setActiveLoanMarket] = useState<{ loan: string; coll: string; supply: number | null; borrow: number | null } | null>(null);
+  const [liveMark, setLiveMark] = useState<number | null>(null);
+  const liveMarkRef = useRef<number | null>(null);
+  const liveMarkTimerRef = useRef<number | null>(null);
 
   // Callback for position row Withdraw/Repay buttons — switches to the
   // loan tab with the target market and action pre-selected.
@@ -1228,10 +1231,36 @@ export default function TradeIsland() {
   // both fields are overridden by the live sources so the trader
   // never sees stale numbers on the trigger pill, chart header, or
   // order panel mid-price.
-  const live = useLiveMarket(baseMarket.sym);
+  useEffect(() => {
+    liveMarkRef.current = null;
+    setLiveMark(null);
+    if (liveMarkTimerRef.current != null) {
+      window.clearTimeout(liveMarkTimerRef.current);
+      liveMarkTimerRef.current = null;
+    }
+  }, [baseMarket.sym]);
+  useLiveMarket(baseMarket.sym, {
+    publishTicks: false,
+    onTick: (tick) => {
+      if (!Number.isFinite(tick.mark) || tick.mark <= 0) return;
+      liveMarkRef.current = tick.mark;
+      if (liveMarkTimerRef.current != null) return;
+      liveMarkTimerRef.current = window.setTimeout(() => {
+        liveMarkTimerRef.current = null;
+        setLiveMark(liveMarkRef.current);
+      }, 750);
+    },
+  });
+  useEffect(() => {
+    return () => {
+      if (liveMarkTimerRef.current != null) {
+        window.clearTimeout(liveMarkTimerRef.current);
+      }
+    };
+  }, []);
   const stats = useMarketStats(baseMarket.sym);
   const market = useMemo(() => {
-    const livePrice = live.tick?.mark;
+    const livePrice = liveMark;
     const fallbackPrice =
       stats.data?.close ??
       (Number.isFinite(baseMarket.price) ? baseMarket.price : 0);
@@ -1244,7 +1273,7 @@ export default function TradeIsland() {
         ? stats.data.changePct
         : 0;
     return { ...baseMarket, price, change };
-  }, [baseMarket, live.tick?.mark, stats.data?.close, stats.data?.changePct]);
+  }, [baseMarket, liveMark, stats.data?.close, stats.data?.changePct]);
 
   // PERP_MARKETS still feeds arcade / market-picker filtering downstream
   // until it's swapped for fetchPerpsMarkets() (Task 2). Silence the

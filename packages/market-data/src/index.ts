@@ -38,6 +38,12 @@ export {
   type FetchBenchmarksHistoryOptions,
 } from "./benchmarks";
 
+export {
+  fetchFrankfurterDailyHistory,
+  FRANKFURTER_DEFAULT_BASE_URL,
+  type FetchFrankfurterDailyHistoryOptions,
+} from "./frankfurter";
+
 export const HERMES_DEFAULT_BASE_URL = "https://hermes.pyth.network";
 
 const pythParsedPrice = z.object({

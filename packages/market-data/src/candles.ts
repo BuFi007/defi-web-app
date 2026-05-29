@@ -26,6 +26,10 @@ export interface GetCandlesOptions {
   tf: string;
   /** Defaults to 200 — enough to fill the viewport at any tf without overdraw. */
   limit?: number;
+  /** Optional unix-second historical lower bound for paged reads. */
+  from?: number;
+  /** Optional unix-second historical upper bound for paged reads. */
+  to?: number;
   /** Mid/seed price for mock fixture; used only when `source === 'mock'`. */
   basePrice?: number;
   /** Override fetch (test injection). */
@@ -43,9 +47,10 @@ const TF_SECONDS: Record<string, number> = {
   "1D": 24 * 60 * 60,
   "1W": 7 * 24 * 60 * 60,
 };
+const DEFAULT_TF_SECONDS = 15 * 60;
 
 export function timeframeToSeconds(tf: string): number {
-  return TF_SECONDS[tf] ?? TF_SECONDS["15m"];
+  return TF_SECONDS[tf] ?? DEFAULT_TF_SECONDS;
 }
 
 export async function getCandles(opts: GetCandlesOptions): Promise<Candle[]> {
@@ -95,7 +100,7 @@ export function makeMockCandles({
   }
   if (out.length) {
     const lastSpread = base * 0.002;
-    const last = out[out.length - 1];
+    const last = out[out.length - 1]!;
     last.c = base;
     last.h = Math.max(last.h, base + lastSpread * 0.3);
     last.l = Math.min(last.l, base - lastSpread * 0.3);
@@ -120,7 +125,9 @@ async function fetchPonderCandles(opts: GetCandlesOptions): Promise<Candle[]> {
   const base = opts.apiBaseUrl ?? baseFromEnv ?? "/api";
   const url = `${base.replace(/\/$/, "")}/perps/markets/${encodeURIComponent(
     opts.marketId,
-  )}/candles?tf=${encodeURIComponent(opts.tf)}${opts.limit ? `&limit=${opts.limit}` : ""}`;
+  )}/candles?tf=${encodeURIComponent(opts.tf)}${opts.limit ? `&limit=${opts.limit}` : ""}${
+    Number.isFinite(opts.from) ? `&from=${Math.floor(opts.from!)}` : ""
+  }${Number.isFinite(opts.to) ? `&to=${Math.floor(opts.to!)}` : ""}`;
   try {
     const res = await fetchImpl(url);
     if (!res.ok) {

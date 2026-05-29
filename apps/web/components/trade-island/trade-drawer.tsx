@@ -43,6 +43,12 @@ import { parseFiniteDecimal } from "@/utils/numeric";
 import { getPerpsReplacementDevWallet } from "@/lib/perps/dev-mock-wallet";
 import type { PerpsMarketDto } from "@/lib/perps/client";
 import { useScopedI18n } from "@/locales/client";
+import {
+  buildFxSpotSwapPlan,
+  formatFxSpotAmount,
+  fxSpotUnavailableReason,
+} from "@/lib/fx-spot/plan";
+import { useFxSpotSwap } from "@/lib/fx-spot/use-fx-spot-swap";
 
 type Step = "mode" | "side" | "size" | "review";
 type Side = "long" | "short";
@@ -51,6 +57,7 @@ const UI_TO_PERP_SYMBOLS: Readonly<Record<string, readonly string[]>> = {
   "EUR/USD": ["EURC/USDC"],
   "USD/JPY": ["JPYC/USDC"],
   "USD/MXN": ["MXNB/USDC"],
+  "USD/CAD": ["QCAD/USDC"],
   "AUD/USD": ["AUDF/USDC"],
   "BTC-PERP": ["CIRBTC/USDC"],
 };
@@ -81,6 +88,7 @@ function resolveLiveMarket(
     EUR: ["EURC"],
     JPY: ["JPYC", "TJPYC"],
     MXN: ["MXNB", "TMXNB"],
+    CAD: ["QCAD"],
     BTC: ["CIRBTC"],
     AUD: ["AUDF"],
   };
@@ -168,22 +176,46 @@ export function TradeDrawer({
   const { toast } = useToast();
   const { data: markets } = useMarkets(HUBS.arc.chainId);
   const placeOrder = usePlaceOrder();
+  const spotSwap = useFxSpotSwap();
   const liveMarket = useMemo(
     () => resolveLiveMarket(market.sym, markets),
     [market.sym, markets],
   );
 
-  const canTrade = Boolean(isConnected || devWallet);
+  const canTrade = isSpot ? Boolean(isConnected && address) : Boolean(isConnected || devWallet);
   const hasSize = sizeV > 0;
   const needsLimitPrice =
     orderType === "limit" && (priceParsed === null || priceParsed <= 0);
+  const spotExecutionPrice =
+    orderType === "limit" && priceParsed != null && priceParsed > 0
+      ? priceParsed
+      : market.price;
+  const spotPlan = useMemo(() => {
+    if (!isSpot || !hasSize) return null;
+    try {
+      return buildFxSpotSwapPlan({
+        marketSymbol: market.sym,
+        side: side ?? "long",
+        size: sizeV,
+        price: spotExecutionPrice,
+      });
+    } catch {
+      return null;
+    }
+  }, [hasSize, isSpot, market.sym, side, sizeV, spotExecutionPrice]);
+  const spotUnavailableReason = isSpot
+    ? fxSpotUnavailableReason(market.sym, spotExecutionPrice)
+    : null;
+  const submitBusy = placeOrder.isPending || spotSwap.isPending;
 
   // Per-step "can I advance" predicate. Drives the CTA enabled state.
   const stepReady = (() => {
     if (step === "mode") return true; // any lev is fine
     if (step === "side") return side !== null;
     if (step === "size") return hasSize && !needsLimitPrice;
-    if (step === "review") return canTrade && hasSize && side !== null && !isSpot;
+    if (step === "review") {
+      return canTrade && hasSize && side !== null && (isSpot ? !spotUnavailableReason : Boolean(liveMarket));
+    }
     return false;
   })();
 
@@ -201,22 +233,6 @@ export function TradeDrawer({
   };
 
   async function submit() {
-    if (isSpot) {
-      toast({
-        variant: "destructive",
-        title: "Spot unavailable",
-        description: "Spot execution is disabled until the Arc venue route is configured and the spot executor holds inventory.",
-      });
-      return;
-    }
-    if (!liveMarket) {
-      toast({
-        variant: "destructive",
-        title: t("noMarketAvailable"),
-        description: "Live perps markets haven't loaded yet. Retry in a moment.",
-      });
-      return;
-    }
     if (!canTrade || !side) return;
     if (sizeParsed === null || sizeParsed <= 0) {
       toast({
@@ -231,6 +247,48 @@ export function TradeDrawer({
         variant: "destructive",
         title: t("enterLimitPrice"),
         description: "Limit orders need a non-zero price.",
+      });
+      return;
+    }
+    if (isSpot) {
+      if (spotUnavailableReason) {
+        toast({
+          variant: "destructive",
+          title: "Spot unavailable",
+          description: spotUnavailableReason,
+        });
+        return;
+      }
+      let plan: ReturnType<typeof buildFxSpotSwapPlan>;
+      try {
+        plan = buildFxSpotSwapPlan({
+          marketSymbol: market.sym,
+          side,
+          size: sizeV,
+          price: spotExecutionPrice,
+        });
+      } catch (error) {
+        toast({ variant: "destructive", title: "Spot unavailable", description: errMsg(error) });
+        return;
+      }
+      try {
+        const result = await spotSwap.execute(plan);
+        const verb = side === "long" ? t("buy") : t("sell");
+        toast({
+          title: `${verb} settled`,
+          description: `${result.sellSymbol} -> ${result.buySymbol} · ${formatFxSpotAmount(result.expectedBuyAmount)} ${result.buySymbol} · ${result.tx.slice(0, 10)}…`,
+        });
+        onClose();
+      } catch (error) {
+        toast({ variant: "destructive", title: "Spot swap failed", description: errMsg(error) });
+      }
+      return;
+    }
+    if (!liveMarket) {
+      toast({
+        variant: "destructive",
+        title: t("noMarketAvailable"),
+        description: "Live perps markets haven't loaded yet. Retry in a moment.",
       });
       return;
     }
@@ -259,9 +317,9 @@ export function TradeDrawer({
   }
 
   const ctaLabel = (() => {
-    if (placeOrder.isPending) return t("signing");
+    if (submitBusy) return t("signing");
     if (step === "review") {
-      if (isSpot) return "Spot unavailable";
+      if (isSpot && spotUnavailableReason) return "Spot unavailable";
       if (!canTrade) return t("connectWalletShort");
       const buyish = side === "long";
       const verb = isSpot ? (buyish ? t("buy") : t("sell")) : buyish ? t("long") : t("short");
@@ -359,9 +417,9 @@ export function TradeDrawer({
         <div className="td-foot">
           <button
             className={"td-cta " + (side === "short" ? "loss" : "primary")}
-            disabled={!stepReady || placeOrder.isPending}
+            disabled={!stepReady || submitBusy}
             onClick={advance}
-            aria-busy={placeOrder.isPending}
+            aria-busy={submitBusy}
           >
             {ctaLabel}
           </button>

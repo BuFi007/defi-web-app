@@ -219,31 +219,40 @@ export interface PerpsCandleDto {
   h: number;
   l: number;
   c: number;
-  /** Pyth Benchmarks volume proxy. Treat as relative, not native units. */
+  /** Historical volume proxy. Treat as relative, not native units. */
   v: number;
 }
 
 export interface PerpsCandlesResponseDto {
   sym: string;
   tf: string;
-  source: "pyth-benchmarks" | "empty";
+  from?: number;
+  to?: number;
+  source: "pyth-benchmarks" | "frankfurter-daily" | "empty";
   candles: PerpsCandleDto[];
 }
 
 /**
- * Historical OHLCV from `/perps/markets/:sym/candles`. Pyth Benchmarks via
- * the TradingView UDF shim. Use the returned `source` to detect the
- * empty-fallback case (unmapped symbol or 404 upstream).
+ * Historical OHLCV from `/perps/markets/:sym/candles`. Recent/high-res candles
+ * come from Pyth Benchmarks; old empty FX pages fall back to Frankfurter daily
+ * history. Use the returned `source` to tell which archive served the page.
  */
 export async function fetchPerpsCandles(args: {
   sym: string;
   tf?: string;
   limit?: number;
+  from?: number;
+  to?: number;
   signal?: AbortSignal;
 }): Promise<PerpsCandlesResponseDto> {
   const path = `/perps/markets/${encodeURIComponent(args.sym)}/candles`;
   const res = await resilientFetch(
-    bufxApiUrl(path, { tf: args.tf, limit: args.limit }),
+    bufxApiUrl(path, {
+      tf: args.tf,
+      limit: args.limit,
+      from: args.from,
+      to: args.to,
+    }),
     { headers: { accept: "application/json" }, signal: args.signal },
   );
   return jsonOrThrow<PerpsCandlesResponseDto>(res, path);

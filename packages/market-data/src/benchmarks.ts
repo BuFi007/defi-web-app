@@ -79,6 +79,10 @@ export interface FetchBenchmarksHistoryOptions {
   tf: string;
   /** Max candles to return (caps the [from, to] window). Default 200. */
   limit?: number;
+  /** Optional unix-second lower bound. Omitted means "derive from limit". */
+  from?: number;
+  /** Optional unix-second upper bound. Omitted means "now". */
+  to?: number;
   /** Override base URL — env-controlled in apps/api via PYTH_BENCHMARKS_URL. */
   baseUrl?: string;
   /** Test injection for fetch. */
@@ -104,7 +108,7 @@ export async function fetchBenchmarksHistory(
   if (!ticker) return [];
   const baseUrl = opts.baseUrl ?? BENCHMARKS_DEFAULT_BASE_URL;
   const resolution = tfToBenchmarksResolution(opts.tf);
-  const requestedLimit = opts.limit ?? 200;
+  const requestedLimit = Math.max(1, Math.floor(opts.limit ?? 200));
   const tfSec = tfToSeconds(opts.tf);
   // Pyth Benchmarks rejects FX queries that span > 1 year with
   // `{"s":"error","errmsg":"Requested range exceeds 1 year"}`. Asking
@@ -114,17 +118,25 @@ export async function fetchBenchmarksHistory(
   // shrink the effective limit so weekly/daily tfs don't over-request.
   const MAX_LOOKBACK_SEC = 360 * 86400; // ~12 months — fits Pyth FX limit
   const naturalLookback = Math.ceil(tfSec * requestedLimit * 1.4);
-  const lookback = Math.min(naturalLookback, MAX_LOOKBACK_SEC);
-  // If the cap chopped us, recompute the effective limit so the
-  // tail-cap at the end still produces a sane window (no excess slice).
-  const limit = naturalLookback > MAX_LOOKBACK_SEC
+  const now = Math.floor(Date.now() / 1000);
+  const to = Math.min(
+    Math.floor(Number.isFinite(opts.to) ? opts.to! : now),
+    now + tfSec,
+  );
+  let from = Number.isFinite(opts.from)
+    ? Math.floor(opts.from!)
+    : to - Math.min(naturalLookback, MAX_LOOKBACK_SEC);
+  if (to - from > MAX_LOOKBACK_SEC) from = to - MAX_LOOKBACK_SEC;
+  if (from >= to) from = to - tfSec;
+  // If the default tail query was capped, recompute the effective limit
+  // so the tail-cap at the end still produces a sane window. Explicit
+  // cursor windows keep the caller's requested limit.
+  const limit = opts.from == null && opts.to == null && naturalLookback > MAX_LOOKBACK_SEC
     ? Math.max(1, Math.floor(MAX_LOOKBACK_SEC / Math.ceil(tfSec * 1.4)))
     : requestedLimit;
-  const now = Math.floor(Date.now() / 1000);
-  const from = now - lookback;
   const url = `${baseUrl.replace(/\/$/, "")}/v1/shims/tradingview/history?symbol=${encodeURIComponent(
     ticker,
-  )}&resolution=${resolution}&from=${from}&to=${now}`;
+  )}&resolution=${resolution}&from=${from}&to=${to}`;
   try {
     const res = await fetchImpl(url);
     if (!res.ok) return [];
