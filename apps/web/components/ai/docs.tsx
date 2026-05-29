@@ -47,7 +47,7 @@ function FootLink({ href, children, ext }: { href: string; children: React.React
     <a
       href={href}
       {...(ext ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-      className={cn("underline-offset-4 transition-colors hover:underline hover:text-[#16151A] dark:hover:text-[#EDEAF6]", MUTE)}
+      className={cn("underline-offset-4 transition-colors hover:underline hover:text-purpleDanis dark:hover:text-white", MUTE)}
     >
       {children}
     </a>
@@ -56,7 +56,7 @@ function FootLink({ href, children, ext }: { href: string; children: React.React
 
 export function AiDocs() {
   return (
-    <main className="mx-auto w-full max-w-2xl self-start p-3 sm:p-4">
+    <main className="mx-auto w-full max-w-xl self-start p-3 sm:p-4">
       <Plane>
         <header>
           <h1 className={cn("font-knick text-[28px] font-bold leading-none tracking-tight", INK)}>agent</h1>

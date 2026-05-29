@@ -31,13 +31,14 @@ export const ACCENTS: Record<string, Accent> = {
 };
 export const ACCENT_LIST = [ACCENTS.lp, ACCENTS.oracle, ACCENTS.hedge, ACCENTS.fxswap, ACCENTS.registry, ACCENTS.perps, ACCENTS.gateway];
 
-// Surface + type tokens (class fragments). Paper is fully opaque so the WebGL
-// gradient never bleeds through (that would re-create the banned glass).
+// Surface + type tokens (class fragments). Text + borders follow the rest of the
+// app: purpleDanis ink (never black) on a warm opaque plane, purpleDanis/15
+// hairlines. Paper is fully opaque so the WebGL gradient never bleeds through.
 export const PAPER = "bg-[#FBF8F2] dark:bg-[#1A1B22]";
-export const INK = "text-[#16151A] dark:text-[#EDEAF6]";
-export const MUTE = "text-[#16151A]/52 dark:text-[#EDEAF6]/50";
-export const HAIR = "border-[#16151A]/12 dark:border-[#EDEAF6]/10";
-const DOT = "border-[#16151A]/25 dark:border-[#EDEAF6]/20";
+export const INK = "text-purpleDanis dark:text-white";
+export const MUTE = "text-purpleDanis/55 dark:text-white/45";
+export const HAIR = "border-purpleDanis/15 dark:border-white/10";
+const DOT = "border-purpleDanis/25 dark:border-white/15";
 
 // The flat instrument surface. Opaque fill + 1px ring, no shadow, no blur.
 export function Plane({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -47,7 +48,7 @@ export function Plane({ children, className }: { children: React.ReactNode; clas
       initial={rm ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.26, ease: EASE }}
-      className={cn("rounded-[22px] p-4 ring-1 sm:p-5", PAPER, "ring-[#16151A]/12 dark:ring-[#EDEAF6]/10", className)}
+      className={cn("rounded-[22px] p-4 ring-1 sm:p-5", PAPER, "ring-purpleDanis/15 dark:ring-white/10", className)}
     >
       {children}
     </motion.div>
@@ -72,7 +73,7 @@ export function BootSquare({ accent, delay = 0, size = 10 }: { accent: Accent; d
 // Two-digit channel index, accent text on a faint ink chip.
 function IndexChip({ n, accent }: { n: number; accent: Accent }) {
   return (
-    <span className={cn("rounded-[5px] bg-[#16151A]/[0.05] px-1.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums dark:bg-[#EDEAF6]/[0.06]", accent.text)}>
+    <span className={cn("rounded-[5px] bg-purpleDanis/[0.07] px-1.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums dark:bg-white/[0.06]", accent.text)}>
       {String(n).padStart(2, "0")}
     </span>
   );
@@ -113,7 +114,7 @@ export function Module({
     >
       <header className="flex items-center gap-2">
         <IndexChip n={n} accent={accent} />
-        <h2 className={cn("font-knick text-[15px] font-bold tracking-tight", INK)}>{label}</h2>
+        <h2 className={cn("text-[13px] font-semibold tracking-tight", INK)}>{label}</h2>
         {headerRight && <span className="ml-auto flex items-center">{headerRight}</span>}
       </header>
       <Stub accent={accent} delay={delay + 0.14} />
@@ -187,7 +188,7 @@ export function Chip({ children, violet }: { children: React.ReactNode; violet?:
   return (
     <span className={cn(
       "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px] tabular-nums",
-      violet ? "bg-[#CBB0FF]/25 text-[#7B4FD6] dark:bg-[#CBB0FF]/15 dark:text-[#A98BF0]" : cn("bg-[#16151A]/[0.05] dark:bg-[#EDEAF6]/[0.06]", MUTE),
+      violet ? "bg-[#CBB0FF]/25 text-[#7B4FD6] dark:bg-[#CBB0FF]/15 dark:text-[#A98BF0]" : cn("bg-purpleDanis/[0.07] dark:bg-white/[0.06]", MUTE),
     )}>
       {children}
     </span>
@@ -201,7 +202,7 @@ export function Good({ children }: { children: React.ReactNode }) {
 // Loss/stale/warn = soft-yellow. On paper: yellow text on an ink chip. On dark:
 // plain yellow text (legible on the dark plane). Never red, never a yellow fill.
 export function Warn({ children }: { children: React.ReactNode }) {
-  return <span className="rounded bg-[#16151A] px-1.5 py-0.5 font-mono text-[11px] font-medium text-[#FFECB4] dark:bg-transparent dark:px-0 dark:py-0">{children}</span>;
+  return <span className="rounded bg-purpleDanis px-1.5 py-0.5 font-mono text-[11px] font-medium text-[#FFECB4] dark:bg-transparent dark:px-0 dark:py-0">{children}</span>;
 }
 
 // Cyan ambient status dot — the ONE moving thing besides load. Opacity pulse only.
@@ -236,7 +237,7 @@ export function CopyRow({ label, accent, text, n }: { label: string; accent: Acc
           onClick={() => { navigator.clipboard?.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1400); }}
           className={cn(
             "shrink-0 self-stretch border-l px-3 text-[10px] font-semibold uppercase tracking-[0.14em] transition-transform active:scale-[0.97]",
-            HAIR, copied ? accent.text : MUTE, "hover:bg-[#16151A]/[0.03] dark:hover:bg-[#EDEAF6]/[0.04]",
+            HAIR, copied ? accent.text : MUTE, "hover:bg-purpleDanis/[0.05] dark:hover:bg-white/[0.05]",
           )}
         >
           {copied ? "ok ✓" : "copy"}

@@ -16,7 +16,7 @@ import {
   INK, MUTE, HAIR, type Accent,
 } from "@/components/console/kit";
 
-const LEADER = "border-[#16151A]/20 dark:border-[#EDEAF6]/15";
+const LEADER = "border-purpleDanis/25 dark:border-white/15";
 
 const fmt = (v?: string | number | null, dp = 0) => {
   if (v == null) return "—";
@@ -33,7 +33,7 @@ function FeeBar({ p, l, ins }: { p: number; l: number; ins: number }) {
   ];
   return (
     <div className="space-y-1.5">
-      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-[#16151A]/[0.06] dark:bg-[#EDEAF6]/[0.06]">
+      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-purpleDanis/[0.08] dark:bg-white/[0.08]">
         {segs.map((s) => <span key={s.label} className={cn("h-full", s.acc.bg)} style={{ width: `${(s.bps / total) * 100}%` }} />)}
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-1">
