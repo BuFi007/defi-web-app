@@ -145,5 +145,10 @@ by distinct counterparties — so self-trading can't farm VIP. (Detailed in Phas
 
 → **Plan is final. Ready to build Phase A.**
 
+## Build progress
+- ✅ **A.1 — Prisma + whitelist** (commit `9a999c0`): Prisma 6 on Prisma Postgres; tables `gate_whitelist`/`social_verifications`/`mints`/`bento_mirror` applied additively (migrate-diff + db-execute — avoided a `db push` that would've dropped live `fx_bento_worker_jobs`). Owner seeded as row 1. Client `apps/web/lib/prisma.ts`, seed `apps/web/prisma/seed.ts`.
+- ✅ **A.2 — Circle SCP ERC-1155 on Arc Testnet**: **KawaiiPunks `0x01b6991451e8a0f45C37bb11bf5CeC1aA4D9024e`** (Circle contractId `019e74f4-40b6-74f7-99f4-f22aba89a19f`, walletId `4cbcd349-3bbe-541f-9baa-acc1fff72333`, mint authority/DCW `0xa439…29f0`, earnings → testnet agent). Deploy script `sendero/scripts/deploy-kawaii-template.ts`. Config `apps/web/lib/kawaii/config.ts`.
+- ⏭ Next: A.3 art-compose + Pinata pin; A.4 mint service (web action + MCP tool); A.6 social OAuth; A.7 gate modal (Tower clone, additive); A.8 payment; A.9 swap+bridge (desk-v1 reuse); A.10 nanopay advert.
+
 ## Confirmed
 - First whitelist = `0xcA02Be6cDBb806d4a327FC92E094D1A44EC37445` (owner). · Testnet 100 USDC / mainnet 5 USDC, JPYC −20%. · `apps/web`, additive-only. · Hyperlane, Circle SCP. · NFT required for leaderboard+VIP; nanopay MCP open. · Mint via MCP tool. · DB = Vercel Postgres for whitelist+Bento.
