@@ -1,0 +1,114 @@
+{
+  "_meta": {
+    "purpose": "Canonical deployed-contract registry for the fx-Telaraña protocol. Source of truth for MCP route wiring + the record of where real testnet capital lives. Compiled 2026-05-29 from fx-telarana/deployments/*.json + on-chain verification.",
+    "provenance": "fx-telarana/deployments/ (44 files). Addresses cross-referenced to registry-stack-{chain}.json where present.",
+    "deployer": "0x0646FFe11b9aBcE0054Ce6F73025F06F3E91eC69",
+    "agentWallet": "0xb79e4987bc58057a322cd9bcface4944dd6a6cc7",
+    "verifyTodo": [
+      "Perps: perps-5042002 FxOrderSettlement 0xCeae… (MCP currently signs against this, domain verifyingContract) VS perp-stack-5042002 FxOrderSettlement 0x93C3… — confirm which is canonical/current before wiring perp routes.",
+      "FxOracle has multiple addresses (0x77b3, 0xf9b0, 0xF9D0 legacy) vs fxOracleV2 0xdA5C — V2 is canonical for FX swaps; confirm per-consumer.",
+      "Two cirBTC tokens (0xf0C4 warp/ghost vs 0x44cE morpho-labs) — confirm canonical per market."
+    ]
+  },
+  "arc": {
+    "chainId": 5042002,
+    "rpc": "https://rpc.drpc.testnet.arc.network",
+    "tokens": {
+      "USDC": "0x3600000000000000000000000000000000000000",
+      "EURC": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
+      "MXNB": "0x836F73Fbc370A9329Ba4957E47912DfDBA6BA461",
+      "QCAD": "0x23d7CFFd0876f3ABb6B074287ba2aeefBc83825d",
+      "AUDF": "0xd2a530170D71a9Cfe1651Fb468E2B98F7Ed7456b",
+      "cirBTC": "0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF"
+    },
+    "registry": {
+      "poolRegistry": "0x05B71cA260EC64925CB961fbf85F2a8944F77103",
+      "liquidityRouter": "0x50737c2fDf26e0Ba2cEd6855D4A1e2E2a9EAaB28",
+      "assetRegistry": "0x7618dfa920b6416b9924fafbf5aa56a6fe978efc",
+      "fxMarketRegistry": "0x3d9c4d204f09648DE37C9BF16260662d4E8A3299"
+    },
+    "lpInsuranceLayer": {
+      "fxHedgeHook": "0x466e2BBFbF3D2Ca1a90eCf25fFF1e275b548C540",
+      "turboFeeVault": "0x929e222CBbC154f8e75a8DEF951288886Df70531",
+      "fxSpotExecutor": "0x4e7372108529C0e7cb3aa0fF92B1c52e06e9e72f",
+      "sharedFxVault": "0x0E63eff212382F2679c3A363F60e00b7A6d6e3E4",
+      "fxOracleV2": "0xdA5Cd65521B64A7375C8d63EeDe52347783cEd74",
+      "fxRouter": "0xd6607B37B7f8eE679E0f4c932560529711f88249",
+      "fxRouterSwapAdapter": "0xe9147f799C1d65d1bAcFD0fE019d8c46531ef917",
+      "fixedRateSwapAdapter": "0x3Fa1AcC89DFd52f6692F20b7E49cD58A306C27f2",
+      "poolManager": "0x403Aa1347a77195FB4dEddc362758AA9e0a48D2E",
+      "fxSwapHooks": {
+        "AUDF": "0xe66db582e2c2a85f1b442247dae2abc5d123cac8",
+        "EURC": "0x72aEa3a27718F1a6682C3355226a12Ea882b0ac8",
+        "MXNB": "0x5410b91Dd6b4047c9E70e70a1Ae6CdA120cF8aC8",
+        "QCAD": "0x04a160D2bD91F681Bb84a2D6d338D49B1DA3caC8",
+        "v2": "0x6f80Ab06A4e359e9E6D025105945f02CcC98CAc8"
+      }
+    },
+    "perps": {
+      "fxOrderSettlement": "0xCeae7846c8ED2Dd9E6f541798a657875305EA0d8",
+      "fxOrderSettlement_perpStack": "0x93C3d831D6F0657479d7Fb6Cf0D06e75aA05E4CC",
+      "fxPerpClearinghouse": "0x39dc43E2133CF860c1d17d4DB75Ef4204eebD46A",
+      "fxMarginAccount": "0x4EB6018F988301417B93cb2b8899D74D42273e96",
+      "fxFundingEngine": "0x859bA11A3693895f8B03C31C6AE3b8F04992115B",
+      "fxHealthChecker": "0xA00Be167609c02F3879138dA8530BC31527c02b8",
+      "fxLiquidationEngine": "0xF579e265EF1D5E67EfDbb1F20863465E94a9d3eA",
+      "markets": { "AUDF_clearinghouse": "0x7707d108F6Ce3d95ceA38D3965448F00C21CaFdC" }
+    },
+    "lending": {
+      "morphoBlue_assetLoan": "0x65f435eB4FF05f1481618694bC1ff7Ee4680c0A4",
+      "morphoBlue_canonical": "0x3c9b95C6E7B23f094f066733E7797C8680760830",
+      "adaptiveCurveIrm": "0xBD583cc9807980f9e41f7c8250f594fB6173abE3",
+      "liquidationRouter": "0xc98c0DAAe36F8755933051419c6919bFC038152d",
+      "fxLiquidationEngine": "0x18DEA7845c36d45AaDbcCeC04aC6cFc103748D80"
+    },
+    "privacy": {
+      "fxPrivacyEntrypoint": "0xD11cDdd1f04e850d3810a71608A49907c80f2736",
+      "swapAdapter": "0x3Fa1AcC89DFd52f6692F20b7E49cD58A306C27f2",
+      "pools": {
+        "USDC": "0xc11c216c9c7a36848b1d4276d223160c8b51988f",
+        "EURC": "0x7B4582CDE65c8cC00fE24B16dBA60472242d234c",
+        "MXNB": "0x441723FD6212EF7C95D0e04F59b2Eeb59838d4E7",
+        "QCAD": "0xF3bd84bDdaD66a3b1F94dF7de0aD34AB158f2De4",
+        "cirBTC": "0x2465806A9293A588867DD94b9A6aB5d47531E928",
+        "AUDF": "0x5BC0e0795D5ea842601220bd1f855e60Fad7E3D1"
+      }
+    },
+    "gateway": {
+      "fxGatewayHook": "0x2931C50745334d6DFf9eC4E3106fE05b49717DF1",
+      "telaranaGatewayHubHook": "0xe895CB461AFF6E98167a7FA0Db252ba906714088",
+      "gatewayMinter": "0x0022222ABE238Cc2C7Bb1f21003F0a260052475B",
+      "gatewayWallet": "0x0077777d7EBA4688BDeF3E311b846F25870A19B9",
+      "interchainAccountRouter": "0x113A539625D208b5EcC59f300Be14b9b3508E559"
+    }
+  },
+  "fuji": {
+    "chainId": 43113,
+    "rpc": "https://api.avax-test.network/ext/bc/C/rpc",
+    "tokens": {
+      "USDC": "0x5425890298aed601595a70AB815c96711a31Bc65",
+      "JPYC": "0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29",
+      "MXNB": "0xAB99d44185af87AeB08361588F00F59B0CE85eBb",
+      "EURC_baseToken": "0x5E44db7996c682E92a960b65AC713a54AD815c6B"
+    },
+    "registry": {
+      "poolRegistry": "0x952645e4216d863b892a95d0105ab9159cc1311c",
+      "liquidityRouter": "0x1acd4b3a9231b291363af043858141cb5bd82826",
+      "assetRegistry": "0xf1c8d4d0c1e1c012b0d9ea4a04beb0c5d560f815"
+    },
+    "perps": {
+      "fxOrderSettlement": "0x955AAEE698aaA03d5bc32F16434cef78b8Ee1fc7",
+      "fxOrderSettlement_perpStack": "0x01A3186ffb7c0c4b8f7A352Dbb8F8A5EA4649F5D",
+      "fxPerpClearinghouse": "0x22013f712190034D8Ee43F3894461c27709E74AC"
+    },
+    "lending": { "morphoBlue": "0xeF64621D41093144D9ED8aB8327eE381ECdB79E6" },
+    "privacy": {
+      "fxPrivacyEntrypoint": "0x6d5e3d5be0be2b29d48eda2fa35fa8d787d3c953",
+      "pools": { "USDC": "0xc490be46d2b87b92f146ab4dd907784d9658ec7f" }
+    },
+    "gateway": {
+      "fxGatewayHook": "0x7dA191bfB85D9F14069228cf618519BFb41f371E",
+      "telaranaGatewayHubHook": "0x6e1643cdA9B593349913F933dD7B960B8B52D1d0"
+    }
+  }
+}
