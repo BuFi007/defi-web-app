@@ -279,6 +279,9 @@ export function McpInstallDropdown() {
             className="absolute right-0 top-[calc(100%+8px)] rounded-2xl bg-white dark:bg-[#1B142D] backdrop-blur-xl ring-1 ring-purpleDanis/20 dark:ring-white/10 shadow-[0_20px_60px_-16px_rgba(105,84,207,0.35)] dark:shadow-[0_20px_60px_-16px_rgba(105,84,207,0.5)] p-3 flex flex-col gap-2"
           >
             <div className="text-left">
+              <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-purpleDanis/45 dark:text-white/40">
+                Step 1
+              </div>
               <div className="text-[13px] font-bold text-purpleDanis dark:text-white tracking-tight">
                 Connect your AI agent
               </div>
@@ -357,6 +360,9 @@ export function McpInstallDropdown() {
                 <span aria-hidden className="opacity-60">→</span>
               </a>
               <div className="text-left mb-1.5">
+                <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-purpleDanis/45 dark:text-white/40">
+                  Step 2
+                </div>
                 <div className="text-[11px] font-bold text-purpleDanis/70 dark:text-white/70 uppercase tracking-widest">
                   Agent Wallet
                 </div>

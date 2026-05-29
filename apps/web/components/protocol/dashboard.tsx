@@ -55,7 +55,7 @@ function LpModule() {
   const fs = info.data?.feeSplit;
   const apy = info.isLoading ? "…" : info.data?.compositeApyPercent ? Number(info.data.compositeApyPercent).toFixed(2) : "—";
   return (
-    <Module n={1} label="LP Vault" accent={ACCENTS.lp} className="md:col-span-7">
+    <Module n={1} label="LP Vault" accent={ACCENTS.lp} className="md:col-span-6">
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div>
           <div className={cn("mb-1 text-[10px] uppercase tracking-[0.08em]", MUTE)}>Composite APY</div>
@@ -92,7 +92,7 @@ function OracleRow({ base, quote }: { base: string; quote: string }) {
 function OracleModule() {
   const pairs: Array<[string, string]> = [["EURC", "USDC"], ["MXNB", "USDC"], ["AUDF", "USDC"]];
   return (
-    <Module n={2} label="FX Oracle" accent={ACCENTS.oracle} className="md:col-span-5">
+    <Module n={2} label="FX Oracle" accent={ACCENTS.oracle} className="md:col-span-3">
       <div>{pairs.map(([b, q]) => <OracleRow key={b} base={b} quote={q} />)}</div>
     </Module>
   );
@@ -113,12 +113,12 @@ function HedgeModule() {
   const first = pools.data?.pools?.[0];
   const status = useHedgeStatus(first?.poolId);
   return (
-    <Module n={3} label="Hedge" accent={ACCENTS.hedge} className="md:col-span-4">
+    <Module n={3} label="Hedge" accent={ACCENTS.hedge} className="md:col-span-3">
       {!first ? (
         <span className={cn("text-[11px]", MUTE)}>{pools.isLoading ? "…" : "no hedge pools"}</span>
       ) : (
         <>
-          <SpecRow label="Pool" value={first.pair} />
+          <SpecRow label="Pool" value={first.symbol} />
           <SpecRow label="Fee" value={first.fee / 100} unit="bps" />
           <StateRow label="State">
             {status.isLoading ? <span className={cn("font-mono text-[12px]", MUTE)}>…</span>
@@ -135,7 +135,7 @@ function FxSwapModule() {
   const { data, isLoading } = useFxswapPools();
   const pools = data?.pools ?? [];
   return (
-    <Module n={4} label="FX Swap" accent={ACCENTS.fxswap} className="md:col-span-4">
+    <Module n={4} label="FX Swap" accent={ACCENTS.fxswap} className="md:col-span-3">
       {isLoading ? <span className={cn("text-[11px]", MUTE)}>…</span>
         : pools.length === 0 ? <span className={cn("text-[11px]", MUTE)}>no pools</span>
         : pools.map((p) => <SpecRow key={p.asset} label={p.pair} value={p.fee / 100} unit="bps" />)}
@@ -148,7 +148,7 @@ function RegistryModule() {
   const assets = data?.assets ?? [];
   return (
     <Module
-      n={5} label="Registry" accent={ACCENTS.registry} className="md:col-span-4"
+      n={5} label="Registry" accent={ACCENTS.registry} className="md:col-span-3"
       headerRight={<span className={cn("font-mono text-[11px] tabular-nums", MUTE)}>{isLoading ? "…" : data?.count ?? 0}</span>}
     >
       {isLoading ? <span className={cn("text-[11px]", MUTE)}>…</span> : (
@@ -164,20 +164,16 @@ function PerpsModule() {
   const { address } = useAccount();
   const { data, isLoading } = usePerpsAccount(address);
   return (
-    <Module n={6} label="Perps Margin" accent={ACCENTS.perps} className="md:col-span-5">
+    <Module n={6} label="Perps Margin" accent={ACCENTS.perps} className="md:col-span-3">
       {!address ? (
         <div className="rounded-lg border border-dashed border-[#C98A00]/50 px-3 py-3 text-center dark:border-[#E3B43A]/50">
           <span className={cn("text-[11px]", MUTE)}>Connect a wallet to view margin.</span>
         </div>
       ) : (
-        <div className="flex flex-wrap gap-x-8">
-          <div className="min-w-[110px] flex-1">
-            <SpecRow label="Total" value={isLoading ? "…" : fmt(data?.totalMargin, 2)} unit="USDC" />
-            <SpecRow label="Reserved" value={isLoading ? "…" : fmt(data?.reservedMargin, 2)} />
-          </div>
-          <div className="min-w-[110px] flex-1">
-            <SpecRow label="Free" value={isLoading ? "…" : fmt(data?.freeMargin, 2)} unit="USDC" />
-          </div>
+        <div>
+          <SpecRow label="Total" value={isLoading ? "…" : fmt(data?.totalMargin, 2)} unit="USDC" />
+          <SpecRow label="Reserved" value={isLoading ? "…" : fmt(data?.reservedMargin, 2)} />
+          <SpecRow label="Free" value={isLoading ? "…" : fmt(data?.freeMargin, 2)} unit="USDC" />
         </div>
       )}
     </Module>
@@ -187,14 +183,10 @@ function PerpsModule() {
 function GatewayModule() {
   const { data, isLoading } = useGatewayInfo();
   return (
-    <Module n={7} label="Cross-Hub Gateway" accent={ACCENTS.gateway} className="md:col-span-7">
-      <div className="flex flex-wrap gap-x-8">
-        <div className="min-w-[120px] flex-1">
-          <SpecRow label="Locked" value={isLoading ? "…" : fmt(data?.gatewayBalance, 2)} unit="USDC" />
-        </div>
-        <div className="min-w-[120px] flex-1">
-          <SpecRow label="Unlock" value={isLoading ? "…" : data?.withdrawalUnlockBlock ?? "—"} unit="block" />
-        </div>
+    <Module n={7} label="Cross-Hub Gateway" accent={ACCENTS.gateway} className="md:col-span-3">
+      <div>
+        <SpecRow label="Locked" value={isLoading ? "…" : fmt(data?.gatewayBalance, 2)} unit="USDC" />
+        <SpecRow label="Unlock" value={isLoading ? "…" : data?.withdrawalUnlockBlock ?? "—"} unit="block" />
       </div>
     </Module>
   );

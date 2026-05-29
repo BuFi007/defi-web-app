@@ -13,8 +13,9 @@ import {
 const MCP_URL = "https://mcp.bu.finance/mcp";
 const CONNECT = `claude mcp add --transport http bufi-hyper ${MCP_URL}`;
 const EXAMPLE =
-  "Open a 5x EURC/USDC long with $200 margin and hedge it delta-neutral. Show me the mid, " +
-  "fee, and liquidation price, then return the unsigned calls for me to sign.";
+  "Using the bufi-hyper MCP, open a 5x EURC/USDC long with $200 margin and hedge it " +
+  "delta-neutral. Show me the mid, fee in bps, and liquidation price, then return the " +
+  "unsigned calls for me to sign.";
 
 const CAPS = [
   { code: "01", name: "Trade", desc: "FX perps (open / close, up to 50x) + spot FX buys", acc: ACCENTS.lp },
@@ -24,6 +25,40 @@ const CAPS = [
   { code: "05", name: "Private", desc: "ghost deposit → proof → relayer withdrawal (shielded)", acc: ACCENTS.registry },
   { code: "06", name: "Read", desc: "oracle mids, FX-swap quotes, registry, gateway, positions", acc: ACCENTS.perps },
 ];
+
+// Tiny infographic: why the "try this" trade is low-risk. A long leg + an auto
+// short hedge cancel directional price risk → delta-neutral, you keep the yield.
+function Leg({ arrow, accent, label }: { arrow: string; accent: typeof ACCENTS.lp; label: string }) {
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-md border px-2 py-1", HAIR)}>
+      <span className={cn("text-[12px] font-bold leading-none", accent.text)}>{arrow}</span>
+      <span className={cn("text-[11px] font-medium", INK)}>{label}</span>
+    </span>
+  );
+}
+
+function DeltaInfo() {
+  return (
+    <div className={cn("mt-2 rounded-xl border p-3", HAIR)}>
+      <div className={cn("mb-2 text-[10px] font-semibold uppercase tracking-[0.16em]", ACCENTS.hedge.text)}>
+        why it&apos;s safe to try
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Leg arrow="↑" accent={ACCENTS.lp} label="long 5x EURC" />
+        <span className={cn("font-mono text-[12px]", MUTE)}>+</span>
+        <Leg arrow="↓" accent={ACCENTS.hedge} label="auto short hedge" />
+        <span className={cn("font-mono text-[12px]", MUTE)}>=</span>
+        <span className="inline-flex items-center gap-1 rounded-md bg-[#A89CE8]/15 px-2 py-1 text-[11px] font-semibold text-[#8E7FD6] dark:text-[#B8ACF0]">
+          Δ0 neutral
+        </span>
+      </div>
+      <p className={cn("mt-2 text-[11px] leading-snug", MUTE)}>
+        The hedge opens an offsetting position, so if EURC moves up or down the two legs cancel.
+        You keep the yield, not the directional risk.
+      </p>
+    </div>
+  );
+}
 
 function Reveal({ n, children }: { n: number; children: React.ReactNode }) {
   const rm = useReducedMotion();
@@ -66,7 +101,10 @@ export function AiDocs() {
 
         <div className="space-y-2.5">
           <Reveal n={1}><CopyRow n={1} label="connect" accent={ACCENTS.lp} text={CONNECT} /></Reveal>
-          <Reveal n={2}><CopyRow n={2} label="try this" accent={ACCENTS.oracle} text={EXAMPLE} /></Reveal>
+          <Reveal n={2}>
+            <CopyRow n={2} label="try this" accent={ACCENTS.oracle} text={EXAMPLE} />
+            <DeltaInfo />
+          </Reveal>
           <Reveal n={3}>
             <Module n={3} label="What it can do" accent={ACCENTS.hedge}>
               <div className="flex flex-wrap gap-1.5">
