@@ -112,129 +112,139 @@ export function KawaiiGate({ catalog }: { catalog: Catalog }) {
   }
 
   if (!mounted) return null;
+  const previewBase = baseId ?? catalog.open[0];
   // Portal to <body> to escape the app's stacking context so the overlay sits
   // above the header (z-100) and footer/player — they render behind it.
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto p-4">
       {/* The overlay IS the MBV magenta-kawaii animated background (no tint layer). */}
       <AnimatedBackground variant="pink" className="pointer-events-none absolute inset-0 h-full w-full" />
-      <div className="relative my-auto w-full max-w-2xl rounded-2xl border border-fuchsia-300/40 bg-[#1a0a18]/85 p-6 shadow-[0_0_80px_-10px_rgba(217,70,239,0.6)] sm:p-7">
-        {/* Title: "Kawaii Punks" (pink) · by [BU.FI typographic logo], like the header. */}
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-2">
-            <span className="text-3xl">👻</span>
-            <h2 className="font-knick text-3xl text-fuchsia-400">Kawaii Punks</h2>
+      <div className="relative my-auto w-full max-w-2xl rounded-2xl border border-fuchsia-300/40 bg-[#1a0a18]/85 p-4 shadow-[0_0_80px_-10px_rgba(217,70,239,0.6)] sm:p-5">
+        {/* NFT is not dead — BU.FI campaign banner */}
+        <div className="overflow-hidden rounded-xl border border-fuchsia-400/20">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/assets/nft-is-not-dead.png" alt="NFT is not dead — a BU.FI campaign" className="h-12 w-full object-cover object-center sm:h-14" />
+        </div>
+
+        {/* Title row + tier toggle */}
+        <div className="mt-2.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">👻</span>
+            <div>
+              <h2 className="font-knick text-2xl leading-none text-fuchsia-400">Kawaii Punks</h2>
+              <div className="mt-0.5 flex items-center gap-1">
+                <span className="font-knick text-[11px] text-violet-300">by</span>
+                <span className="inline-flex items-center rounded bg-white/90 px-1 py-0.5">
+                  <Image src="/assets/tipografico-alpha.png" alt="BU.FI" width={743} height={256} className="h-auto w-[42px] select-none" priority={false} />
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="mt-1 flex items-center justify-center gap-1.5">
-            <span className="font-knick text-sm text-violet-300">by</span>
-            <span className="inline-flex items-center rounded-md bg-white/90 px-1.5 py-0.5">
-              <Image src="/assets/tipografico-alpha.png" alt="BU.FI" width={743} height={256} className="h-auto w-[52px] select-none" priority={false} />
-            </span>
+          <div className="inline-flex shrink-0 rounded-full border border-fuchsia-400/30 p-0.5">
+            {(Object.keys(TIERS) as TierKey[]).map((k) => (
+              <button
+                key={k}
+                onClick={() => setTier(k)}
+                className={`rounded-full px-3 py-1 text-[11px] transition ${
+                  tier === k ? "bg-fuchsia-400/25 text-fuchsia-50" : "text-fuchsia-100/50 hover:text-fuchsia-100"
+                }`}
+              >
+                {TIERS[k].label}
+                {!TIERS[k].mintable && <span className="ml-1 text-[8px] opacity-60">soon</span>}
+              </button>
+            ))}
           </div>
-          <p className="mt-2 text-sm text-fuchsia-100/70">Invite-only beta · {t.chain}</p>
-          <p className="mx-auto mt-2 max-w-md text-xs text-fuchsia-100/50">
-            A customizable, cross-chain avatar. Powers up as you trade. Testnet is for trying it —
-            upgrade to mainnet later to climb the leaderboard.
-          </p>
-          {/* Testnet / Mainnet toggle */}
-          <div className="mt-3 flex justify-center">
-            <div className="inline-flex rounded-full border border-fuchsia-400/30 p-0.5">
-              {(Object.keys(TIERS) as TierKey[]).map((k) => (
+        </div>
+        <p className="mt-1 text-[11px] text-fuchsia-100/60">
+          Invite-only beta · {t.chain} · mint your avatar, power it up by trading.
+        </p>
+
+        {/* Creator: avatar stage (left) + qualify/pay (right) */}
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {/* STAGE — your kawaii punk */}
+          <div>
+            <div className="relative aspect-square overflow-hidden rounded-xl border border-fuchsia-400/30 bg-gradient-to-b from-fuchsia-500/10 to-violet-600/10">
+              {previewBase ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={`/api/kawaii/layer?cat=base&file=${encodeURIComponent(previewBase)}`} alt="your kawaii punk" className="h-full w-full object-contain" />
+              ) : (
+                <div className="flex h-full items-center justify-center text-xs text-fuchsia-100/40">pick a base</div>
+              )}
+            </div>
+            {/* base swap strip */}
+            <div className="mt-2 grid grid-cols-6 gap-1.5">
+              {catalog.open.slice(0, 6).map((b) => (
                 <button
-                  key={k}
-                  onClick={() => setTier(k)}
-                  className={`rounded-full px-4 py-1 text-xs transition ${
-                    tier === k ? "bg-fuchsia-400/25 text-fuchsia-50" : "text-fuchsia-100/50 hover:text-fuchsia-100"
+                  key={b}
+                  onClick={() => setBaseId(b)}
+                  title={b}
+                  className={`aspect-square overflow-hidden rounded-md border bg-black/20 ${
+                    previewBase === b ? "border-fuchsia-400 ring-1 ring-fuchsia-400/60" : "border-fuchsia-400/20 hover:border-fuchsia-400/40"
                   }`}
                 >
-                  {TIERS[k].label}
-                  {!TIERS[k].mintable && <span className="ml-1 text-[9px] opacity-60">soon</span>}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/api/kawaii/layer?cat=base&file=${encodeURIComponent(b)}`} alt={b} loading="lazy" className="h-full w-full object-cover" />
                 </button>
               ))}
             </div>
-          </div>
-        </div>
-
-        {/* Two columns: socials | fund */}
-        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <p className="text-xs font-medium text-fuchsia-100/70">Follow to qualify ({t.socials}):</p>
-            <div className="mt-2 flex flex-col gap-2">
-              {SOCIALS.map((s) => {
-                const ok = verifiedSocials.includes(s.id);
-                const href = address && s.id !== "telegram" ? `/api/kawaii/social/${s.id}/start?wallet=${address}` : undefined;
-                return (
-                  <a
-                    key={s.id}
-                    href={href}
-                    className={`rounded-full border py-1.5 text-center text-xs ${
-                      ok ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-200" : "border-fuchsia-400/30 text-fuchsia-50 hover:bg-fuchsia-400/10"
-                    }`}
-                  >
-                    {ok ? "✓ " : ""}
-                    {s.label}
-                  </a>
-                );
-              })}
+            {/* reserved (locked) */}
+            <div className="mt-1.5 grid grid-cols-4 gap-1.5">
+              {Object.entries(catalog.reserved).map(([k, v]) => (
+                <div
+                  key={k}
+                  title={`Reserved — ${v.display}`}
+                  className="relative aspect-square cursor-not-allowed rounded-md border border-amber-400/40 bg-amber-400/5 text-[7px] text-amber-200/80"
+                >
+                  <span className="absolute inset-0 flex items-center justify-center text-xs">🔒</span>
+                  <span className="absolute bottom-0 left-0 right-0 text-center">{v.display.slice(0, 6)}</span>
+                </div>
+              ))}
             </div>
+            <p className="mt-1 text-[9px] text-amber-200/50">🔒 reserved: criptopoeta · danissblue · Jeremy Allaire · Circle</p>
           </div>
-          <div className="flex flex-col justify-start">
+
+          {/* QUALIFY + PAY */}
+          <div className="flex flex-col gap-3">
+            <div>
+              <p className="text-xs font-medium text-fuchsia-100/70">Follow to qualify ({t.socials}):</p>
+              <div className="mt-1.5 flex flex-col gap-1.5">
+                {SOCIALS.map((s) => {
+                  const ok = verifiedSocials.includes(s.id);
+                  const href = address && s.id !== "telegram" ? `/api/kawaii/social/${s.id}/start?wallet=${address}` : undefined;
+                  return (
+                    <a
+                      key={s.id}
+                      href={href}
+                      className={`rounded-full border py-1.5 text-center text-xs ${
+                        ok ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-200" : "border-fuchsia-400/30 text-fuchsia-50 hover:bg-fuchsia-400/10"
+                      }`}
+                    >
+                      {ok ? "✓ " : ""}
+                      {s.label}
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
             {tier === "testnet" ? (
               <KawaiiFund />
             ) : (
               <div className="rounded-xl border border-fuchsia-400/20 bg-fuchsia-400/5 p-3 text-[11px] leading-snug text-fuchsia-100/60">
-                Mainnet mints pay {t.price} USDC (or JPYC −20%) on Avalanche and climb the leaderboard. Coming with the mainnet tier.
+                Mainnet mints pay {t.price} USDC (or JPYC −20%) on Avalanche and climb the leaderboard. Coming soon.
               </div>
             )}
+            <button
+              onClick={mint}
+              disabled={!isConnected || !baseId || busy || !t.mintable}
+              className="mt-auto w-full rounded-full bg-white py-2.5 font-medium text-fuchsia-700 transition hover:bg-fuchsia-50 disabled:opacity-40"
+            >
+              {!t.mintable ? "Mainnet — coming soon" : busy ? "…" : `Mint your Kawaii Punk · ${t.price} USDC`}
+            </button>
+            {status && <p className="text-center text-xs text-fuchsia-100/80">{status}</p>}
           </div>
         </div>
 
-        {/* Avatar selector — full width below the columns */}
-        <div className="mt-5">
-          <p className="text-xs font-medium text-fuchsia-100/70">Choose your base:</p>
-          <div className="mt-2 grid grid-cols-5 gap-2 sm:grid-cols-6">
-            {catalog.open.slice(0, 8).map((b) => (
-              <button
-                key={b}
-                onClick={() => setBaseId(b)}
-                className={`aspect-square overflow-hidden rounded-lg border bg-black/20 ${
-                  baseId === b ? "border-fuchsia-400 ring-2 ring-fuchsia-400/50" : "border-fuchsia-400/20 hover:border-fuchsia-400/40"
-                }`}
-                title={b}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`/api/kawaii/layer?cat=base&file=${encodeURIComponent(b)}`}
-                  alt={b}
-                  loading="lazy"
-                  className="h-full w-full object-cover"
-                />
-              </button>
-            ))}
-            {Object.entries(catalog.reserved).map(([k, v]) => (
-              <div
-                key={k}
-                className="relative aspect-square cursor-not-allowed rounded-lg border border-amber-400/40 bg-amber-400/5 text-[8px] text-amber-200/80"
-                title={`Reserved — ${v.display}`}
-              >
-                <span className="absolute inset-0 flex items-center justify-center">🔒</span>
-                <span className="absolute bottom-0.5 left-0 right-0 text-center">{v.display.slice(0, 8)}</span>
-              </div>
-            ))}
-          </div>
-          <p className="mt-1 text-[10px] text-amber-200/50">🔒 reserved for criptopoeta · danissblue · Jeremy Allaire · Circle</p>
-        </div>
-
-        <button
-          onClick={mint}
-          disabled={!isConnected || !baseId || busy || !t.mintable}
-          className="mt-5 w-full rounded-full bg-white py-3 font-medium text-fuchsia-700 transition hover:bg-fuchsia-50 disabled:opacity-40"
-        >
-          {!t.mintable ? "Mainnet — coming soon" : busy ? "…" : `Mint Kawaii Punk · ${t.price} USDC`}
-        </button>
-        {status && <p className="mt-3 text-center text-xs text-fuchsia-100/80">{status}</p>}
-
-        <p className="mt-4 text-center text-[11px] text-fuchsia-100/50">
+        <p className="mt-2.5 text-center text-[11px] text-fuchsia-100/50">
           No NFT?{" "}
           <a href="https://mcp.bu.finance" className="text-fuchsia-200 underline">
             Trade via our AI agent with nanopayments
