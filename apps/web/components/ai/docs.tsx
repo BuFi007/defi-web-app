@@ -56,11 +56,11 @@ function FootLink({ href, children, ext }: { href: string; children: React.React
 
 export function AiDocs() {
   return (
-    <main className="mx-auto w-full max-w-xl self-start p-3 sm:p-4">
+    <main className="mx-auto w-full max-w-xl self-start p-2.5 sm:p-3">
       <Plane>
         <header>
-          <h1 className={cn("font-knick text-[28px] font-bold leading-none tracking-tight", INK)}>agent</h1>
-          <p className={cn("mt-2 text-[14px] leading-relaxed", INK)}>
+          <h1 className={cn("font-knick text-[22px] font-bold leading-none tracking-tight", INK)}>agent</h1>
+          <p className={cn("mt-1.5 text-[13px] leading-relaxed", INK)}>
             BU.FI speaks MCP. Point your agent at one URL and it can trade FX perps + spot, lend / borrow,
             run private (ghost) swaps, LP into the vault, and read oracle / hedge state.
           </p>
@@ -69,16 +69,16 @@ export function AiDocs() {
           </p>
         </header>
 
-        <div className={cn("my-4 border-t", HAIR)} />
+        <div className={cn("my-3 border-t", HAIR)} />
 
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           <Reveal n={1}><CopyRow n={1} label="connect" accent={ACCENTS.lp} text={CONNECT} /></Reveal>
           <Reveal n={2}><CopyRow n={2} label="try this" accent={ACCENTS.oracle} text={EXAMPLE} /></Reveal>
           <Reveal n={3}>
             <Module n={3} label="What it can do" accent={ACCENTS.hedge}>
               <div>
                 {CAPS.map((c) => (
-                  <div key={c.code} className="flex items-baseline gap-2.5 py-1.5">
+                  <div key={c.code} className="flex items-baseline gap-2.5 py-1">
                     <span className={cn("font-mono text-[10px] tabular-nums", c.acc.text)}>{c.code}</span>
                     <span className={cn("w-[92px] shrink-0 text-[12px] font-medium", INK)}>{c.name}</span>
                     <span className={cn("flex-1 text-[12px] leading-snug", MUTE)}>{c.desc}</span>
@@ -89,7 +89,7 @@ export function AiDocs() {
           </Reveal>
         </div>
 
-        <div className={cn("mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]", MUTE)}>
+        <div className={cn("mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]", MUTE)}>
           <FootLink href="https://mcp.bu.finance/llms.txt" ext>llms.txt</FootLink>
           <span aria-hidden>·</span>
           <FootLink href="https://mcp.bu.finance/openapi.json" ext>openapi.json</FootLink>

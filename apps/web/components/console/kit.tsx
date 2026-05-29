@@ -48,7 +48,7 @@ export function Plane({ children, className }: { children: React.ReactNode; clas
       initial={rm ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.26, ease: EASE }}
-      className={cn("rounded-[22px] p-4 ring-1 sm:p-5", PAPER, "ring-purpleDanis/15 dark:ring-white/10", className)}
+      className={cn("rounded-2xl p-3 ring-1 sm:p-4", PAPER, "ring-purpleDanis/15 dark:ring-white/10", className)}
     >
       {children}
     </motion.div>
@@ -110,7 +110,7 @@ export function Module({
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay, duration: 0.28, ease: EASE }}
       style={{ transformOrigin: "top left" }}
-      className={cn("rounded-xl border p-3.5", HAIR, className)}
+      className={cn("rounded-xl border p-3", HAIR, className)}
     >
       <header className="flex items-center gap-2">
         <IndexChip n={n} accent={accent} />
@@ -118,7 +118,7 @@ export function Module({
         {headerRight && <span className="ml-auto flex items-center">{headerRight}</span>}
       </header>
       <Stub accent={accent} delay={delay + 0.14} />
-      <div className="mt-2.5">{children}</div>
+      <div className="mt-2">{children}</div>
     </motion.section>
   );
 }
@@ -127,7 +127,7 @@ export function Module({
 // left → right at 22ms — a perceptible wipe, the "learn the key" beat.
 export function Legend({ items, base = 0.28 }: { items: { n: number; label: string; accent: Accent }[]; base?: number }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
+    <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
       {items.map((it, i) => (
         <span key={it.label} className="flex items-center gap-1.5">
           <BootSquare accent={it.accent} delay={base + i * 0.022} />
@@ -155,7 +155,7 @@ export function Val({ children }: { children: React.ReactNode }) {
 export function SpecRow({ label, value, unit }: { label: string; value: React.ReactNode; unit?: string }) {
   const v = typeof value === "string" || typeof value === "number" ? <Val>{value}</Val> : value;
   return (
-    <div className="flex items-baseline gap-2 py-[5px]">
+    <div className="flex items-baseline gap-2 py-1">
       <span className={cn("shrink-0 text-[10px] uppercase tracking-[0.08em]", MUTE)}>{label}</span>
       <span className={cn("flex-1 self-center border-b border-dotted", DOT)} />
       <span className={cn("text-right font-mono text-[13px] font-medium tabular-nums", INK)}>
@@ -172,10 +172,10 @@ export function Marquee({ value, unit, accent }: { value: React.ReactNode; unit?
   return (
     <div className="flex items-end gap-1.5">
       <span className="relative inline-block">
-        <span className={cn("font-mono text-[22px] font-medium leading-none tabular-nums", INK)}>
+        <span className={cn("font-mono text-[20px] font-medium leading-none tabular-nums", INK)}>
           {typeof value === "string" || typeof value === "number" ? <Val>{value}</Val> : value}
         </span>
-        <span aria-hidden className={cn("absolute -bottom-1.5 left-0 h-[2px] w-full rounded-full", accent.bg)} />
+        <span aria-hidden className={cn("absolute -bottom-1 left-0 h-[2px] w-full rounded-full", accent.bg)} />
       </span>
       {unit && <span className={cn("mb-0.5 font-mono text-[11px]", MUTE)}>{unit}</span>}
     </div>
@@ -218,8 +218,24 @@ export function StatusDot() {
   );
 }
 
-// Copy control as a labelled readout + pressable COPY key. One UI for the connect
-// command and the example prompt. Label is a state-word (allowed accent use).
+function CopyIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+    </svg>
+  );
+}
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M20 6L9 17l-5-5" />
+    </svg>
+  );
+}
+
+// Copy control as a labelled readout + pressable COPY key (icon + word). One UI for
+// the connect command and the example prompt. Label is a state-word (allowed accent).
 export function CopyRow({ label, accent, text, n }: { label: string; accent: Accent; text: string; n?: number }) {
   const [copied, setCopied] = React.useState(false);
   return (
@@ -229,18 +245,20 @@ export function CopyRow({ label, accent, text, n }: { label: string; accent: Acc
         <span className={cn("text-[10px] font-semibold uppercase tracking-[0.18em]", accent.text)}>{label}</span>
       </div>
       <div className="flex items-stretch">
-        <code className={cn("flex-1 px-3 py-2.5 font-mono text-[11px] leading-relaxed", INK)} style={{ overflowWrap: "anywhere" }}>
+        <code className={cn("flex-1 px-3 py-2 font-mono text-[11px] leading-relaxed", INK)} style={{ overflowWrap: "anywhere" }}>
           {text}
         </code>
         <button
           type="button"
           onClick={() => { navigator.clipboard?.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1400); }}
           className={cn(
-            "shrink-0 self-stretch border-l px-3 text-[10px] font-semibold uppercase tracking-[0.14em] transition-transform active:scale-[0.97]",
+            "flex shrink-0 flex-col items-center justify-center gap-1 self-stretch border-l px-3 text-[10px] font-semibold uppercase tracking-[0.14em] transition-transform active:scale-[0.97]",
             HAIR, copied ? accent.text : MUTE, "hover:bg-purpleDanis/[0.05] dark:hover:bg-white/[0.05]",
           )}
+          aria-label={copied ? "Copied" : "Copy"}
         >
-          {copied ? "ok ✓" : "copy"}
+          {copied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
+          <span>{copied ? "ok" : "copy"}</span>
         </button>
       </div>
     </div>

@@ -57,7 +57,7 @@ function LpModule() {
   const apy = info.isLoading ? "…" : info.data?.compositeApyPercent ? Number(info.data.compositeApyPercent).toFixed(2) : "—";
   return (
     <Module n={1} label="LP Vault" accent={ACCENTS.lp} className="md:col-span-7">
-      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div>
           <div className={cn("mb-1 text-[10px] uppercase tracking-[0.08em]", MUTE)}>Composite APY</div>
           <Marquee value={apy} unit="%" accent={ACCENTS.lp} />
@@ -67,9 +67,9 @@ function LpModule() {
           <SpecRow label="Junior buffer" value={depths.isLoading ? "…" : fmt(depths.data?.totalJuniorUsdc)} unit="USDC" />
         </div>
       </div>
-      {fs && <div className="mt-3.5"><FeeBar p={fs.protocolBps} l={fs.lpBps} ins={fs.insuranceBps} /></div>}
+      {fs && <div className="mt-2.5"><FeeBar p={fs.protocolBps} l={fs.lpBps} ins={fs.insuranceBps} /></div>}
       {jb && Object.keys(jb).length > 0 && (
-        <div className={cn("mt-3 flex flex-wrap gap-1.5 border-t pt-3", HAIR)}>
+        <div className={cn("mt-2.5 flex flex-wrap gap-1.5 border-t pt-2.5", HAIR)}>
           {Object.entries(jb).map(([sym, bal]) => (
             <Chip key={sym}><span className="opacity-60">{sym}</span> {fmt(bal)}</Chip>
           ))}
@@ -175,7 +175,7 @@ function PerpsModule() {
   return (
     <Module n={6} label="Perps Margin" accent={ACCENTS.perps} className="md:col-span-5">
       {!address ? (
-        <div className="rounded-lg border border-dashed border-[#C98A00]/50 px-3 py-4 text-center dark:border-[#E3B43A]/50">
+        <div className="rounded-lg border border-dashed border-[#C98A00]/50 px-3 py-3 text-center dark:border-[#E3B43A]/50">
           <span className={cn("text-[11px]", MUTE)}>Connect a wallet to view margin.</span>
         </div>
       ) : (
@@ -221,12 +221,12 @@ const LEGEND: { n: number; label: string; accent: Accent }[] = [
 
 export function ProtocolDashboard() {
   return (
-    <main className="mx-auto w-full max-w-4xl self-start p-3 sm:p-4">
+    <main className="mx-auto w-full max-w-4xl self-start p-2.5 sm:p-3">
       <Plane>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className={cn("font-knick text-[28px] font-bold leading-none tracking-tight", INK)}>console</h1>
-            <p className={cn("mt-1.5 text-[11px]", MUTE)}>bu.finance protocol · live read-only</p>
+            <h1 className={cn("font-knick text-[22px] font-bold leading-none tracking-tight", INK)}>console</h1>
+            <p className={cn("mt-1 text-[11px]", MUTE)}>bu.finance protocol · live read-only</p>
           </div>
           <span className="flex items-center gap-1.5">
             <StatusDot />
@@ -234,10 +234,10 @@ export function ProtocolDashboard() {
           </span>
         </div>
 
-        <div className={cn("my-3.5 border-t", HAIR)} />
+        <div className={cn("my-2.5 border-t", HAIR)} />
         <Legend items={LEGEND} />
 
-        <div className="mt-4 grid grid-cols-1 gap-2.5 sm:gap-3 md:grid-cols-12 md:items-start">
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:gap-2.5 md:grid-cols-12 md:items-start">
           <LpModule />
           <OracleModule />
           <HedgeModule />
