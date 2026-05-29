@@ -82,3 +82,12 @@ Re-fetch/verify command is in `fx-telarana/docs/PRIVACY_HOOK_VENDOR_MAP.md`.
 **Components:** (1) run an fx-configured relayer instance (Arc/Fuji pools, funded relayer account for gas, scope/fee config); (2) extend `broadcastWithdrawal` for `relayCrossCurrency`; (3) point the fx SDK / MCP relay path at `POST /relayer/request` instead of the client walletClient (keep the direct path as fallback during migration); (4) config + a funded relayer key.
 
 **Recommended first slice (lowest risk, no live-path change):** bring the relayer into the fx tree as a package, add the `relayCrossCurrency` branch to `broadcastWithdrawal`, configure it for the testnet pools, and verify locally that a **same-asset** withdrawal broadcasts with the relayer as `msg.sender` — before touching the SDK/MCP submission path. Funding a relayer key + deploying the service is an infra step that needs sign-off.
+
+### Prototype done (2026-05-28) — `relayCrossCurrency` branch validated
+
+Wrote a self-contained extension (`discovery/privacy-pools-core/packages/relayer/src/providers/fx-cross-currency.ts`, gitignored) and **typechecked it clean against viem**. It proves the feasibility + exact call shape:
+- `FX_RELAY_CROSS_CURRENCY_ABI` — fragment taken verbatim from `FxPrivacyEntrypoint.relayCrossCurrency(Withdrawal,WithdrawProof,uint256)`.
+- `broadcastCrossCurrencyWithdrawal({walletClient, account, chain, entrypoint, withdrawal, proof, scope})` → `writeContract(...)` with the **relayer as `msg.sender`** (the fix).
+- `isCrossCurrencyWithdrawal(data)` — decodes `Withdrawal.data` as the 5-field `CrossCurrencyRelayData` to route base-`relay()` vs `relayCrossCurrency` in `broadcastWithdrawal`.
+
+**De-risked:** the extension compiles and the contract-call shape is correct. **Remaining (gated):** (1) bring-in decision A (vendor) vs B (overlay); (2) funded relayer key + deployed endpoint for a live testnet broadcast; (3) point the fx SDK/MCP relay path at `POST /relayer/request`. The prototype module drops straight into `sdk.provider.ts` `broadcastWithdrawal` once the relayer is vendored.
