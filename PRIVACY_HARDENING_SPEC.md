@@ -66,3 +66,19 @@ The missing LEGOs are mature, audited primitives — do NOT hand-roll ZK. Verifi
 **Immediate, no-new-circuit plug:** `discovery/privacy-pools-core/packages/relayer` — an Express relayer that submits withdrawal requests on the user's behalf (so `msg.sender` = relayer, not depositor) with fee/swap quoting. Wiring this addresses the `msg.sender`/off-chain `#7` leak without touching circuits. (Wiring = review-gated integration work.)
 
 Re-fetch/verify command is in `fx-telarana/docs/PRIVACY_HOOK_VENDOR_MAP.md`.
+
+## Relayer wiring — scope (the immediate plug)
+
+**Relayer API** (`packages/relayer`, Express + SQLite): `GET /relayer/details` (fee config), `POST /relayer/quote` (fee quote), `POST /relayer/request` (submit `{withdrawal, proof, scope, feeCommitment}` → relayer broadcasts the tx).
+
+**Before → after:**
+- *Today:* client generates the Groth16 proof, then submits `relay()` / `relayCrossCurrency()` via its **own walletClient** (fx SDK `contractsService.ts`; MCP `ghost.ts` just returns contract params). → `msg.sender` = the user's EOA, linking the withdrawal to a gas-paying address.
+- *After:* client generates the proof, `POST`s it to `/relayer/request`; the **relayer** broadcasts. → `msg.sender` = relayer. The user's EOA never appears. The protocol's existing relay fee pays the relayer.
+
+**What it fixes:** the withdrawal-submitter / gas-payer deanonymization (recipient side). **What it does NOT fix:** deposit-side depositor recording (#1/#2 — `FxGhostCommitmentRegistry` stores `account` on *deposit*) and the cross-currency event leaks (#4). Those stay separate.
+
+**Known gap to close during wiring:** the upstream relayer's `broadcastWithdrawal` calls base `contracts.relay()` only (`sdk.provider.ts:107`). fx's cross-currency withdrawals use `relayCrossCurrency` — needs a branch (+ ABI) that detects the cross-currency `Withdrawal.data` blob and calls `relayCrossCurrency` instead.
+
+**Components:** (1) run an fx-configured relayer instance (Arc/Fuji pools, funded relayer account for gas, scope/fee config); (2) extend `broadcastWithdrawal` for `relayCrossCurrency`; (3) point the fx SDK / MCP relay path at `POST /relayer/request` instead of the client walletClient (keep the direct path as fallback during migration); (4) config + a funded relayer key.
+
+**Recommended first slice (lowest risk, no live-path change):** bring the relayer into the fx tree as a package, add the `relayCrossCurrency` branch to `broadcastWithdrawal`, configure it for the testnet pools, and verify locally that a **same-asset** withdrawal broadcasts with the relayer as `msg.sender` — before touching the SDK/MCP submission path. Funding a relayer key + deploying the service is an infra step that needs sign-off.
