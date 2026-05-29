@@ -50,3 +50,19 @@ This fork determines whether #1/#2 are a contract rewrite or a doc change, so it
 4. **ASP + key split (#5)** — ops; high value, low code.
 5. **Denominations (#3)** — the ZK circuit workstream; largest effort; the real "full privacy scale" fix.
 6. **Mixing window, fee tiers, batched rebalance (#6/#8/#9)** — contract follow-ons.
+
+## Reference implementations — retrieved (2026-05-28)
+
+The missing LEGOs are mature, audited primitives — do NOT hand-roll ZK. Verified mapping:
+
+| Missing piece | Reference repo | Status |
+|---|---|---|
+| Withdrawal circuit source + account-free relayer + SDK | [`0xbow-io/privacy-pools-core`](https://github.com/0xbow-io/privacy-pools-core) — the **same upstream we vendor `contracts` from** | **Retrieved** @ pin `a80836a47451e662f127af17e11430ffa976c234` into `fx-telarana/discovery/privacy-pools-core/` (gitignored, matches the repo's vendor convention). Has `packages/{circuits,relayer,sdk}` we never pulled. |
+| Fixed denominations (#3) pattern | [`tornadocash/tornado-core`](https://github.com/tornadocash/tornado-core) `circuits/withdraw.circom` | reference pattern (denomination baked into commitment) |
+| ZK pass-membership replacing KYC address check (#1/#2) | [`semaphore-protocol/semaphore`](https://github.com/semaphore-protocol/semaphore) | reference; prove pass-holder without revealing which member |
+
+**Correctness guard confirmed:** the vendored `WithdrawalVerifier.sol` is byte-identical to `privacy-pools-core@a80836a`'s — so the circuits now in `discovery/` provably match our **deployed** verifier. Any circuit change (e.g. denominations) means a NEW trusted setup + redeploying the verifier; the two must stay in lockstep.
+
+**Immediate, no-new-circuit plug:** `discovery/privacy-pools-core/packages/relayer` — an Express relayer that submits withdrawal requests on the user's behalf (so `msg.sender` = relayer, not depositor) with fee/swap quoting. Wiring this addresses the `msg.sender`/off-chain `#7` leak without touching circuits. (Wiring = review-gated integration work.)
+
+Re-fetch/verify command is in `fx-telarana/docs/PRIVACY_HOOK_VENDOR_MAP.md`.
