@@ -55,6 +55,23 @@ export function mcpServer(app: HyperApp, cfg: McpServerConfig = {}): McpServer {
       query?: Record<string, unknown>
       body?: unknown
     }
+    // The MCP arg envelope wraps the request payload under a top-level `body`
+    // object. A common mistake is passing the body fields flat at the top level,
+    // which otherwise surfaces as an opaque root-level "Required" validation
+    // error. Detect that case and name the `body` wrapper explicitly.
+    const expectsBody = !!(tool as { inputSchema?: { properties?: Record<string, unknown> } })
+      .inputSchema?.properties?.body
+    if (expectsBody && input.body === undefined) {
+      const stray = Object.keys((args ?? {}) as Record<string, unknown>).filter(
+        (k) => k !== "params" && k !== "query" && k !== "body",
+      )
+      throw rpcError(
+        -32602,
+        stray.length > 0
+          ? `Tool "${name}" expects the request payload wrapped under a top-level "body" object — e.g. {"body": { ... }}. You passed ${JSON.stringify(stray)} at the top level; move those fields under "body".`
+          : `Tool "${name}" requires a top-level "body" object containing the request payload — e.g. {"body": { ... }}.`,
+      )
+    }
     const result = await app.invoke({
       method: tool.method as HttpMethod,
       path: tool.path,

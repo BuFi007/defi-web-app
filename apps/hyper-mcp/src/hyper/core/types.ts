@@ -108,6 +108,8 @@ export interface Route<M extends HttpMethod = HttpMethod> {
   readonly query?: StandardSchemaV1
   readonly body?: StandardSchemaV1
   readonly headers?: StandardSchemaV1
+  /** Success (200) response schema — projected into the OpenAPI 200 content. */
+  readonly output?: StandardSchemaV1
   readonly meta: RouteMeta
   readonly handler: RouteHandler
   /** Declared thrown-error shapes keyed by HTTP status (projection surface). */

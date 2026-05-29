@@ -53,7 +53,8 @@ const PRIVACY_NOTICE = {
   doNotRelyFor: "unlinkability of depositor↔recipient",
   offChain:
     "even when the on-chain commitment/nullifier link is hidden, a SINGLE MCP operator that serves both /ghost/deposit (sees depositor + amount) and /ghost/relay (sees recipient + amount) can correlate the two legs OFF-CHAIN by timing + amount, regardless of the ZK proof. The MCP cannot break this for you. Integrators wanting depositor↔recipient unlinkability MUST split operators (use one operator for deposit-advice and a different, independent one for relay submission) or run their own MCP + relayer.",
-  trackedFix: "fixed denominations + anonymity-set gating (see DOGFOOD_PLAN.md Phase 3)",
+  trackedFix:
+    "fixed denominations + anonymity-set gating — deposits/withdrawals are constrained to shared amount buckets so more than one deposit matches each withdrawal, lifting the anonymity set above 1",
 } as const;
 
 // Relayer submission (fx-telarana packages/relayer-privacy). Submitting the
@@ -110,6 +111,149 @@ function sameAssetRelayerSubmission() {
   };
 }
 
+// ── Response schemas (G1) ───────────────────────────────────────────────────
+// Declared via .output() so /openapi.json carries the real 200 body shape — a
+// cold-start agent learns the contract (incl. relayerSubmission + privacyNotice)
+// without blind-calling. Doc-only: keep these matching the handler returns.
+const zPrivacyNotice = z.object({
+  level: z.string(),
+  hides: z.string(),
+  leaks: z.string(),
+  crossCurrencyLeak: z.string(),
+  doNotRelyFor: z.string(),
+  offChain: z.string(),
+  trackedFix: z.string(),
+});
+
+// relayerSubmission is a discriminated shape: { available:false, note } when no
+// relayer is configured, else { available:true, endpoint, method, ... }. Modeled
+// with all non-`available` fields optional so both variants validate.
+const zRelayerSubmission = z.object({
+  available: z.boolean(),
+  note: z.string().optional(),
+  endpoint: z.string().optional(),
+  method: z.string().optional(),
+  why: z.string().optional(),
+  onchainStatus: z.string().optional(),
+  requestShape: z.record(z.any()).optional(),
+});
+
+const zPoolsOutput = z.object({
+  chainId: z.number(),
+  entrypoint: z.string(),
+  latestRoot: z.string().nullable(),
+  pools: z.array(
+    z.object({
+      symbol: z.string(),
+      token: z.string(),
+      pool: z.string(),
+      minimumDeposit: z.string(),
+      maxRelayFeeBPS: z.string(),
+      status: z.string(),
+    }),
+  ),
+  crossCurrencyRoutes: z.array(z.object({ from: z.string(), to: z.string(), rate: z.string() })),
+  proofSystem: z.string(),
+  note: z.string(),
+  privacyNotice: zPrivacyNotice,
+});
+
+const zDepositOutput = z.object({
+  action: z.literal("ghost_deposit"),
+  symbol: z.string(),
+  amountAtomic: z.string(),
+  contract: z.object({
+    address: z.string(),
+    function: z.string(),
+    args: z.object({ _asset: z.string(), _value: z.string(), _precommitment: z.string() }),
+  }),
+  pool: z.string(),
+  chainId: z.number(),
+  note: z.string(),
+  privacyNotice: zPrivacyNotice,
+});
+
+const zRelayOutput = z.object({
+  action: z.literal("ghost_relay"),
+  symbol: z.string(),
+  contract: z.object({
+    address: z.string(),
+    function: z.string(),
+    proofInputs: z.object({
+      root: z.string().nullable(),
+      nullifier: z.string(),
+      recipient: z.string(),
+      relayer: z.string(),
+      fee: z.string(),
+    }),
+    proofCircuit: z.string(),
+  }),
+  pool: z.string(),
+  chainId: z.number(),
+  maxRelayFeeBPS: z.string(),
+  relayerSubmission: zRelayerSubmission,
+  privacyNotice: zPrivacyNotice,
+});
+
+const zSwapOutput = z.object({
+  action: z.literal("ghost_cross_currency_swap"),
+  from: z.string(),
+  to: z.string(),
+  estimatedOut: z.string(),
+  rate: z.string(),
+  recipient: z.string(),
+  contract: z.object({ address: z.string(), function: z.string(), note: z.string() }),
+  chainId: z.number(),
+  relayerSubmission: zRelayerSubmission,
+  privacyNotice: zPrivacyNotice,
+});
+
+const zPnlOutput = z.object({
+  action: z.literal("ghost_pnl_attestation"),
+  trader: z.string(),
+  threshold: z.string(),
+  proofType: z.string(),
+  how: z.object({
+    step1: z.string(),
+    step2: z.string(),
+    step3: z.string(),
+    step4: z.string(),
+    step5: z.string(),
+  }),
+  leaderboardIntegration: z.object({
+    verifier: z.string(),
+    ranking: z.string(),
+    privacy: z.string(),
+    reputation: z.string(),
+  }),
+  chainId: z.number(),
+  note: z.string(),
+  privacyNotice: zPrivacyNotice,
+});
+
+const zPrivacyCheckOutput = z.object({
+  action: z.literal("ghost_privacy_check"),
+  input: z.object({
+    amount: z.string(),
+    recipientIsFresh: z.boolean(),
+    willUseRelayer: z.boolean(),
+    secondsSinceDeposit: z.number().nullable(),
+  }),
+  score: z.number().int().min(0).max(100),
+  level: z.enum(["best-effort-clean", "weak", "poor", "deanonymizing"]),
+  risks: z.array(
+    z.object({
+      code: z.string(),
+      severity: z.enum(["critical", "high", "medium", "low"]),
+      detail: z.string(),
+      fix: z.string(),
+    }),
+  ),
+  summary: z.string(),
+  bestEffortDisclaimer: z.string(),
+  privacyNotice: zPrivacyNotice,
+});
+
 const ghostPools = route
   .get("/ghost/pools")
   .use(cache({ maxAge: 60, staleWhileRevalidate: 120 }))
@@ -120,6 +264,7 @@ const ghostPools = route
         "List all 6 shielded pools on Arc (USDC, EURC, MXNB, QCAD, cirBTC, AUDF). The Groth16 layer hides WHICH deposit a withdrawal spends, but amounts are public and arbitrary, so deposits and withdrawals are currently LINKABLE by amount-matching — treat this as weak/experimental privacy, not unlinkability. Returns TVL, merkle root, cross-currency routes, and a privacyNotice describing the current limits.",
     },
   })
+  .output(zPoolsOutput)
   .handle(async () => {
     let latestRoot: string | null = null;
     try {
@@ -170,6 +315,7 @@ const ghostDeposit = route
         "Deposit tokens into a shielded pool. The deposit event is PUBLIC (reveals depositor + amount). Withdrawal requires a Groth16 proof that hides which deposit it spends — but because withdrawal amounts are also public and arbitrary, a withdrawal is linkable back to this deposit by amount-matching. Use only for experimental/weak privacy; see privacyNotice. Returns the contract call parameters for the deposit transaction.",
     },
   })
+  .output(zDepositOutput)
   .handle(async ({ body }) => {
     const pool = POOLS.find((p) => p.symbol === body.symbol);
     if (!pool) return ok({ error: `Unknown pool: ${body.symbol}` });
@@ -186,12 +332,12 @@ const ghostDeposit = route
         args: {
           _asset: pool.token,
           _value: amountAtomic.toString(),
-          _precommitment: "generate client-side with snarkjs — hash(secret, nullifier)",
+          _precommitment: "Poseidon([nullifier, secret]) — the precommitment hash, computed client-side with Poseidon (NOT snarkjs)",
         },
       },
       pool: pool.pool,
       chainId: ARC_CHAIN_ID,
-      note: "The precommitment must be generated client-side using snarkjs. The commitment = hash(precommitment, amount, asset). Store the secret and nullifier — they are needed for withdrawal.",
+      note: "precommitment = Poseidon([nullifier, secret]) (a Poseidon hash, NOT snarkjs). On deposit the pool derives the leaf commitment = Poseidon([value, label, precommitment]); snarkjs is only used later for the Groth16 WITHDRAWAL proof, never for the deposit. Generate your own nullifier + secret, store them offline — they are unrecoverable and required to withdraw. See the 'Constructing a ghost proof' section of llms.txt for the full flow.",
       privacyNotice: PRIVACY_NOTICE,
     });
   });
@@ -216,6 +362,7 @@ const ghostRelay = route
         "Withdraw tokens from a shielded pool via a client-side Groth16 proof (verifies merkle inclusion + nullifier uniqueness + recipient). The proof hides WHICH deposit is being spent — but it does NOT hide the amount: the Relayed event emits the recipient and amount in cleartext, so the withdrawal is linkable to a same-amount deposit. This does NOT currently give depositor↔recipient unlinkability. See privacyNotice. Returns the contract parameters and proof requirements.",
     },
   })
+  .output(zRelayOutput)
   .handle(async ({ body }) => {
     const pool = POOLS.find((p) => p.symbol === body.symbol);
     if (!pool) return ok({ error: `Unknown pool: ${body.symbol}` });
@@ -274,6 +421,7 @@ const ghostSwap = route
         "Swap between USDC and EURC inside the shielded pool via relayCrossCurrency. WARNING: this leaks MORE than a same-asset withdrawal — the CrossCurrencyRelayed event emits both amountIn and amountOut at a fixed published rate (1 USDC → 0.92 EURC), so the source amount is recoverable and the swap is linkable across assets. Does not hide the trader in practice. See privacyNotice.",
     },
   })
+  .output(zSwapOutput)
   .handle(async ({ body }) => {
     if (body.from === body.to) return ok({ error: "from and to must differ" });
 
@@ -315,6 +463,7 @@ const ghostPnl = route
         "Attest that a trader's PnL exceeds a threshold via a commitment-based net-flow proof (deposits − withdrawals). CAVEAT: net flow is only as private as the underlying deposits/withdrawals, and those are currently public + amount-linkable (see privacyNotice). At present this attestation hides little that a chain analyst couldn't already derive by amount-matching; its privacy improves only once denominations/confidential amounts ship. Useful as a leaderboard primitive, not as a confidentiality guarantee today.",
     },
   })
+  .output(zPnlOutput)
   .handle(async ({ body }) => {
     return ok({
       action: "ghost_pnl_attestation",
@@ -348,7 +497,7 @@ const ghostPnl = route
 // cannot raise the cryptographic floor (amounts public+arbitrary → set ≈ 1).
 // ============================================================================
 
-// No on-chain mixing window today (audit #6: registeredAt stored but unused);
+// No on-chain mixing window is enforced (registeredAt is stored but unused);
 // this is a behavioral heuristic, not an enforced guarantee.
 const GHOST_MIN_MIX_SECONDS = 3600; // 1h — adjacent-block deposit+withdraw is worst case
 
@@ -382,6 +531,7 @@ const ghostPrivacyCheck = route
         "Lint a PLANNED ghost withdrawal/swap for linkability BEFORE you commit it on-chain. Pure scoring, no chain calls. Pass the amount, whether the recipient address is brand-new (never used before), whether you'll submit through the relayer, and optionally how many seconds will have elapsed since the matching deposit. Returns a score 0-100 (higher = less linkable), a level, and concrete risks with fixes. IMPORTANT: only checks BEHAVIORAL knobs that work today; it cannot fix that amounts are public and arbitrary (anonymity set ≈ 1 by amount-matching), and cannot confirm a relayer is deployed (check relayerSubmission.available). A high score means 'you avoided the self-inflicted leaks you control', NOT 'unlinkable'. See privacyNotice.",
     },
   })
+  .output(zPrivacyCheckOutput)
   .handle(async ({ body }) => {
     const risks: GhostRisk[] = [];
     let score = 100;
@@ -393,7 +543,7 @@ const ghostPrivacyCheck = route
         severity: "high",
         detail:
           `Amount "${body.amount}" has high precision, making it ~unique on-chain. Deposit & withdrawal amounts are public, so a unique amount links this withdrawal to your deposit by exact amount-matching — anonymity set ≈ 1.`,
-        fix: "Use a round, common amount (e.g. 100, not 100.4732) so you share a bucket with other deposits. Best effort only until fixed denominations ship (audit #3).",
+        fix: "Use a round, common amount (e.g. 100, not 100.4732) so you share a bucket with other deposits. Best effort only until fixed denominations ship.",
       });
     } else {
       risks.push({
@@ -401,7 +551,7 @@ const ghostPrivacyCheck = route
         severity: "medium",
         detail:
           "Even a round amount is emitted in cleartext and is arbitrary, so amount-matching still applies — and a round amount can still be unique by magnitude if no other deposit shares it.",
-        fix: "No reliable client-side fix; the real fix is fixed denominations + anonymity-set gating (audit #3, tracked). Prefer an amount you can confirm others have deposited.",
+        fix: "No reliable client-side fix; the real fix is fixed denominations + anonymity-set gating (tracked). Prefer an amount you can confirm others have deposited.",
       });
     }
 
@@ -422,7 +572,7 @@ const ghostPrivacyCheck = route
         code: "MSG_SENDER_LEAK",
         severity: "critical",
         detail:
-          "Self-submitting relay()/relayCrossCurrency() makes YOUR EOA the on-chain msg.sender and gas-payer, directly tying the withdrawal to your wallet. This is the single largest off-chain-controllable leak (audit #7).",
+          "Self-submitting relay()/relayCrossCurrency() makes YOUR EOA the on-chain msg.sender and gas-payer, directly tying the withdrawal to your wallet. This is the single largest leak you can avoid off-chain.",
         fix: "Submit through the relayer. FIRST verify it exists: ghost_relay/ghost_swap return relayerSubmission.available — if false (GHOST_RELAYER_URL unset), no relayer is deployed and you cannot avoid this leak today.",
       });
     } else {
@@ -442,7 +592,7 @@ const ghostPrivacyCheck = route
           code: "TIMING_CORRELATION",
           severity: "high",
           detail:
-            `Only ${body.secondsSinceDeposit}s will have elapsed since the deposit (< ${GHOST_MIN_MIX_SECONDS}s). Deposit and withdrawal in nearby blocks are correlatable by timing; there is no on-chain mixing window (audit #6).`,
+            `Only ${body.secondsSinceDeposit}s will have elapsed since the deposit (< ${GHOST_MIN_MIX_SECONDS}s). Deposit and withdrawal in nearby blocks are correlatable by timing; no on-chain mixing window is enforced.`,
           fix: `Wait at least ${GHOST_MIN_MIX_SECONDS}s (and ideally until other deposits land) before withdrawing.`,
         });
       }

@@ -113,13 +113,29 @@ function buildOperation(r: Route, converters: readonly SchemaConverter[]): OpenA
   const responseExamples = buildResponseExamples(
     r.meta.examples as readonly RouteExample[] | undefined,
   )
-  const responses: OpenAPIOperation["responses"] = {
-    "200": {
-      description: "success",
-      ...(responseExamples && {
+  // Declared response schema (.output()) wins; else fall back to examples; else a
+  // bare description. Explicit branches (concrete object literals, no conditional
+  // spreads) keep the shape exactly what OpenAPIOperation["responses"] expects.
+  let responses: OpenAPIOperation["responses"]
+  if (r.output) {
+    const schema = firstConverter(converters, r.output).toJsonSchema(r.output)
+    responses = {
+      "200": {
+        description: "success",
+        content: {
+          "application/json": responseExamples ? { schema, example: responseExamples } : { schema },
+        },
+      },
+    }
+  } else if (responseExamples) {
+    responses = {
+      "200": {
+        description: "success",
         content: { "application/json": { example: responseExamples } },
-      }),
-    },
+      },
+    }
+  } else {
+    responses = { "200": { description: "success" } }
   }
 
   if (r.throws) {

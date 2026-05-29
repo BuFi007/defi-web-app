@@ -33,7 +33,10 @@ Project-specific learnings for working in this monorepo. Keep terse; update when
 - Two product families on two chains, NOT interchangeable: **perp** = `TelaranaFxOrderSettlement` on Arc (5042002), pair symbols (`EURC/USDC`); **spot** = `BUFX Venue Request Router` on Fuji (43113), bare token (`EURC`).
 - Acting wallet param: `trader` works everywhere (alias over legacy supplier/borrower/depositor/recipient).
 - Schema source of truth: `SCHEMA_CONVERTERS` in `app.ts` (one zodConverter) feeds BOTH `/openapi.json` (via `openapiHandlers`, not the core placeholder `toOpenAPI`) and the MCP `tools/list` inputSchema.
+- **Response schemas:** routes declare the 200 body via `.output(zodSchema)` (hyper `route` builder). Doc-only — projected into the OpenAPI 200 `content.schema`, NOT runtime-validated, so keep it matching what `.handle()` returns. All 6 ghost routes + `spot/quote` carry one; a cold-start agent reads the contract (incl. `relayerSubmission`/`privacyNotice`) without blind-calling.
+- **MCP arg envelope:** `tools/call` wraps the request payload under a top-level `body` object. `mcp/server.ts` `callTool` rejects flat args with a `-32602` that names the `body` wrapper.
 - Spot money math lives in `@bufi/fx-spot` `quoteSpotOut` (tested) — all spot feeds are USD-per-token (divide). Don't hand-roll FX conversion elsewhere.
+- **Ghost commitment scheme** (verified vs fx-telarana SDK `privacy/crypto.ts`): precommitment = `Poseidon([nullifier, secret])`; on-chain leaf commitment = `Poseidon([value, label, precommitment])`. Poseidon (maci-crypto), NOT snarkjs — snarkjs is only the Groth16 *withdrawal* proof. The full client flow is in the llms.txt "Constructing a ghost proof" section.
 
 ## Ongoing work
 

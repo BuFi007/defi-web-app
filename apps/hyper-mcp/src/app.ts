@@ -106,7 +106,8 @@ aliases (supplier/borrower/depositor/recipient) still work for back-compat, but
 prefer "trader" everywhere — one name across spot, perp, lending, and ghost.
 
 ## Markets
-- Perps: EURC/USDC, JPYC/USDC, MXNB/USDC, CIRBTC/USDC, AUDF/USDC
+- Perps: EURC/USDC, JPYC/USDC, MXNB/USDC, CIRBTC/USDC, AUDF/USDC, QCAD/USDC
+  (authoritative live list: get__api_markets — query it rather than trusting this static list)
 - Up to 50x leverage, EIP-712 signed intents, Pyth oracle prices
 - Spot: EURC, JPYC, MXNB (buy with USDC)
 - Lending: supply USDC to earn yield, borrow FX tokens against collateral
@@ -191,6 +192,30 @@ What an agent CAN control today to reduce linkability:
 Reminder: the deposit event itself is always public (depositor + amount). The
 above reduces how easily the WITHDRAWAL re-links to that deposit; it cannot
 hide the deposit.
+
+### Constructing a ghost proof (deposit -> withdraw, end to end)
+1. Deposit. Pick your own random nullifier and secret (two field elements). The
+   precommitment you pass on-chain is Poseidon([nullifier, secret]) — a Poseidon
+   hash, NOT snarkjs. On deposit the pool stores your leaf commitment =
+   Poseidon([value, label, precommitment]). Store nullifier + secret offline;
+   they are unrecoverable and are required to withdraw.
+2. Wait for the tree root. The withdrawal proof is verified against the pool's
+   current merkle root — read it from get__api_ghost_pools (latestRoot). If
+   latestRoot is null the ASP has not published a root yet and NO proof can be
+   built; wait until it is non-null.
+3. Build the Groth16 withdrawal proof client-side with snarkjs against the
+   privacy-pool withdraw circuit. It proves merkle inclusion of your commitment
+   (using your leaf's siblings), nullifier uniqueness, and binds recipient + fee
+   + scope — without revealing which leaf is yours. Inputs: your stored nullifier
+   and secret, value, label, the merkle root + leaf siblings, and the withdrawal
+   context (recipient, feeRecipient, relayFeeBPS). Output is pA/pB/pC + 8 pubSignals.
+4. Do NOT hand-roll the circuit signal ordering or fetch the wasm/zkey yourself —
+   use the fx-Telarana privacy SDK (Poseidon commitments + a UrlCircuits artifact
+   loader) and the privacy-prover package (snarkjs). They are the source of truth
+   for field ordering and circuit artifacts.
+5. Submit. Run post__api_ghost_privacy_check first to score linkability, then POST
+   the proof to the relayer endpoint from the ghost_relay / ghost_swap
+   relayerSubmission block so the RELAYER (not your wallet) is msg.sender.
 
 ## Connect
 - MCP: ${baseUrl}/mcp

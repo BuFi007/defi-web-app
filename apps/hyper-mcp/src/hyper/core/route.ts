@@ -37,6 +37,7 @@ export interface BuilderState {
   query?: StandardSchemaV1
   body?: StandardSchemaV1
   headers?: StandardSchemaV1
+  output?: StandardSchemaV1
   meta: RouteMeta
   middleware: readonly Middleware[]
   errors?: Record<string, StandardSchemaV1>
@@ -119,6 +120,16 @@ export class RouteBuilder<
 
   headers<S extends StandardSchemaV1>(schema: S): RouteBuilder<M, Params, Query, Body, InferIn<S>> {
     return new RouteBuilder(this.#method, this.#path, { ...this.#state, headers: schema })
+  }
+
+  /**
+   * Declare the success (200) response schema. Doc-only: surfaced as the
+   * OpenAPI `200` content schema (and therefore in `/openapi.json`) so a
+   * cold-start agent learns the response contract without blind-calling.
+   * Not enforced at runtime — keep it matching what `.handle()` returns.
+   */
+  output<S extends StandardSchemaV1>(schema: S): RouteBuilder<M, Params, Query, Body, HeadersT> {
+    return new RouteBuilder(this.#method, this.#path, { ...this.#state, output: schema })
   }
 
   meta(meta: RouteMeta): RouteBuilder<M, Params, Query, Body, HeadersT> {
@@ -294,6 +305,7 @@ export class RouteBuilder<
       ...(state.query !== undefined && { query: state.query }),
       ...(state.body !== undefined && { body: state.body }),
       ...(state.headers !== undefined && { headers: state.headers }),
+      ...(state.output !== undefined && { output: state.output }),
       meta: state.meta,
       handler,
       ...(state.throws !== undefined && { throws: state.throws }),

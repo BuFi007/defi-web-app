@@ -1,69 +1,84 @@
-# Privacy Dogfood Report — Ghost / Shielded Pools
+# Privacy Re-Dogfood — Confirmation Run
 
-> Run: 2026-05-28 · Model: Opus 4.8 · Method: adversarial (verify, don't trust the "Groth16 = private" label)
-> Target: `FxPrivacyEntrypoint` @ `0xd1bEB7Ba76D234c65e26F9F53e7efD1b1f36f985` (Arc 5042002) + `/api/ghost/*` routes
-> Question asked: **do our contracts actually deliver privacy, or do the routes/events leak the link between depositor and recipient?**
+Amnesia-loop dogfood of **prod** BUFI HYPER MCP, run to confirm the privacy slices
+(`b31a993`) shipped and behave correctly from a cold-start agent's view, with a
+trading control to catch regressions.
 
-## Verdict
+> Supersedes the prior contract-level privacy audit (kept in git history). This run
+> is the post-deploy confirmation that the MCP-side slices are live and discoverable.
 
-**The cryptography is sound and cosmetic.** The Groth16 commitment/nullifier scheme correctly hides *which* deposit a withdrawal spends. It does not matter — because the data sitting next to the proof deanonymizes users without touching the proof at all.
+## Run metadata
 
-**A chain-analysis adversary links depositor → recipient with ~95% confidence and an effective anonymity set of 1.** The privacy claim in `llms.txt` ("positions and balances are hidden behind Groth16 zero-knowledge proofs") is **false in practice** for the deployed surface.
+| Field | Value |
+|---|---|
+| Target | `https://mcp.bu.finance` (prod) |
+| Date | 2026-05-28 |
+| Method | 4 fresh amnesia sub-agents, canonical surfaces only, source reads forbidden |
+| Wallet | `…6cc7` (Arc Testnet agent wallet) |
+| MCP tools | 40 (6 ghost: `privacy_check`, `pools`, `deposit`, `relay`, `swap`, `pnl`) |
+| llms.txt | 8,974 B |
+| openapi.json | 11,431 B |
+| Canonical surfaces | `/`, `/llms.txt`, `/openapi.json`, `/mcp`, `/health` — all 200 |
 
-## Ground truth — the public event schema (from `FxPrivacyEntrypoint.ts` ABI)
+## Per-task results
 
-```
-Deposited(address depositor INDEXED, address pool INDEXED, uint256 commitment, uint256 amount)
-Relayed(address pool INDEXED, address recipient INDEXED, uint256 amount)
-CrossCurrencyRelayed(address fromPool INDEXED, address toAsset INDEXED, address recipient INDEXED, uint256 amountIn, uint256 amountOut)
-```
+| Task | Status | Calls→1st success | Guesses | Source leak | Wrong-tool | Unhelpful 4xx |
+|---|---|---|---|---|---|---|
+| privacy-check linter | ✅ | 4 | 1 | 0 | 0 | 0 |
+| ghost deposit leak-check | ✅ | 3 | 0 | 0 | 1 | 1 |
+| ghost withdraw / relay | ✅ | 1 | 1 | 0 | 0 | 0 |
+| spot trade (control) | ✅ | 1 | 1 | 0 | 0 | 0 |
 
-Everything an attacker needs is public:
-- `depositor` and `recipient` are **indexed topics** → directly queryable by address.
-- `amount` on both legs is **plaintext** and **user-chosen / arbitrary** (e.g. 9.20).
-- Cross-currency emits **both** `amountIn` and `amountOut`, and the rate is fixed & published (1 USDC = 0.92 EURC).
+**All 4 succeeded. Zero source-leakage across all loops** — docs were sufficient; no
+agent needed to read project source. Discovery efficient (1–4 calls to first
+success, all far under the 30-call budget).
 
-## The killer leak — amount fingerprinting (severity: CRITICAL for a privacy product)
+### 1. privacy-check linter — ✅ CONFIRMED
+Fresh agent found `POST /api/ghost/privacy-check` via OpenAPI path-grep, called it
+worst- and best-case:
+- Worst (unique amount, reused recipient, self-submit, 0s): **score 0 / "deanonymizing"**, 4 risks (`AMOUNT_FINGERPRINT` high, `RECIPIENT_CLUSTERING` high, `MSG_SENDER_LEAK` critical, `TIMING_CORRELATION` high), each with a concrete fix.
+- Best (round 100, fresh recipient, relayer, 86400s): **score 100 / "best-effort-clean"**, 2 residual it refuses to hide (`AMOUNT_PUBLIC_BASELINE` medium, `MSG_SENDER_RELAYER_UNVERIFIED` low).
+- **Honesty verdict: fully honest, never says "anonymous."** `privacyNotice.level="weak"`; `bestEffortDisclaimer` states a high score means "you avoided self-inflicted leaks, not unlinkable" and that the anonymity set is ≈1 by amount-matching regardless of score.
+- Independently corroborated by `GET /api/ghost/pools` → `latestRoot=null` (near-empty tree → anon set ≈1), matching the warning.
 
-Arbitrary plaintext amounts are unique labels. Deposit 9.20 → later a Relayed of 9.20 to `0xBEEF`. No other in-window deposit equals 9.20, so the match is decisive. The ZK proof hides the merkle path; it does nothing about the value field printed next to it.
+### 2. ghost deposit leak-check — ✅ CONFIRMED (the response-trim slice works)
+- Prepare response **does NOT echo depositor/trader address** — the response-trim slice is live and effective.
+- Amount (`amountAtomic:"5000000"`) is cleartext **by on-chain design and explicitly disclosed**, not an accidental leak.
+- Structured `privacyNotice` present on the response **including the `offChain` field** (single-operator correlation warning) — the off-chain-disclosure slice is live.
 
-- **Anonymity set collapses to 1.** Nominal set = all concurrent deposits; amount-matching reduces it to the single deposit that could produce that withdrawal amount.
-- **Groth16 soundness is irrelevant to the attack.** The adversary never attacks the proof. (Independent adversary agent, 95% confidence, set size 1.)
-- **This is the Tornado Cash lesson:** unlinkability requires **fixed denominations** + a real anonymity set. Arbitrary amounts = pseudo-privacy.
+### 3. ghost withdraw / relay — ✅ CONFIRMED + ⚠️ OPERATIONAL FINDING
+- `relayerSubmission` block present and honest; relay/swap explain how to avoid `msg.sender` linkage via the relayer; cross-currency flagged as leaking more (`amountIn`+`amountOut`) and on-chain-gated (`SwapAdapterNotSet`).
+- **⚠️ `relayerSubmission.available = FALSE` on prod right now** (`GHOST_RELAYER_URL` unset). The single biggest privacy lever (relayer as `msg.sender`) is **designed-for but not functional on this deployment**. The linter correctly warns about exactly this and tells the agent to verify `relayerSubmission.available===true` before relying on it. This is the known, tracked, review-gated infra item (relayer deploy + funded key + set `GHOST_RELAYER_URL`) — confirmed still pending on prod.
 
-## Cross-currency makes it worse
+### 4. spot trade (control) — ✅ NO REGRESSION
+- Reached a complete unsigned spot quote (10 USDC → 8.585404 EURC) in 5 calls, first-success on the first market read. Preflight correctly flags `allowance=0` + exact spender/token/amount to approve.
+- **Privacy changes are well-isolated** — ghost warnings live in their own llms.txt section and do not intrude on the spot/perp path.
 
-`amountOut / 0.92 = amountIn` is a deterministic, invertible function. A 8.464 EURC withdrawal back-solves to a 9.20 USDC deposit. Cross-currency *feels* like extra mixing (different asset, different pool) but the fixed rate **re-links across asset boundaries** and leaks the source amount just as cleanly.
+## Aggregate gaps (frequency × severity)
 
-## The "ZK PnL attestation" is theater
+| # | Gap | Freq | Sev | Fix surface |
+|---|---|---|---|---|
+| G1 | **OpenAPI 200 responses declare NO schema** for every ghost endpoint (+`spot/quote`). The load-bearing bodies (`score`/`risks[]`/`privacyNotice`/`relayerSubmission`/contract payload) are undocumented — agents must blind-call to learn the contract. | 4/4 | High | OpenAPI response schema (route output schemas) |
+| G2 | **Dangling pointers** — `privacyNotice.trackedFix`/risk text cite `audit #3/#6/#7` and `DOGFOOD_PLAN.md Phase 3`, unresolvable from the 5 canonical surfaces. | 3/4 | Med | Replace with a public URL or inline one-liner |
+| G3 | **`relayerSubmission.available=false` + no relayer submission API documented** — even when configured, no endpoint/fee/proof-POST shape is given. | 2/4 | Med (infra) | Relayer deploy (review-gated) + doc the submit shape |
+| G4 | **Precommitment/proof construction undocumented** — response says "hash client-side with snarkjs" but no hash fn (Poseidon?), field ordering, circuit-artifact location, or how to obtain the current merkle root (`latestRoot=null`). | 2/4 | Med | llms.txt "build a proof" section + artifact URLs |
+| G5 | **MCP `body` wrapper not named in 400** — `tools/call` wraps REST args under `body`; the validation error says `path:[] Required` without naming `body`. | 1/4 | Low | Error message: name the `body` field |
+| G6 | **Doc vs live market drift** — `/api/markets` returns 6 perps incl. QCAD; llms.txt lists only 5. No machine-readable spot-market registry. | 1/4 | Low | Regenerate llms.txt market list from registry |
 
-`ghost_pnl` is described as "net flow = deposits − withdrawals." Both legs are public and (per above) linkable, so the "private" P&L is computable from public data by anyone who can match amounts. It hides nothing that isn't already derivable.
+## Suggested patches (review — do not auto-apply)
 
-## API / off-chain layer (secondary, but real)
+1. **G1 (highest leverage, in-lane, additive):** declare output/response schemas on the ghost + `spot/quote` routes so OpenAPI emits the real body shape. Touches the route definitions in `apps/hyper-mcp/src/routes/{ghost,spot}.ts` + the OpenAPI projection. Pure doc-quality; no behavior change.
+2. **G2:** swap `audit #N` / `DOGFOOD_PLAN.md` references in `PRIVACY_NOTICE` for a public URL or a one-line inline explanation (those files aren't agent-reachable).
+3. **G4:** add a short "constructing a ghost proof" block to llms.txt (Poseidon hash, field order, circuit-artifact CDN URL, where to read `latestRoot`).
+4. **G5:** have the MCP request-validation error name the missing top-level `body` field for `tools/call`.
+5. **G6:** regenerate the llms.txt Markets list from the live registry (QCAD missing).
+6. **G3 (infra, review-gated, NOT in this lane):** deploy `relayer-privacy` + funded key, set `GHOST_RELAYER_URL` so `relayerSubmission.available` flips true and the `MSG_SENDER_LEAK` lever actually works on prod.
 
-- **Routes echo plaintext correlatable fields**: `/api/ghost/deposit` returns `depositor` + `amount`; `/api/ghost/relay` returns `recipient` + `amount`; `/api/ghost/swap` returns `amountIn`/`estimatedOut`/`recipient`. Request + response bodies cross the wire in plaintext.
-- **The MCP is a trusted intermediary that sees both legs.** One server handles the deposit request (depositor) and the relay request (recipient); even with on-chain privacy, the API operator (or any proxy/APM/MITM in front of it) can timing-correlate the two.
-- **Mitigating finding (corrected my own initial over-claim):** the structured `hyperLog` does NOT log request bodies — only route + request_id + timing. So the *log file* leak is timing-only, not address/amount. Bodies are still exposed in memory and on the wire.
-- **The routes don't actually perform ZK.** `/api/ghost/relay` returns contract params + the string instruction "derive nullifier from secret… Groth16 via snarkjs." Privacy depends entirely on a client the API doesn't control, while the API's copy ("trade privately, hidden behind Groth16") oversells the deployed surface.
+## What's working (keep)
 
-## What's actually fine (positive ledger)
-
-- The commitment/nullifier circuit design itself is standard and sound — the foundation is reusable.
-- Secrets/nullifiers are NOT sent to the server in the current route schema (proof is client-side) — good, keep this invariant.
-- Deposit-is-public / withdrawal-is-private is the correct *shape*; the failure is in amount handling, not topology.
-
-## Fixes (ranked; to be condensed into the plan)
-
-1. **Fixed denominations** (1 / 10 / 100 / …). The single highest-leverage fix — makes amounts collide so 9.20 is no longer a fingerprint. Withdrawals must equal a denomination, not an arbitrary number.
-2. **If arbitrary amounts are a hard product requirement:** confidential amounts (Pedersen commitments + range proofs) so the value field is never plaintext; and/or randomized relayer fees/splits so withdrawn value never equals any single deposited value.
-3. **Enforce a real anonymity set**: gate withdrawals on N same-denomination deposits existing first; batch/pool withdrawals.
-4. **Randomized time delays / mixing window** to kill the deposit→withdrawal timing proximity.
-5. **Cross-currency:** stop emitting both `amountIn` and `amountOut`; avoid a single fixed published rate (ranges/auctions) — otherwise the invertible rate re-links everything.
-6. **API honesty + hygiene:** until denominations land, downgrade the `llms.txt` privacy claim (state plainly that amounts are linkable); stop echoing plaintext `amount`/`recipient` in responses; document that a single MCP operator can timing-correlate both legs.
-
-## Methodology
-
-- Verified the event schema against the actual `FxPrivacyEntrypoint` ABI (`packages/contracts/src/abis/FxPrivacyEntrypoint.ts`) — ground truth, not the marketing copy.
-- Confirmed live route echo surface by hitting `/api/ghost/{deposit,relay,swap}` on a local server.
-- Confirmed the structured log does NOT capture bodies (corrected an initial over-claim — Gateman on myself).
-- Independent adversarial agent given ONLY the public event schema + a realistic scenario; reproduced the amount-correlation attack at 95% confidence, anonymity set 1.
+- The **privacy-check linter is the standout** — honest, conservative, never over-promises; corroborated by live pool state.
+- **Every ghost response self-describes** via embedded `privacyNotice` (incl. `offChain`) + `relayerSubmission` — discoverable just by calling prepare.
+- **Deposit response respects the depositor dimension** (no address echo) — the trim slice works.
+- **llms.txt is the hero surface** — candid "Ghost Mode — maximizing privacy today" section with the 5 mitigation knobs; spot routing table enabled first-call trade success.
+- **Privacy work is well-isolated** — zero regression to the mainline trading UX.
+- MCP tool descriptions (`GET /mcp`) are richer and more honest than the OpenAPI descriptions.
