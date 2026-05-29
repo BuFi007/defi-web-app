@@ -62,3 +62,27 @@ its solvency vs open hedge exposure is the real risk to monitor (covered when `/
 
 **Live sanity:** junior buffers USDC 27,098 + EURC 10,091 / MXNB 176,590 / QCAD 13,850 / AUDF 9,967;
 TurboFeeVault totalDeposits 0 + APY 0 (no LPs yet — correct). ✅
+
+---
+
+## Family 3 — FxHedgeHook (`/api/hedge/*`) · `0x466e…`
+
+**Routes:** `GET /hedge/pools`, `GET /hedge/status?poolId`, PREPARE `POST /hedge/unpause`.
+
+| Probe | Result | Verdict |
+|---|---|---|
+| Bad poolId (`0xdead`, short) | 400 — zod `^0x[0-9a-fA-F]{64}$` | ✅ |
+| Injection poolId (`0x' OR 1`) | 400 — regex | ✅ |
+| Unconfigured poolId (valid format) | graceful (`known:false` + read result/err) | ✅ |
+| `unpause` bad poolId | 400 | ✅ |
+
+**Security-relevant property — delta exposure + the unpause control.** `currentDelta` is the
+LP's neutrality guarantee (int256; `0` = neutral). A non-zero delta = unhedged exposure → the
+insurance fund is what backstops a hedge failure, so **delta drift vs insurance-fund solvency is
+the core LP-insurance risk** to monitor. `unpauseHedge` is **owner-gated on-chain**
+(`POOL_CONFIGURATOR_ROLE`); the MCP only returns an unsigned prepare — it does NOT gate it, so the
+real control is the on-chain role. **Adversary note:** if `POOL_CONFIGURATOR_ROLE` is loosely
+assigned (e.g. still the deployer EOA with a hot key), an attacker who compromises that key could
+unpause/mis-configure hedging — confirm the role sits behind a timelock/multisig before mainnet.
+
+**Live sanity:** JPYC pool (`0xd194…3504`) currentDelta=0, isDeltaNeutral=true. ✅
