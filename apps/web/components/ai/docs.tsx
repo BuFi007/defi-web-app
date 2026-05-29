@@ -13,11 +13,8 @@ import {
 const MCP_URL = "https://mcp.bu.finance/mcp";
 const CONNECT = `claude mcp add --transport http bufi-hyper ${MCP_URL}`;
 const EXAMPLE =
-  "Open a 5x long EURC/USDC perp on BU.FI with $200 margin, then hedge it delta-neutral. " +
-  "Before you sign anything, show me the oracle mid, the fee in bps, and the liquidation price, " +
-  "then hand the writes back to me as unsigned calls (don't hold my keys). If EUR yield beats " +
-  "the perp funding, skip the perp and LP the $200 into the composite vault instead, routing that " +
-  "deposit as a private ghost swap.";
+  "Open a 5x EURC/USDC long with $200 margin and hedge it delta-neutral. Show me the mid, " +
+  "fee, and liquidation price, then return the unsigned calls for me to sign.";
 
 const CAPS = [
   { code: "01", name: "Trade", desc: "FX perps (open / close, up to 50x) + spot FX buys", acc: ACCENTS.lp },
@@ -60,12 +57,8 @@ export function AiDocs() {
       <Plane>
         <header>
           <h1 className={cn("font-knick text-[22px] font-bold leading-none tracking-tight", INK)}>agent</h1>
-          <p className={cn("mt-1.5 text-[13px] leading-relaxed", INK)}>
-            BU.FI speaks MCP. Point your agent at one URL and it can trade FX perps + spot, lend / borrow,
-            run private (ghost) swaps, LP into the vault, and read oracle / hedge state.
-          </p>
-          <p className={cn("mt-1 text-[12px] leading-relaxed", MUTE)}>
-            No SDK, no keys held by us. Writes come back as unsigned calls you sign.
+          <p className={cn("mt-1.5 text-[13px] leading-relaxed", MUTE)}>
+            One MCP URL to trade, lend, LP, hedge, and run private swaps. You sign every write.
           </p>
         </header>
 
@@ -76,13 +69,12 @@ export function AiDocs() {
           <Reveal n={2}><CopyRow n={2} label="try this" accent={ACCENTS.oracle} text={EXAMPLE} /></Reveal>
           <Reveal n={3}>
             <Module n={3} label="What it can do" accent={ACCENTS.hedge}>
-              <div>
+              <div className="flex flex-wrap gap-1.5">
                 {CAPS.map((c) => (
-                  <div key={c.code} className="flex items-baseline gap-2.5 py-1">
-                    <span className={cn("font-mono text-[10px] tabular-nums", c.acc.text)}>{c.code}</span>
-                    <span className={cn("w-[92px] shrink-0 text-[12px] font-medium", INK)}>{c.name}</span>
-                    <span className={cn("flex-1 text-[12px] leading-snug", MUTE)}>{c.desc}</span>
-                  </div>
+                  <span key={c.code} className={cn("inline-flex items-center gap-1.5 rounded-md border px-2 py-1", HAIR)}>
+                    <span className={cn("h-2 w-2 rounded-[2px]", c.acc.bg)} />
+                    <span className={cn("text-[11px] font-medium", INK)}>{c.name}</span>
+                  </span>
                 ))}
               </div>
             </Module>

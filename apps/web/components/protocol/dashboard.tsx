@@ -53,7 +53,6 @@ function LpModule() {
   const info = useLpInfo();
   const depths = useVaultDepths();
   const fs = info.data?.feeSplit;
-  const jb = depths.data?.juniorTokenBalances;
   const apy = info.isLoading ? "…" : info.data?.compositeApyPercent ? Number(info.data.compositeApyPercent).toFixed(2) : "—";
   return (
     <Module n={1} label="LP Vault" accent={ACCENTS.lp} className="md:col-span-7">
@@ -68,13 +67,6 @@ function LpModule() {
         </div>
       </div>
       {fs && <div className="mt-2.5"><FeeBar p={fs.protocolBps} l={fs.lpBps} ins={fs.insuranceBps} /></div>}
-      {jb && Object.keys(jb).length > 0 && (
-        <div className={cn("mt-2.5 flex flex-wrap gap-1.5 border-t pt-2.5", HAIR)}>
-          {Object.entries(jb).map(([sym, bal]) => (
-            <Chip key={sym}><span className="opacity-60">{sym}</span> {fmt(bal)}</Chip>
-          ))}
-        </div>
-      )}
     </Module>
   );
 }
@@ -102,7 +94,6 @@ function OracleModule() {
   return (
     <Module n={2} label="FX Oracle" accent={ACCENTS.oracle} className="md:col-span-5">
       <div>{pairs.map(([b, q]) => <OracleRow key={b} base={b} quote={q} />)}</div>
-      <div className={cn("mt-2 text-[10px]", MUTE)}>Pyth → RedStone → Chainlink</div>
     </Module>
   );
 }
@@ -226,7 +217,7 @@ export function ProtocolDashboard() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className={cn("font-knick text-[22px] font-bold leading-none tracking-tight", INK)}>console</h1>
-            <p className={cn("mt-1 text-[11px]", MUTE)}>bu.finance protocol · live read-only</p>
+            <p className={cn("mt-1 text-[11px]", MUTE)}>bu.finance protocol</p>
           </div>
           <span className="flex items-center gap-1.5">
             <StatusDot />
