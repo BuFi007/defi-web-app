@@ -1,69 +1,102 @@
 "use client";
-// Super-minimal, casual agent docs: what the MCP can do + how to point an agent
-// at it. Additive route (/ai); same solid-island styling as /protocol.
+// /ai — "agent": casual docs for pointing an AI agent at the BU.FI MCP. Same
+// BU.FI Console system as /protocol (components/console/kit.tsx): opaque warm-paper
+// plane, indexed blocks, accent-as-index. The connect command AND the example
+// prompt use the SAME CopyRow control. Calm, left-aligned, zen.
 import React from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { cn } from "@/utils";
+import {
+  ACCENTS, Plane, Module, CopyRow, EASE, INK, MUTE, HAIR,
+} from "@/components/console/kit";
 
 const MCP_URL = "https://mcp.bu.finance/mcp";
 const CONNECT = `claude mcp add --transport http bufi-hyper ${MCP_URL}`;
+const EXAMPLE =
+  "Open a 5x long EURC/USDC perp on BU.FI with $200 margin, then hedge it delta-neutral. " +
+  "Before you sign anything, show me the oracle mid, the fee in bps, and the liquidation price, " +
+  "then hand the writes back to me as unsigned calls (don't hold my keys). If EUR yield beats " +
+  "the perp funding, skip the perp and LP the $200 into the composite vault instead, routing that " +
+  "deposit as a private ghost swap.";
 
-const TOOLS: Array<{ group: string; items: string }> = [
-  { group: "Trade", items: "forex perps (open/close, up to 50x), spot FX buys" },
-  { group: "Earn / borrow", items: "supply USDC, borrow FX, repay, withdraw (Morpho)" },
-  { group: "LP", items: "deposit into the composite-APY vault (lending + fees + hedge)" },
-  { group: "Hedge", items: "delta-neutral status per pool (FxHedgeHook)" },
-  { group: "Private", items: "ghost deposit → proof → relayer withdrawal (shielded)" },
-  { group: "Read", items: "oracle mids, FX-swap quotes, registry, gateway, positions" },
+const CAPS = [
+  { code: "01", name: "Trade", desc: "FX perps (open / close, up to 50x) + spot FX buys", acc: ACCENTS.lp },
+  { code: "02", name: "Earn / borrow", desc: "supply USDC, borrow FX, repay, withdraw (Morpho)", acc: ACCENTS.oracle },
+  { code: "03", name: "LP", desc: "deposit into the composite-APY vault (lending + fees + hedge)", acc: ACCENTS.hedge },
+  { code: "04", name: "Hedge", desc: "delta-neutral status per pool (FxHedgeHook)", acc: ACCENTS.fxswap },
+  { code: "05", name: "Private", desc: "ghost deposit → proof → relayer withdrawal (shielded)", acc: ACCENTS.registry },
+  { code: "06", name: "Read", desc: "oracle mids, FX-swap quotes, registry, gateway, positions", acc: ACCENTS.perps },
 ];
 
-function CopyRow({ text }: { text: string }) {
-  const [copied, setCopied] = React.useState(false);
+function Reveal({ n, children }: { n: number; children: React.ReactNode }) {
+  const rm = useReducedMotion();
   return (
-    <button
-      onClick={() => { navigator.clipboard?.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1400); }}
-      className="group flex w-full items-center justify-between gap-3 rounded-lg border border-purpleDanis/15 bg-purpleDanis/[0.04] px-3 py-2 text-left transition-colors hover:bg-purpleDanis/[0.08] dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
+    <motion.div
+      initial={rm ? false : { opacity: 0, scale: 0.98, y: 6 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ delay: 0.34 + n * 0.05, duration: 0.3, ease: EASE }}
+      style={{ transformOrigin: "top left" }}
     >
-      <code className="truncate font-mono text-[11px] text-neutral-700 dark:text-white/70">{text}</code>
-      <span className="shrink-0 text-[10px] font-medium text-purpleDanis dark:text-violetDanis">{copied ? "copied ✓" : "copy"}</span>
-    </button>
+      {children}
+    </motion.div>
+  );
+}
+
+function FootLink({ href, children, ext }: { href: string; children: React.ReactNode; ext?: boolean }) {
+  return (
+    <a
+      href={href}
+      {...(ext ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      className={cn("underline-offset-4 transition-colors hover:underline hover:text-[#16151A] dark:hover:text-[#EDEAF6]", MUTE)}
+    >
+      {children}
+    </a>
   );
 }
 
 export function AiDocs() {
   return (
-    <main className="mx-auto w-full max-w-2xl p-3 sm:p-4">
-      <div className="rounded-2xl border border-purpleDanis/15 bg-white/85 p-5 shadow-[0_14px_36px_-18px_rgba(105,84,207,0.4)] backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/80">
-        <h1 className="text-base font-semibold tracking-tight text-purpleDanis dark:text-white">Connect an AI agent</h1>
-        <p className="mt-1 text-[13px] leading-relaxed text-neutral-600 dark:text-white/55">
-          BU.FI speaks MCP. Point your agent at one URL and it can trade FX perps + spot, lend/borrow,
-          run private (ghost) swaps, LP into the vault, and read oracle/hedge state — no SDK, no keys held by us
-          (writes come back as unsigned calls you sign).
-        </p>
-
-        <h2 className="mt-5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400 dark:text-white/40">Connect</h2>
-        <div className="mt-2 flex flex-col gap-2">
-          <CopyRow text={CONNECT} />
-          <p className="text-[11px] text-neutral-500 dark:text-white/45">
-            Claude Code ↑. Claude Desktop / Cursor: add to <code className="font-mono">.mcp.json</code> →{" "}
-            <code className="font-mono text-[10px]">{`{ "mcpServers": { "bufi-hyper": { "type": "url", "url": "${MCP_URL}" } } }`}</code>
+    <main className="mx-auto w-full max-w-2xl self-start p-3 sm:p-4">
+      <Plane>
+        <header>
+          <h1 className={cn("font-knick text-[28px] font-bold leading-none tracking-tight", INK)}>agent</h1>
+          <p className={cn("mt-2 text-[14px] leading-relaxed", INK)}>
+            BU.FI speaks MCP. Point your agent at one URL and it can trade FX perps + spot, lend / borrow,
+            run private (ghost) swaps, LP into the vault, and read oracle / hedge state.
           </p>
+          <p className={cn("mt-1 text-[12px] leading-relaxed", MUTE)}>
+            No SDK, no keys held by us — writes come back as unsigned calls you sign.
+          </p>
+        </header>
+
+        <div className={cn("my-4 border-t", HAIR)} />
+
+        <div className="space-y-3">
+          <Reveal n={1}><CopyRow n={1} label="connect" accent={ACCENTS.lp} text={CONNECT} /></Reveal>
+          <Reveal n={2}><CopyRow n={2} label="try this" accent={ACCENTS.oracle} text={EXAMPLE} /></Reveal>
+          <Reveal n={3}>
+            <Module n={3} label="What it can do" accent={ACCENTS.hedge}>
+              <div>
+                {CAPS.map((c) => (
+                  <div key={c.code} className="flex items-baseline gap-2.5 py-1.5">
+                    <span className={cn("font-mono text-[10px] tabular-nums", c.acc.text)}>{c.code}</span>
+                    <span className={cn("w-[92px] shrink-0 text-[12px] font-medium", INK)}>{c.name}</span>
+                    <span className={cn("flex-1 text-[12px] leading-snug", MUTE)}>{c.desc}</span>
+                  </div>
+                ))}
+              </div>
+            </Module>
+          </Reveal>
         </div>
 
-        <h2 className="mt-5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400 dark:text-white/40">What it can do</h2>
-        <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-          {TOOLS.map((t) => (
-            <div key={t.group} className="rounded-lg border border-purpleDanis/10 bg-white/50 px-3 py-2 dark:border-white/5 dark:bg-white/[0.03]">
-              <div className="text-[12px] font-medium text-purpleDanis dark:text-white">{t.group}</div>
-              <div className="text-[11px] leading-snug text-neutral-500 dark:text-white/45">{t.items}</div>
-            </div>
-          ))}
+        <div className={cn("mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]", MUTE)}>
+          <FootLink href="https://mcp.bu.finance/llms.txt" ext>llms.txt</FootLink>
+          <span aria-hidden>·</span>
+          <FootLink href="https://mcp.bu.finance/openapi.json" ext>openapi.json</FootLink>
+          <span aria-hidden>·</span>
+          <FootLink href="/protocol">live console →</FootLink>
         </div>
-
-        <p className="mt-5 text-[11px] text-neutral-500 dark:text-white/45">
-          Full machine docs: <a className="text-purpleDanis underline dark:text-violetDanis" href="https://mcp.bu.finance/llms.txt" target="_blank" rel="noopener noreferrer">llms.txt</a>
-          {" · "}<a className="text-purpleDanis underline dark:text-violetDanis" href="https://mcp.bu.finance/openapi.json" target="_blank" rel="noopener noreferrer">openapi.json</a>
-          {" · "}<a className="text-purpleDanis underline dark:text-violetDanis" href="/protocol">live protocol view →</a>
-        </p>
-      </div>
+      </Plane>
     </main>
   );
 }

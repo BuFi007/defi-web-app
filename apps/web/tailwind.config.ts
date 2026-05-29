@@ -37,6 +37,7 @@ const config: Config = {
       fontFamily: {
         sans: ["Poppins", "system-ui", "sans-serif"],
         poppins: ["Poppins", "system-ui", "sans-serif"],
+        mono: ["var(--font-geist-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
         knicknack: ["Knicknack", "Poppins", "system-ui", "sans-serif"],
         knick: ["Knicknack", "Poppins", "system-ui", "sans-serif"],
         clash: ["Knicknack", "Poppins", "sans-serif"],

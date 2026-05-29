@@ -1,186 +1,252 @@
 "use client";
-// Additive protocol dashboard — surfaces the hyper-mcp protocol families for
-// non-technical + agentic users. Sits inside a solid card "island" (like the main
-// tab content) so text reads cleanly against a surface, not the gradient. Compact
-// + read-only; does NOT touch TradeIsland/HomeContent. Loop appends a section here.
+// /protocol — the BU.FI Console. Read-only live view of every protocol family,
+// styled as a Teenage-Engineering instrument (see components/console/kit.tsx): one
+// opaque warm-paper plane, an accent-color legend rail, indexed modules in an
+// asymmetric 12-col masonry, mono spec-sheet numerics. Purely presentational — all
+// react-query hooks + signatures are unchanged. Replaces the old glass-island look.
 import React from "react";
 import { useAccount } from "wagmi";
+import { cn } from "@/utils";
 import {
   useLpInfo, useVaultDepths, useOraclePrice, useGatewayInfo,
   useHedgePools, useHedgeStatus, useFxswapPools, useRegistryAssets, usePerpsAccount,
 } from "@/lib/protocol/hooks";
+import {
+  ACCENTS, Plane, Legend, Module, SpecRow, Marquee, Chip, Good, Warn, Val, StatusDot,
+  INK, MUTE, HAIR, type Accent,
+} from "@/components/console/kit";
 
-function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
-  return (
-    <section className="flex flex-col gap-2.5 rounded-xl border border-purpleDanis/10 bg-white/60 p-3.5 dark:border-white/5 dark:bg-white/[0.03]">
-      <header className="flex flex-col gap-0.5">
-        <h2 className="text-[13px] font-semibold tracking-tight text-purpleDanis dark:text-white">{title}</h2>
-        {subtitle && <p className="text-[11px] leading-snug text-neutral-500 dark:text-white/45">{subtitle}</p>}
-      </header>
-      {children}
-    </section>
-  );
-}
+const LEADER = "border-[#16151A]/20 dark:border-[#EDEAF6]/15";
 
-function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
+const fmt = (v?: string | number | null, dp = 0) => {
+  if (v == null) return "—";
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: dp }) : String(v);
+};
+
+function FeeBar({ p, l, ins }: { p: number; l: number; ins: number }) {
+  const total = p + l + ins || 1;
+  const segs = [
+    { label: "PROTOCOL", bps: p, acc: ACCENTS.lp },
+    { label: "LP", bps: l, acc: ACCENTS.oracle },
+    { label: "INSURANCE", bps: ins, acc: ACCENTS.perps },
+  ];
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-[10px] uppercase tracking-wide text-neutral-400 dark:text-white/35">{label}</span>
-      <span className="text-sm font-medium tabular-nums text-neutral-900 dark:text-white">{value}</span>
-      {hint && <span className="text-[10px] text-neutral-400 dark:text-white/30">{hint}</span>}
+    <div className="space-y-1.5">
+      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-[#16151A]/[0.06] dark:bg-[#EDEAF6]/[0.06]">
+        {segs.map((s) => <span key={s.label} className={cn("h-full", s.acc.bg)} style={{ width: `${(s.bps / total) * 100}%` }} />)}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {segs.map((s) => (
+          <span key={s.label} className="flex items-center gap-1">
+            <span className={cn("h-2 w-2 rounded-[2px]", s.acc.bg)} />
+            <span className={cn("text-[9px] uppercase tracking-wide", MUTE)}>{s.label}</span>
+            <span className={cn("font-mono text-[10px] tabular-nums", INK)}>{s.bps / 100}%</span>
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
 
-function LpInsuranceCard() {
+function LpModule() {
   const info = useLpInfo();
   const depths = useVaultDepths();
   const fs = info.data?.feeSplit;
+  const jb = depths.data?.juniorTokenBalances;
+  const apy = info.isLoading ? "…" : info.data?.compositeApyPercent ? Number(info.data.compositeApyPercent).toFixed(2) : "—";
   return (
-    <Card title="LP Vault — Composite APY" subtitle="Deposit USDC → blended lending + fee-share + hedge yield.">
-      <div className="grid grid-cols-3 gap-2.5">
-        <Stat label="APY" value={info.isLoading ? "…" : info.data?.compositeApyPercent ? `${Number(info.data.compositeApyPercent).toFixed(2)}%` : "—"} />
-        <Stat label="Deposits" value={info.isLoading ? "…" : `${info.data?.totalDeposits ?? "0"}`} hint="USDC" />
-        <Stat label="Junior" value={depths.isLoading ? "…" : `${Number(depths.data?.totalJuniorUsdc ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`} hint="USDC" />
-      </div>
-      {fs && (
-        <div className="flex flex-wrap gap-1.5 text-[10px]">
-          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">Protocol {fs.protocolBps / 100}%</span>
-          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">LP {fs.lpBps / 100}%</span>
-          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">Insurance {fs.insuranceBps / 100}%</span>
+    <Module n={1} label="LP Vault" accent={ACCENTS.lp} className="md:col-span-7">
+      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
+        <div>
+          <div className={cn("mb-1 text-[10px] uppercase tracking-[0.08em]", MUTE)}>Composite APY</div>
+          <Marquee value={apy} unit="%" accent={ACCENTS.lp} />
         </div>
-      )}
-      {depths.data?.juniorTokenBalances && (
-        <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-purpleDanis/5 pt-2 dark:border-white/5">
-          {Object.entries(depths.data.juniorTokenBalances).map(([sym, bal]) => (
-            <span key={sym} className="text-[10px] tabular-nums text-neutral-500 dark:text-white/40">
-              {sym} <span className="text-neutral-800 dark:text-white/70">{Number(bal).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-            </span>
+        <div className="min-w-[150px] flex-1">
+          <SpecRow label="Deposits" value={info.isLoading ? "…" : fmt(info.data?.totalDeposits)} unit="USDC" />
+          <SpecRow label="Junior buffer" value={depths.isLoading ? "…" : fmt(depths.data?.totalJuniorUsdc)} unit="USDC" />
+        </div>
+      </div>
+      {fs && <div className="mt-3.5"><FeeBar p={fs.protocolBps} l={fs.lpBps} ins={fs.insuranceBps} /></div>}
+      {jb && Object.keys(jb).length > 0 && (
+        <div className={cn("mt-3 flex flex-wrap gap-1.5 border-t pt-3", HAIR)}>
+          {Object.entries(jb).map(([sym, bal]) => (
+            <Chip key={sym}><span className="opacity-60">{sym}</span> {fmt(bal)}</Chip>
           ))}
         </div>
       )}
-    </Card>
+    </Module>
   );
 }
 
-const ORACLE_PAIRS: Array<[string, string]> = [["EURC", "USDC"], ["MXNB", "USDC"], ["AUDF", "USDC"]];
 function OracleRow({ base, quote }: { base: string; quote: string }) {
   const { data, isLoading } = useOraclePrice(base, quote);
+  const mid = data?.mid ? Number(data.mid).toFixed(5) : isLoading ? "…" : "n/a";
+  const fresh = !isLoading && !data?.stale && !!data?.mid;
   return (
-    <div className="flex items-center justify-between border-b border-purpleDanis/5 py-1 last:border-0 dark:border-white/5">
-      <span className="text-xs text-neutral-600 dark:text-white/55">{base}/{quote}</span>
-      <span className="flex items-center gap-1.5 tabular-nums">
-        <span className="text-xs font-medium text-neutral-900 dark:text-white">{isLoading ? "…" : data?.mid ? Number(data.mid).toFixed(5) : "n/a"}</span>
-        {data?.stale && <span className="rounded bg-red-100 px-1 text-[9px] text-red-700 dark:bg-red-500/15 dark:text-red-300">stale</span>}
+    <div className="flex items-baseline gap-2 py-[5px]">
+      <span className={cn("flex shrink-0 items-center gap-1.5 text-[10px] uppercase tracking-[0.08em]", MUTE)}>
+        {fresh && <span className="h-1.5 w-1.5 rounded-full bg-[#1FA8C4] dark:bg-[#4FD0E6]" />}
+        {base}/{quote}
       </span>
+      <span className={cn("flex-1 self-center border-b border-dotted", LEADER)} />
+      {data?.stale
+        ? <Warn>stale {data.mid ? Number(data.mid).toFixed(5) : ""}</Warn>
+        : <span className={cn("text-right font-mono text-[13px] font-medium tabular-nums", INK)}><Val>{mid}</Val></span>}
     </div>
   );
 }
-function OracleCard() {
+
+function OracleModule() {
+  const pairs: Array<[string, string]> = [["EURC", "USDC"], ["MXNB", "USDC"], ["AUDF", "USDC"]];
   return (
-    <Card title="FX Oracle V2" subtitle="Live mids (Pyth → RedStone → Chainlink).">
-      <div className="flex flex-col">{ORACLE_PAIRS.map(([b, q2]) => <OracleRow key={b} base={b} quote={q2} />)}</div>
-    </Card>
+    <Module n={2} label="FX Oracle" accent={ACCENTS.oracle} className="md:col-span-5">
+      <div>{pairs.map(([b, q]) => <OracleRow key={b} base={b} quote={q} />)}</div>
+      <div className={cn("mt-2 text-[10px]", MUTE)}>Pyth → RedStone → Chainlink</div>
+    </Module>
   );
 }
 
-function HedgeCard() {
+function StateRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline gap-2 py-[5px]">
+      <span className={cn("shrink-0 text-[10px] uppercase tracking-[0.08em]", MUTE)}>{label}</span>
+      <span className={cn("flex-1 self-center border-b border-dotted", LEADER)} />
+      <span className="text-right">{children}</span>
+    </div>
+  );
+}
+
+function HedgeModule() {
   const pools = useHedgePools();
   const first = pools.data?.pools?.[0];
   const status = useHedgeStatus(first?.poolId);
   return (
-    <Card title="Delta-Neutral Hedge" subtitle="FxHedgeHook keeps a pool neutral via an offsetting perp.">
+    <Module n={3} label="Hedge" accent={ACCENTS.hedge} className="md:col-span-4">
       {!first ? (
-        <span className="text-xs text-neutral-400">{pools.isLoading ? "…" : "no hedge pools"}</span>
+        <span className={cn("text-[11px]", MUTE)}>{pools.isLoading ? "…" : "no hedge pools"}</span>
       ) : (
-        <div className="flex items-center justify-between">
-          <Stat label="Pool" value={first.pair} hint={first.symbol} />
-          <span className="text-sm font-medium">
-            {status.isLoading ? "…" : status.data?.isDeltaNeutral ? <span className="text-emerald-600 dark:text-emerald-400">neutral ✓</span> : <span className="text-amber-600 dark:text-amber-400">Δ {status.data?.currentDelta ?? "?"}</span>}
-          </span>
-        </div>
+        <>
+          <SpecRow label="Pool" value={first.pair} />
+          <SpecRow label="Fee" value={first.fee / 100} unit="bps" />
+          <StateRow label="State">
+            {status.isLoading ? <span className={cn("font-mono text-[12px]", MUTE)}>…</span>
+              : status.data?.isDeltaNeutral ? <Good>neutral ✓</Good>
+              : <Warn>Δ {status.data?.currentDelta ?? "?"}</Warn>}
+          </StateRow>
+        </>
       )}
-    </Card>
+    </Module>
   );
 }
 
-function FxSwapCard() {
+function FxSwapModule() {
   const { data, isLoading } = useFxswapPools();
+  const pools = data?.pools ?? [];
   return (
-    <Card title="FX Swap Pools" subtitle="Vault-backed v4 cross-currency pools.">
-      {isLoading ? <span className="text-xs text-neutral-400">…</span> : (
-        <div className="flex flex-col">
-          {(data?.pools ?? []).map((p) => (
-            <div key={p.asset} className="flex items-center justify-between border-b border-purpleDanis/5 py-1 last:border-0 dark:border-white/5">
-              <span className="text-xs text-neutral-600 dark:text-white/55">{p.pair}</span>
-              <span className="text-[10px] text-neutral-400 dark:text-white/35">{p.pyth} · {p.fee / 100}bps</span>
-            </div>
-          ))}
+    <Module n={4} label="FX Swap" accent={ACCENTS.fxswap} className="md:col-span-4">
+      {isLoading ? <span className={cn("text-[11px]", MUTE)}>…</span>
+        : pools.length === 0 ? <span className={cn("text-[11px]", MUTE)}>no pools</span>
+        : pools.map((p) => <SpecRow key={p.asset} label={p.pair} value={p.fee / 100} unit="bps" />)}
+    </Module>
+  );
+}
+
+function RegistryModule() {
+  const { data, isLoading } = useRegistryAssets();
+  const assets = data?.assets ?? [];
+  return (
+    <Module
+      n={5} label="Registry" accent={ACCENTS.registry} className="md:col-span-4"
+      headerRight={<span className={cn("font-mono text-[11px] tabular-nums", MUTE)}>{isLoading ? "…" : data?.count ?? 0}</span>}
+    >
+      {isLoading ? <span className={cn("text-[11px]", MUTE)}>…</span> : (
+        <div className="flex flex-wrap gap-1.5">
+          {assets.map((a) => <Chip key={a.symbol} violet>{a.symbol}</Chip>)}
         </div>
       )}
-    </Card>
+    </Module>
   );
 }
 
-function RegistryCard() {
-  const { data, isLoading } = useRegistryAssets();
-  return (
-    <Card title="Asset Registry" subtitle={isLoading ? "…" : `${data?.count ?? 0} assets registered on-chain`}>
-      <div className="flex flex-wrap gap-1">
-        {(data?.assets ?? []).map((a) => (
-          <span key={a.symbol} className="rounded-full bg-purpleDanis/8 px-2 py-0.5 text-[10px] text-neutral-700 dark:bg-white/8 dark:text-white/70">{a.symbol}</span>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
-function PerpsCard() {
+function PerpsModule() {
   const { address } = useAccount();
   const { data, isLoading } = usePerpsAccount(address);
   return (
-    <Card title="Perps — Margin" subtitle="Your FxMarginAccount balance.">
-      {!address ? <span className="text-xs text-neutral-400 dark:text-white/40">Connect a wallet to view margin.</span> : (
-        <div className="grid grid-cols-3 gap-2.5">
-          <Stat label="Total" value={isLoading ? "…" : data?.totalMargin ?? "0"} hint="USDC" />
-          <Stat label="Reserved" value={isLoading ? "…" : data?.reservedMargin ?? "0"} />
-          <Stat label="Free" value={isLoading ? "…" : data?.freeMargin ?? "0"} />
+    <Module n={6} label="Perps Margin" accent={ACCENTS.perps} className="md:col-span-5">
+      {!address ? (
+        <div className="rounded-lg border border-dashed border-[#C98A00]/50 px-3 py-4 text-center dark:border-[#E3B43A]/50">
+          <span className={cn("text-[11px]", MUTE)}>Connect a wallet to view margin.</span>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-x-8">
+          <div className="min-w-[110px] flex-1">
+            <SpecRow label="Total" value={isLoading ? "…" : fmt(data?.totalMargin, 2)} unit="USDC" />
+            <SpecRow label="Reserved" value={isLoading ? "…" : fmt(data?.reservedMargin, 2)} />
+          </div>
+          <div className="min-w-[110px] flex-1">
+            <SpecRow label="Free" value={isLoading ? "…" : fmt(data?.freeMargin, 2)} unit="USDC" />
+          </div>
         </div>
       )}
-    </Card>
+    </Module>
   );
 }
 
-function GatewayCard() {
+function GatewayModule() {
   const { data, isLoading } = useGatewayInfo();
   return (
-    <Card title="Cross-Hub Gateway" subtitle="Circle Gateway USDC locked across hubs.">
-      <div className="grid grid-cols-2 gap-2.5">
-        <Stat label="Balance" value={isLoading ? "…" : `${data?.gatewayBalance ?? "0"}`} hint="USDC" />
-        <Stat label="Unlock" value={isLoading ? "…" : data?.withdrawalUnlockBlock ?? "—"} hint="block" />
+    <Module n={7} label="Cross-Hub Gateway" accent={ACCENTS.gateway} className="md:col-span-7">
+      <div className="flex flex-wrap gap-x-8">
+        <div className="min-w-[120px] flex-1">
+          <SpecRow label="Locked" value={isLoading ? "…" : fmt(data?.gatewayBalance, 2)} unit="USDC" />
+        </div>
+        <div className="min-w-[120px] flex-1">
+          <SpecRow label="Unlock" value={isLoading ? "…" : data?.withdrawalUnlockBlock ?? "—"} unit="block" />
+        </div>
       </div>
-    </Card>
+    </Module>
   );
 }
+
+const LEGEND: { n: number; label: string; accent: Accent }[] = [
+  { n: 1, label: "LP", accent: ACCENTS.lp },
+  { n: 2, label: "Oracle", accent: ACCENTS.oracle },
+  { n: 3, label: "Hedge", accent: ACCENTS.hedge },
+  { n: 4, label: "Swap", accent: ACCENTS.fxswap },
+  { n: 5, label: "Registry", accent: ACCENTS.registry },
+  { n: 6, label: "Perps", accent: ACCENTS.perps },
+  { n: 7, label: "Gateway", accent: ACCENTS.gateway },
+];
 
 export function ProtocolDashboard() {
   return (
-    <main className="mx-auto w-full max-w-4xl p-3 sm:p-4">
-      <div className="rounded-2xl border border-purpleDanis/15 bg-white/85 p-4 shadow-[0_14px_36px_-18px_rgba(105,84,207,0.4)] backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/80 sm:p-5">
-        <div className="mb-3 flex items-baseline justify-between gap-3">
-          <h1 className="text-base font-semibold tracking-tight text-purpleDanis dark:text-white">Protocol</h1>
-          <p className="hidden text-[11px] text-neutral-500 dark:text-white/45 sm:block">Live read-only · additive · trading UX unchanged</p>
+    <main className="mx-auto w-full max-w-4xl self-start p-3 sm:p-4">
+      <Plane>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className={cn("font-knick text-[28px] font-bold leading-none tracking-tight", INK)}>console</h1>
+            <p className={cn("mt-1.5 text-[11px]", MUTE)}>bu.finance protocol · live read-only</p>
+          </div>
+          <span className="flex items-center gap-1.5">
+            <StatusDot />
+            <span className={cn("font-mono text-[10px] uppercase tracking-[0.12em]", MUTE)}>live · 30s</span>
+          </span>
         </div>
-        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
-          <LpInsuranceCard />
-          <OracleCard />
-          <HedgeCard />
-          <FxSwapCard />
-          <RegistryCard />
-          <PerpsCard />
-          <GatewayCard />
+
+        <div className={cn("my-3.5 border-t", HAIR)} />
+        <Legend items={LEGEND} />
+
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-12">
+          <LpModule />
+          <OracleModule />
+          <HedgeModule />
+          <FxSwapModule />
+          <RegistryModule />
+          <PerpsModule />
+          <GatewayModule />
         </div>
-      </div>
+      </Plane>
     </main>
   );
 }
