@@ -37,10 +37,14 @@ export type KawaiiTierKey = keyof typeof KAWAII_GATE;
  */
 export const KAWAII_IMPL = "0xCCf28A443e35F8bD982b8E8651bE9f6caFEd4672"; // verified TokenERC1155 impl the clone delegates to
 
+// MOCK owner wallets are obvious placeholders — a base with `mock: true` is
+// LOCKED for everyone (no one controls these keys) until the real wallet is set.
+// The mint service must refuse any mint of a base where `mock === true`.
 export const RESERVED_BASES = {
-  criptopoeta: { display: "criptopoeta", platform: "x", claimUrl: "https://x.com/criptopoeta", ownerWallet: "0xcA02Be6cDBb806d4a327FC92E094D1A44EC37445" },
-  daniss: { display: "danissblue", platform: "behance", claimUrl: "https://www.behance.net/danissblue", ownerWallet: null /* TBD */ },
-  mcduck: { display: "Jeremy Allaire", platform: "x", claimUrl: "https://x.com/jerallaire", ownerWallet: null /* TBD */ },
+  criptopoeta: { display: "criptopoeta", platform: "x", claimUrl: "https://x.com/criptopoeta", ownerWallet: "0xcA02Be6cDBb806d4a327FC92E094D1A44EC37445", mock: false },
+  daniss: { display: "danissblue", platform: "behance", claimUrl: "https://www.behance.net/danissblue", ownerWallet: "0x000000000000000000000000000000000000dA11", mock: true },
+  mcduck: { display: "Jeremy Allaire", platform: "x", claimUrl: "https://x.com/jerallaire", ownerWallet: "0x000000000000000000000000000000000000D0c0", mock: true },
+  circle: { display: "Circle", platform: "x", claimUrl: "https://x.com/circle", ownerWallet: "0x0000000000000000000000000000000000C1ac1e", mock: true },
 } as const;
 
 export const RESERVED_BASE_IDS = Object.keys(RESERVED_BASES) as Array<keyof typeof RESERVED_BASES>;

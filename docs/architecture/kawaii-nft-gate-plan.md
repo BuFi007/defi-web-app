@@ -153,7 +153,7 @@ by distinct counterparties — so self-trading can't farm VIP. (Detailed in Phas
 
 ### Reserved bases + CID-attack protection (workflow-designed)
 - **Bases are a backend abstraction**; the contract has no "base" concept and `mintTo(to,tokenId,uri,amount)` takes the caller's `uri` → **reserved-base protection lives in the MINT SERVICE (the only Circle-cred holder), never on-chain/UI.**
-- **Reserved** (visible, locked, non-mintable by others): `criptopoeta` (X), `daniss` (danissblue/Behance), `mcduck` (Jeremy Allaire/X). See `RESERVED_BASES` in `lib/kawaii/config.ts`.
+- **Reserved** (visible, locked, non-mintable by others): `criptopoeta` (X, real wallet), `daniss` (danissblue/Behance, MOCK), `mcduck` (Jeremy Allaire/X, MOCK), `circle` (Circle team/X, MOCK). See `RESERVED_BASES` in `lib/kawaii/config.ts`. **`mock:true` bases are locked for everyone** (placeholder owner) until the real wallet is set — mint service must refuse them; replace daniss/jeremy/circle wallets when provided.
 - **Mint-service rules:** reject any client `uri`/`cid`/`tokenId`/`to` (log it); validate `baseId` enum; reserved `baseId` ⇒ `caller == RESERVED_OWNER[baseId]` else 403 + mint-once; server-compute the CIDv1 `ipfs://` uri (regex-guarded, no gateway/ipns/query); always pass `type(uint256).max` sentinel; idempotency key; record `reservedTokenId/reservedCid` in the same txn.
 - **Verified badge = 3-way match** (tokenId ∈ registry ∧ on-chain `uri(tokenId)` == `ipfs://reservedCid` ∧ signed attestation), server-computed. Reserved CIDs pinned to 2 services, never unpinned. Owner line links to the holder's public X/Behance claim.
 
