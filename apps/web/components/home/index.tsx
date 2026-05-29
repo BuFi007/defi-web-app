@@ -4,6 +4,7 @@ import React from "react";
 import { useSearchParams } from "next/navigation";
 import { NotConnectedHome } from "@/components/not-connected";
 import TradeIsland from "@/components/trade-island";
+import { KawaiiGateMount } from "@/components/kawaii/kawaii-gate-mount";
 import { useBufiIsConnected } from "@/lib/session";
 import "@/css/trade-island/index.css";
 
@@ -42,5 +43,12 @@ export const HomeContent: React.FC = () => {
 
   if (!isConnectedAnyPath && !forceIsland) return <NotConnectedHome />;
 
-  return <TradeIsland />;
+  // Additive: the Kawaii invite gate self-gates (renders only when connected +
+  // no Kawaii Punk, fails open on error) so it never blocks the existing UX.
+  return (
+    <>
+      <TradeIsland />
+      <KawaiiGateMount />
+    </>
+  );
 };

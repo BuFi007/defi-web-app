@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAccount, useSignMessage } from "wagmi";
-import { RESERVED_BASES, KAWAII_GATE } from "@/lib/kawaii/config";
+import { KAWAII_GATE } from "@/lib/kawaii/config";
 
 /**
  * Kawaii Punks invite gate — ADDITIVE overlay, modeled on Tower Exchange's
@@ -21,7 +21,8 @@ const SOCIALS = [
   { id: "x", label: "X", href: "https://x.com/" },
 ] as const;
 
-type Catalog = { open: string[]; reserved: typeof RESERVED_BASES };
+type ReservedDisplay = { display: string; platform: string; claimUrl: string; mock: boolean };
+export type Catalog = { open: string[]; reserved: Record<string, ReservedDisplay> };
 
 export function KawaiiGate({ catalog }: { catalog: Catalog }) {
   const { address, isConnected } = useAccount();
@@ -112,14 +113,14 @@ export function KawaiiGate({ catalog }: { catalog: Catalog }) {
               </button>
             ))}
             {/* Reserved — visible, locked */}
-            {(Object.keys(catalog.reserved) as Array<keyof typeof RESERVED_BASES>).map((k) => (
+            {Object.entries(catalog.reserved).map(([k, v]) => (
               <div
                 key={k}
                 className="relative aspect-square cursor-not-allowed rounded-lg border border-amber-400/40 bg-amber-400/5 text-[8px] text-amber-200/80"
-                title={`Reserved — ${catalog.reserved[k].display}`}
+                title={`Reserved — ${v.display}`}
               >
                 <span className="absolute inset-0 flex items-center justify-center">🔒</span>
-                <span className="absolute bottom-0.5 left-0 right-0 text-center">{catalog.reserved[k].display.slice(0, 8)}</span>
+                <span className="absolute bottom-0.5 left-0 right-0 text-center">{v.display.slice(0, 8)}</span>
               </div>
             ))}
           </div>
