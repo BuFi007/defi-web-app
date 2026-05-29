@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import Image from "next/image";
 import { useAccount, useSignMessage, useWriteContract } from "wagmi";
 import { createPublicClient, http, parseAbi } from "viem";
 import { arcTestnet } from "viem/chains";
 import { KAWAII_GATE } from "@/lib/kawaii/config";
 import { KawaiiFund } from "./kawaii-fund";
+import AnimatedBackground from "@/components/animated-background";
 
 /**
  * Kawaii Punks invite gate — ADDITIVE overlay, modeled on Tower Exchange's
@@ -35,6 +38,8 @@ export function KawaiiGate({ catalog }: { catalog: Catalog }) {
   const [status, setStatus] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [verifiedSocials, setVerifiedSocials] = useState<string[]>([]);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   // Poll which socials are verified (also refreshes after returning from OAuth).
   useEffect(() => {
@@ -100,62 +105,75 @@ export function KawaiiGate({ catalog }: { catalog: Catalog }) {
 
   const price = Number(KAWAII_GATE.testnet.priceUsdc) / 1e6;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0a0718]/80 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-2xl border border-violet-500/40 bg-[#0d0a1a]/95 p-7 shadow-[0_0_60px_-15px_rgba(124,92,255,0.5)]">
+  if (!mounted) return null;
+  // Portal to <body> to escape the app's stacking context so the overlay sits
+  // above the header (z-100) and footer/player — they render behind it.
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto p-4">
+      {/* The overlay IS the MBV magenta-kawaii animated background (no tint layer). */}
+      <AnimatedBackground variant="pink" className="pointer-events-none absolute inset-0 h-full w-full" />
+      <div className="relative my-auto w-full max-w-2xl rounded-2xl border border-fuchsia-300/40 bg-[#1a0a18]/85 p-6 shadow-[0_0_80px_-10px_rgba(217,70,239,0.6)] sm:p-7">
+        {/* Title: "Kawaii Punks" (pink) · by [BU.FI typographic logo], like the header. */}
         <div className="text-center">
-          <div className="text-4xl">👻</div>
-          <h2 style={{ fontFamily: "Knicknack" }} className="mt-2 text-3xl text-violet-400">
-            Kawaii Punks
-          </h2>
-          <p className="mt-1 text-sm text-violet-200/70">Invite-only beta · Arc Testnet</p>
-          <p className="mt-3 text-xs text-violet-200/50">
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-3xl">👻</span>
+            <h2 className="font-knick text-3xl text-fuchsia-400">Kawaii Punks</h2>
+          </div>
+          <div className="mt-1 flex items-center justify-center gap-1.5">
+            <span className="font-knick text-sm text-violet-300">by</span>
+            <Image src="/assets/tipografico-alpha.png" alt="BU.FI" width={743} height={256} className="h-auto w-[64px] select-none invert" priority={false} />
+          </div>
+          <p className="mt-2 text-sm text-fuchsia-100/70">Invite-only beta · Arc Testnet</p>
+          <p className="mx-auto mt-2 max-w-md text-xs text-fuchsia-100/50">
             A customizable, cross-chain avatar. Powers up as you trade. Testnet is for trying it —
             upgrade to mainnet later to climb the leaderboard.
           </p>
         </div>
 
-        {/* Socials requisite (A.6 wires OAuth; for now links + manual verify) */}
-        <div className="mt-5">
-          <p className="text-xs font-medium text-violet-200/70">Follow to qualify (all 3):</p>
-          <div className="mt-2 flex gap-2">
-            {SOCIALS.map((s) => {
-              const ok = verifiedSocials.includes(s.id);
-              // discord/x → OAuth redirect; telegram → login widget (wired separately, A.6 note)
-              const href = address && s.id !== "telegram" ? `/api/kawaii/social/${s.id}/start?wallet=${address}` : undefined;
-              return (
-                <a
-                  key={s.id}
-                  href={href}
-                  className={`flex-1 rounded-full border py-1.5 text-center text-xs ${
-                    ok ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-200" : "border-violet-500/30 text-violet-100 hover:bg-violet-500/10"
-                  }`}
-                >
-                  {ok ? "✓ " : ""}
-                  {s.label}
-                </a>
-              );
-            })}
+        {/* Two columns: socials | fund */}
+        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <p className="text-xs font-medium text-fuchsia-100/70">Follow to qualify (all 3):</p>
+            <div className="mt-2 flex flex-col gap-2">
+              {SOCIALS.map((s) => {
+                const ok = verifiedSocials.includes(s.id);
+                const href = address && s.id !== "telegram" ? `/api/kawaii/social/${s.id}/start?wallet=${address}` : undefined;
+                return (
+                  <a
+                    key={s.id}
+                    href={href}
+                    className={`rounded-full border py-1.5 text-center text-xs ${
+                      ok ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-200" : "border-fuchsia-400/30 text-fuchsia-50 hover:bg-fuchsia-400/10"
+                    }`}
+                  >
+                    {ok ? "✓ " : ""}
+                    {s.label}
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+          <div className="flex flex-col justify-start">
+            <KawaiiFund />
           </div>
         </div>
 
-        {/* Base picker */}
+        {/* Avatar selector — full width below the columns */}
         <div className="mt-5">
-          <p className="text-xs font-medium text-violet-200/70">Choose your base:</p>
-          <div className="mt-2 grid grid-cols-4 gap-2">
-            {catalog.open.slice(0, 7).map((b) => (
+          <p className="text-xs font-medium text-fuchsia-100/70">Choose your base:</p>
+          <div className="mt-2 grid grid-cols-5 gap-2 sm:grid-cols-6">
+            {catalog.open.slice(0, 8).map((b) => (
               <button
                 key={b}
                 onClick={() => setBaseId(b)}
                 className={`aspect-square rounded-lg border text-[9px] ${
-                  baseId === b ? "border-violet-400 bg-violet-500/20" : "border-violet-500/20 hover:border-violet-500/40"
+                  baseId === b ? "border-fuchsia-400 bg-fuchsia-400/20" : "border-fuchsia-400/20 hover:border-fuchsia-400/40"
                 }`}
                 title={b}
               >
                 {b.replace(/^base_|\.png$/g, "").slice(0, 8)}
               </button>
             ))}
-            {/* Reserved — visible, locked */}
             {Object.entries(catalog.reserved).map(([k, v]) => (
               <div
                 key={k}
@@ -170,25 +188,24 @@ export function KawaiiGate({ catalog }: { catalog: Catalog }) {
           <p className="mt-1 text-[10px] text-amber-200/50">🔒 reserved for criptopoeta · danissblue · Jeremy Allaire · Circle</p>
         </div>
 
-        <KawaiiFund />
-
         <button
           onClick={mint}
           disabled={!isConnected || !baseId || busy}
-          className="mt-6 w-full rounded-full bg-white py-3 font-medium text-violet-700 transition hover:bg-violet-50 disabled:opacity-40"
+          className="mt-5 w-full rounded-full bg-white py-3 font-medium text-fuchsia-700 transition hover:bg-fuchsia-50 disabled:opacity-40"
         >
           {busy ? "…" : `Mint Kawaii Punk · ${price} USDC`}
         </button>
-        {status && <p className="mt-3 text-center text-xs text-violet-200/80">{status}</p>}
+        {status && <p className="mt-3 text-center text-xs text-fuchsia-100/80">{status}</p>}
 
-        <p className="mt-5 text-center text-[11px] text-violet-200/50">
+        <p className="mt-4 text-center text-[11px] text-fuchsia-100/50">
           No NFT?{" "}
-          <a href="https://mcp.bu.finance" className="text-violet-300 underline">
+          <a href="https://mcp.bu.finance" className="text-fuchsia-200 underline">
             Trade via our AI agent with nanopayments
           </a>{" "}
           — no mint needed.
         </p>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
