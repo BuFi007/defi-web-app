@@ -86,3 +86,32 @@ assigned (e.g. still the deployer EOA with a hot key), an attacker who compromis
 unpause/mis-configure hedging — confirm the role sits behind a timelock/multisig before mainnet.
 
 **Live sanity:** JPYC pool (`0xd194…3504`) currentDelta=0, isDeltaNeutral=true. ✅
+
+---
+
+## Family 4 — FxSwapHooks + FxRouter (`/api/fxswap/*`) · hooks `0xe66d/0x5410/0x04a1/0x72aE`, router `0xd660`
+
+**Routes:** `GET /fxswap/pools`, `GET /fxswap/quote?asset&amountIn&side`, `GET /fxswap/intent-shape` (doc).
+
+| Probe | Result | Verdict |
+|---|---|---|
+| Bad asset (`FAKE`) | 400 — zod enum | ✅ |
+| Junk amount (`abc`) | 400 — regex | ✅ |
+| Bad side (`hack`) | 400 — enum buy/sell | ✅ |
+| Huge amount (1e8, slippage probe) | handled (quote capped by tradable) | ✅ |
+| QCAD quote | graceful error — reverts `0x33d02f9b` (stale CAD feed) | ✅ |
+
+**Security-relevant properties:**
+- **Constant-spread MVP, no size-impact curve.** `effectiveSpreadBps` is flat (~30bps); price doesn't
+  slip with size, but fills are capped by `tradableAssets`. **Adversary note:** a quote can look fine
+  while the actual swap underfills/reverts because the pool is near-empty (AUDF `tradableAssets≈0`).
+  Until DODO-PMM ships, large swaps are liquidity-bounded, not price-bounded.
+- **Oracle-staleness DoS.** QCAD quotes revert because the CAD/USD feed is stale (cron-dependent).
+  If the CAD relayer cron (`0x861A…D3A6`) loses gas, **all QCAD swaps brick** — a liveness/DoS vector
+  worth a watchdog + alert.
+- **executeIntent guards (good):** EIP-712-signed `FxIntent`, pair must be allow-listed
+  (`setPairAllowed`), `feeBps ≤ maxFeeBps`, deadline-bounded, `nonReentrant`. **But** `setPairAllowed`/
+  `setSwapAdapter` are `onlyOwner` — same hot-key concern: a compromised owner could allow a malicious
+  pair or swap a drain adapter. Confirm owner = timelock/multisig.
+
+**Live sanity:** AUDF buy 100 USDC → ~0.0006 AUDF (pool near-empty, spread 30bps); QCAD reverts (stale). ✅
