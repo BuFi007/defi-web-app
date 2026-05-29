@@ -166,3 +166,38 @@ Contracts: FxMarginAccount `0x4EB6`, FxHealthChecker `0xA00B`, FxFundingEngine `
 
 **Live sanity:** agent margin 0 (no position), health = max-uint (no position), gateway balance
 0.0479 USDC. ✅
+
+---
+
+## Family 7 — Lending PREPARE (Morpho Blue) (`/api/lending/*-prepare`) · Morpho `0x3c9b`/`0x65f4`
+
+**Routes:** PREPARE-only `POST /api/lending/{supply,borrow,repay,withdraw}-prepare`.
+
+| Probe | Result | Verdict |
+|---|---|---|
+| Bad marketId (`0xbad`) | 400 — bytes32 regex | ✅ |
+| Bad amount (`-5`) | 400 — amount regex | ✅ |
+| Bad trader (`xx`) | 400 — addr regex | ✅ |
+| Unknown market (valid bytes32) | graceful error (not found on any Morpho) | ✅ |
+
+**Security-relevant property — marketParams come from on-chain, not the caller.** The prepare reads
+`idToMarketParams(marketId)` from Morpho itself and builds the call from that — so **a caller cannot
+inject a fake oracle/irm/lltv** to trick the MCP into a malicious market; the marketId must resolve on
+a real Morpho. supply/repay carry a loanToken→Morpho approval preflight; borrow/withdraw don't (you
+receive). All four are prepare-only (no key custody). Borrow reverts on-chain without pre-supplied
+collateral + health — enforced by Morpho, not the MCP.
+
+**Live sanity:** USDC market (`0x9e18…`) → supply/borrow/repay/withdraw prepares resolve on Morpho
+`0x3c9b` with correct marketParams + approval preflight. ✅
+
+---
+
+## Coverage: 100% — every deployed family exposed + probed
+
+oracle · vault/lp · hedge · fxswap · registry · perps · liquidation · gateway · lending.
+**Top risks for the security pass (severity order):** (1) **gateway authority = single deployer hot
+key** until Circle-1271 (cross-hub USDC custody — rotate first); (2) **QCAD/CAD oracle-staleness DoS**
+(cron-dependent, bricks QCAD swaps); (3) **`onlyOwner`/admin keys** on `setSwapAdapter`/`setPairAllowed`
+(router), `POOL_CONFIGURATOR_ROLE` (hedge), registry admins — all the deployer EOA; loosely-held →
+malicious-pair / drain-adapter / mis-route vectors. All write paths in the MCP are prepare-only
+(unsigned; the user signs) — the MCP holds no keys and moves no funds.
