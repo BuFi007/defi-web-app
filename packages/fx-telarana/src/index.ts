@@ -14,6 +14,7 @@
 export * from "./chains";
 export * from "./clients";
 export * from "./constants";
+export * from "./fxSwap";
 export * from "./errors";
 export * from "./intent-verification";
 export * from "./intents";
