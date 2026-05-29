@@ -50,4 +50,4 @@ export const RESERVED_BASES = {
 export const RESERVED_BASE_IDS = Object.keys(RESERVED_BASES) as Array<keyof typeof RESERVED_BASES>;
 
 /** All mints: server computes the uri; reject any client uri/cid/tokenId/to. CIDv1 ipfs:// only. */
-export const KAWAII_URI_REGEX = /^ipfs:\/\/baf[1-9A-HJ-NP-Za-km-z]{20,}$/;
+export const KAWAII_URI_REGEX = /^ipfs:\/\/baf[a-z2-7]{20,}$/; // CIDv1 base32 (Pinata default), lowercase a-z + 2-7

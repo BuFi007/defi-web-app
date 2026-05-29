@@ -1,4 +1,13 @@
 import { initiateDeveloperControlledWalletsClient } from "@circle-fin/developer-controlled-wallets";
+import { getAddress } from "viem";
+import { createHash } from "node:crypto";
+
+/** Circle requires a UUID-format idempotencyKey; derive a deterministic one
+ *  from our key so retries dedup at Circle too. */
+function toUuid(s: string): string {
+  const h = createHash("sha256").update(s).digest("hex");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
 import { prisma } from "../prisma";
 import { KAWAII_GATE, RESERVED_BASES, RESERVED_BASE_IDS, KAWAII_NEW_TOKEN_ID } from "./config";
 import { composeAvatar, type AvatarSelection } from "./compose";
@@ -86,9 +95,9 @@ export async function mintAvatar(input: MintInput) {
     walletId: cfg.circleWalletId,
     contractAddress: cfg.nft,
     abiFunctionSignature: "mintTo(address,uint256,string,uint256)",
-    abiParameters: [wallet, KAWAII_NEW_TOKEN_ID.toString(), uri, "1"],
+    abiParameters: [getAddress(input.wallet), KAWAII_NEW_TOKEN_ID.toString(), uri, "1"],
     fee: { type: "level", config: { feeLevel: "MEDIUM" } },
-    idempotencyKey: input.idempotencyKey,
+    idempotencyKey: toUuid(input.idempotencyKey),
   } as Parameters<typeof circle.createContractExecutionTransaction>[0]);
   const txId = (res.data as { id?: string })?.id;
 
