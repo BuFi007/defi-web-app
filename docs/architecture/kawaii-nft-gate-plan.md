@@ -145,6 +145,21 @@ by distinct counterparties — so self-trading can't farm VIP. (Detailed in Phas
 
 → **Plan is final. Ready to build Phase A.**
 
+## Factory decision + Rare/SuperRare lessons + reserved bases (2026-05-29)
+**Factory: NO (now) — Circle SCP IS our factory.** Verified: our contract is an EIP-1167 clone of the explorer-verified `TokenERC1155` impl `0xCCf28A443e35F8bD982b8E8651bE9f6caFEd4672` — i.e. Circle SCP already clones a verified impl per deploy. Avatar "bases" are token-id/metadata families inside ONE ERC-1155, not separate collections, so a custom factory adds nothing. We deploy just 2 collections (Arc + Avalanche).
+- **How Rare/SuperRare do it (for reference):** `SovereignBatchMintFactory` deploys per-creator ERC-721 collections (`SovereignBatchMint` = ERC-721 + batch mint + IPFS + protocol registry); `SuperRareBazaar` runs reserve-price auctions; agent-friendly CLI (`rare deploy erc721`, `rare mint`). Their factory exists to let each *creator deploy their own separate contract* (SuperRare 2.0 "series").
+- **Borrow now:** agent-driven mint (our MCP mint tool ✓), IPFS metadata + a registry (✓), EIP-2981 royalty defaults (TokenERC1155 supports it). **Defer:** the Bazaar auction house + per-creator factory.
+- **Factory trigger (flip to YES later):** per-creator/per-artist *separate* avatar collections (own contract/royalties), self-serve sub-collections, or on-chain auctions.
+
+### Reserved bases + CID-attack protection (workflow-designed)
+- **Bases are a backend abstraction**; the contract has no "base" concept and `mintTo(to,tokenId,uri,amount)` takes the caller's `uri` → **reserved-base protection lives in the MINT SERVICE (the only Circle-cred holder), never on-chain/UI.**
+- **Reserved** (visible, locked, non-mintable by others): `criptopoeta` (X), `daniss` (danissblue/Behance), `mcduck` (Jeremy Allaire/X). See `RESERVED_BASES` in `lib/kawaii/config.ts`.
+- **Mint-service rules:** reject any client `uri`/`cid`/`tokenId`/`to` (log it); validate `baseId` enum; reserved `baseId` ⇒ `caller == RESERVED_OWNER[baseId]` else 403 + mint-once; server-compute the CIDv1 `ipfs://` uri (regex-guarded, no gateway/ipns/query); always pass `type(uint256).max` sentinel; idempotency key; record `reservedTokenId/reservedCid` in the same txn.
+- **Verified badge = 3-way match** (tokenId ∈ registry ∧ on-chain `uri(tokenId)` == `ipfs://reservedCid` ∧ signed attestation), server-computed. Reserved CIDs pinned to 2 services, never unpinned. Owner line links to the holder's public X/Behance claim.
+
+### Contract verification — 4/4 PASS
+EIP-1167 proxy → impl `0xCCf28A44…d4672` (live, 22.7KB); Blockscout `proxy_type:eip1167`, proxy + impl `is_verified:true` (75 ABI entries); `supportsInterface(ERC1155)`=true, `name()`="Kawaii Punks", `symbol()`="KAWAII", `contractURI()` set; admin/owner `0xa439…29f0`; `mintTo` selector `0xb03f4528` present. Only nit: not yet in Blockscout's token index (no Transfer yet) — re-check after first mint.
+
 ## Build progress
 - ✅ **A.1 — Prisma + whitelist** (commit `9a999c0`): Prisma 6 on Prisma Postgres; tables `gate_whitelist`/`social_verifications`/`mints`/`bento_mirror` applied additively (migrate-diff + db-execute — avoided a `db push` that would've dropped live `fx_bento_worker_jobs`). Owner seeded as row 1. Client `apps/web/lib/prisma.ts`, seed `apps/web/prisma/seed.ts`.
 - ✅ **A.2 — Circle SCP ERC-1155 on Arc Testnet**: **KawaiiPunks `0x01b6991451e8a0f45C37bb11bf5CeC1aA4D9024e`** (Circle contractId `019e74f4-40b6-74f7-99f4-f22aba89a19f`, walletId `4cbcd349-3bbe-541f-9baa-acc1fff72333`, mint authority/DCW `0xa439…29f0`, earnings → testnet agent). Deploy script `sendero/scripts/deploy-kawaii-template.ts`. Config `apps/web/lib/kawaii/config.ts`.

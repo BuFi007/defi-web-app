@@ -26,3 +26,24 @@ export const KAWAII_GATE = {
 } as const;
 
 export type KawaiiTierKey = keyof typeof KAWAII_GATE;
+
+/**
+ * Avatar bases = a BACKEND abstraction (token-id family / metadata template)
+ * within the single ERC-1155 — NOT separate contracts, so no factory needed
+ * (Circle SCP is already a managed EIP-1167 clone factory; impl below).
+ * Reserved bases are visible in the picker but NOT mintable by others:
+ * enforced in the MINT SERVICE (403), never only the UI. Owner line is shown
+ * from this registry keyed by tokenId; CID/uri is ALWAYS server-computed.
+ */
+export const KAWAII_IMPL = "0xCCf28A443e35F8bD982b8E8651bE9f6caFEd4672"; // verified TokenERC1155 impl the clone delegates to
+
+export const RESERVED_BASES = {
+  criptopoeta: { display: "criptopoeta", platform: "x", claimUrl: "https://x.com/criptopoeta", ownerWallet: "0xcA02Be6cDBb806d4a327FC92E094D1A44EC37445" },
+  daniss: { display: "danissblue", platform: "behance", claimUrl: "https://www.behance.net/danissblue", ownerWallet: null /* TBD */ },
+  mcduck: { display: "Jeremy Allaire", platform: "x", claimUrl: "https://x.com/jerallaire", ownerWallet: null /* TBD */ },
+} as const;
+
+export const RESERVED_BASE_IDS = Object.keys(RESERVED_BASES) as Array<keyof typeof RESERVED_BASES>;
+
+/** All mints: server computes the uri; reject any client uri/cid/tokenId/to. CIDv1 ipfs:// only. */
+export const KAWAII_URI_REGEX = /^ipfs:\/\/baf[1-9A-HJ-NP-Za-km-z]{20,}$/;
