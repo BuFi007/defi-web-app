@@ -39,7 +39,7 @@ function Leg({ arrow, accent, label }: { arrow: string; accent: typeof ACCENTS.l
 
 function DeltaInfo() {
   return (
-    <div className={cn("mt-2 rounded-xl border p-3", HAIR)}>
+    <div className={cn("rounded-xl border p-3", HAIR)}>
       <div className={cn("mb-2 text-[10px] font-semibold uppercase tracking-[0.16em]", ACCENTS.hedge.text)}>
         why it&apos;s safe to try
       </div>
@@ -88,35 +88,38 @@ function FootLink({ href, children, ext }: { href: string; children: React.React
 
 export function AiDocs() {
   return (
-    <main className="mx-auto w-full max-w-xl self-start p-2.5 sm:p-3">
+    <main className="mx-auto w-full max-w-3xl self-start p-2 sm:p-2.5">
       <Plane>
         <header>
-          <h1 className={cn("font-knick text-[22px] font-bold leading-none tracking-tight", INK)}>agent</h1>
-          <p className={cn("mt-1.5 text-[13px] leading-relaxed", MUTE)}>
+          <h1 className={cn("font-knick text-[20px] font-bold leading-none tracking-tight", INK)}>Agent</h1>
+          <p className={cn("mt-1 text-[12px] leading-snug", MUTE)}>
             One MCP URL to trade, lend, LP, hedge, and run private swaps. You sign every write.
           </p>
         </header>
 
-        <div className={cn("my-3 border-t", HAIR)} />
+        <div className={cn("my-2 border-t", HAIR)} />
 
-        <div className="space-y-2.5">
-          <Reveal n={1}><CopyRow n={1} label="connect" accent={ACCENTS.lp} text={CONNECT} /></Reveal>
-          <Reveal n={2}>
-            <CopyRow n={2} label="try this" accent={ACCENTS.oracle} text={EXAMPLE} />
-            <DeltaInfo />
-          </Reveal>
-          <Reveal n={3}>
-            <Module n={3} label="What it can do" accent={ACCENTS.hedge}>
-              <div className="flex flex-wrap gap-1.5">
-                {CAPS.map((c) => (
-                  <span key={c.code} className={cn("inline-flex items-center gap-1.5 rounded-md border px-2 py-1", HAIR)}>
-                    <span className={cn("h-2 w-2 rounded-[2px]", c.acc.bg)} />
-                    <span className={cn("text-[11px] font-medium", INK)}>{c.name}</span>
-                  </span>
-                ))}
-              </div>
-            </Module>
-          </Reveal>
+        {/* Two columns on md+ (shorter card → survives the Discord banner push); stacks on mobile. */}
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-3">
+          <div className="space-y-2">
+            <Reveal n={1}><CopyRow n={1} label="connect" accent={ACCENTS.lp} text={CONNECT} /></Reveal>
+            <Reveal n={2}><CopyRow n={2} label="try this" accent={ACCENTS.oracle} text={EXAMPLE} /></Reveal>
+          </div>
+          <div className="space-y-2">
+            <Reveal n={3}><DeltaInfo /></Reveal>
+            <Reveal n={4}>
+              <Module n={3} label="What it can do" accent={ACCENTS.hedge}>
+                <div className="flex flex-wrap gap-1.5">
+                  {CAPS.map((c) => (
+                    <span key={c.code} className={cn("inline-flex items-center gap-1.5 rounded-md border px-2 py-1", HAIR)}>
+                      <span className={cn("h-2 w-2 rounded-[2px]", c.acc.bg)} />
+                      <span className={cn("text-[11px] font-medium", INK)}>{c.name}</span>
+                    </span>
+                  ))}
+                </div>
+              </Module>
+            </Reveal>
+          </div>
         </div>
 
         <div className={cn("mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]", MUTE)}>
