@@ -54,6 +54,35 @@ const PRIVACY_NOTICE = {
   trackedFix: "fixed denominations + anonymity-set gating (see DOGFOOD_PLAN.md Phase 3)",
 } as const;
 
+// Relayer submission (fx-telarana packages/relayer-privacy). Submitting the
+// signed proof through the relayer makes the RELAYER the on-chain msg.sender,
+// so the user's EOA never appears — the meta-tx privacy fix. When unset, agents
+// fall back to self-submitting (which reveals their address as the gas-payer).
+// NOTE: cross-currency is gated on-chain — relayCrossCurrency reverts
+// `SwapAdapterNotSet` until an IFxRouterSwapAdapter ships (FxSwapHook Phase 2.5).
+const GHOST_RELAYER_URL = process.env.GHOST_RELAYER_URL ?? "";
+
+function crossCurrencyRelayerSubmission() {
+  if (!GHOST_RELAYER_URL) {
+    return {
+      available: false,
+      note: "No relayer configured (GHOST_RELAYER_URL unset). You would self-submit relayCrossCurrency, which makes YOUR address the on-chain msg.sender — a deanonymization leak. Prefer a relayer.",
+    };
+  }
+  return {
+    available: true,
+    endpoint: `${GHOST_RELAYER_URL}/v1/relayCrossCurrency`,
+    method: "POST",
+    why: "the relayer broadcasts the tx, so the relayer (not your wallet) is msg.sender — your address never touches the chain",
+    onchainStatus: "cross-currency reverts SwapAdapterNotSet until the swap adapter ships (FxSwapHook Phase 2.5)",
+    requestShape: {
+      scope: "<decimal string>",
+      data: { recipient: "0x…", feeRecipient: "0x…", relayFeeBPS: "<string>", buyToken: "0x…", minBuyAmount: "<string>" },
+      proof: { pA: ["<s>", "<s>"], pB: [["<s>", "<s>"], ["<s>", "<s>"]], pC: ["<s>", "<s>"], pubSignals: ["<s8>"] },
+    },
+  };
+}
+
 const ghostPools = route
   .get("/ghost/pools")
   .use(cache({ maxAge: 60, staleWhileRevalidate: 120 }))
@@ -242,6 +271,7 @@ const ghostSwap = route
         note: "Same Groth16 proof as relay, but the swap adapter handles the cross-currency conversion atomically.",
       },
       chainId: ARC_CHAIN_ID,
+      relayerSubmission: crossCurrencyRelayerSubmission(),
       privacyNotice: PRIVACY_NOTICE,
     });
   });
