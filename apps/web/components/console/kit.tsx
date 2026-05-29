@@ -252,7 +252,7 @@ export function CopyRow({ label, accent, text, n }: { label: string; accent: Acc
           type="button"
           onClick={() => { navigator.clipboard?.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1400); }}
           className={cn(
-            "flex shrink-0 flex-col items-center justify-center gap-1 self-stretch border-l px-3 text-[10px] font-semibold uppercase tracking-[0.14em] transition-transform active:scale-[0.97]",
+            "flex w-[64px] shrink-0 flex-col items-center justify-center gap-1 self-stretch border-l text-[10px] font-semibold uppercase tracking-[0.14em] transition-transform active:scale-[0.97]",
             HAIR, copied ? accent.text : MUTE, "hover:bg-purpleDanis/[0.05] dark:hover:bg-white/[0.05]",
           )}
           aria-label={copied ? "Copied" : "Copy"}

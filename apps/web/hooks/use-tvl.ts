@@ -6,6 +6,7 @@ import {
   fetchMarkets,
   type TelaranaMarketSerialized,
 } from "@/lib/telarana/client";
+import { mcpFetch } from "@/lib/protocol/client";
 
 const POLL_MS = 30_000;
 
@@ -51,41 +52,49 @@ export interface TvlData {
   totalTvl: number;
   breakdown: TvlChainBreakdown[];
   morphoTvl: number;
-  perpsTvl: number;
   vaultTvl: number;
-  poolsTvl: number;
+  gatewayTvl: number;
 }
 
 const EMPTY: TvlData = {
   totalTvl: 0,
   breakdown: [],
   morphoTvl: 0,
-  perpsTvl: 0,
   vaultTvl: 0,
-  poolsTvl: 0,
+  gatewayTvl: 0,
 };
 
-function buildTvl(markets: TelaranaMarketSerialized[]): TvlData {
+const ARC_CHAIN_ID = 5042002;
+
+// morphoTvl = lending supply (bufx API). vaultTvl/gatewayTvl come from the MCP
+// protocol reads (SharedFxVault depths + FxGatewayHook) so the numbers are exact
+// per the contracts. The vault junior buffer (USD) also shows in the breakdown.
+function buildTvl(markets: TelaranaMarketSerialized[], vaultTvl: number, gatewayTvl: number): TvlData {
   const byChain = new Map<number, Map<string, number>>();
+  let morphoTvl = 0;
 
   for (const m of markets) {
     const supply = parseSupply(m);
     if (supply <= 0) continue;
-
+    morphoTvl += supply;
     const sym = symbolOf(m.loanToken);
     if (!byChain.has(m.hubChainId)) byChain.set(m.hubChainId, new Map());
     const chainMap = byChain.get(m.hubChainId)!;
     chainMap.set(sym, (chainMap.get(sym) ?? 0) + supply);
   }
 
-  let totalTvl = 0;
-  const breakdown: TvlChainBreakdown[] = [];
+  // Vault junior buffer (USD-denominated) is protocol-owned liquidity on Arc.
+  if (vaultTvl > 0) {
+    if (!byChain.has(ARC_CHAIN_ID)) byChain.set(ARC_CHAIN_ID, new Map());
+    const arc = byChain.get(ARC_CHAIN_ID)!;
+    arc.set("Vault", (arc.get("Vault") ?? 0) + vaultTvl);
+  }
 
+  const breakdown: TvlChainBreakdown[] = [];
   for (const [chainId, assetMap] of byChain) {
     const assets: TvlAsset[] = [];
     for (const [symbol, amount] of assetMap) {
       assets.push({ symbol, amount, usdValue: amount });
-      totalTvl += amount;
     }
     assets.sort((a, b) => b.usdValue - a.usdValue);
     breakdown.push({
@@ -102,17 +111,18 @@ function buildTvl(markets: TelaranaMarketSerialized[]): TvlData {
   });
 
   return {
-    totalTvl,
+    totalTvl: morphoTvl + vaultTvl + gatewayTvl,
     breakdown,
-    morphoTvl: totalTvl,
-    perpsTvl: 0,
-    vaultTvl: 0,
-    poolsTvl: 0,
+    morphoTvl,
+    vaultTvl,
+    gatewayTvl,
   };
 }
 
 export function useTvl(): TvlData {
   const [markets, setMarkets] = useState<TelaranaMarketSerialized[]>([]);
+  const [vaultTvl, setVaultTvl] = useState(0);
+  const [gatewayTvl, setGatewayTvl] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -128,6 +138,20 @@ export function useTvl(): TvlData {
     } catch {
       // keep stale data
     }
+    // Protocol-owned liquidity from the MCP (exact per contracts): vault junior
+    // buffer (USD) + cross-hub gateway balance. Each guarded independently.
+    try {
+      const v = await mcpFetch<{ totalJuniorUsdc?: string; seniorUsdcHot?: string }>("/api/vault/depths");
+      setVaultTvl((Number(v?.totalJuniorUsdc) || 0) + (Number(v?.seniorUsdcHot) || 0));
+    } catch {
+      // keep stale
+    }
+    try {
+      const g = await mcpFetch<{ gatewayBalance?: string }>("/api/gateway/info");
+      setGatewayTvl(Number(g?.gatewayBalance) || 0);
+    } catch {
+      // keep stale
+    }
   }, []);
 
   useEffect(() => {
@@ -136,7 +160,10 @@ export function useTvl(): TvlData {
     return () => window.clearInterval(id);
   }, [load]);
 
-  return useMemo(() => (markets.length ? buildTvl(markets) : EMPTY), [markets]);
+  return useMemo(
+    () => (markets.length || vaultTvl || gatewayTvl ? buildTvl(markets, vaultTvl, gatewayTvl) : EMPTY),
+    [markets, vaultTvl, gatewayTvl],
+  );
 }
 
 function guessSymbols(

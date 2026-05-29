@@ -208,7 +208,7 @@ export function ProtocolDashboard() {
       <Plane>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className={cn("font-knick text-[22px] font-bold leading-none tracking-tight", INK)}>console</h1>
+            <h1 className={cn("font-knick text-[22px] font-bold leading-none tracking-tight", INK)}>Console</h1>
             <p className={cn("mt-1 text-[11px]", MUTE)}>bu.finance protocol</p>
           </div>
           <span className="flex items-center gap-1.5">

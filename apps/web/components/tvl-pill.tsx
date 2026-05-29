@@ -125,10 +125,9 @@ function ExpandedContent({
       )}
 
       <div className="border-t border-purpleDanis/10 dark:border-white/10 pt-2 grid grid-cols-2 gap-x-3 gap-y-1">
-        <MiniStat label="Morpho" value={tvl.morphoTvl} />
+        <MiniStat label="Lending" value={tvl.morphoTvl} />
         <MiniStat label="Vault" value={tvl.vaultTvl} />
-        <MiniStat label="Perps" value={tvl.perpsTvl} />
-        <MiniStat label="Pools" value={tvl.poolsTvl} />
+        <MiniStat label="Gateway" value={tvl.gatewayTvl} />
       </div>
 
       <div className="flex items-center justify-center gap-1.5 pt-1 pb-0.5">
