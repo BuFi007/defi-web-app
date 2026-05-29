@@ -82,13 +82,21 @@ const HeaderFull: React.FC = () => {
         </div>
         <div className="flex items-center justify-end">
           <span className="h-px flex-grow bg-purpleDanis"></span>
-          <Suspense fallback={<WalletControlsSkeleton />}>
-            <div className="flex items-center gap-3 z-20">
-              <McpInstallDropdown />
-              <IdentityBadge />
-              <ConnectKitButton />
-            </div>
-          </Suspense>
+          <div className="flex flex-col items-end gap-1.5">
+            <Suspense fallback={<WalletControlsSkeleton />}>
+              <div className="flex items-center gap-3 z-20">
+                <McpInstallDropdown />
+                <IdentityBadge />
+                <ConnectKitButton />
+              </div>
+            </Suspense>
+            <a
+              href="/ai"
+              className="z-20 flex items-center gap-1 rounded-full border border-purpleDanis/25 px-2.5 py-0.5 text-[11px] font-medium text-purpleDanis transition-colors hover:bg-purpleDanis/10 dark:border-violetDanis/30 dark:text-violetDanis dark:hover:bg-white/5"
+            >
+              <span aria-hidden>✦</span> Agent Docs
+            </a>
+          </div>
         </div>
       </div>
     </>
