@@ -5,6 +5,7 @@ import { useAccount, useSignMessage, useWriteContract } from "wagmi";
 import { createPublicClient, http, parseAbi } from "viem";
 import { arcTestnet } from "viem/chains";
 import { KAWAII_GATE } from "@/lib/kawaii/config";
+import { KawaiiFund } from "./kawaii-fund";
 
 /**
  * Kawaii Punks invite gate — ADDITIVE overlay, modeled on Tower Exchange's
@@ -168,6 +169,8 @@ export function KawaiiGate({ catalog }: { catalog: Catalog }) {
           </div>
           <p className="mt-1 text-[10px] text-amber-200/50">🔒 reserved for criptopoeta · danissblue · Jeremy Allaire · Circle</p>
         </div>
+
+        <KawaiiFund />
 
         <button
           onClick={mint}
