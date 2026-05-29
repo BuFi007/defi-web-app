@@ -23,6 +23,20 @@ export function initSentry() {
           event.exception?.values?.[0]?.type ?? "Error",
         ].filter(Boolean);
       }
+      // Privacy: ghost/shielded-pool requests carry depositor/recipient/amount,
+      // which are correlatable (see PRIVACY_HARDENING_SPEC.md #7). sendDefaultPii
+      // is on, so scrub request data for any ghost-related event before it leaves
+      // the process — Sentry must never become an off-chain deanonymization sink.
+      const tool = event.tags?.["mcp.tool"];
+      const url = event.request?.url ?? "";
+      const isGhost =
+        (typeof tool === "string" && tool.includes("ghost")) || url.includes("/ghost");
+      if (isGhost && event.request) {
+        delete event.request.data;
+        delete event.request.query_string;
+        delete event.request.cookies;
+        if (event.request.headers) delete event.request.headers;
+      }
       return event;
     },
   });
