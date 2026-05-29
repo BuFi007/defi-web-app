@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createPublicClient, createWalletClient, http, parseAbi } from "viem";
+import { createPublicClient, createWalletClient, fallback, http, parseAbi } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { arcTestnet } from "viem/chains";
 
@@ -36,9 +36,17 @@ const SANITY_MIN_CAD_USD = 0.5; // plausible CAD/USD band (≈ 2.0 USD/CAD)
 const SANITY_MAX_CAD_USD = 1.0; // (≈ 1.0 USD/CAD)
 const MAX_STEP_BPS = 500; // reject a single update that jumps > 5% vs on-chain
 
-function arcRpc() {
-  // Paid dRPC in prod (env), public fallback. Never commit the key.
-  return process.env.ARC_RPC_URL || arcTestnet.rpcUrls.default.http[0];
+function arcTransport() {
+  // Failover chain: paid dRPC (ARC_RPC_URL) → secondary (ARC_RPC_FALLBACK_URL)
+  // → public Arc RPCs. viem's fallback() ranks by latency and retries the next
+  // url on error, so a single dRPC outage doesn't stall the keeper. Env URLs may
+  // carry API keys — never commit them.
+  const urls = [
+    process.env.ARC_RPC_URL,
+    process.env.ARC_RPC_FALLBACK_URL,
+    ...arcTestnet.rpcUrls.default.http,
+  ].filter((u): u is string => !!u);
+  return fallback(urls.map((u) => http(u)));
 }
 
 export async function GET(req: NextRequest) {
@@ -95,7 +103,7 @@ export async function GET(req: NextRequest) {
   const answer = BigInt(Math.round(cadUsd * 1e8));
 
   // 4. Circuit-break against a wild jump vs the current on-chain value.
-  const publicClient = createPublicClient({ chain: arcTestnet, transport: http(arcRpc()) });
+  const publicClient = createPublicClient({ chain: arcTestnet, transport: arcTransport() });
   let prevAnswer = 0n;
   try {
     const [, prev] = await publicClient.readContract({
@@ -121,7 +129,7 @@ export async function GET(req: NextRequest) {
   // 5. Push setPrice from KEEPER. (Plain contract call — not a native-USDC
   // transfer — so it routes fine despite Arc's USDC blocklist precompile.)
   const account = privateKeyToAccount(pk.startsWith("0x") ? (pk as `0x${string}`) : (`0x${pk}` as `0x${string}`));
-  const walletClient = createWalletClient({ account, chain: arcTestnet, transport: http(arcRpc()) });
+  const walletClient = createWalletClient({ account, chain: arcTestnet, transport: arcTransport() });
   let txHash: string;
   try {
     txHash = await walletClient.writeContract({
