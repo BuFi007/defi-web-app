@@ -83,11 +83,20 @@ Re-fetch/verify command is in `fx-telarana/docs/PRIVACY_HOOK_VENDOR_MAP.md`.
 
 **Recommended first slice (lowest risk, no live-path change):** bring the relayer into the fx tree as a package, add the `relayCrossCurrency` branch to `broadcastWithdrawal`, configure it for the testnet pools, and verify locally that a **same-asset** withdrawal broadcasts with the relayer as `msg.sender` — before touching the SDK/MCP submission path. Funding a relayer key + deploying the service is an infra step that needs sign-off.
 
-### Prototype done (2026-05-28) — `relayCrossCurrency` branch validated
+### CORRECTION (2026-05-28) — the relayer already exists; don't build it
 
-Wrote a self-contained extension (`discovery/privacy-pools-core/packages/relayer/src/providers/fx-cross-currency.ts`, gitignored) and **typechecked it clean against viem**. It proves the feasibility + exact call shape:
-- `FX_RELAY_CROSS_CURRENCY_ABI` — fragment taken verbatim from `FxPrivacyEntrypoint.relayCrossCurrency(Withdrawal,WithdrawProof,uint256)`.
-- `broadcastCrossCurrencyWithdrawal({walletClient, account, chain, entrypoint, withdrawal, proof, scope})` → `writeContract(...)` with the **relayer as `msg.sender`** (the fix).
-- `isCrossCurrencyWithdrawal(data)` — decodes `Withdrawal.data` as the 5-field `CrossCurrencyRelayData` to route base-`relay()` vs `relayCrossCurrency` in `broadcastWithdrawal`.
+Grepping the fx packages (which I should have done first) found the relayer is **already built and tested**:
+- **`fx-telarana/packages/relayer-privacy`** — a cross-currency relayer HTTP API (Hono) with `POST /v1/relayCrossCurrency`, submitting via `PrivacyContractsService.relayCrossCurrency(wallet, …)` so the **relayer is `msg.sender`**. Rate-limit, dry-run, max-fee guard, ASP postman, persistence. **27 tests pass.**
+- **`fx-telarana/packages/privacy-prover`** — includes `scripts/b5-cross-currency.ts`, an end-to-end relayCrossCurrency caller.
+- The 0xbow SDK is **published on npm** (`@0xbow/privacy-pools-core-sdk`), so no SDK vendoring needed.
 
-**De-risked:** the extension compiles and the contract-call shape is correct. **Remaining (gated):** (1) bring-in decision A (vendor) vs B (overlay); (2) funded relayer key + deployed endpoint for a live testnet broadcast; (3) point the fx SDK/MCP relay path at `POST /relayer/request`. The prototype module drops straight into `sdk.provider.ts` `broadcastWithdrawal` once the relayer is vendored.
+The discovery-clone prototype I wrote was redundant and has been removed. Vendoring (decision A/B) is moot — it's already in-repo.
+
+**The actual blocker (from README.md:159 / HANDOFF_PRIVACY_HOOK.md:107):** cross-currency is **NOT live on-chain** — `FxPrivacyEntrypoint.relayCrossCurrency()` reverts **`SwapAdapterNotSet`**. v1 is USDC-only; cross-currency unlocks only when a concrete `IFxRouterSwapAdapter` ships against `FxSwapHook` (the Phase-2.5 swap hook, "IN PROGRESS / constant-spread MVP" per fx-telarana CLAUDE.md).
+
+**Corrected remaining work (gated, in priority order):**
+1. **`IFxRouterSwapAdapter` against `FxSwapHook`** — the on-chain blocker; until it's deployed + `setSwapAdapter` is called, the whole cross-currency path reverts. Contract work in fx-telarana, review-gated.
+2. **Deploy `relayer-privacy`** — funded relayer key + endpoint (infra/ops).
+3. **MCP/SDK integration** — `defi-web-app` `ghost.ts` still hardcodes `relayer: 0x000…000` and returns params for the client to submit; point `ghost_relay`/`ghost_swap` at the deployed `/v1/relayCrossCurrency` endpoint.
+
+For SAME-ASSET shielded withdrawals (USDC→USDC to a fresh address), the base 0xbow `relay()` path is live and the relayer-as-`msg.sender` fix applies today — that's the unblocked slice.
