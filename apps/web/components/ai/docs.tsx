@@ -65,7 +65,7 @@ export function AiDocs() {
             run private (ghost) swaps, LP into the vault, and read oracle / hedge state.
           </p>
           <p className={cn("mt-1 text-[12px] leading-relaxed", MUTE)}>
-            No SDK, no keys held by us — writes come back as unsigned calls you sign.
+            No SDK, no keys held by us. Writes come back as unsigned calls you sign.
           </p>
         </header>
 

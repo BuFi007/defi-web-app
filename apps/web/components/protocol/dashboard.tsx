@@ -237,7 +237,7 @@ export function ProtocolDashboard() {
         <div className={cn("my-3.5 border-t", HAIR)} />
         <Legend items={LEGEND} />
 
-        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-12">
+        <div className="mt-4 grid grid-cols-1 gap-2.5 sm:gap-3 md:grid-cols-12 md:items-start">
           <LpModule />
           <OracleModule />
           <HedgeModule />
