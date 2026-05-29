@@ -183,11 +183,12 @@ What an agent CAN control today to reduce linkability:
 4. Delay between deposit and withdrawal. Depositing and withdrawing in adjacent
    blocks is a timing correlation that links the two legs even without amount
    matching. Wait, and let other deposits land in between.
-5. Prefer same-asset relay over cross-currency. Same-asset relay() is unblocked
-   on-chain and leaks the least. Cross-currency (ghost_swap / relayCrossCurrency)
-   is gated on-chain (reverts SwapAdapterNotSet today) AND emits both amountIn
-   and amountOut at a fixed rate, so the source amount is recoverable across
-   assets — it leaks strictly more. Avoid it for privacy.
+5. Prefer same-asset relay over cross-currency. Same-asset relay() leaks the
+   least. Cross-currency (ghost_swap / relayCrossCurrency) is now LIVE on-chain
+   (the swap adapter is wired into the entrypoint — no longer reverts) BUT it
+   emits both amountIn and amountOut at a fixed rate, so the source amount is
+   recoverable across assets — it leaks strictly more. Prefer same-asset for
+   privacy.
 
 Reminder: the deposit event itself is always public (depositor + amount). The
 above reduces how easily the WITHDRAWAL re-links to that deposit; it cannot

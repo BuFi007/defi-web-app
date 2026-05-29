@@ -12,7 +12,14 @@ const arcClient = createPublicClient({
   transport: fallback([http(ARC_RPC), http(ARC_RPC_FALLBACK)]),
 });
 
-const PRIVACY_ENTRYPOINT = "0xd1bEB7Ba76D234c65e26F9F53e7efD1b1f36f985" as Address;
+// Live FxPrivacyEntrypoint proxy on Arc (fx-telarana deployments/privacy-hook-arc.json).
+// Verified on-chain 2026-05-29: swapAdapter()=0x3Fa1AcC8…27f2 (set, caller-gated),
+// latestRoot() non-zero. The prior address (0xd1bEB7…f985) had NO code — a stale
+// pointer that made every latestRoot read silently fall back to null.
+const PRIVACY_ENTRYPOINT = "0xD11cDdd1f04e850d3810a71608A49907c80f2736" as Address;
+// FxFixedRateSwapAdapter v2 wired into the entrypoint for atomic cross-currency
+// relay (USDC↔EURC). setSwapAdapter is done — relayCrossCurrency no longer reverts.
+const SWAP_ADAPTER = "0x3Fa1AcC89DFd52f6692F20b7E49cD58A306C27f2" as Address;
 
 interface PoolInfo {
   symbol: string;
@@ -61,8 +68,9 @@ const PRIVACY_NOTICE = {
 // signed proof through the relayer makes the RELAYER the on-chain msg.sender,
 // so the user's EOA never appears — the meta-tx privacy fix. When unset, agents
 // fall back to self-submitting (which reveals their address as the gas-payer).
-// NOTE: cross-currency is gated on-chain — relayCrossCurrency reverts
-// `SwapAdapterNotSet` until an IFxRouterSwapAdapter ships (FxSwapHook Phase 2.5).
+// NOTE: cross-currency is now UNBLOCKED on-chain — the swap adapter
+// (0x3Fa1AcC8…27f2) is wired into the entrypoint, so relayCrossCurrency executes
+// the USDC↔EURC conversion atomically (no longer reverts SwapAdapterNotSet).
 const GHOST_RELAYER_URL = process.env.GHOST_RELAYER_URL ?? "";
 
 function crossCurrencyRelayerSubmission() {
@@ -77,7 +85,7 @@ function crossCurrencyRelayerSubmission() {
     endpoint: `${GHOST_RELAYER_URL}/v1/relayCrossCurrency`,
     method: "POST",
     why: "the relayer broadcasts the tx, so the relayer (not your wallet) is msg.sender — your address never touches the chain",
-    onchainStatus: "cross-currency reverts SwapAdapterNotSet until the swap adapter ships (FxSwapHook Phase 2.5)",
+    onchainStatus: "LIVE — swap adapter wired (setSwapAdapter done); relayCrossCurrency executes USDC↔EURC atomically. Still leaks amountIn+amountOut (see privacyNotice).",
     requestShape: {
       scope: "<decimal string>",
       data: { recipient: "0x…", feeRecipient: "0x…", relayFeeBPS: "<string>", buyToken: "0x…", minBuyAmount: "<string>" },
@@ -153,6 +161,7 @@ const zPoolsOutput = z.object({
     }),
   ),
   crossCurrencyRoutes: z.array(z.object({ from: z.string(), to: z.string(), rate: z.string() })),
+  swapAdapter: z.string(),
   proofSystem: z.string(),
   note: z.string(),
   privacyNotice: zPrivacyNotice,
@@ -289,8 +298,9 @@ const ghostPools = route
         status: "live",
       })),
       crossCurrencyRoutes: CROSS_CURRENCY_ROUTES,
+      swapAdapter: SWAP_ADAPTER,
       proofSystem: "Groth16 (snarkjs)",
-      note: "Deposits are public (on-chain event reveals depositor + amount). The ZK proof hides which deposit a later withdrawal spends, but withdrawal amounts are public — so deposits and withdrawals are linkable by amount-matching at current volume. See privacyNotice.",
+      note: "Deposits are public (on-chain event reveals depositor + amount). The ZK proof hides which deposit a later withdrawal spends, but withdrawal amounts are public — so deposits and withdrawals are linkable by amount-matching at current volume. Cross-currency relay is live on-chain (swapAdapter wired). See privacyNotice.",
       privacyNotice: PRIVACY_NOTICE,
     });
   });
