@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAccount, useSignMessage, useWriteContract } from "wagmi";
 import { createPublicClient, http, parseAbi } from "viem";
 import { arcTestnet } from "viem/chains";
@@ -18,9 +18,9 @@ import { KAWAII_GATE } from "@/lib/kawaii/config";
  * Trading via the AI-MCP nanopay gate needs no NFT (advertised below).
  */
 const SOCIALS = [
-  { id: "discord", label: "Discord", href: "https://discord.gg/" },
-  { id: "telegram", label: "Telegram", href: "https://t.me/" },
-  { id: "x", label: "X", href: "https://x.com/" },
+  { id: "discord", label: "Discord" },
+  { id: "telegram", label: "Telegram" },
+  { id: "x", label: "X" },
 ] as const;
 
 type ReservedDisplay = { display: string; platform: string; claimUrl: string; mock: boolean };
@@ -33,6 +33,16 @@ export function KawaiiGate({ catalog }: { catalog: Catalog }) {
   const [baseId, setBaseId] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("");
   const [busy, setBusy] = useState(false);
+  const [verifiedSocials, setVerifiedSocials] = useState<string[]>([]);
+
+  // Poll which socials are verified (also refreshes after returning from OAuth).
+  useEffect(() => {
+    if (!address) return;
+    fetch(`/api/kawaii/social/status?wallet=${address}`)
+      .then((r) => r.json())
+      .then((d) => setVerifiedSocials(d.verified ?? []))
+      .catch(() => {});
+  }, [address]);
 
   async function submit(body: Record<string, unknown>) {
     const res = await fetch("/api/kawaii/mint", {
@@ -108,17 +118,23 @@ export function KawaiiGate({ catalog }: { catalog: Catalog }) {
         <div className="mt-5">
           <p className="text-xs font-medium text-violet-200/70">Follow to qualify (all 3):</p>
           <div className="mt-2 flex gap-2">
-            {SOCIALS.map((s) => (
-              <a
-                key={s.id}
-                href={s.href}
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1 rounded-full border border-violet-500/30 py-1.5 text-center text-xs text-violet-100 hover:bg-violet-500/10"
-              >
-                {s.label}
-              </a>
-            ))}
+            {SOCIALS.map((s) => {
+              const ok = verifiedSocials.includes(s.id);
+              // discord/x → OAuth redirect; telegram → login widget (wired separately, A.6 note)
+              const href = address && s.id !== "telegram" ? `/api/kawaii/social/${s.id}/start?wallet=${address}` : undefined;
+              return (
+                <a
+                  key={s.id}
+                  href={href}
+                  className={`flex-1 rounded-full border py-1.5 text-center text-xs ${
+                    ok ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-200" : "border-violet-500/30 text-violet-100 hover:bg-violet-500/10"
+                  }`}
+                >
+                  {ok ? "✓ " : ""}
+                  {s.label}
+                </a>
+              );
+            })}
           </div>
         </div>
 
