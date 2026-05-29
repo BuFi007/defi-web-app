@@ -32,7 +32,7 @@ A deploy flag (`NFT_MODE = testnet | mainnet+testnet`) drives which mint paths s
 | Pay | **100 test-USDC** (large on purpose — faucet only drips 20 at a time, so it's a commitment signal) or JPYC −20%, **on Arc Testnet only** | **5 USDC** or JPYC −20%, paid **on Avalanche** (real) |
 | Powers | Yes — but **sandbox only** (test the customization/power UX) | Yes — real |
 | **Leaderboard** | ❌ **NO** — reserved for real OGs / real kawaii punks | ✅ Yes |
-| Upgrade to mainnet NFT | ❌ Never. **No value after mainnet launch, no upgrade** — must pay on Avalanche for the real one | n/a (it is the real one) |
+| Upgrade to mainnet NFT | ✅ **Upgrade path exists** — testnet holder pays the mainnet price on Avalanche → mints the real NFT (same avatar carried over), becomes leaderboard-eligible. The testnet token stays as an early-tester/founder badge. (Testnet *alone* = no leaderboard.) | n/a (it is the real one) |
 | Social requisites | **Discord + Telegram + X follow (ALL three)** | **X follow required + choose one of Discord/Telegram** (CONFIRM) |
 
 **Messaging (must be explicit in the UI):** "This testnet avatar is for trying the app — it has no value after mainnet, won't be upgraded, and the leaderboard is reserved for real kawaii punks. Want the real one? Mint on Avalanche."
@@ -60,6 +60,16 @@ Path: `~/coding-dojo/desk-v1`. Lift these patterns into `apps/web`:
 | Swap modal (quote→confirm→final) | `apps/app/src/components/modals/swap/` |
 | TokenChip | `apps/app/src/components/tokenChip/index.tsx` |
 | Swap quote action (Pasillo) | `apps/app/src/app/actions/swap-events.ts` (branch `feat/swap-quote-via-pasillo`) |
+
+## Upgrade user story — testnet → mainnet (NEW)
+Start everyone on **Arc Testnet** (cheap to try, social-gated, sandbox powers). Give a
+first-class path to "go full OG" so a testnet purchase is an on-ramp, never a dead end:
+
+1. **Try (testnet):** mint a testnet Kawaii Punk (100 test-USDC), customize, earn *sandbox* powers, play Bento. Not on the leaderboard.
+2. **Upgrade (mainnet):** an "Upgrade to Mainnet" CTA → pay the **mainnet price (5 USDC / JPYC−20%) on Avalanche** to the mainnet agent. This **mints the real NFT on Avalanche** with the **same avatar carried over** (same base + traits → re-pinned + minted on mainnet), Hyperlane-mirrored to Arc mainnet when live.
+3. **Become an OG:** on upgrade, the wallet flips to **leaderboard-eligible**; mainnet trading + Bento now count. The testnet token remains as an **early-tester / founder badge** (commemorative, links the two in the registry).
+
+**Mechanics:** there's no on-chain "upgrade" of the testnet token (different chain) — upgrade = a NEW mainnet mint linked to the same owner identity, plus a DB flag `upgraded=true` → leaderboard eligibility. Carry-over = re-compose the same `{base, layers}` for the mainnet mint. Product choice to confirm: does testnet activity back-credit on upgrade, or does leaderboard scoring start fresh at mainnet? (default: avatar/customization carries; scoring starts at upgrade.)
 
 ## Reusable code (lift from `sendero` — NFT side)
 | Need | Source file | Notes |
