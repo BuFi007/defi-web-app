@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount, useSignMessage } from "wagmi";
+import { useAccount, useSignMessage, useWriteContract } from "wagmi";
+import { createPublicClient, http, parseAbi } from "viem";
+import { arcTestnet } from "viem/chains";
 import { KAWAII_GATE } from "@/lib/kawaii/config";
 
 /**
@@ -27,29 +29,53 @@ export type Catalog = { open: string[]; reserved: Record<string, ReservedDisplay
 export function KawaiiGate({ catalog }: { catalog: Catalog }) {
   const { address, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
+  const { writeContractAsync } = useWriteContract();
   const [baseId, setBaseId] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("");
   const [busy, setBusy] = useState(false);
 
+  async function submit(body: Record<string, unknown>) {
+    const res = await fetch("/api/kawaii/mint", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return { res, data: await res.json() };
+  }
+
   async function mint() {
     if (!address || !baseId) return;
     setBusy(true);
-    setStatus("Sign the mint request in your wallet…");
     try {
+      setStatus("Sign the mint request in your wallet…");
       const deadline = Math.floor(Date.now() / 1000) + 600;
       const nonce = crypto.randomUUID();
       const message = `Kawaii Punk mint\nwallet:${address}\nbase:${baseId}\ndeadline:${deadline}\nnonce:${nonce}`;
       const signature = await signMessageAsync({ message });
-      setStatus("Minting your Kawaii Punk…");
-      const res = await fetch("/api/kawaii/mint", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ wallet: address, baseId, deadline, nonce, signature }),
-      });
-      const data = await res.json();
+      const base = { wallet: address, baseId, deadline, nonce, signature };
+
+      setStatus("Minting…");
+      let { res, data } = await submit(base);
+
+      // Payment path (testnet = USDC on Arc): transfer USDC → agent, then resubmit with the tx.
+      if (!res.ok && data.error === "payment_required") {
+        setStatus(`Approve ${Number(data.priceUsdc) / 1e6} USDC in your wallet…`);
+        const txHash = await writeContractAsync({
+          address: KAWAII_GATE.testnet.usdc as `0x${string}`, // USDC token
+          abi: parseAbi(["function transfer(address,uint256) returns (bool)"]),
+          functionName: "transfer",
+          args: [data.to as `0x${string}`, BigInt(data.priceUsdc)], // → earnings agent
+        });
+        setStatus("Confirming payment…");
+        const pc = createPublicClient({ chain: arcTestnet, transport: http() });
+        await pc.waitForTransactionReceipt({ hash: txHash });
+        setStatus("Minting…");
+        ({ res, data } = await submit({ ...base, paymentTx: txHash }));
+      }
+
       if (!res.ok) {
         if (data.error === "socials_required") setStatus(`Verify your socials first: ${data.missing.join(", ")}`);
-        else if (data.error === "payment_required") setStatus(`Pay ${Number(data.priceUsdc) / 1e6} USDC (or JPYC −20%) to mint.`);
+        else if (data.error === "payment_unverified") setStatus(`Payment not verified: ${data.reason}`);
         else setStatus(data.error ?? "Mint failed");
         return;
       }
@@ -132,7 +158,7 @@ export function KawaiiGate({ catalog }: { catalog: Catalog }) {
           disabled={!isConnected || !baseId || busy}
           className="mt-6 w-full rounded-full bg-white py-3 font-medium text-violet-700 transition hover:bg-violet-50 disabled:opacity-40"
         >
-          {busy ? "…" : `Mint Kawaii Punk · ${price} USDC (JPYC −20%)`}
+          {busy ? "…" : `Mint Kawaii Punk · ${price} USDC`}
         </button>
         {status && <p className="mt-3 text-center text-xs text-violet-200/80">{status}</p>}
 

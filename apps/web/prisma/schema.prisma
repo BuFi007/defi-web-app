@@ -61,6 +61,7 @@ model Mint {
   txHash    String?
   payToken  String   // "USDC" | "JPYC" | "free"
   amountPaid String? // raw units, null for free
+  paymentTx String?  @unique // on-chain payment tx (dedup — a tx pays for one mint)
   recipient String?  // earnings recipient (agent SCA) for paid mints
   ipfsCid   String?
   createdAt DateTime @default(now())

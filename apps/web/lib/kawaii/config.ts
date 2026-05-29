@@ -16,13 +16,15 @@ export const KAWAII_GATE = {
     circleWalletId: "4cbcd349-3bbe-541f-9baa-acc1fff72333", // Dev-Controlled SCA
     mintAuthority: "0xa43980f1b1d437b92369e9083f989a1cc27829f0", // mints via Circle API
     earningsRecipient: "0xb79e4987bC58057a322cd9bcfAce4944DD6a6cc7", // testnet agent SCA
+    usdc: "0x3600000000000000000000000000000000000000", // native gas token on Arc (6-dec ERC20)
     priceUsdc: 100_000000n, // 100 test-USDC (6 dec) — large on purpose (faucet drips 20)
-    jpycDiscountBps: 2000, // 20% off when paying in JPYC
+    payTokens: ["USDC"] as const, // TESTNET: USDC on Arc Testnet ONLY (no JPYC on testnet)
     socialsRequired: ["discord", "telegram", "x"] as const, // all three on testnet
     leaderboardEligible: false, // testnet NFT is play-only
   },
-  // mainnet (Avalanche): deploy pending. earnings → 0x5C7bd2D9147d650cA6814619D591AE4e6FCD47e3,
-  // price 5 USDC / JPYC-20%, socials = X + one of {discord,telegram}, leaderboardEligible: true.
+  // mainnet (Avalanche, deploy pending): pay USDC (5) OR JPYC −20% ON AVAX MAINNET;
+  // earnings → 0x5C7bd2D9147d650cA6814619D591AE4e6FCD47e3; socials = X + one of
+  // {discord,telegram}; leaderboardEligible: true. JPYC on Avax = 0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29 (18 dec).
 } as const;
 
 export type KawaiiTierKey = keyof typeof KAWAII_GATE;

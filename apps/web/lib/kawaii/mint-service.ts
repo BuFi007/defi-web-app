@@ -28,6 +28,7 @@ export interface MintInput {
   layers?: AvatarSelection["layers"];
   payToken: "free" | "USDC" | "JPYC"; // determined by the route (whitelist/payment), not the client
   amountPaid?: string;
+  paymentTx?: string; // verified on-chain payment tx (dedup)
   idempotencyKey: string;
 }
 
@@ -111,6 +112,7 @@ export async function mintAvatar(input: MintInput) {
       txHash: txId,
       payToken: input.payToken,
       amountPaid: input.amountPaid,
+      paymentTx: input.paymentTx,
       recipient: cfg.earningsRecipient,
       ipfsCid: metaCid,
     },

@@ -3,6 +3,7 @@ import { verifyMessage, isAddress, getAddress } from "viem";
 import { prisma } from "@/lib/prisma";
 import { KAWAII_GATE, RESERVED_BASES } from "@/lib/kawaii/config";
 import { mintAvatar, MintError } from "@/lib/kawaii/mint-service";
+import { verifyUsdcPaymentArc } from "@/lib/kawaii/payment";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -65,24 +66,40 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "socials_required", missing }, { status: 403 });
   }
 
-  // ---- Whitelist (free) vs payment (402 until A.8) ----
+  // ---- Whitelist (free) vs payment (verify USDC on Arc — testnet is USDC-only) ----
   const wl = await prisma.gateWhitelist.findUnique({ where: { address: lc } });
   const reserved = baseId in RESERVED_BASES;
-  let payToken: "free" | "USDC" | "JPYC" = "free";
+  let payToken: "free" | "USDC" = "free";
   let amountPaid: string | undefined;
+  let paymentTx: string | undefined;
   if (!wl && !reserved) {
-    return NextResponse.json(
-      { error: "payment_required", priceUsdc: cfg.priceUsdc.toString(), jpycDiscountBps: cfg.jpycDiscountBps, recipient: cfg.earningsRecipient },
-      { status: 402 },
-    );
-    // A.8: verify on-chain USDC/JPYC payment to cfg.earningsRecipient, then set payToken/amountPaid.
+    const ptx = typeof (body as { paymentTx?: unknown }).paymentTx === "string"
+      ? ((body as { paymentTx: string }).paymentTx as `0x${string}`)
+      : undefined;
+    if (!ptx) {
+      return NextResponse.json(
+        { error: "payment_required", token: "USDC", to: cfg.earningsRecipient, priceUsdc: cfg.priceUsdc.toString(), chainId: cfg.chainId },
+        { status: 402 },
+      );
+    }
+    const used = await prisma.mint.findFirst({ where: { paymentTx: ptx } });
+    if (used) return NextResponse.json({ error: "payment tx already used" }, { status: 409 });
+    try {
+      const paid = await verifyUsdcPaymentArc({
+        txHash: ptx, usdc: getAddress(cfg.usdc), recipient: getAddress(cfg.earningsRecipient),
+        payer: addr, minAmount6: cfg.priceUsdc,
+      });
+      payToken = "USDC"; amountPaid = paid.toString(); paymentTx = ptx;
+    } catch (e) {
+      return NextResponse.json({ error: "payment_unverified", reason: String((e as Error).message ?? e) }, { status: 402 });
+    }
   }
 
   // ---- Mint ----
   try {
     const result = await mintAvatar({
       wallet: lc, tier, baseId, layers: layers as never,
-      payToken, amountPaid, idempotencyKey: `${lc}:${baseId}:${nonce}`,
+      payToken, amountPaid, paymentTx, idempotencyKey: `${lc}:${baseId}:${nonce}`,
     });
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {
