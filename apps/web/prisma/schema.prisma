@@ -54,6 +54,7 @@ model SocialVerification {
 model Mint {
   id        String   @id @default(cuid())
   address   String   // owner (lowercased)
+  baseId    String?  // chosen avatar base id (reserved key or open base filename)
   chainId   Int
   tier      NftTier
   tokenId   String?  // ERC-1155 token id (string for uint256)
