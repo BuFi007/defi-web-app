@@ -49,6 +49,7 @@ import bonds from "./routes/bonds.ts";
 import copyTrading from "./routes/copy-trading.ts";
 import stream from "./routes/stream.ts";
 import oracle from "./routes/oracle.ts";
+import vault from "./routes/vault.ts";
 
 // Defined before llmsTxt so the Connect section renders the real deployed URL
 // (BUFI_MCP_URL on prod = https://mcp.bu.finance) instead of a hardcoded localhost.
@@ -323,7 +324,8 @@ const hyper = new Hyper()
   .use(bonds)
   .use(copyTrading)
   .use(stream)
-  .use(oracle);
+  .use(oracle)
+  .use(vault);
 
 // JWT auth is opt-in: when BUFI_JWT_SECRET is set, agents authenticate
 // via `Authorization: Bearer <token>` and get ctx.user with { sub, scope }.

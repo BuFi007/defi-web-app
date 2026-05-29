@@ -34,3 +34,31 @@ check `stale` before acting on a price.
 non-functional; confirm it's wired.
 
 **Live sanity:** EURC/USDC mid = ~1.1675 (1e18-scaled), age ~25s, not stale. ✅
+
+---
+
+## Family 2 — SharedFxVault + TurboFeeVault (`/api/vault/*`, `/api/lp/*`) · `0x0E63…` / `0x929e…`
+
+**Routes:** `GET /vault/depths`, `GET /lp/info`, `GET /lp/position?address`, and PREPARE-only
+`POST /lp/{deposit,withdraw,claim}` (unsigned calls; the user signs).
+
+| Probe | Result | Verdict |
+|---|---|---|
+| Bad LP address (`lp=notanaddr`) | 400 — zod `^0x[0-9a-fA-F]{40}$` | ✅ |
+| Negative/junk amount (`-5`) | 400 — amount regex `^\d+(\.\d+)?$` | ✅ |
+| Injection in shares (`1;DROP`) | 400 — shares regex `^\d+$` | ✅ |
+| `position?address=0xzz` | 400 — addr regex | ✅ |
+| Huge amount (1e18 USDC, overflow probe) | handled — BigInt atomic, no crash | ✅ |
+| No auth on reads / prepares | allowed — correct (reads are public; writes are unsigned PREPAREs the user signs) | ✅ by design |
+
+**Write safety:** deposit/withdraw/claim are **prepare-only** — the MCP returns the unsigned
+contract call (+ an `approvalNeeded` preflight for deposit), never holds keys or moves funds.
+An attacker hitting these gets only an unsigned payload; execution requires the user's signature.
+
+**Security-relevant property — fee split + insurance.** The 50/40/10 split (protocol/LP/insurance)
+is **immutable on-chain** (`PROTOCOL_BPS`/`LP_BPS`/`INSURANCE_BPS` constants), so it can't be
+re-pointed by a compromised operator — good. The 10% insurance fund is the hedge-failure backstop;
+its solvency vs open hedge exposure is the real risk to monitor (covered when `/api/hedge/*` lands).
+
+**Live sanity:** junior buffers USDC 27,098 + EURC 10,091 / MXNB 176,590 / QCAD 13,850 / AUDF 9,967;
+TurboFeeVault totalDeposits 0 + APY 0 (no LPs yet — correct). ✅
