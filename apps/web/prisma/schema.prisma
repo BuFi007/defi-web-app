@@ -1,0 +1,83 @@
+// Kawaii Avatar NFT gate — Prisma schema (Prisma Postgres / db.prisma.io).
+// Phase A.1. Additive only: these are NEW tables; `db push` won't touch
+// anything else on the shared DB. See docs/architecture/kawaii-nft-gate-plan.md.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum NftTier {
+  testnet
+  mainnet
+  both
+}
+
+enum SocialPlatform {
+  discord
+  telegram
+  x
+}
+
+/// Free-mint allowlist. Append rows over time (admin route / seed file).
+model GateWhitelist {
+  id        String   @id @default(cuid())
+  address   String   @unique // lowercased EVM address
+  tier      NftTier  @default(both)
+  source    String?  // "owner" | "tower" | "arc" | "avax" | manual
+  note      String?
+  addedAt   DateTime @default(now())
+
+  @@map("gate_whitelist")
+}
+
+/// Real-OAuth social verifications, one row per (address, platform).
+model SocialVerification {
+  id         String         @id @default(cuid())
+  address    String         // lowercased EVM address
+  platform   SocialPlatform
+  externalId String?        // discord user id / telegram id / x user id
+  handle     String?
+  verified   Boolean        @default(false)
+  verifiedAt DateTime?
+
+  @@unique([address, platform])
+  @@index([address])
+  @@map("social_verifications")
+}
+
+/// Mint ledger — one row per minted avatar (testnet or mainnet).
+model Mint {
+  id        String   @id @default(cuid())
+  address   String   // owner (lowercased)
+  chainId   Int
+  tier      NftTier
+  tokenId   String?  // ERC-1155 token id (string for uint256)
+  txHash    String?
+  payToken  String   // "USDC" | "JPYC" | "free"
+  amountPaid String? // raw units, null for free
+  recipient String?  // earnings recipient (agent SCA) for paid mints
+  ipfsCid   String?
+  createdAt DateTime @default(now())
+
+  @@index([address])
+  @@index([chainId, tier])
+  @@map("mints")
+}
+
+/// Mirror of leaderboard-relevant Bento game data (source: bun:sqlite game store).
+model BentoMirror {
+  id         String   @id @default(cuid())
+  address    String   @unique // lowercased
+  gamePoints Int      @default(0)
+  bestStreak Int      @default(0)
+  lastRoomId String?
+  updatedAt  DateTime @updatedAt @default(now())
+
+  @@index([gamePoints])
+  @@map("bento_mirror")
+}
