@@ -62,7 +62,14 @@ echo "$!" >>"$PID_FILE"
 # withdrawal (relayer = on-chain msg.sender, not the user). The relayer self-skips
 # if no key resolves (see scripts/dev-relayer.sh); the MCP still boots either way.
 export RELAYER_PORT MCP_PORT
-export GHOST_RELAYER_URL="${GHOST_RELAYER_URL:-http://localhost:$RELAYER_PORT}"
+# In dev the local MCP talks to the LOCAL relayer (overriding any GHOST_RELAYER_URL
+# from .env.local), so edits to the relayer apply on restart with no redeploy.
+# Set DEV_USE_PROD_RELAYER=1 to instead point the local MCP at the deployed relayer.
+if [ "${DEV_USE_PROD_RELAYER:-}" = "1" ]; then
+  export GHOST_RELAYER_URL="${GHOST_RELAYER_URL:-https://relayer-api-production-b410.up.railway.app}"
+else
+  export GHOST_RELAYER_URL="http://localhost:$RELAYER_PORT"
+fi
 : >"$RELAYER_LOG"
 nohup bash scripts/dev-relayer.sh </dev/null >>"$RELAYER_LOG" 2>&1 &
 echo "$!" >>"$PID_FILE"
