@@ -331,5 +331,39 @@
     "tryAgain": "Try again",
     "oops": "Oops",
     "goHome": "Go home"
+  },
+  "Protocol": {
+    "subtitle": "bu.finance protocol",
+    "live": "live · 30s",
+    "compositeApy": "Composite APY",
+    "deposits": "Deposits",
+    "juniorBuffer": "Junior buffer",
+    "pool": "Pool",
+    "fee": "Fee",
+    "stateLabel": "State",
+    "neutral": "neutral",
+    "stale": "stale",
+    "total": "Total",
+    "reserved": "Reserved",
+    "free": "Free",
+    "locked": "Locked",
+    "unlock": "Unlock",
+    "connectWalletMargin": "Connect a wallet to view margin.",
+    "noHedgePools": "no hedge pools",
+    "noPools": "no pools",
+    "feeProtocol": "Protocol",
+    "feeLp": "LP",
+    "feeInsurance": "Insurance"
+  },
+  "Agent": {
+    "valueProp": "One MCP URL to trade, lend, LP, hedge, and run private swaps. You sign every write.",
+    "connect": "connect",
+    "tryThis": "try this",
+    "whatItCanDo": "What it can do",
+    "whySafe": "why it's safe to try",
+    "legLong": "long 5x EURC",
+    "legShort": "auto short hedge",
+    "deltaExplainer": "The hedge opens an offsetting position, so if EURC moves up or down the two legs cancel. You keep the yield, not the directional risk.",
+    "liveConsole": "live console →"
   }
 }

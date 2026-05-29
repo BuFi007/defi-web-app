@@ -316,5 +316,39 @@
     "tryAgain": "Intentar de nuevo",
     "oops": "Ups",
     "goHome": "Ir al inicio"
+  },
+  "Protocol": {
+    "subtitle": "protocolo bu.finance",
+    "live": "en vivo · 30s",
+    "compositeApy": "APY compuesto",
+    "deposits": "Depósitos",
+    "juniorBuffer": "Colchón junior",
+    "pool": "Pool",
+    "fee": "Comisión",
+    "stateLabel": "Estado",
+    "neutral": "neutral",
+    "stale": "desactualizado",
+    "total": "Total",
+    "reserved": "Reservado",
+    "free": "Libre",
+    "locked": "Bloqueado",
+    "unlock": "Desbloquear",
+    "connectWalletMargin": "Conecta una wallet para ver el margen.",
+    "noHedgePools": "sin pools de cobertura",
+    "noPools": "sin pools",
+    "feeProtocol": "Protocolo",
+    "feeLp": "LP",
+    "feeInsurance": "Seguro"
+  },
+  "Agent": {
+    "valueProp": "Una sola URL de MCP para operar, prestar, hacer LP, cubrirte y ejecutar swaps privados. Tú firmas cada escritura.",
+    "connect": "conectar",
+    "tryThis": "prueba esto",
+    "whatItCanDo": "Qué puede hacer",
+    "whySafe": "por qué es seguro probarlo",
+    "legLong": "long 5x EURC",
+    "legShort": "cobertura short automática",
+    "deltaExplainer": "La cobertura abre una posición compensatoria, así que si EURC sube o baja las dos patas se cancelan. Te quedas con el rendimiento, no con el riesgo direccional.",
+    "liveConsole": "consola en vivo →"
   }
 }

@@ -316,5 +316,39 @@
     "tryAgain": "重试",
     "oops": "哎呀",
     "goHome": "返回首页"
+  },
+  "Protocol": {
+    "subtitle": "bu.finance 协议",
+    "live": "实时 · 30s",
+    "compositeApy": "综合 APY",
+    "deposits": "存款",
+    "juniorBuffer": "次级缓冲",
+    "pool": "资金池",
+    "fee": "费用",
+    "stateLabel": "状态",
+    "neutral": "中性",
+    "stale": "已过期",
+    "total": "总计",
+    "reserved": "已预留",
+    "free": "可用",
+    "locked": "已锁定",
+    "unlock": "解锁",
+    "connectWalletMargin": "连接钱包以查看保证金。",
+    "noHedgePools": "无对冲池",
+    "noPools": "无资金池",
+    "feeProtocol": "协议",
+    "feeLp": "LP",
+    "feeInsurance": "保险"
+  },
+  "Agent": {
+    "valueProp": "一个 MCP URL 即可交易、借贷、做 LP、对冲并运行私密兑换。每笔写操作均由你签名。",
+    "connect": "连接",
+    "tryThis": "试试这个",
+    "whatItCanDo": "它能做什么",
+    "whySafe": "为何可放心尝试",
+    "legLong": "做多 5x EURC",
+    "legShort": "自动做空对冲",
+    "deltaExplainer": "对冲会开立一个反向头寸，因此无论 EURC 上涨或下跌，两条腿都会相互抵消。你保留收益，而非方向性风险。",
+    "liveConsole": "实时控制台 →"
   }
 }

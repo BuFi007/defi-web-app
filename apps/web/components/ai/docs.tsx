@@ -6,6 +6,7 @@
 import React from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/utils";
+import { useScopedI18n } from "@/locales/client";
 import {
   ACCENTS, Plane, Module, CopyRow, EASE, INK, MUTE, HAIR,
 } from "@/components/console/kit";
@@ -38,23 +39,23 @@ function Leg({ arrow, accent, label }: { arrow: string; accent: typeof ACCENTS.l
 }
 
 function DeltaInfo() {
+  const t = useScopedI18n("Agent");
   return (
     <div className={cn("rounded-xl border p-3", HAIR)}>
       <div className={cn("mb-2 text-[10px] font-semibold uppercase tracking-[0.16em]", ACCENTS.hedge.text)}>
-        why it&apos;s safe to try
+        {t("whySafe")}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Leg arrow="↑" accent={ACCENTS.lp} label="long 5x EURC" />
+        <Leg arrow="↑" accent={ACCENTS.lp} label={t("legLong")} />
         <span className={cn("font-mono text-[12px]", MUTE)}>+</span>
-        <Leg arrow="↓" accent={ACCENTS.hedge} label="auto short hedge" />
+        <Leg arrow="↓" accent={ACCENTS.hedge} label={t("legShort")} />
         <span className={cn("font-mono text-[12px]", MUTE)}>=</span>
         <span className="inline-flex items-center gap-1 rounded-md bg-[#A89CE8]/15 px-2 py-1 text-[11px] font-semibold text-[#8E7FD6] dark:text-[#B8ACF0]">
           Δ0 neutral
         </span>
       </div>
       <p className={cn("mt-2 text-[11px] leading-snug", MUTE)}>
-        The hedge opens an offsetting position, so if EURC moves up or down the two legs cancel.
-        You keep the yield, not the directional risk.
+        {t("deltaExplainer")}
       </p>
     </div>
   );
@@ -87,13 +88,14 @@ function FootLink({ href, children, ext }: { href: string; children: React.React
 }
 
 export function AiDocs() {
+  const t = useScopedI18n("Agent");
   return (
     <main className="mx-auto w-full max-w-3xl self-start p-2 sm:p-2.5">
       <Plane>
         <header>
           <h1 className={cn("font-knick text-[20px] font-bold leading-none tracking-tight", INK)}>Agent</h1>
           <p className={cn("mt-1 text-[12px] leading-snug", MUTE)}>
-            One MCP URL to trade, lend, LP, hedge, and run private swaps. You sign every write.
+            {t("valueProp")}
           </p>
         </header>
 
@@ -102,13 +104,13 @@ export function AiDocs() {
         {/* Two columns on md+ (shorter card → survives the Discord banner push); stacks on mobile. */}
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-3">
           <div className="space-y-2">
-            <Reveal n={1}><CopyRow n={1} label="connect" accent={ACCENTS.lp} text={CONNECT} /></Reveal>
-            <Reveal n={2}><CopyRow n={2} label="try this" accent={ACCENTS.oracle} text={EXAMPLE} /></Reveal>
+            <Reveal n={1}><CopyRow n={1} label={t("connect")} accent={ACCENTS.lp} text={CONNECT} /></Reveal>
+            <Reveal n={2}><CopyRow n={2} label={t("tryThis")} accent={ACCENTS.oracle} text={EXAMPLE} /></Reveal>
           </div>
           <div className="space-y-2">
             <Reveal n={3}><DeltaInfo /></Reveal>
             <Reveal n={4}>
-              <Module n={3} label="What it can do" accent={ACCENTS.hedge}>
+              <Module n={3} label={t("whatItCanDo")} accent={ACCENTS.hedge}>
                 <div className="flex flex-wrap gap-1.5">
                   {CAPS.map((c) => (
                     <span key={c.code} className={cn("inline-flex items-center gap-1.5 rounded-md border px-2 py-1", HAIR)}>
@@ -127,7 +129,7 @@ export function AiDocs() {
           <span aria-hidden>·</span>
           <FootLink href="https://mcp.bu.finance/openapi.json" ext>openapi.json</FootLink>
           <span aria-hidden>·</span>
-          <FootLink href="/protocol">live console →</FootLink>
+          <FootLink href="/protocol">{t("liveConsole")}</FootLink>
         </div>
       </Plane>
     </main>

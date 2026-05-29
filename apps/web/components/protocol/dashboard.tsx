@@ -7,6 +7,7 @@
 import React from "react";
 import { useAccount } from "wagmi";
 import { cn } from "@/utils";
+import { useScopedI18n } from "@/locales/client";
 import {
   useLpInfo, useVaultDepths, useOraclePrice, useGatewayInfo,
   useHedgePools, useHedgeStatus, useFxswapPools, useRegistryAssets, usePerpsAccount,
@@ -25,11 +26,12 @@ const fmt = (v?: string | number | null, dp = 0) => {
 };
 
 function FeeBar({ p, l, ins }: { p: number; l: number; ins: number }) {
+  const t = useScopedI18n("Protocol");
   const total = p + l + ins || 1;
   const segs = [
-    { label: "PROTOCOL", bps: p, acc: ACCENTS.lp },
-    { label: "LP", bps: l, acc: ACCENTS.oracle },
-    { label: "INSURANCE", bps: ins, acc: ACCENTS.perps },
+    { label: t("feeProtocol"), bps: p, acc: ACCENTS.lp },
+    { label: t("feeLp"), bps: l, acc: ACCENTS.oracle },
+    { label: t("feeInsurance"), bps: ins, acc: ACCENTS.perps },
   ];
   return (
     <div className="space-y-1.5">
@@ -50,6 +52,7 @@ function FeeBar({ p, l, ins }: { p: number; l: number; ins: number }) {
 }
 
 function LpModule() {
+  const t = useScopedI18n("Protocol");
   const info = useLpInfo();
   const depths = useVaultDepths();
   const fs = info.data?.feeSplit;
@@ -58,12 +61,12 @@ function LpModule() {
     <Module n={1} label="LP Vault" accent={ACCENTS.lp} className="md:col-span-6">
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div>
-          <div className={cn("mb-1 text-[10px] uppercase tracking-[0.08em]", MUTE)}>Composite APY</div>
+          <div className={cn("mb-1 text-[10px] uppercase tracking-[0.08em]", MUTE)}>{t("compositeApy")}</div>
           <Marquee value={apy} unit="%" accent={ACCENTS.lp} />
         </div>
         <div className="min-w-[150px] flex-1">
-          <SpecRow label="Deposits" value={info.isLoading ? "…" : fmt(info.data?.totalDeposits)} unit="USDC" />
-          <SpecRow label="Junior buffer" value={depths.isLoading ? "…" : fmt(depths.data?.totalJuniorUsdc)} unit="USDC" />
+          <SpecRow label={t("deposits")} value={info.isLoading ? "…" : fmt(info.data?.totalDeposits)} unit="USDC" />
+          <SpecRow label={t("juniorBuffer")} value={depths.isLoading ? "…" : fmt(depths.data?.totalJuniorUsdc)} unit="USDC" />
         </div>
       </div>
       {fs && <div className="mt-2.5"><FeeBar p={fs.protocolBps} l={fs.lpBps} ins={fs.insuranceBps} /></div>}
@@ -72,6 +75,7 @@ function LpModule() {
 }
 
 function OracleRow({ base, quote }: { base: string; quote: string }) {
+  const t = useScopedI18n("Protocol");
   const { data, isLoading } = useOraclePrice(base, quote);
   const mid = data?.mid ? Number(data.mid).toFixed(5) : isLoading ? "…" : "n/a";
   const fresh = !isLoading && !data?.stale && !!data?.mid;
@@ -83,7 +87,7 @@ function OracleRow({ base, quote }: { base: string; quote: string }) {
       </span>
       <span className={cn("flex-1 self-center border-b border-dotted", LEADER)} />
       {data?.stale
-        ? <Warn>stale {data.mid ? Number(data.mid).toFixed(5) : ""}</Warn>
+        ? <Warn>{t("stale")} {data.mid ? Number(data.mid).toFixed(5) : ""}</Warn>
         : <span className={cn("text-right font-mono text-[13px] font-medium tabular-nums", INK)}><Val>{mid}</Val></span>}
     </div>
   );
@@ -109,20 +113,21 @@ function StateRow({ label, children }: { label: string; children: React.ReactNod
 }
 
 function HedgeModule() {
+  const t = useScopedI18n("Protocol");
   const pools = useHedgePools();
   const first = pools.data?.pools?.[0];
   const status = useHedgeStatus(first?.poolId);
   return (
     <Module n={3} label="Hedge" accent={ACCENTS.hedge} className="md:col-span-3">
       {!first ? (
-        <span className={cn("text-[11px]", MUTE)}>{pools.isLoading ? "…" : "no hedge pools"}</span>
+        <span className={cn("text-[11px]", MUTE)}>{pools.isLoading ? "…" : t("noHedgePools")}</span>
       ) : (
         <>
-          <SpecRow label="Pool" value={first.symbol} />
-          <SpecRow label="Fee" value={first.fee / 100} unit="bps" />
-          <StateRow label="State">
+          <SpecRow label={t("pool")} value={first.symbol} />
+          <SpecRow label={t("fee")} value={first.fee / 100} unit="bps" />
+          <StateRow label={t("stateLabel")}>
             {status.isLoading ? <span className={cn("font-mono text-[12px]", MUTE)}>…</span>
-              : status.data?.isDeltaNeutral ? <Good>neutral ✓</Good>
+              : status.data?.isDeltaNeutral ? <Good>{t("neutral")} ✓</Good>
               : <Warn>Δ {status.data?.currentDelta ?? "?"}</Warn>}
           </StateRow>
         </>
@@ -132,12 +137,13 @@ function HedgeModule() {
 }
 
 function FxSwapModule() {
+  const t = useScopedI18n("Protocol");
   const { data, isLoading } = useFxswapPools();
   const pools = data?.pools ?? [];
   return (
     <Module n={4} label="FX Swap" accent={ACCENTS.fxswap} className="md:col-span-3">
       {isLoading ? <span className={cn("text-[11px]", MUTE)}>…</span>
-        : pools.length === 0 ? <span className={cn("text-[11px]", MUTE)}>no pools</span>
+        : pools.length === 0 ? <span className={cn("text-[11px]", MUTE)}>{t("noPools")}</span>
         : pools.map((p) => <SpecRow key={p.asset} label={p.pair} value={p.fee / 100} unit="bps" />)}
     </Module>
   );
@@ -161,19 +167,20 @@ function RegistryModule() {
 }
 
 function PerpsModule() {
+  const t = useScopedI18n("Protocol");
   const { address } = useAccount();
   const { data, isLoading } = usePerpsAccount(address);
   return (
     <Module n={6} label="Perps Margin" accent={ACCENTS.perps} className="md:col-span-3">
       {!address ? (
         <div className="rounded-lg border border-dashed border-[#C98A00]/50 px-3 py-3 text-center dark:border-[#E3B43A]/50">
-          <span className={cn("text-[11px]", MUTE)}>Connect a wallet to view margin.</span>
+          <span className={cn("text-[11px]", MUTE)}>{t("connectWalletMargin")}</span>
         </div>
       ) : (
         <div>
-          <SpecRow label="Total" value={isLoading ? "…" : fmt(data?.totalMargin, 2)} unit="USDC" />
-          <SpecRow label="Reserved" value={isLoading ? "…" : fmt(data?.reservedMargin, 2)} />
-          <SpecRow label="Free" value={isLoading ? "…" : fmt(data?.freeMargin, 2)} unit="USDC" />
+          <SpecRow label={t("total")} value={isLoading ? "…" : fmt(data?.totalMargin, 2)} unit="USDC" />
+          <SpecRow label={t("reserved")} value={isLoading ? "…" : fmt(data?.reservedMargin, 2)} />
+          <SpecRow label={t("free")} value={isLoading ? "…" : fmt(data?.freeMargin, 2)} unit="USDC" />
         </div>
       )}
     </Module>
@@ -181,12 +188,13 @@ function PerpsModule() {
 }
 
 function GatewayModule() {
+  const t = useScopedI18n("Protocol");
   const { data, isLoading } = useGatewayInfo();
   return (
     <Module n={7} label="Cross-Hub Gateway" accent={ACCENTS.gateway} className="md:col-span-3">
       <div>
-        <SpecRow label="Locked" value={isLoading ? "…" : fmt(data?.gatewayBalance, 2)} unit="USDC" />
-        <SpecRow label="Unlock" value={isLoading ? "…" : data?.withdrawalUnlockBlock ?? "—"} unit="block" />
+        <SpecRow label={t("locked")} value={isLoading ? "…" : fmt(data?.gatewayBalance, 2)} unit="USDC" />
+        <SpecRow label={t("unlock")} value={isLoading ? "…" : data?.withdrawalUnlockBlock ?? "—"} unit="block" />
       </div>
     </Module>
   );
@@ -203,17 +211,18 @@ const LEGEND: { n: number; label: string; accent: Accent }[] = [
 ];
 
 export function ProtocolDashboard() {
+  const t = useScopedI18n("Protocol");
   return (
     <main className="mx-auto w-full max-w-4xl self-start p-2.5 sm:p-3">
       <Plane>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className={cn("font-knick text-[22px] font-bold leading-none tracking-tight", INK)}>Console</h1>
-            <p className={cn("mt-1 text-[11px]", MUTE)}>bu.finance protocol</p>
+            <p className={cn("mt-1 text-[11px]", MUTE)}>{t("subtitle")}</p>
           </div>
           <span className="flex items-center gap-1.5">
             <StatusDot />
-            <span className={cn("font-mono text-[10px] uppercase tracking-[0.12em]", MUTE)}>live · 30s</span>
+            <span className={cn("font-mono text-[10px] uppercase tracking-[0.12em]", MUTE)}>{t("live")}</span>
           </span>
         </div>
 

@@ -316,5 +316,39 @@
     "tryAgain": "もう一度試す",
     "oops": "おっと",
     "goHome": "ホームに戻る"
+  },
+  "Protocol": {
+    "subtitle": "bu.finance プロトコル",
+    "live": "ライブ · 30s",
+    "compositeApy": "合成 APY",
+    "deposits": "預入額",
+    "juniorBuffer": "ジュニアバッファ",
+    "pool": "プール",
+    "fee": "手数料",
+    "stateLabel": "状態",
+    "neutral": "ニュートラル",
+    "stale": "古い",
+    "total": "合計",
+    "reserved": "予約済み",
+    "free": "利用可能",
+    "locked": "ロック済み",
+    "unlock": "アンロック",
+    "connectWalletMargin": "ウォレットを接続して証拠金を表示。",
+    "noHedgePools": "ヘッジプールなし",
+    "noPools": "プールなし",
+    "feeProtocol": "プロトコル",
+    "feeLp": "LP",
+    "feeInsurance": "保険"
+  },
+  "Agent": {
+    "valueProp": "1つの MCP URL でトレード、レンディング、LP、ヘッジ、プライベートスワップを実行。書き込みはすべてご自身で署名。",
+    "connect": "接続",
+    "tryThis": "試してみる",
+    "whatItCanDo": "できること",
+    "whySafe": "試しても安全な理由",
+    "legLong": "long 5x EURC",
+    "legShort": "自動ショートヘッジ",
+    "deltaExplainer": "ヘッジは相殺ポジションを建てるため、EURC が上昇しても下落しても2つのレッグが打ち消し合います。方向性リスクを負わずに利回りだけを得られます。",
+    "liveConsole": "ライブコンソール →"
   }
 }

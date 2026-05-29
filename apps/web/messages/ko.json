@@ -316,5 +316,39 @@
     "tryAgain": "다시 시도",
     "oops": "이런",
     "goHome": "홈으로 이동"
+  },
+  "Protocol": {
+    "subtitle": "bu.finance 프로토콜",
+    "live": "실시간 · 30s",
+    "compositeApy": "종합 APY",
+    "deposits": "예치금",
+    "juniorBuffer": "주니어 버퍼",
+    "pool": "풀",
+    "fee": "수수료",
+    "stateLabel": "상태",
+    "neutral": "중립",
+    "stale": "지연됨",
+    "total": "총계",
+    "reserved": "예약됨",
+    "free": "가용",
+    "locked": "잠김",
+    "unlock": "잠금 해제",
+    "connectWalletMargin": "마진을 보려면 지갑을 연결하세요.",
+    "noHedgePools": "헤지 풀 없음",
+    "noPools": "풀 없음",
+    "feeProtocol": "프로토콜",
+    "feeLp": "LP",
+    "feeInsurance": "보험"
+  },
+  "Agent": {
+    "valueProp": "트레이드, 렌딩, LP, 헤지, 프라이빗 스왑까지 하나의 MCP URL로. 모든 쓰기는 직접 서명합니다.",
+    "connect": "연결",
+    "tryThis": "체험하기",
+    "whatItCanDo": "기능 소개",
+    "whySafe": "안심하고 체험할 수 있는 이유",
+    "legLong": "long 5x EURC",
+    "legShort": "자동 숏 헤지",
+    "deltaExplainer": "헤지는 상쇄 포지션을 열어, EURC가 오르거나 내려도 두 레그가 서로 상쇄됩니다. 방향성 리스크 없이 수익만 가져갑니다.",
+    "liveConsole": "실시간 콘솔 →"
   }
 }

@@ -316,5 +316,39 @@
     "tryAgain": "Tentar novamente",
     "oops": "Ops",
     "goHome": "Voltar ao início"
+  },
+  "Protocol": {
+    "subtitle": "protocolo bu.finance",
+    "live": "ao vivo · 30s",
+    "compositeApy": "APY composto",
+    "deposits": "Depósitos",
+    "juniorBuffer": "Buffer junior",
+    "pool": "Pool",
+    "fee": "Taxa",
+    "stateLabel": "Estado",
+    "neutral": "neutro",
+    "stale": "desatualizado",
+    "total": "Total",
+    "reserved": "Reservado",
+    "free": "Livre",
+    "locked": "Bloqueado",
+    "unlock": "Desbloquear",
+    "connectWalletMargin": "Conecte uma carteira para ver a margem.",
+    "noHedgePools": "sem pools de hedge",
+    "noPools": "sem pools",
+    "feeProtocol": "Protocolo",
+    "feeLp": "LP",
+    "feeInsurance": "Seguro"
+  },
+  "Agent": {
+    "valueProp": "Uma URL MCP para operar, emprestar, fazer LP, hedge e swaps privados. Você assina cada escrita.",
+    "connect": "conectar",
+    "tryThis": "experimente",
+    "whatItCanDo": "O que ele pode fazer",
+    "whySafe": "por que é seguro testar",
+    "legLong": "long 5x EURC",
+    "legShort": "hedge short automático",
+    "deltaExplainer": "O hedge abre uma posição oposta, então se o EURC sobe ou desce as duas pernas se cancelam. Você mantém o rendimento, não o risco direcional.",
+    "liveConsole": "console ao vivo →"
   }
 }
