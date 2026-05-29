@@ -269,15 +269,30 @@ Then STOP. Do not auto-patch — the user decides which gaps are worth filling.
 
 These are gaps confirmed in prior runs. Start each run by checking whether they're still present, so the report tracks regressions/fixes instead of rediscovering the same things. Update this list when a gap is fixed or a new recurring one appears.
 
-| Layer | Gap | Status as of last run | Fix shape |
+| Layer | Gap | Status (verified on prod 2026-05-28) | Fix shape |
 |---|---|---|---|
-| Transport | `GET /mcp` returned landing JSON for `Accept: text/event-stream`; no SSE init → `claude mcp` failed to connect | FIXED locally (server now SSE-inits + sets `mcp-session-id`); **verify prod deploy picked it up** | `apps/hyper-mcp/src/hyper/mcp/server.ts` handles SSE GET, DELETE, `notifications/initialized`, `protocolVersion` |
-| Transport | `initialize` omitted `protocolVersion` and the `mcp-session-id` header | FIXED locally | `rpcOkWithSession` in `server.ts` |
-| Semantic | 5 names for the acting wallet (`trader`/`supplier`/`depositor`/`recipient`/`borrower`) | FIXED via universal `trader` alias on lending + ghost routes | verify alias still present; push it to perps/spot for full consistency |
-| Semantic | `sizeUsdc`/`amount` must be strings; `deadline` must be a number — not pinned in `tools/list` inputSchema (`body` is a bare `object`) | OPEN | give each route's zod body a real shape so OpenAPI/MCP `inputSchema` carries types + examples |
+| Transport | `GET /mcp` returned landing JSON for `Accept: text/event-stream`; no SSE init → `claude mcp` failed to connect | FIXED + LIVE on prod (`bufi-hyper: ✓ Connected`) | `apps/hyper-mcp/src/hyper/mcp/server.ts` handles SSE GET, DELETE, `notifications/initialized`, `protocolVersion` |
+| Transport | `initialize` omitted `protocolVersion` and the `mcp-session-id` header | FIXED + LIVE | `rpcOkWithSession` in `server.ts` |
+| Semantic | 5 names for the acting wallet (`trader`/`supplier`/`depositor`/`recipient`/`borrower`) | FIXED — `trader` works on perp+spot+lending+ghost (verified) | universal `trader` alias; lending/ghost internals still `supplier`/`depositor` under the alias (cosmetic) |
+| Semantic | `inputSchema` body was a bare `object` (no types/required) on both MCP + OpenAPI | FIXED + LIVE — `tools/list` and `/openapi.json` now inline real properties/types/required/enum | `SCHEMA_CONVERTERS` (one zodConverter source) feeds both; ZodEffects/pipeline unwrap in `openapi-zod`; OpenAPI served by `openapiHandlers` (the core `toOpenAPI` is a placeholder that emits dangling `Body` refs) |
 | Semantic | `tools/call` arguments nest under `body` (`{"arguments":{"body":{…}}}`) — undiscoverable from `tools/list` | OPEN | document the envelope in `llms.txt` and/or flatten the MCP arg mapping |
-| Execution | Borrow returned 500 "quote reader not configured" | FIXED (local borrow quote reader wired in `services.ts`) | verify `post__api_lending_borrow` returns a quote, not a 500 |
+| Execution | Borrow returned 500 "quote reader not configured" | FIXED + LIVE | local borrow quote reader in `services.ts` |
+| Execution | spot_buy needed atomic `amountInAtomic` + caller-computed `minAmountOut` | FIXED + LIVE — 1-call: human `amountUsdc` + server-derived `minAmountOut` (slippageBps default 100), `freshness` + `preflight` (balance/allowance) blocks | tested `quoteSpotOut` in `@bufi/fx-spot`; ALL spot feeds are USD-per-token (divide) |
 | Execution | Circle CLI chain name is `ARC-TESTNET` (hyphen), not `ARC_TESTNET`; signing is `circle wallet sign typed-data '<json>' --address <addr> --chain ARC-TESTNET --quiet` | DOC-ONLY | belongs in `llms.txt` under a "Signing with Circle agent wallet" section |
+| Privacy | ghost pools claimed unlinkability but amounts are public + arbitrary → anonymity set ≈ 1 (amount-matching) | HONESTY-FIXED (tool descriptions corrected, `privacyNotice` on every ghost response); real fix is contracts (Phase 3, separate `fx-telarana` repo) | fixed denominations / confidential amounts — see `PRIVACY_DOGFOOD_REPORT.md` |
+
+## Deploy & verification pitfalls (learned the hard way — read before shipping a dogfood fix)
+
+The dogfood is only as good as the deploy that ships the fix. These bit us repeatedly:
+
+- **`railway up` exit 0 ≠ the service booted.** It returns after the image builds; a startup crash (e.g. a syntax error) then crash-loops while the workflow shows green and prod is silently down. The deploy workflow now has a **post-deploy `/health` gate** (`deploy-railway.yml`) that fails the deploy if prod doesn't return 200 — keep it.
+- **CI deployed the wrong service for ages.** The workflow only ran `railway up --service bufi-api` (→ `fx-api.bu.finance`); the MCP server `bufi-hyper-mcp` (→ `mcp.bu.finance`) was never deployed, so merges "succeeded" while prod stayed stale. Confirm BOTH services deploy.
+- **Editing the `llmsTxt` const in `app.ts` is a loaded gun:** it's a backtick template literal. Any backtick (e.g. `` `preflight` `` in a comment) or stray `${}` in added text terminates the string and crashes Bun at startup. After ANY edit to `app.ts`, **boot the server and curl `/health`** — `bun test` alone won't catch a startup crash if the edit lands after the test run.
+- **Stale local server on :4002:** a prior backgrounded `bun src/app.ts` keeps the port; your new instance silently fails to bind (EADDRINUSE) and curl hits the OLD code (fields read as `None`/missing). `pkill -f "bun src/app.ts"` + confirm `lsof -ti:4002` is empty before re-testing.
+- **Diagnose outages with `railway logs --service bufi-hyper-mcp`** (CLI is authed) — it surfaced the startup syntax error in ~30s. Pair with `gh run view <id> --log-failed` for CI failures.
+- **The Test workflow typechecks `packages/*` but doesn't boot hyper-mcp.** A new test file needs `bun-types` in its package tsconfig and extensionless sibling imports (`./index`, not `./index.ts`) or `tsc` fails even though `bun test` passes.
+
+## Notes for future iterations
 
 ## Notes for future iterations
 
