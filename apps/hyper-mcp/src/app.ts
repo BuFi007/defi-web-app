@@ -210,10 +210,20 @@ hide the deposit.
    + scope — without revealing which leaf is yours. Inputs: your stored nullifier
    and secret, value, label, the merkle root + leaf siblings, and the withdrawal
    context (recipient, feeRecipient, relayFeeBPS). Output is pA/pB/pC + 8 pubSignals.
-4. Do NOT hand-roll the circuit signal ordering or fetch the wasm/zkey yourself —
-   use the fx-Telarana privacy SDK (Poseidon commitments + a UrlCircuits artifact
-   loader) and the privacy-prover package (snarkjs). They are the source of truth
-   for field ordering and circuit artifacts.
+   The leaf siblings (your commitment's inclusion path) are NOT served by this MCP:
+   rebuild the LeanIMT by scanning the entrypoint's Deposited events from chain
+   (or use the SDK data service), then generate the path for your leaf.
+4. Circuit artifacts are PUBLIC. The withdraw circuit is the 0xbow privacy-pools-core
+   Groth16 circuit pinned at commit a80836a47451e662f127af17e11430ffa976c234. Fetch
+   the artifacts and run snarkjs directly against them:
+     wasm: https://raw.githubusercontent.com/0xbow-io/privacy-pools-core/a80836a47451e662f127af17e11430ffa976c234/packages/circuits/build/withdraw/withdraw_js/withdraw.wasm
+     zkey: https://raw.githubusercontent.com/0xbow-io/privacy-pools-core/a80836a47451e662f127af17e11430ffa976c234/packages/circuits/trusted-setup/final-keys/withdraw.zkey
+   (commitment.wasm/.zkey sit alongside for the deposit precommitment.) The
+   fx-Telarana privacy SDK (@bu/fx-engine /privacy: Poseidon commitments + a
+   UrlCircuits loader) and @bu/privacy-prover (snarkjs) wrap this with the correct
+   signal ordering, but are currently internal packages — the circuit itself is
+   public, so you can prove without them. Do NOT invent the signal ordering; mirror
+   the 0xbow withdraw circuit.
 5. Submit. Run post__api_ghost_privacy_check first to score linkability, then POST
    the proof to the relayer endpoint from the ghost_relay / ghost_swap
    relayerSubmission block so the RELAYER (not your wallet) is msg.sender.
