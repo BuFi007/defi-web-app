@@ -94,7 +94,7 @@ post__api_spot_buy(symbol="EURC", trader="0x...", amountUsdc="100")
 - One call: get__api_portfolio/{address} → { perp, lending } together.
 - Or per-product: get__api_positions/{address} (perp), get__api_lending_positions/{address}.
 - Spot holdings are plain wallet token balances (read on-chain).
-- Shielded/ghost balances are not readable via HTTP. NOTE: ghost privacy is currently WEAK — deposits and withdrawals are amount-linkable (the ZK layer hides the merkle link, not amounts). Do not rely on it for unlinkability yet. Each ghost response carries a privacyNotice with the current limits.
+- Shielded/ghost balances are not readable via HTTP. NOTE: ghost privacy is currently WEAK — deposits and withdrawals are amount-linkable (the ZK layer hides the merkle link, not amounts). Do not rely on it for unlinkability yet. Also note: a single MCP operator that serves both /ghost/deposit and /ghost/relay can correlate the two legs off-chain by timing and amount even when the on-chain link is hidden — for real depositor-recipient unlinkability, split operators (deposit-advice vs relay-submission) or run your own. Each ghost response carries a privacyNotice with the current limits.
 
 ## Borrow Against Collateral
 1. post__api_lending_borrow_preview(marketId, collateralAmount, borrowAmount) → check health factor
@@ -160,6 +160,37 @@ Trade (x402 $0.001-$0.005): perp open/close, spot buy, supply, borrow, repay, wi
 - ValidationRegistry: 0x8004Cb1BF31DAf7788923b405b754f57acEB4272
 - Score: 0-100 from peer ratings (1-5 stars × 20)
 - Every trader gets an onchain identity NFT
+
+## Ghost Mode — maximizing privacy today
+Honest framing: Ghost Mode privacy is WEAK right now. The Groth16 proof hides
+WHICH deposit a withdrawal spends, but amounts are public and arbitrary, so a
+withdrawal is linkable to its deposit by amount-matching — anonymity set is
+near 1 at current volume. These knobs are mitigation, NOT unlinkability. Do not
+rely on Ghost Mode for confidentiality until fixed denominations ship.
+
+What an agent CAN control today to reduce linkability:
+1. Submit withdrawals via the relayer. Each ghost_relay / ghost_swap response
+   carries a relayerSubmission block — POST the signed proof to that endpoint
+   so the RELAYER is msg.sender. Self-submitting makes YOUR wallet the on-chain
+   gas-payer, which directly deanonymizes the recipient side. Always prefer the
+   relayer when available.
+2. Use a FRESH recipient address for every withdrawal. Reusing one address
+   clusters all your withdrawals together and re-links them to deposits.
+3. Use round-number amounts (e.g. 100, 500, 1000) to blend into the set.
+   Unique high-precision amounts (e.g. 743.218901) are fingerprints — they
+   amount-match a single deposit and collapse the set to 1.
+4. Delay between deposit and withdrawal. Depositing and withdrawing in adjacent
+   blocks is a timing correlation that links the two legs even without amount
+   matching. Wait, and let other deposits land in between.
+5. Prefer same-asset relay over cross-currency. Same-asset relay() is unblocked
+   on-chain and leaks the least. Cross-currency (ghost_swap / relayCrossCurrency)
+   is gated on-chain (reverts SwapAdapterNotSet today) AND emits both amountIn
+   and amountOut at a fixed rate, so the source amount is recoverable across
+   assets — it leaks strictly more. Avoid it for privacy.
+
+Reminder: the deposit event itself is always public (depositor + amount). The
+above reduces how easily the WITHDRAWAL re-links to that deposit; it cannot
+hide the deposit.
 
 ## Connect
 - MCP: ${baseUrl}/mcp

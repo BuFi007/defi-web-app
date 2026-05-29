@@ -51,6 +51,8 @@ const PRIVACY_NOTICE = {
   crossCurrencyLeak:
     "cross-currency emits both amountIn and amountOut at a fixed rate, so the source amount is recoverable across assets",
   doNotRelyFor: "unlinkability of depositor↔recipient",
+  offChain:
+    "even when the on-chain commitment/nullifier link is hidden, a SINGLE MCP operator that serves both /ghost/deposit (sees depositor + amount) and /ghost/relay (sees recipient + amount) can correlate the two legs OFF-CHAIN by timing + amount, regardless of the ZK proof. The MCP cannot break this for you. Integrators wanting depositor↔recipient unlinkability MUST split operators (use one operator for deposit-advice and a different, independent one for relay submission) or run their own MCP + relayer.",
   trackedFix: "fixed denominations + anonymity-set gating (see DOGFOOD_PLAN.md Phase 3)",
 } as const;
 
@@ -177,9 +179,7 @@ const ghostDeposit = route
     return ok({
       action: "ghost_deposit",
       symbol: body.symbol,
-      amount: body.amount,
       amountAtomic: amountAtomic.toString(),
-      depositor: body.depositor,
       contract: {
         address: PRIVACY_ENTRYPOINT,
         function: "deposit(address _asset, uint256 _value, uint256 _precommitment)",
@@ -192,6 +192,7 @@ const ghostDeposit = route
       pool: pool.pool,
       chainId: ARC_CHAIN_ID,
       note: "The precommitment must be generated client-side using snarkjs. The commitment = hash(precommitment, amount, asset). Store the secret and nullifier — they are needed for withdrawal.",
+      privacyNotice: PRIVACY_NOTICE,
     });
   });
 
@@ -232,8 +233,6 @@ const ghostRelay = route
     return ok({
       action: "ghost_relay",
       symbol: body.symbol,
-      recipient: body.recipient,
-      amount: body.amount,
       contract: {
         address: PRIVACY_ENTRYPOINT,
         function: "relay(tuple _w, tuple _p, uint256 _scope)",
@@ -287,7 +286,6 @@ const ghostSwap = route
       action: "ghost_cross_currency_swap",
       from: body.from,
       to: body.to,
-      amountIn: body.amount,
       estimatedOut,
       rate: route.rate,
       recipient: body.recipient,
@@ -342,7 +340,149 @@ const ghostPnl = route
     });
   });
 
+// ============================================================================
+// ghost_privacy_check — PLAN-TIME PRIVACY LINTER (pure function, no chain calls)
+// Scores a PLANNED ghost action for linkability BEFORE the user commits. Only
+// checks the behavioral knobs that move the needle today (amount shape,
+// recipient freshness, relayer-vs-self-submit, deposit→withdraw timing); it
+// cannot raise the cryptographic floor (amounts public+arbitrary → set ≈ 1).
+// ============================================================================
+
+// No on-chain mixing window today (audit #6: registeredAt stored but unused);
+// this is a behavioral heuristic, not an enforced guarantee.
+const GHOST_MIN_MIX_SECONDS = 3600; // 1h — adjacent-block deposit+withdraw is worst case
+
+function amountLooksUnique(amount: string): boolean {
+  const trimmed = amount.replace(/0+$/, "").replace(/\.$/, "");
+  const sigDecimals = trimmed.indexOf(".") === -1 ? 0 : trimmed.length - trimmed.indexOf(".") - 1;
+  return sigDecimals > 2;
+}
+
+type GhostRisk = {
+  code: string;
+  severity: "critical" | "high" | "medium" | "low";
+  detail: string;
+  fix: string;
+};
+
+const ghostPrivacyCheck = route
+  .post("/ghost/privacy-check")
+  .body(
+    z.object({
+      amount: z.string().regex(/^\d+(\.\d+)?$/),
+      recipientIsFresh: z.boolean(),
+      willUseRelayer: z.boolean(),
+      secondsSinceDeposit: z.number().int().nonnegative().optional(),
+    }),
+  )
+  .meta({
+    mcp: {
+      title: "Ghost Mode — Privacy Linter (plan check)",
+      description:
+        "Lint a PLANNED ghost withdrawal/swap for linkability BEFORE you commit it on-chain. Pure scoring, no chain calls. Pass the amount, whether the recipient address is brand-new (never used before), whether you'll submit through the relayer, and optionally how many seconds will have elapsed since the matching deposit. Returns a score 0-100 (higher = less linkable), a level, and concrete risks with fixes. IMPORTANT: only checks BEHAVIORAL knobs that work today; it cannot fix that amounts are public and arbitrary (anonymity set ≈ 1 by amount-matching), and cannot confirm a relayer is deployed (check relayerSubmission.available). A high score means 'you avoided the self-inflicted leaks you control', NOT 'unlinkable'. See privacyNotice.",
+    },
+  })
+  .handle(async ({ body }) => {
+    const risks: GhostRisk[] = [];
+    let score = 100;
+
+    if (amountLooksUnique(body.amount)) {
+      score -= 35;
+      risks.push({
+        code: "AMOUNT_FINGERPRINT",
+        severity: "high",
+        detail:
+          `Amount "${body.amount}" has high precision, making it ~unique on-chain. Deposit & withdrawal amounts are public, so a unique amount links this withdrawal to your deposit by exact amount-matching — anonymity set ≈ 1.`,
+        fix: "Use a round, common amount (e.g. 100, not 100.4732) so you share a bucket with other deposits. Best effort only until fixed denominations ship (audit #3).",
+      });
+    } else {
+      risks.push({
+        code: "AMOUNT_PUBLIC_BASELINE",
+        severity: "medium",
+        detail:
+          "Even a round amount is emitted in cleartext and is arbitrary, so amount-matching still applies — and a round amount can still be unique by magnitude if no other deposit shares it.",
+        fix: "No reliable client-side fix; the real fix is fixed denominations + anonymity-set gating (audit #3, tracked). Prefer an amount you can confirm others have deposited.",
+      });
+    }
+
+    if (!body.recipientIsFresh) {
+      score -= 30;
+      risks.push({
+        code: "RECIPIENT_CLUSTERING",
+        severity: "high",
+        detail:
+          "Recipient address is not fresh. Reusing an address clusters this withdrawal with your other activity, defeating the shielded hop.",
+        fix: "Withdraw to a brand-new address you have never used and will not reuse for unrelated activity.",
+      });
+    }
+
+    if (!body.willUseRelayer) {
+      score -= 30;
+      risks.push({
+        code: "MSG_SENDER_LEAK",
+        severity: "critical",
+        detail:
+          "Self-submitting relay()/relayCrossCurrency() makes YOUR EOA the on-chain msg.sender and gas-payer, directly tying the withdrawal to your wallet. This is the single largest off-chain-controllable leak (audit #7).",
+        fix: "Submit through the relayer. FIRST verify it exists: ghost_relay/ghost_swap return relayerSubmission.available — if false (GHOST_RELAYER_URL unset), no relayer is deployed and you cannot avoid this leak today.",
+      });
+    } else {
+      risks.push({
+        code: "MSG_SENDER_RELAYER_UNVERIFIED",
+        severity: "low",
+        detail:
+          "You plan to use the relayer, which (if deployed) makes the relayer msg.sender. This linter cannot confirm a relayer is actually running (GHOST_RELAYER_URL may be unset → relayerSubmission.available=false → you self-submit and incur the full leak).",
+        fix: "Confirm relayerSubmission.available === true on the ghost_relay/ghost_swap response before relying on this.",
+      });
+    }
+
+    if (body.secondsSinceDeposit !== undefined) {
+      if (body.secondsSinceDeposit < GHOST_MIN_MIX_SECONDS) {
+        score -= 20;
+        risks.push({
+          code: "TIMING_CORRELATION",
+          severity: "high",
+          detail:
+            `Only ${body.secondsSinceDeposit}s will have elapsed since the deposit (< ${GHOST_MIN_MIX_SECONDS}s). Deposit and withdrawal in nearby blocks are correlatable by timing; there is no on-chain mixing window (audit #6).`,
+          fix: `Wait at least ${GHOST_MIN_MIX_SECONDS}s (and ideally until other deposits land) before withdrawing.`,
+        });
+      }
+    } else {
+      risks.push({
+        code: "TIMING_UNKNOWN",
+        severity: "low",
+        detail:
+          "secondsSinceDeposit not provided, so timing correlation could not be evaluated. Adjacent-block deposit+withdraw is the worst case and is not prevented on-chain.",
+        fix: `Provide secondsSinceDeposit, and aim for ≥ ${GHOST_MIN_MIX_SECONDS}s between deposit and withdrawal.`,
+      });
+    }
+
+    if (score < 0) score = 0;
+    const level =
+      score >= 80 ? "best-effort-clean" : score >= 50 ? "weak" : score >= 25 ? "poor" : "deanonymizing";
+
+    return ok({
+      action: "ghost_privacy_check",
+      input: {
+        amount: body.amount,
+        recipientIsFresh: body.recipientIsFresh,
+        willUseRelayer: body.willUseRelayer,
+        secondsSinceDeposit: body.secondsSinceDeposit ?? null,
+      },
+      score,
+      level,
+      risks,
+      summary:
+        risks.length === 0
+          ? "No behavioral leaks flagged."
+          : `${risks.length} issue(s) found; fix the high/critical ones before committing.`,
+      bestEffortDisclaimer:
+        "This linter only checks behavioral knobs that work TODAY and only your STATED plan — no chain calls, and it cannot confirm a relayer is deployed (check relayerSubmission.available). It CANNOT raise the cryptographic floor: amounts are public and arbitrary, so the anonymity set is ≈ 1 by amount-matching regardless of score. A high score means 'you avoided self-inflicted leaks', not 'unlinkable'.",
+      privacyNotice: PRIVACY_NOTICE,
+    });
+  });
+
 export default new Hyper({ prefix: "/api" }).use([
+  ghostPrivacyCheck,
   ghostPools,
   ghostDeposit,
   ghostRelay,
