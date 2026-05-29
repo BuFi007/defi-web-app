@@ -139,6 +139,19 @@ function ExpandedContent({
       </div>
 
       <a
+        href="/protocol"
+        className={cn(
+          "group flex items-center justify-center gap-1.5 rounded-xl py-2",
+          "font-knick text-[11px] tracking-[0.04em] text-white",
+          "bg-purpleDanis hover:bg-purpleDanis/90 dark:bg-violetDanis dark:hover:bg-violetDanis/90",
+          "shadow-[0_6px_16px_-8px_rgba(105,84,207,0.6)] transition-colors",
+        )}
+      >
+        Open Protocol Dashboard
+        <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
+      </a>
+
+      <a
         href="https://drpc.org?ref=974ec1"
         target="_blank"
         rel="noopener noreferrer"
