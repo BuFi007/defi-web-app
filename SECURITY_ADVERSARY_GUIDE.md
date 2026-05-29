@@ -115,3 +115,26 @@ unpause/mis-configure hedging — confirm the role sits behind a timelock/multis
   pair or swap a drain adapter. Confirm owner = timelock/multisig.
 
 **Live sanity:** AUDF buy 100 USDC → ~0.0006 AUDF (pool near-empty, spread 30bps); QCAD reverts (stale). ✅
+
+---
+
+## Family 5 — Asset/Pool Registries (`/api/registry/*`) · `0x7618…` / `0x05B7…`
+
+**Routes:** `GET /registry/assets`, `GET /registry/asset-address?symbol&chainId`, `GET /registry/routes?in&out`.
+
+| Probe | Result | Verdict |
+|---|---|---|
+| Injection symbol (`<x>`) | 400 — regex `^[A-Za-z]{2,10}$` | ✅ |
+| Negative chainId | 400 — `coerce.number().int().positive()` | ✅ |
+| Unknown route token (`FAKE`) | graceful error, count 0 | ✅ |
+| Huge chainId (1e21, overflow probe) | 200 graceful (read returns null) | ✅ |
+
+**Security-relevant notes:** read-only discovery, low risk. **PoolRegistry routes are empty
+(`count 0`)** — swaps currently route via FxRouter/hooks directly, NOT this registry. **Adversary
+note:** if a consumer trusts PoolRegistry for routing and it's later populated by a compromised
+`poolRegistryAdmin` (= deployer EOA `0x0646…`/`0xca43…`), it could point a router at a malicious
+pool. The registries' write functions are admin-gated (not MCP-exposed); confirm the admin keys are
+behind a timelock/multisig before relying on registry-driven routing.
+
+**Live sanity:** 7 assets registered + enabled (USDC/EURC/JPYC/MXNB/AUDF/QCAD/cirBTC); EURC@5042002
+resolves to `0x89B5…`; USDC→EURC routes = 0. ✅
