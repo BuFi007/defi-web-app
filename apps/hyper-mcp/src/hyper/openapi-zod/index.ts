@@ -39,6 +39,17 @@ function defName(def: ZodDef): string | undefined {
 }
 
 function toJson(schema: ZodLike): JsonSchema {
+  const j = toJsonInner(schema)
+  // Attach .describe() text if present, so params/fields self-document
+  // (e.g. a bytes32 poolId hint). Both Zod v3 and v4 expose _def.description.
+  const desc = (schema._def as { description?: unknown }).description
+  if (typeof desc === "string" && j && typeof j === "object" && !Array.isArray(j)) {
+    (j as { description?: string }).description = desc
+  }
+  return j
+}
+
+function toJsonInner(schema: ZodLike): JsonSchema {
   const def = schema._def
   const name = defName(def)
   switch (name) {

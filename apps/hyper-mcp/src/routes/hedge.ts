@@ -27,7 +27,7 @@ const HEDGE_POOLS = [
   },
 ] as const;
 
-const zPoolId = z.string().regex(/^0x[0-9a-fA-F]{64}$/);
+const zPoolId = z.string().regex(/^0x[0-9a-fA-F]{64}$/).describe("v4 pool id (bytes32: 0x + 64 hex). Get one from get__api_hedge_pools.");
 
 const hedgeAbi = [
   { type: "function", name: "currentDelta", stateMutability: "view", inputs: [{ name: "poolId", type: "bytes32" }], outputs: [{ type: "int256" }] },

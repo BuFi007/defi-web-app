@@ -192,6 +192,38 @@ function expand(
   }
 }
 
+const MCP_PATH_PARAM = /:([A-Za-z0-9_]+)/g
+
+/** Human hint for well-known path params so a fresh client knows what to send. */
+function pathParamDescription(name: string): string {
+  const n = name.toLowerCase()
+  if (n === "agentid")
+    return 'The agent\'s on-chain identity id — this is the trader EVM address ("0x…"), NOT an ERC-721 tokenId.'
+  if (n === "follower") return 'The follower wallet address ("0x…").'
+  if (n === "address" || n.endsWith("address")) return 'An EVM wallet address ("0x…").'
+  return `Path parameter "${name}".`
+}
+
+/**
+ * Project a route's inline path params (`/positions/:address`) into the MCP
+ * `inputSchema` under `params`. Routes declare path params in the path string
+ * rather than via a `.params()` schema, so without this every path-parameterized
+ * GET tool emits an empty inputSchema — a schema-driven client never learns to
+ * send the address, and the `:address` placeholder leaks into the upstream path
+ * (a silent false-empty result). The MCP server substitutes from `input.params`,
+ * so the params nest under `params` here to match. Mirrors the OpenAPI generator,
+ * which already emits these from the same `:param` regex.
+ */
+function paramsProperty(path: string): Record<string, unknown> | undefined {
+  const names = [...path.matchAll(MCP_PATH_PARAM)].map((m) => m[1]!)
+  if (names.length === 0) return undefined
+  const properties: Record<string, unknown> = {}
+  for (const name of names) {
+    properties[name] = { type: "string", description: pathParamDescription(name) }
+  }
+  return { type: "object", properties, required: names }
+}
+
 export function toMCPManifest(
   routes: readonly Route[],
   convertBody?: SchemaExpander,
@@ -201,6 +233,7 @@ export function toMCPManifest(
     if (r.meta.internal) continue
     if (!r.meta.mcp) continue
     const cfg = r.meta.mcp as { description: string }
+    const params = paramsProperty(r.path)
     tools.push({
       name: r.meta.name ?? `${r.method.toLowerCase()}_${r.path.replace(/[^a-z0-9]+/gi, "_")}`,
       description: cfg.description,
@@ -209,8 +242,11 @@ export function toMCPManifest(
       inputSchema: {
         type: "object",
         properties: {
-          ...(r.params ? { params: { type: "object" } } : {}),
-          ...(r.query ? { query: { type: "object" } } : {}),
+          ...(params && { params }),
+          // Expand query params (same converter as body) so GET tools
+          // self-describe their query fields (e.g. hedge/status.poolId) instead
+          // of an opaque { type: "object" } a schema-driven client can't fill.
+          ...(r.query ? { query: expand(r.query, convertBody) } : {}),
           ...(r.body ? { body: expand(r.body, convertBody) } : {}),
         },
       },
