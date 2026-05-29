@@ -83,6 +83,31 @@ function crossCurrencyRelayerSubmission() {
   };
 }
 
+// Same-asset relay (USDC→USDC to a fresh recipient). Unlike cross-currency this
+// is UNBLOCKED on-chain today — base relay() needs no swap adapter — so once a
+// relayer is deployed this path is fully live. Points at relayer-privacy's
+// /v1/relay (the same-asset endpoint).
+function sameAssetRelayerSubmission() {
+  if (!GHOST_RELAYER_URL) {
+    return {
+      available: false,
+      note: "No relayer configured (GHOST_RELAYER_URL unset). You would self-submit relay(), making YOUR address the on-chain msg.sender — a deanonymization leak. Prefer a relayer.",
+    };
+  }
+  return {
+    available: true,
+    endpoint: `${GHOST_RELAYER_URL}/v1/relay`,
+    method: "POST",
+    why: "the relayer broadcasts the tx, so the relayer (not your wallet) is msg.sender — your address never touches the chain",
+    onchainStatus: "same-asset relay is unblocked on-chain (no swap adapter needed); live once a relayer is deployed",
+    requestShape: {
+      scope: "<decimal string>",
+      data: { recipient: "0x…", feeRecipient: "0x…", relayFeeBPS: "<string>" },
+      proof: { pA: ["<s>", "<s>"], pB: [["<s>", "<s>"], ["<s>", "<s>"]], pC: ["<s>", "<s>"], pubSignals: ["<s8>"] },
+    },
+  };
+}
+
 const ghostPools = route
   .get("/ghost/pools")
   .use(cache({ maxAge: 60, staleWhileRevalidate: 120 }))
@@ -216,7 +241,7 @@ const ghostRelay = route
           root: latestRoot,
           nullifier: "derive from secret used in deposit",
           recipient: body.recipient,
-          relayer: "0x0000000000000000000000000000000000000000",
+          relayer: "submit via the relayer (see relayerSubmission) so the relayer is msg.sender, not you",
           fee: "0",
         },
         proofCircuit: "Groth16 via snarkjs — circuit verifies merkle inclusion + nullifier uniqueness",
@@ -224,6 +249,7 @@ const ghostRelay = route
       pool: pool.pool,
       chainId: ARC_CHAIN_ID,
       maxRelayFeeBPS: pool.maxRelayFeeBPS,
+      relayerSubmission: sameAssetRelayerSubmission(),
       privacyNotice: PRIVACY_NOTICE,
     });
   });
