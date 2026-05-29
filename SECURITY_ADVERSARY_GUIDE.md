@@ -138,3 +138,31 @@ behind a timelock/multisig before relying on registry-driven routing.
 
 **Live sanity:** 7 assets registered + enabled (USDC/EURC/JPYC/MXNB/AUDF/QCAD/cirBTC); EURC@5042002
 resolves to `0x89B5…`; USDC→EURC routes = 0. ✅
+
+---
+
+## Family 6 — Perps + Liquidation + Gateway (`/api/perps/*`, `/api/liquidation/*`, `/api/gateway/*`)
+
+**Routes:** `GET /perps/account`, `GET /perps/health`, `GET /perps/funding`, `GET /liquidation/status`, `GET /gateway/info`.
+Contracts: FxMarginAccount `0x4EB6`, FxHealthChecker `0xA00B`, FxFundingEngine `0x859b`, LiquidationRouter `0xc98c`, FxGatewayHook `0x2931`.
+
+| Probe | Result | Verdict |
+|---|---|---|
+| Bad address | 400 — addr regex | ✅ |
+| Bad/short marketId | 400 — bytes32 regex | ✅ |
+| Injection version (`1;DROP`) | 400 — coerce.int | ✅ |
+| Unknown market (valid bytes32) | graceful (max-uint health / err) | ✅ |
+
+**Security-relevant properties:**
+- **`healthFactor` returns `type(uint256).max` for no-position** — a consumer must special-case this
+  (don't render `1.15e77` as a ratio; it means "no debt / infinite health"). Liquidation triggers on
+  `isLiquidatable` + `flaggedAt`.
+- **Gateway is the biggest fund-custody risk.** `FxGatewayHook` is the only contract that moves USDC
+  across hubs, and until Circle ships EIP-1271 on burn intents (~mid-July) the **deployer EOA
+  `0x0646…` is the sole BurnIntent signing authority**. **Adversary note:** compromise of that one hot
+  key = control of cross-hub USDC movement = the highest-severity path in the protocol. Top priority
+  to rotate behind the hub contract / timelock (the CLAUDE.md "1271 authority rotation" plan). The
+  `gatewayWithdrawalUnlockBlock` operator delay is the only time-buffer today.
+
+**Live sanity:** agent margin 0 (no position), health = max-uint (no position), gateway balance
+0.0479 USDC. ✅
