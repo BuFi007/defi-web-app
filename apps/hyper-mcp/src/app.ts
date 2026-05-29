@@ -91,11 +91,24 @@ post__api_spot_buy(symbol="EURC", trader="0x...", amountUsdc="100")
   // it names BEFORE signing, or the on-chain order will revert.
 
 ## Supply & Earn Yield
-1. get__api_lending_markets → see APYs (GLOBAL — pool totals, not your balances)
+1. get__api_lending_markets → list markets (GLOBAL pool state — totals/utilization,
+   not your balances). NOTE: markets are identified by raw loanToken/collateralToken
+   addresses (no symbol label yet), and the response carries raw Morpho state, not a
+   derived APY field — compute yield from utilization + IRM if you need a number.
 2. post__api_lending_supply(marketId, trader="0x...", amount="100")
-   → returns { action: "supply", market, deadline, nonce }
-3. get__api_lending_positions/{address} → YOUR supplied/borrowed balances + health factor per market.
+   → a logical envelope { action, market, deadline, nonce }. For SIGNABLE on-chain
+   calldata use the prepare variant: post__api_lending_supply_prepare (and
+   borrow/repay/withdraw have matching *_prepare tools) → returns
+   { contract: { address, function, args }, approvalNeeded }.
+3. get__api_lending_positions/{address} → YOUR supplied/borrowed balances per market.
    (markets is global; this is the per-wallet read. The two are different calls.)
+
+KNOWN LIMITATIONS (lending, as of this build — do not be surprised):
+- markets currently lists Fuji-hub markets (hubChainId 43113) while the *_prepare
+  tools resolve Arc Morpho (5042002), so a marketId from markets may be rejected by
+  prepare ("not found on any Arc Morpho"). Treat the prepare path as in-progress.
+- borrow_preview may return { error: "borrow preview unavailable" } when the on-chain
+  quote reader is not configured — it cannot always return a health factor yet.
 
 ## Reading a wallet's holdings
 - One call: get__api_portfolio/{address} → { perp, lending } together.
@@ -104,13 +117,24 @@ post__api_spot_buy(symbol="EURC", trader="0x...", amountUsdc="100")
 - Shielded/ghost balances are not readable via HTTP. NOTE: ghost privacy is currently WEAK — deposits and withdrawals are amount-linkable (the ZK layer hides the merkle link, not amounts). Do not rely on it for unlinkability yet. Also note: a single MCP operator that serves both /ghost/deposit and /ghost/relay can correlate the two legs off-chain by timing and amount even when the on-chain link is hidden — for real depositor-recipient unlinkability, split operators (deposit-advice vs relay-submission) or run your own. Each ghost response carries a privacyNotice with the current limits.
 
 ## Borrow Against Collateral
-1. post__api_lending_borrow_preview(marketId, collateralAmount, borrowAmount) → check health factor
+1. post__api_lending_borrow_preview(marketId, collateralAmount, borrowAmount)
+   → health factor + borrow APY WHEN the on-chain quote reader is configured;
+   may return { error: "borrow preview unavailable" } otherwise (see limitations above).
 2. post__api_lending_borrow(marketId, trader="0x...", borrowAmount, collateralAmount)
+   (signable calldata: post__api_lending_borrow_prepare)
 
-## Acting-wallet param: always "trader"
-Every endpoint that needs the acting wallet accepts trader="0x...". Legacy
-aliases (supplier/borrower/depositor/recipient) still work for back-compat, but
-prefer "trader" everywhere — one name across spot, perp, lending, and ghost.
+## Acting-wallet param (the name VARIES by product family — read this)
+On spot, perp, lending, and ghost the acting wallet is trader="0x..." (legacy
+aliases supplier/borrower/depositor/recipient still work for back-compat). This
+rule does NOT hold everywhere — other families use a fixed name, and passing
+"trader" there returns a 400. Per-family names:
+- LP / vault (lp/deposit, lp/withdraw, lp/claim): "lp"  (the GET reads take "address")
+- Copy-trading (copy/follow, copy/unfollow): "follower" (and "leader" for the target)
+- Bonds (bonds/stake): "follower"
+- Reputation register + auth/token: "address"
+- Reputation feedback: "raterWalletUuid" (a Circle wallet UUID, NOT a 0x address)
+When unsure, read the tool's inputSchema in tools/list — the required wallet
+field is named there per endpoint.
 
 ## Markets
 - Perps: EURC/USDC, JPYC/USDC, MXNB/USDC, CIRBTC/USDC, AUDF/USDC, QCAD/USDC
@@ -129,6 +153,7 @@ interchangeable; do not substitute one for the other.
 | Price for a perp | post__api_quote | — | 5042002 | pair, e.g. "EURC/USDC" |
 | To buy an FX token outright with USDC (no leverage) | post__api_spot_buy | BUFX Venue Request Router | 43113 (Fuji) | bare token, e.g. "EURC" |
 | Price for a spot buy | post__api_spot_quote | — | 43113 | bare token, e.g. "EURC" |
+| To swap one FX token for another directly (cross-currency, unshielded, no leverage) | get__api_fxswap_quote -> get__api_fxswap_intent_shape -> sign -> FxRouter.executeIntent | FxSwapHook / FxRouter | 5042002 (Arc) | asset, e.g. "AUDF" + side buy/sell |
 
 - Perp endpoints take the pair symbol ("EURC/USDC"). Spot endpoints take the bare token ("EURC").
 - post__api_quote (perp) and post__api_spot_quote (spot) are different products, not duplicates. Choose by whether you want leverage.
@@ -159,8 +184,27 @@ post__api_cost(symbol, side, sizeUsdc, leverage)
 - "insufficient margin" → reduce sizeUsdc or leverage
 
 ## Agent Capabilities
-Read (free): markets, quotes, positions, funding rates, lending APYs, leaderboard, reputation
+Read (free): markets, quotes, positions, funding rates, lending APYs, leaderboard, reputation, AND the full protocol-data surface below (oracle mids, vault depths, LP/vault info, hedge neutrality, FX-swap pools, asset registry, perps margin, cross-hub gateway)
 Trade (x402 $0.001-$0.005): perp open/close, spot buy, supply, borrow, repay, withdraw
+
+## Protocol Data (read-only, free, no signature)
+Live on-chain state of every protocol family — the same data the /protocol console renders.
+All GET/read tools; numbers come back as JSON strings, so parse them before math.
+- get__api_oracle_price(base="EURC", quote="USDC") -> { mid, stale, ageSeconds }. FX mid from FxOracleV2 (Pyth -> RedStone -> Chainlink). base/quote are token symbols.
+- get__api_vault_depths() -> { totalJuniorUsdc, seniorUsdcHot, juniorTokenBalances{} }. SharedFxVault depth. totalJuniorUsdc is USD-denominated; juniorTokenBalances are RAW token amounts (not USD) — price them yourself if you need USD.
+- get__api_lp_info() -> { compositeApyPercent, totalDeposits, feeSplit{protocolBps,lpBps,insuranceBps} }. TurboFeeVault composite-APY LP. feeSplit is 50/40/10. compositeApyPercent is null until live (treat as 0/"—").
+- get__api_lp_position(address="0x...") -> { pendingYield } for one wallet.
+- get__api_hedge_pools() -> { pools[]{ symbol, poolId, currency0, currency1, fee } }. FxHedgeHook delta-neutral pools. fee is hundredths-of-a-bip (100 = 1 bps). There is NO "pair" field — the human pair is symbol vs USDC (currency0 0x3600... is native USDC on Arc).
+- get__api_hedge_status(poolId="0x...") -> { currentDelta, isDeltaNeutral }. Live neutrality of one pool.
+- get__api_fxswap_pools() -> { pools[]{ asset, pair, fee, pyth } }. FxRouter cross-currency pools. pyth is a feed LABEL (e.g. "AUD/USD"), not a price; pools carry no reserves. pair orientation varies (mostly USDC/<asset>).
+- get__api_fxswap_quote(asset="EURC", amountIn="100", side="buy") -> { amountOut, spreadBps, tradableOut }.
+- get__api_registry_assets() -> { count, assets[]{ symbol, decimals, enabled } }. AssetRegistry — the on-chain ASSET catalog. NOTE: this is the tradable-asset registry, distinct from the ERC-8004 IDENTITY registries below.
+- get__api_perps_account(address="0x...") -> { totalMargin, reservedMargin, freeMargin } for one wallet (FxMarginAccount). There is no global perp-TVL endpoint; margin is per-wallet.
+- get__api_gateway_info() -> { gatewayBalance, withdrawalUnlockBlock }. FxGatewayHook cross-hub USDC (Circle Gateway). withdrawalUnlockBlock "0" = no pending withdrawal.
+
+## Web Surfaces (point humans here)
+- Live protocol console — a read-only dashboard of every family above (oracle/vault/LP/hedge/fxswap/registry/perps/gateway): https://fx.bu.finance/protocol
+- Agent setup docs — connect snippet + copy-paste example prompts (incl. a hedged delta-neutral trade): https://fx.bu.finance/ai
 
 ## ERC-8004 Agent Identity (Arc Testnet)
 - IdentityRegistry: 0x8004A818BFB912233c491871b3d84c89A494BD9e
@@ -234,6 +278,71 @@ hide the deposit.
 5. Submit. Run post__api_ghost_privacy_check first to score linkability, then POST
    the proof to the relayer endpoint from the ghost_relay / ghost_swap
    relayerSubmission block so the RELAYER (not your wallet) is msg.sender.
+
+## Copy-Trading & Performance Bonds
+Mirror a top trader, or post a bond as a leader. These are fully live but were not
+in the quick flows above.
+- get__api_leaderboard -> ranked traders (Nansen-compatible shape; count field total_traders)
+- get__api_copy_discover -> leaders open for mirroring (count field totalDiscovered)
+- get__api_copy_leader/{address} -> one leader's stats
+- post__api_copy_follow(follower="0x...", leader="0x...", sizeCapUsdc, leverageCap, symbols?)
+  -> activates server-side mirroring of the leader's perp positions. This is a LIVE
+  mutation, NOT a prepare — there is no dry-run; calling it starts mirroring.
+- post__api_copy_unfollow(follower, leader) -> stop mirroring
+- get__api_copy_status/{follower} -> your active relationships
+Performance bonds (ERC-8183): a leader locks USDC, slashed proportionally if PnL
+falls below a threshold.
+- get__api_bonds -> active bonds
+- post__api_bonds_create(trader, bondAmountUsdc, durationDays, performanceThresholdPct, description)
+- post__api_bonds_stake(bondId, follower, stakeAmountUsdc) ; post__api_bonds_evaluate(bondId)
+NOTE: bonds create/stake currently return a logical registry stub (a bondId + prose),
+NOT signable escrow calldata — treat bonds as an off-chain registry for now.
+
+## LP / Provide Liquidity (TurboFeeVault)
+Earn protocol + trading-fee + hedge yield by depositing into the fee vault (ERC-4626).
+This is a DIFFERENT product from lending supply.
+- get__api_lp_info -> vault address, fee split (protocolBps/lpBps/insuranceBps), composite APY
+- get__api_vault_depths -> junior/senior depth
+- get__api_lp_position?address=0x... -> your shares + pending yield
+- post__api_lp_deposit(lp="0x...", amount="100") -> ERC-4626 deposit calldata + USDC approve preflight
+- post__api_lp_withdraw(lp="0x...", shares) ; post__api_lp_claim(lp="0x...")
+The acting-wallet field here is "lp" (not "trader"); the GET reads take "address".
+
+## FX Swap (cross-currency, direct + unshielded)
+Swap one FX token for another with NO leverage and NO ghost shield. This is the plain
+version of ghost_swap (ghost_swap is the SHIELDED variant of the same swap — they are
+related, not unrelated).
+- get__api_fxswap_pools -> live pools (AUDF/MXNB/QCAD/EURC) + router address
+- get__api_fxswap_quote?asset=AUDF&side=sell&amountIn=50 -> amountOut, spreadBps, tradableOut
+- get__api_fxswap_intent_shape -> the exact FxRouter.executeIntent(...) signature + the full
+  FxIntent EIP-712 struct to sign; sign it, then submit to executeIntent.
+amountIn is a human-decimal string. side=buy means buy the named asset with USDC; side=sell
+means sell the named asset for USDC.
+
+## Hedge pools
+Delta-neutral LP hedging that backs the FX pools.
+- get__api_hedge_pools -> pools (each note chains you to status?poolId=<id>)
+- get__api_hedge_status?poolId=<id> -> currentDelta, isDeltaNeutral
+
+## Infra / Reads (integration facts — all free GETs)
+Not in the trade flows above, but the canonical source for addresses + prices:
+- get__api_oracle_price?base=EURC&quote=USDC -> mid, midE18, stale, ageSeconds
+- get__api_oracle_info -> supported tokens + staleness config
+- get__api_registry_assets -> assets (bytes32 key, decimals, strategyId, home chain). The
+  ERC-20 address is NOT inline — resolve it per token via:
+- get__api_registry_asset_address?symbol=EURC&chainId=5042002
+- get__api_registry_routes?in=EURC&out=USDC -> resolved tokenIn/tokenOut + route count
+- get__api_gateway_info -> bridge/gateway config
+
+## Reputation API (ERC-8004) — the endpoints
+Registry addresses + the score formula are listed below; the live endpoints are:
+- post__api_reputation_register(address="0x...", source) -> unsigned mint contract call.
+  The agentId used by the reads below IS this same EVM address (NOT an ERC-721 tokenId).
+- get__api_reputation_check/{address} -> registered? (use before trading)
+- get__api_reputation_score/{agentId} -> 0-100 score (agentId = the EVM address)
+- get__api_reputation_identity/{agentId} -> identity record
+- post__api_reputation_feedback(raterWalletUuid, ...) -> rate a counterparty
+  (raterWalletUuid is a Circle wallet UUID; feedback submission needs the internal SDK).
 
 ## Connect
 - MCP: ${baseUrl}/mcp
@@ -363,6 +472,8 @@ const mcp = mcpServer(hyperApp, {
 const openapi = openapiHandlers(hyperApp, {
   converters: SCHEMA_CONVERTERS,
   title: "BUFI HYPER MCP",
+  description:
+    "Trading infrastructure for AI agents — forex perps, spot FX, lending, cross-currency FX swaps, LP/vault, copy-trading, performance bonds, reputation (ERC-8004), and privacy pools on Arc (Circle L1). Per-operation summaries/descriptions mirror the MCP tools/list manifest. See /llms.txt for end-to-end flows.",
 });
 
 const mcpLandingPage = {
@@ -372,6 +483,8 @@ const mcpLandingPage = {
   tools: mcp.listTools(),
   llmsTxt: `${baseUrl}/llms.txt`,
   openapi: `${baseUrl}/openapi.json`,
+  console: "https://fx.bu.finance/protocol",
+  docs: "https://fx.bu.finance/ai",
   snippet: {
     "claude-code": `claude mcp add --transport http bufi-hyper ${baseUrl}/mcp`,
     ".mcp.json": {
@@ -403,6 +516,8 @@ export default {
         llmsTxt: `${baseUrl}/llms.txt`,
         openapi: `${baseUrl}/openapi.json`,
         health: `${baseUrl}/health`,
+        console: "https://fx.bu.finance/protocol",
+        docs: "https://fx.bu.finance/ai",
         tools: mcp.listTools().length,
         connect: `claude mcp add --transport http bufi-hyper ${baseUrl}/mcp`,
       }, null, 2), { headers: { "content-type": "application/json" } });
