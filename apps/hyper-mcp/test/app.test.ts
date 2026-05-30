@@ -272,3 +272,62 @@ describe("leaderboard", () => {
     expect(body.total_traders).toBeNumber();
   });
 });
+
+// ── Ghost mode — denomination enforcement (amount-privacy lever) ──
+
+describe("ghost denominations", () => {
+  test("deposit REJECTS an off-denomination amount", async () => {
+    const res = await post("/api/ghost/deposit", { symbol: "EURC", amount: "100.4732", depositor: ADDR });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.error).toBeString();
+    expect(body.error).toContain("denomination");
+    expect(body.allowedDenominations).toEqual(["1", "10", "100", "1000", "10000"]);
+  });
+
+  test("deposit ACCEPTS a denomination amount and does not echo the depositor", async () => {
+    const res = await post("/api/ghost/deposit", { symbol: "EURC", amount: "100", depositor: ADDR });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.error).toBeUndefined();
+    expect(body.amountAtomic).toBe("100000000");
+    // depositor must never be echoed in the response body (off-chain leak)
+    expect(JSON.stringify(body).toLowerCase()).not.toContain(ADDR.slice(2).toLowerCase());
+    expect(body.privacyNotice.denominations).toContain("1, 10, 100");
+  });
+
+  test("cirBTC uses its own denomination set", async () => {
+    const ok = await post("/api/ghost/deposit", { symbol: "cirBTC", amount: "0.01", trader: ADDR });
+    expect((await ok.json()).error).toBeUndefined();
+    const bad = await post("/api/ghost/deposit", { symbol: "cirBTC", amount: "100", trader: ADDR });
+    const badBody = await bad.json();
+    expect(badBody.error).toContain("denomination");
+    expect(badBody.allowedDenominations).toEqual(["0.001", "0.01", "0.1", "1"]);
+  });
+
+  test("pools surface the per-asset denomination set", async () => {
+    const res = await get("/api/ghost/pools");
+    const body = await res.json();
+    const eurc = body.pools.find((p: { symbol: string }) => p.symbol === "EURC");
+    expect(eurc.denominations).toEqual(["1", "10", "100", "1000", "10000"]);
+  });
+
+  test("privacy-check flags an off-denomination amount", async () => {
+    const res = await post("/api/ghost/privacy-check", {
+      amount: "100.4732", recipientIsFresh: true, willUseRelayer: true, secondsSinceDeposit: 86400, symbol: "EURC",
+    });
+    const body = await res.json();
+    expect(body.risks.map((r: { code: string }) => r.code)).toContain("AMOUNT_NOT_DENOMINATION");
+    expect(body.score).toBeLessThan(100);
+  });
+
+  test("privacy-check best case (denomination + fresh + relayer + waited) scores 100", async () => {
+    const res = await post("/api/ghost/privacy-check", {
+      amount: "100", recipientIsFresh: true, willUseRelayer: true, secondsSinceDeposit: 86400, symbol: "EURC",
+    });
+    const body = await res.json();
+    expect(body.score).toBe(100);
+    expect(body.level).toBe("best-effort-clean");
+    expect(body.risks.map((r: { code: string }) => r.code)).toContain("AMOUNT_DENOMINATION_OK");
+  });
+});

@@ -44,6 +44,50 @@ const CROSS_CURRENCY_ROUTES = [
   { from: "EURC", to: "USDC", rate: "1.08" },
 ];
 
+// ── Fixed denominations (the amount-privacy lever) ──────────────────────────
+// On a transparent chain the withdrawal amount is NECESSARILY public: the pool
+// settles by calling token.transfer(recipient, withdrawnValue), and the Groth16
+// circuit exposes `withdrawnValue` as a public signal (verified in
+// privacy-pools-core withdraw.circom). You cannot hide it without abandoning
+// direct ERC20 settlement. The realistic full-privacy path is therefore fixed
+// denominations: if every deposit/withdrawal is one of a small shared set of
+// amounts, the public amount carries no linking information — many deposits
+// match each withdrawal, lifting the anonymity set off 1 (Tornado model).
+//
+// Enforced HERE at the MCP advice layer today. The authoritative on-chain gate
+// (entrypoint/pool require(withdrawnValue ∈ denoms)) is the next step and needs
+// NO new trusted setup — the circuit already range-checks; the deployed
+// WithdrawalVerifier stays byte-identical. See PRIVACY_CIRCUIT_WORKPLAN.md.
+const STABLE_DENOMS = ["1", "10", "100", "1000", "10000"] as const;
+const BTC_DENOMS = ["0.001", "0.01", "0.1", "1"] as const;
+const DENOMINATIONS: Record<string, readonly string[]> = {
+  USDC: STABLE_DENOMS,
+  EURC: STABLE_DENOMS,
+  MXNB: STABLE_DENOMS,
+  QCAD: STABLE_DENOMS,
+  AUDF: STABLE_DENOMS,
+  cirBTC: BTC_DENOMS,
+};
+
+// Canonical decimal form for exact value compare ("100.0"/"0100" → "100").
+function normalizeAmount(a: string): string {
+  const stripLeading = (s: string) => s.replace(/^0+(?=\d)/, "");
+  if (!a.includes(".")) return stripLeading(a);
+  return stripLeading(a.replace(/0+$/, "").replace(/\.$/, ""));
+}
+function isDenomination(symbol: string, amount: string): boolean {
+  const set = DENOMINATIONS[symbol];
+  if (!set) return false;
+  const n = normalizeAmount(amount);
+  return set.some((d) => normalizeAmount(d) === n);
+}
+// Asset-agnostic membership for the privacy linter (which has no symbol).
+const ALL_DENOMS = [...new Set([...STABLE_DENOMS, ...BTC_DENOMS])];
+function isAnyDenomination(amount: string): boolean {
+  const n = normalizeAmount(amount);
+  return ALL_DENOMS.some((d) => normalizeAmount(d) === n);
+}
+
 // HONEST PRIVACY DISCLOSURE (see PRIVACY_DOGFOOD_REPORT.md).
 // The Groth16 proof hides which deposit a withdrawal spends (commitment↔nullifier
 // link). It does NOT hide amounts: Deposited and Relayed both emit `amount` in
@@ -54,7 +98,9 @@ const PRIVACY_NOTICE = {
   level: "weak",
   hides: "which deposit a withdrawal spends (ZK commitment/nullifier link)",
   leaks:
-    "deposit & withdrawal amounts are public and arbitrary — linkable by amount-matching; anonymity set ≈ 1 at current volume",
+    "deposit & withdrawal amounts are public on-chain — the ERC20 transfer reveals them and the Groth16 circuit exposes withdrawnValue as a public signal, so amounts cannot be hidden without abandoning direct ERC20 settlement. MITIGATION (live): the MCP now only prepares fixed-denomination deposits, so you share an amount bucket with other depositors instead of being unique (anonymity set > 1). NOTE: on-chain enforcement of denominations is still pending — until the entrypoint gates it, anyone can deposit a non-denomination amount directly and self-deanonymize, so the set is only as large as the denomination-following cohort.",
+  denominations:
+    "fixed per-asset buckets — stablecoins (USDC/EURC/MXNB/QCAD/AUDF): 1, 10, 100, 1000, 10000; cirBTC: 0.001, 0.01, 0.1, 1. Split larger amounts into multiple denomination deposits. MCP-enforced now; authoritative on-chain gate tracked (needs no new trusted setup).",
   crossCurrencyLeak:
     "cross-currency emits both amountIn and amountOut at a fixed rate, so the source amount is recoverable across assets",
   doNotRelyFor: "unlinkability of depositor↔recipient",
@@ -127,6 +173,7 @@ const zPrivacyNotice = z.object({
   level: z.string(),
   hides: z.string(),
   leaks: z.string(),
+  denominations: z.string(),
   crossCurrencyLeak: z.string(),
   doNotRelyFor: z.string(),
   offChain: z.string(),
@@ -157,6 +204,7 @@ const zPoolsOutput = z.object({
       pool: z.string(),
       minimumDeposit: z.string(),
       maxRelayFeeBPS: z.string(),
+      denominations: z.array(z.string()),
       status: z.string(),
     }),
   ),
@@ -247,6 +295,7 @@ const zPrivacyCheckOutput = z.object({
     recipientIsFresh: z.boolean(),
     willUseRelayer: z.boolean(),
     secondsSinceDeposit: z.number().nullable(),
+    symbol: z.string().nullable(),
   }),
   score: z.number().int().min(0).max(100),
   level: z.enum(["best-effort-clean", "weak", "poor", "deanonymizing"]),
@@ -295,6 +344,7 @@ const ghostPools = route
         pool: p.pool,
         minimumDeposit: `${p.minimumDeposit} ${p.symbol}`,
         maxRelayFeeBPS: p.maxRelayFeeBPS,
+        denominations: [...(DENOMINATIONS[p.symbol] ?? [])],
         status: "live",
       })),
       crossCurrencyRoutes: CROSS_CURRENCY_ROUTES,
@@ -322,13 +372,25 @@ const ghostDeposit = route
     mcp: {
       title: "Ghost Mode — Shield Tokens",
       description:
-        "Deposit tokens into a shielded pool. The deposit event is PUBLIC (reveals depositor + amount). Withdrawal requires a Groth16 proof that hides which deposit it spends — but because withdrawal amounts are also public and arbitrary, a withdrawal is linkable back to this deposit by amount-matching. Use only for experimental/weak privacy; see privacyNotice. Returns the contract call parameters for the deposit transaction.",
+        "Deposit tokens into a shielded pool. The deposit event is PUBLIC (reveals depositor + amount). Amounts MUST be a fixed denomination (stablecoins: 1/10/100/1000/10000; cirBTC: 0.001/0.01/0.1/1) — the MCP refuses off-denomination amounts because a unique amount links your later withdrawal straight back to this deposit. Split larger amounts into several denomination deposits. Withdrawal requires a Groth16 proof that hides WHICH deposit it spends; sharing a denomination bucket with other depositors is what gives an anonymity set. See privacyNotice. Returns the contract call parameters for the deposit transaction.",
     },
   })
   .output(zDepositOutput)
   .handle(async ({ body }) => {
     const pool = POOLS.find((p) => p.symbol === body.symbol);
     if (!pool) return ok({ error: `Unknown pool: ${body.symbol}` });
+
+    // Denomination gate: a non-bucket amount is unique on-chain and links your
+    // future withdrawal straight back to this deposit (anonymity set ≈ 1). Refuse
+    // to hand out a deposit payload that would self-deanonymize the user.
+    if (!isDenomination(body.symbol, body.amount)) {
+      return ok({
+        error: `Non-denomination amount "${body.amount} ${body.symbol}" — would be unique on-chain and link your withdrawal back to this deposit (anonymity set ≈ 1).`,
+        allowedDenominations: DENOMINATIONS[body.symbol],
+        why: "Withdrawal amounts are public on-chain (the ERC20 transfer and the proof's withdrawnValue both reveal them). Sharing a fixed denomination with other depositors is the only thing that creates an anonymity set.",
+        fix: `Deposit exactly one of: ${DENOMINATIONS[body.symbol]?.join(", ")} ${body.symbol}. Split a larger amount into several denomination deposits.`,
+      });
+    }
 
     const amountAtomic = BigInt(Math.floor(parseFloat(body.amount) * 10 ** pool.decimals));
 
@@ -511,12 +573,6 @@ const ghostPnl = route
 // this is a behavioral heuristic, not an enforced guarantee.
 const GHOST_MIN_MIX_SECONDS = 3600; // 1h — adjacent-block deposit+withdraw is worst case
 
-function amountLooksUnique(amount: string): boolean {
-  const trimmed = amount.replace(/0+$/, "").replace(/\.$/, "");
-  const sigDecimals = trimmed.indexOf(".") === -1 ? 0 : trimmed.length - trimmed.indexOf(".") - 1;
-  return sigDecimals > 2;
-}
-
 type GhostRisk = {
   code: string;
   severity: "critical" | "high" | "medium" | "low";
@@ -532,6 +588,7 @@ const ghostPrivacyCheck = route
       recipientIsFresh: z.boolean(),
       willUseRelayer: z.boolean(),
       secondsSinceDeposit: z.number().int().nonnegative().optional(),
+      symbol: z.enum(["USDC", "EURC", "MXNB", "QCAD", "cirBTC", "AUDF"]).optional(),
     }),
   )
   .meta({
@@ -546,22 +603,25 @@ const ghostPrivacyCheck = route
     const risks: GhostRisk[] = [];
     let score = 100;
 
-    if (amountLooksUnique(body.amount)) {
+    const amountIsDenomination = body.symbol
+      ? isDenomination(body.symbol, body.amount)
+      : isAnyDenomination(body.amount);
+    if (!amountIsDenomination) {
       score -= 35;
       risks.push({
-        code: "AMOUNT_FINGERPRINT",
+        code: "AMOUNT_NOT_DENOMINATION",
         severity: "high",
         detail:
-          `Amount "${body.amount}" has high precision, making it ~unique on-chain. Deposit & withdrawal amounts are public, so a unique amount links this withdrawal to your deposit by exact amount-matching — anonymity set ≈ 1.`,
-        fix: "Use a round, common amount (e.g. 100, not 100.4732) so you share a bucket with other deposits. Best effort only until fixed denominations ship.",
+          `Amount "${body.amount}" is not a fixed denomination, so it is ~unique on-chain. Deposit & withdrawal amounts are public (the ERC20 transfer + the proof's withdrawnValue), so an off-denomination amount links this withdrawal to your deposit by exact amount-matching — anonymity set ≈ 1.`,
+        fix: `Use a fixed denomination (stablecoins: ${STABLE_DENOMS.join("/")}; cirBTC: ${BTC_DENOMS.join("/")}). Split a larger amount into several denomination withdrawals. The MCP refuses to prepare off-denomination deposits for this reason.`,
       });
     } else {
       risks.push({
-        code: "AMOUNT_PUBLIC_BASELINE",
-        severity: "medium",
+        code: "AMOUNT_DENOMINATION_OK",
+        severity: "low",
         detail:
-          "Even a round amount is emitted in cleartext and is arbitrary, so amount-matching still applies — and a round amount can still be unique by magnitude if no other deposit shares it.",
-        fix: "No reliable client-side fix; the real fix is fixed denominations + anonymity-set gating (tracked). Prefer an amount you can confirm others have deposited.",
+          "Amount is a recognized fixed denomination, so it shares an amount bucket with other deposits instead of being unique. Your anonymity set is the count of other deposits at this denomination — still soft until on-chain denomination enforcement ships (today anyone can deposit off-denomination directly and shrink the set).",
+        fix: "No action needed on the amount. Prefer a denomination you can confirm others have deposited for a meaningful set.",
       });
     }
 
@@ -627,6 +687,7 @@ const ghostPrivacyCheck = route
         recipientIsFresh: body.recipientIsFresh,
         willUseRelayer: body.willUseRelayer,
         secondsSinceDeposit: body.secondsSinceDeposit ?? null,
+        symbol: body.symbol ?? null,
       },
       score,
       level,
@@ -636,7 +697,7 @@ const ghostPrivacyCheck = route
           ? "No behavioral leaks flagged."
           : `${risks.length} issue(s) found; fix the high/critical ones before committing.`,
       bestEffortDisclaimer:
-        "This linter only checks behavioral knobs that work TODAY and only your STATED plan — no chain calls, and it cannot confirm a relayer is deployed (check relayerSubmission.available). It CANNOT raise the cryptographic floor: amounts are public and arbitrary, so the anonymity set is ≈ 1 by amount-matching regardless of score. A high score means 'you avoided self-inflicted leaks', not 'unlinkable'.",
+        "This linter only checks behavioral knobs that work TODAY and only your STATED plan — no chain calls, and it cannot confirm a relayer is deployed (check relayerSubmission.available). Amounts are public on-chain and cannot be hidden; the only amount-privacy lever is using a fixed DENOMINATION so you share a bucket — and even then your anonymity set is just the count of other deposits at that denomination, which is soft until on-chain denomination enforcement ships. A high score means 'you avoided self-inflicted leaks and used a denomination', not 'unlinkable'.",
       privacyNotice: PRIVACY_NOTICE,
     });
   });

@@ -49,13 +49,21 @@ export function instrumentMcpCall(
 ): Promise<Response> {
   if (!dsn) return fn();
 
+  // Privacy: ghost/shielded-pool tool calls must NOT carry the caller wallet on
+  // the span/exception — "wallet X used ghost mode at time T" is itself an
+  // off-chain correlation point (PRIVACY_HARDENING_SPEC.md #7). beforeSend
+  // already scrubs the request body; this scrubs the span attribute + tags so
+  // Sentry holds zero ghost-linkable identity.
+  const isGhost = toolName.includes("ghost");
+  const wallet = isGhost ? "redacted-ghost" : (walletAddress ?? "anonymous");
+
   return Sentry.startSpan(
     {
       name: `mcp.tool/${toolName}`,
       op: "mcp.call",
       attributes: {
         "mcp.tool": toolName,
-        "mcp.wallet": walletAddress ?? "anonymous",
+        "mcp.wallet": wallet,
         "mcp.protocol": "json-rpc-2.0",
       },
     },
@@ -69,12 +77,12 @@ export function instrumentMcpCall(
         Sentry.captureException(error, {
           tags: {
             "mcp.tool": toolName,
-            "mcp.wallet": walletAddress ?? "anonymous",
+            "mcp.wallet": wallet,
           },
           contexts: {
             mcp: {
               tool: toolName,
-              wallet: walletAddress,
+              wallet: isGhost ? null : walletAddress,
               protocol: "json-rpc-2.0",
             },
           },
