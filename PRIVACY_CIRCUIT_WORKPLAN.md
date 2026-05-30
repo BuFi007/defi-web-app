@@ -57,11 +57,16 @@ Steps:
    off-denomination amounts; `/ghost/pools` surfaces the set; `/ghost/privacy-check`
    scores against denomination membership; `privacyNotice.denominations` documents it.
    Denomination sets: stablecoins `1/10/100/1000/10000`, cirBTC `0.001/0.01/0.1/1`.
-2. **Contract gate (fx-telarana) — NEXT, authoritative.** In the entrypoint/pool
-   deposit + relay paths add `require(isDenomination(value))`. This is what actually
-   enforces it (the MCP only gates MCP-routed deposits; a user can still deposit a raw
-   amount on-chain until this lands). Keep the denomination table in one Solidity
-   constant; mirror the MCP set.
+2. **Contract gate (fx-telarana) — DONE (code), deploy pending.** Authoritative
+   enforcement landed via OZ-style `_beforeDeposit`/`_beforeWithdraw` hooks on the
+   vendored `Entrypoint` (proof/withdraw logic + `WithdrawalVerifier` untouched) +
+   overrides in `FxPrivacyEntrypoint` that `revert NotADenomination` when the gate is
+   on; `relayCrossCurrency` gated too. Owner-gated `setDenominations` /
+   `setDenominationGateEnabled`; gate OFF by default (backward compatible). 7 tests,
+   22/22 entrypoint suite. `ConfigurePrivacyDenominations.s.sol` does deploy-impl →
+   UUPS-upgrade → `setDenominations` for all 6 Arc assets. REMAINING: run that script
+   on Arc (owner key + broadcast) to flip the live gate on — until then the MCP layer
+   is the only enforcement.
 3. **SDK (`@bufi/fx-telarana-sdk`)** — expose the denomination set + a `splitIntoDenominations(amount)`
    helper so larger amounts fan out into multiple denomination deposits/withdrawals.
 

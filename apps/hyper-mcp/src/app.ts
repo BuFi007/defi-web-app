@@ -114,7 +114,7 @@ KNOWN LIMITATIONS (lending, as of this build — do not be surprised):
 - One call: get__api_portfolio/{address} → { perp, lending } together.
 - Or per-product: get__api_positions/{address} (perp), get__api_lending_positions/{address}.
 - Spot holdings are plain wallet token balances (read on-chain).
-- Shielded/ghost balances are not readable via HTTP. NOTE: ghost privacy is currently WEAK — deposits and withdrawals are amount-linkable (the ZK layer hides the merkle link, not amounts). Do not rely on it for unlinkability yet. Also note: a single MCP operator that serves both /ghost/deposit and /ghost/relay can correlate the two legs off-chain by timing and amount even when the on-chain link is hidden — for real depositor-recipient unlinkability, split operators (deposit-advice vs relay-submission) or run your own. Each ghost response carries a privacyNotice with the current limits.
+- Shielded/ghost balances are not readable via HTTP. Ghost privacy depends on FIXED DENOMINATIONS: amounts are public on-chain (unavoidable), so the MCP only prepares denomination-sized deposits (stablecoins 1/10/100/1000/10000; cirBTC 0.001/0.01/0.1/1) and refuses off-denomination amounts — that is what gives an anonymity set. The ZK layer hides the merkle link; denominations stop the amount from re-linking it. Also note: a single MCP operator that serves both /ghost/deposit and /ghost/relay can correlate the two legs off-chain by timing and amount — for real depositor-recipient unlinkability, split operators (deposit-advice vs relay-submission) or run your own. Each ghost response carries a privacyNotice with the current limits.
 
 ## Borrow Against Collateral
 1. post__api_lending_borrow_preview(marketId, collateralAmount, borrowAmount)
@@ -214,32 +214,40 @@ All GET/read tools; numbers come back as JSON strings, so parse them before math
 - Every trader gets an onchain identity NFT
 
 ## Ghost Mode — maximizing privacy today
-Honest framing: Ghost Mode privacy is WEAK right now. The Groth16 proof hides
-WHICH deposit a withdrawal spends, but amounts are public and arbitrary, so a
-withdrawal is linkable to its deposit by amount-matching — anonymity set is
-near 1 at current volume. These knobs are mitigation, NOT unlinkability. Do not
-rely on Ghost Mode for confidentiality until fixed denominations ship.
+Honest framing: the amount is necessarily PUBLIC on a transparent chain. The
+pool settles via token.transfer(recipient, amount) and the Groth16 circuit
+exposes withdrawnValue as a public signal, so amounts cannot be hidden — only
+made non-identifying. The lever is FIXED DENOMINATIONS: every deposit and
+withdrawal is one of a small shared set, so a withdrawal no longer uniquely
+amount-matches one deposit. The MCP enforces this and REFUSES off-denomination
+deposits. The Groth16 proof hides WHICH deposit a withdrawal spends;
+denominations stop the public amount from re-linking it. Your anonymity set is
+the number of other deposits sharing your denomination (grows with volume).
 
-What an agent CAN control today to reduce linkability:
-1. Submit withdrawals via the relayer. Each ghost_relay / ghost_swap response
+What an agent must do for the strongest privacy today:
+1. Use a fixed DENOMINATION. Stablecoins (USDC/EURC/MXNB/QCAD/AUDF):
+   1 / 10 / 100 / 1000 / 10000. cirBTC: 0.001 / 0.01 / 0.1 / 1. Split a larger
+   amount into several denomination deposits/withdrawals. An off-denomination
+   amount is a fingerprint that collapses your set to 1 — the MCP rejects it on
+   deposit, and ghost_privacy_check flags it on your plan.
+2. Submit withdrawals via the relayer. Each ghost_relay / ghost_swap response
    carries a relayerSubmission block — POST the signed proof to that endpoint
    so the RELAYER is msg.sender. Self-submitting makes YOUR wallet the on-chain
    gas-payer, which directly deanonymizes the recipient side. Always prefer the
    relayer when available.
-2. Use a FRESH recipient address for every withdrawal. Reusing one address
+3. Use a FRESH recipient address for every withdrawal. Reusing one address
    clusters all your withdrawals together and re-links them to deposits.
-3. Use round-number amounts (e.g. 100, 500, 1000) to blend into the set.
-   Unique high-precision amounts (e.g. 743.218901) are fingerprints — they
-   amount-match a single deposit and collapse the set to 1.
 4. Delay between deposit and withdrawal. Depositing and withdrawing in adjacent
-   blocks is a timing correlation that links the two legs even without amount
-   matching. Wait, and let other deposits land in between.
+   blocks is a timing correlation that links the two legs even within a
+   denomination. Wait, and let other deposits land in between.
 5. Prefer same-asset relay over cross-currency. Same-asset relay() leaks the
-   least. Cross-currency (ghost_swap / relayCrossCurrency) is now LIVE on-chain
-   (the swap adapter is wired into the entrypoint — no longer reverts) BUT it
+   least. Cross-currency (ghost_swap / relayCrossCurrency) is LIVE on-chain but
    emits both amountIn and amountOut at a fixed rate, so the source amount is
-   recoverable across assets — it leaks strictly more. Prefer same-asset for
-   privacy.
+   recoverable across assets — it leaks strictly more. Prefer same-asset.
+
+Run ghost_privacy_check on your PLAN first: it scores all of the above and flags
+an off-denomination amount, reused recipient, self-submit, or short delay before
+you commit anything on-chain.
 
 Reminder: the deposit event itself is always public (depositor + amount). The
 above reduces how easily the WITHDRAWAL re-links to that deposit; it cannot
