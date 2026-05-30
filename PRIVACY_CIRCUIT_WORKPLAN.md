@@ -57,16 +57,17 @@ Steps:
    off-denomination amounts; `/ghost/pools` surfaces the set; `/ghost/privacy-check`
    scores against denomination membership; `privacyNotice.denominations` documents it.
    Denomination sets: stablecoins `1/10/100/1000/10000`, cirBTC `0.001/0.01/0.1/1`.
-2. **Contract gate (fx-telarana) — DONE (code), deploy pending.** Authoritative
-   enforcement landed via OZ-style `_beforeDeposit`/`_beforeWithdraw` hooks on the
-   vendored `Entrypoint` (proof/withdraw logic + `WithdrawalVerifier` untouched) +
-   overrides in `FxPrivacyEntrypoint` that `revert NotADenomination` when the gate is
-   on; `relayCrossCurrency` gated too. Owner-gated `setDenominations` /
-   `setDenominationGateEnabled`; gate OFF by default (backward compatible). 7 tests,
-   22/22 entrypoint suite. `ConfigurePrivacyDenominations.s.sol` does deploy-impl →
-   UUPS-upgrade → `setDenominations` for all 6 Arc assets. REMAINING: run that script
-   on Arc (owner key + broadcast) to flip the live gate on — until then the MCP layer
-   is the only enforcement.
+2. **Contract gate (fx-telarana) — DONE + DEPLOYED + LIVE on Arc Testnet.**
+   Authoritative enforcement via OZ-style `_beforeDeposit`/`_beforeWithdraw` hooks on
+   the vendored `Entrypoint` (proof/withdraw logic + `WithdrawalVerifier` untouched) +
+   overrides in `FxPrivacyEntrypoint` that `revert NotADenomination`; `relayCrossCurrency`
+   gated too. Owner-gated `setDenominations`/`setDenominationGateEnabled`; gate OFF by
+   default. 7 tests, 22/22 entrypoint suite. Deployed 2026-05-30 via
+   `ConfigurePrivacyDenominations.s.sol`: new impl `0x56A4a05862aC57E0E1432f5e2CAC0Cd9852608fE`
+   UUPS-upgraded into proxy `0xD11cDdd1f04e850d3810a71608A49907c80f2736`; `setDenominations`
+   set for all 6 assets; verified `denominationGateEnabled=true` for each and
+   `isDenomination` correct (USDC 100✓/50✗, cirBTC 0.1✓/100✗). An off-denomination
+   deposit/withdrawal now reverts on-chain, not just at the MCP advice layer.
 3. **SDK (`@bufi/fx-telarana-sdk`)** — expose the denomination set + a `splitIntoDenominations(amount)`
    helper so larger amounts fan out into multiple denomination deposits/withdrawals.
 
