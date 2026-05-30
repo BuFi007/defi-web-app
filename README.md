@@ -22,15 +22,28 @@ Traditional FX is a $7.5T/day market running on 1970s infrastructure:
 
 ## Ghost Mode — Private Trading
 
-Ghost Mode routes trades through **shielded pools** backed by zero-knowledge proofs. The `FxPrivacyEntrypoint` contract implements a commitment-based privacy scheme:
+Ghost Mode routes trades through **shielded pools** backed by zero-knowledge proofs. The `FxPrivacyEntrypoint` contract (a fork of 0xbow's audited privacy-pools-core) implements a commitment-based scheme:
 
-1. **Deposit** — trader sends stablecoins with a Poseidon hash precommitment. The contract adds a commitment to a Merkle tree, decoupling deposit amount and owner from withdrawal.
-2. **Relay** — to exit, the trader generates a Groth16 ZK proof (via `commitmentVerifier` / `withdrawalVerifier` circuits with Poseidon T3/T4) proving ownership of a valid commitment without revealing which one. Funds go to any recipient address.
-3. **Cross-currency relay** — deposit USDC into the privacy pool, withdraw as EURC (or any stablecoin) via an atomic swap inside the shielded withdrawal. The counterparty never sees the original deposit.
+1. **Deposit** — trader sends stablecoins with a Poseidon precommitment `Poseidon([nullifier, secret])`. The pool stores the leaf commitment `Poseidon([value, label, precommitment])` in a Merkle tree.
+2. **Relay (withdraw)** — to exit, the trader generates a Groth16 proof (`withdrawalVerifier` circuit, Poseidon T3/T4) proving ownership of *some* valid commitment without revealing *which* one. Funds go to any fresh recipient. Submit through the relayer so the relayer — not your wallet — is the on-chain `msg.sender`.
+3. **Cross-currency relay** — deposit USDC, withdraw EURC (or vice-versa) via an atomic fixed-rate swap inside the shielded withdrawal.
 
-**The UX:** the theme toggle IS the privacy switch. Tap the moon/sun icon in the header — a Dynamic Island animation morphs into a "Ghost Mode — You can now trade privately" pill while a Spaceman circle-reveal transitions the entire page to dark theme. The visual shift is the privacy signal. Under the hood, `GhostModeContext` flips `isGhostMode`, trade routing switches from public order flow to shielded-pool paths, and the state persists across tabs via localStorage. A periodic ad loop surfaces Ghost Mode to light-theme users organically — no modals, no tooltips, just a tap.
+### What it does and does NOT hide (read this)
 
-This matters for forex: institutional traders use dark pools to avoid signaling large positions. Ghost Mode brings that to stablecoin FX — a $500K USDC→EURC conversion stays invisible on the public book.
+The ZK proof hides the **link** between a deposit and its withdrawal. It does **not** hide **amounts** — on a transparent chain the pool settles via `token.transfer(recipient, amount)` and the circuit exposes `withdrawnValue` as a public signal, so amounts are unavoidably public. An arbitrary amount is therefore a fingerprint that re-links a withdrawal to its deposit (anonymity set → 1).
+
+The fix is **fixed denominations**: every deposit/withdrawal must be one of a small shared set, so the public amount no longer identifies a single deposit.
+
+- **Denominations** — stablecoins (USDC/EURC/MXNB/QCAD/AUDF): `1 / 10 / 100 / 1000 / 10000`; cirBTC: `0.001 / 0.01 / 0.1 / 1`. Split larger amounts into several denomination deposits.
+- **Enforced on-chain** — `FxPrivacyEntrypoint` reverts `NotADenomination` on any off-denomination deposit or withdrawal (Arc Testnet, gate live for all 6 assets). The MCP advice layer mirrors this and refuses to prepare off-denomination deposits.
+- **No new trusted setup** — the gate is a value-domain check; the deployed `WithdrawalVerifier` is byte-identical to the audited pin.
+- **Your anonymity set** = the number of other deposits sharing your denomination. It grows with volume — it is not infinite, and the system says so honestly (`privacyNotice` on every ghost API response; `ghost_privacy_check` lints a planned withdrawal).
+- **Best practice**: fresh recipient address, withdraw via the relayer, wait between deposit and withdrawal, prefer same-asset over cross-currency (cross-currency emits both legs).
+- **Deferred**: confidential (hidden) amounts require non-ERC20 settlement + a new ceremony; KYC/identity binding is a later, separate decision. See `PRIVACY_CIRCUIT_WORKPLAN.md`.
+
+**The UX:** the theme toggle IS the privacy switch. Tap the moon/sun icon in the header — a Dynamic Island animation morphs into a "Ghost Mode" pill while a Spaceman circle-reveal transitions the page to dark theme. Under the hood, `GhostModeContext` flips `isGhostMode`, trade routing switches to shielded-pool paths, and the state persists across tabs.
+
+This matters for forex: institutional traders use dark pools to avoid signaling positions. Ghost Mode brings best-effort unlinkability to stablecoin FX — honest about its limits, not "invisible".
 
 ## Agent Infrastructure (MCP)
 

@@ -114,7 +114,7 @@ KNOWN LIMITATIONS (lending, as of this build — do not be surprised):
 - One call: get__api_portfolio/{address} → { perp, lending } together.
 - Or per-product: get__api_positions/{address} (perp), get__api_lending_positions/{address}.
 - Spot holdings are plain wallet token balances (read on-chain).
-- Shielded/ghost balances are not readable via HTTP. Ghost privacy depends on FIXED DENOMINATIONS: amounts are public on-chain (unavoidable), so the MCP only prepares denomination-sized deposits (stablecoins 1/10/100/1000/10000; cirBTC 0.001/0.01/0.1/1) and refuses off-denomination amounts — that is what gives an anonymity set. The ZK layer hides the merkle link; denominations stop the amount from re-linking it. Also note: a single MCP operator that serves both /ghost/deposit and /ghost/relay can correlate the two legs off-chain by timing and amount — for real depositor-recipient unlinkability, split operators (deposit-advice vs relay-submission) or run your own. Each ghost response carries a privacyNotice with the current limits.
+- Shielded/ghost balances are not readable via HTTP. Ghost privacy depends on FIXED DENOMINATIONS: amounts are public on-chain (unavoidable), so deposits/withdrawals are constrained to a shared set (stablecoins 1/10/100/1000/10000; cirBTC 0.001/0.01/0.1/1). This is ENFORCED ON-CHAIN — the FxPrivacyEntrypoint reverts off-denomination deposits and withdrawals — and mirrored by the MCP (it refuses to prepare off-denomination deposits). That shared bucket is what gives an anonymity set. The ZK layer hides the merkle link; denominations stop the amount from re-linking it. Also note: a single MCP operator that serves both /ghost/deposit and /ghost/relay can correlate the two legs off-chain by timing and amount — for real depositor-recipient unlinkability, split operators (deposit-advice vs relay-submission) or run your own. Each ghost response carries a privacyNotice with the current limits.
 
 ## Borrow Against Collateral
 1. post__api_lending_borrow_preview(marketId, collateralAmount, borrowAmount)
@@ -219,10 +219,12 @@ pool settles via token.transfer(recipient, amount) and the Groth16 circuit
 exposes withdrawnValue as a public signal, so amounts cannot be hidden — only
 made non-identifying. The lever is FIXED DENOMINATIONS: every deposit and
 withdrawal is one of a small shared set, so a withdrawal no longer uniquely
-amount-matches one deposit. The MCP enforces this and REFUSES off-denomination
-deposits. The Groth16 proof hides WHICH deposit a withdrawal spends;
-denominations stop the public amount from re-linking it. Your anonymity set is
-the number of other deposits sharing your denomination (grows with volume).
+amount-matches one deposit. This is ENFORCED ON-CHAIN — the FxPrivacyEntrypoint
+reverts off-denomination deposits and withdrawals — and mirrored by the MCP,
+which refuses to prepare off-denomination deposits. The Groth16 proof hides
+WHICH deposit a withdrawal spends; denominations stop the public amount from
+re-linking it. Your anonymity set is the number of other deposits sharing your
+denomination (grows with volume).
 
 What an agent must do for the strongest privacy today:
 1. Use a fixed DENOMINATION. Stablecoins (USDC/EURC/MXNB/QCAD/AUDF):

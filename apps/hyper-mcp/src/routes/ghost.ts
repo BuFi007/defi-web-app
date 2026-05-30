@@ -98,9 +98,9 @@ const PRIVACY_NOTICE = {
   level: "weak",
   hides: "which deposit a withdrawal spends (ZK commitment/nullifier link)",
   leaks:
-    "deposit & withdrawal amounts are public on-chain — the ERC20 transfer reveals them and the Groth16 circuit exposes withdrawnValue as a public signal, so amounts cannot be hidden without abandoning direct ERC20 settlement. MITIGATION (live): the MCP now only prepares fixed-denomination deposits, so you share an amount bucket with other depositors instead of being unique (anonymity set > 1). NOTE: on-chain enforcement of denominations is still pending — until the entrypoint gates it, anyone can deposit a non-denomination amount directly and self-deanonymize, so the set is only as large as the denomination-following cohort.",
+    "deposit & withdrawal amounts are public on-chain — the ERC20 transfer reveals them and the Groth16 circuit exposes withdrawnValue as a public signal, so amounts cannot be hidden without abandoning direct ERC20 settlement. MITIGATION (live): deposits/withdrawals are constrained to fixed denominations, so you share an amount bucket with other depositors instead of being unique. This is now ENFORCED ON-CHAIN — the FxPrivacyEntrypoint reverts NotADenomination on any off-denomination deposit or withdrawal (not just MCP-side advice), so no one can self-deanonymize with an arbitrary amount. Your anonymity set is the number of other deposits sharing your denomination (grows with volume).",
   denominations:
-    "fixed per-asset buckets — stablecoins (USDC/EURC/MXNB/QCAD/AUDF): 1, 10, 100, 1000, 10000; cirBTC: 0.001, 0.01, 0.1, 1. Split larger amounts into multiple denomination deposits. MCP-enforced now; authoritative on-chain gate tracked (needs no new trusted setup).",
+    "fixed per-asset buckets — stablecoins (USDC/EURC/MXNB/QCAD/AUDF): 1, 10, 100, 1000, 10000; cirBTC: 0.001, 0.01, 0.1, 1. Split larger amounts into multiple denomination deposits. Enforced ON-CHAIN (FxPrivacyEntrypoint, Arc) AND at the MCP advice layer; required no new trusted setup (the deployed WithdrawalVerifier is unchanged).",
   crossCurrencyLeak:
     "cross-currency emits both amountIn and amountOut at a fixed rate, so the source amount is recoverable across assets",
   doNotRelyFor: "unlinkability of depositor↔recipient",
@@ -620,8 +620,8 @@ const ghostPrivacyCheck = route
         code: "AMOUNT_DENOMINATION_OK",
         severity: "low",
         detail:
-          "Amount is a recognized fixed denomination, so it shares an amount bucket with other deposits instead of being unique. Your anonymity set is the count of other deposits at this denomination — still soft until on-chain denomination enforcement ships (today anyone can deposit off-denomination directly and shrink the set).",
-        fix: "No action needed on the amount. Prefer a denomination you can confirm others have deposited for a meaningful set.",
+          "Amount is a recognized fixed denomination, so it shares an amount bucket with other deposits instead of being unique. Denominations are enforced on-chain (off-denomination deposits/withdrawals revert), so the set cannot be shrunk by someone depositing an arbitrary amount. Your anonymity set is the count of other deposits at this denomination (grows with volume).",
+        fix: "No action needed on the amount. Prefer a denomination you can confirm others have deposited for a larger set.",
       });
     }
 
@@ -697,7 +697,7 @@ const ghostPrivacyCheck = route
           ? "No behavioral leaks flagged."
           : `${risks.length} issue(s) found; fix the high/critical ones before committing.`,
       bestEffortDisclaimer:
-        "This linter only checks behavioral knobs that work TODAY and only your STATED plan — no chain calls, and it cannot confirm a relayer is deployed (check relayerSubmission.available). Amounts are public on-chain and cannot be hidden; the only amount-privacy lever is using a fixed DENOMINATION so you share a bucket — and even then your anonymity set is just the count of other deposits at that denomination, which is soft until on-chain denomination enforcement ships. A high score means 'you avoided self-inflicted leaks and used a denomination', not 'unlinkable'.",
+        "This linter only checks behavioral knobs that work TODAY and only your STATED plan — no chain calls, and it cannot confirm a relayer is deployed (check relayerSubmission.available). Amounts are public on-chain and cannot be hidden; the amount-privacy lever is using a fixed DENOMINATION so you share a bucket (now enforced on-chain — off-denomination deposits/withdrawals revert). Even so, your anonymity set is just the count of other deposits at that denomination, which grows with volume. A high score means 'you avoided self-inflicted leaks and used a denomination', not 'unlinkable'.",
       privacyNotice: PRIVACY_NOTICE,
     });
   });
