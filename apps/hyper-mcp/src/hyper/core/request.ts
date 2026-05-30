@@ -129,7 +129,7 @@ function payloadTooLarge(got: number, max: number): HyperError {
     status: 413,
     code: "payload_too_large",
     message: `Request body is ${got} bytes, limit is ${max}.`,
-    why: "Bodies exceed Hyper's configured maxBytes.",
-    fix: "Increase the limit on the route via `.body(schema, { maxBytes })` or trim the payload.",
+    why: "The request body exceeds the configured size limit.",
+    fix: "Reduce the request body size.",
   })
 }

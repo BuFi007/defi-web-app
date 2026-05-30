@@ -15,10 +15,30 @@ export const EIP712_DOMAIN_TYPE = [
 // -- Zod primitives --
 
 export const zAddress = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
+// Human-units amount string. Bounded BOTH ways: > 0, and an upper cap of 15
+// integer digits (~1e15 units) so a giant value can't overflow downstream
+// int256/uint256 calldata math (int256 max ~5.78e76; 1e15 × 1e6 scaling stays
+// far under). Without the cap, oversized inputs reached viem's ABI encoder and
+// surfaced as an unhandled overflow (red-team finding).
 export const zAmount = z.string().regex(/^\d+(\.\d{1,6})?$/).refine(
   (v) => parseFloat(v) > 0,
   { message: "amount must be greater than zero" },
+).refine(
+  (v) => (v.split(".")[0]?.length ?? 0) <= 15,
+  { message: "amount too large (max 15 integer digits)" },
 );
+
+// Strip library/version/stack noise from an error before returning it to a
+// client (keep the first human message line only). Prevents dependency-version
+// disclosure (e.g. "Version: viem@2.45.3") and stack leakage in error bodies.
+export function scrubError(e: unknown): string {
+  const raw = e instanceof Error ? e.message : String(e);
+  return (raw.split("\n")[0] ?? raw)
+    .replace(/\bVersion:\s*\S+/gi, "")
+    .replace(/\s*Docs?:\s*\S+/gi, "")
+    .trim()
+    .slice(0, 200);
+}
 export const zUint = z.string().regex(/^\d+$/);
 export const zSymbol = z.enum(PERP_SYMBOLS);
 export const zSide = z.enum(["long", "short"]);
