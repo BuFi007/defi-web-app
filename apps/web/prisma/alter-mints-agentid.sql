@@ -1,0 +1,1 @@
+ALTER TABLE "mints" ADD COLUMN IF NOT EXISTS "agentId" TEXT;

@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { KAWAII_GATE, RESERVED_BASES } from "@/lib/kawaii/config";
 import { mintAvatar, MintError } from "@/lib/kawaii/mint-service";
 import { verifyUsdcPaymentArc } from "@/lib/kawaii/payment";
+import { ownerOfAgent } from "@/lib/kawaii/erc8004";
+import { getGuildVerifiedPlatforms, guildJoinUrl } from "@/lib/kawaii/guild";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -38,9 +40,9 @@ export async function POST(req: NextRequest) {
     if (f in body) return NextResponse.json({ error: `field "${f}" not allowed` }, { status: 400 });
   }
 
-  const { wallet, baseId, layers, deadline, nonce, signature } = body as {
+  const { wallet, baseId, layers, deadline, nonce, signature, agentId } = body as {
     wallet?: string; baseId?: string; layers?: Record<string, string>;
-    deadline?: number; nonce?: string; signature?: `0x${string}`;
+    deadline?: number; nonce?: string; signature?: `0x${string}`; agentId?: string;
   };
 
   if (!wallet || !isAddress(wallet)) return NextResponse.json({ error: "bad wallet" }, { status: 400 });
@@ -58,17 +60,34 @@ export async function POST(req: NextRequest) {
   const tier = "testnet" as const;
   const cfg = KAWAII_GATE[tier];
 
-  // ---- Socials (testnet: Discord + Telegram + X all verified) — A.6 wires OAuth ----
-  const socials = await prisma.socialVerification.findMany({ where: { address: lc, verified: true } });
-  const have = new Set(socials.map((s) => s.platform));
-  const missing = cfg.socialsRequired.filter((p) => !have.has(p));
-  if (missing.length) {
-    return NextResponse.json({ error: "socials_required", missing }, { status: 403 });
-  }
+  // ---- Agent vs human verification ----
+  // Humans verify socials (X + Discord via Guild). AGENTS verify by owning an
+  // ERC-8004 identity (the badge): an agent with an on-chain identity it
+  // controls is "verified" and skips the social gate — agents can't do Discord/X
+  // follows, their identity IS their proof. Ownership is checked on-chain.
+  const isVerifiedAgent = !!agentId && /^\d+$/.test(agentId) && (await ownerOfAgent(BigInt(agentId)))?.toLowerCase() === lc;
 
-  // ---- Whitelist (free) vs payment (verify USDC on Arc — testnet is USDC-only) ----
   const wl = await prisma.gateWhitelist.findUnique({ where: { address: lc } });
   const reserved = baseId in RESERVED_BASES;
+
+  // Social gate — required for everyone EXCEPT verified agents (an ERC-8004
+  // identity the wallet controls IS the proof; agents can't do X/Discord).
+  // Whitelisted wallets still prove socials — whitelist only waives PAYMENT.
+  // Humans prove X + Discord via Guild.xyz (free oracle); legacy OAuth honored too.
+  if (!isVerifiedAgent) {
+    const have = new Set<string>();
+    try {
+      (await getGuildVerifiedPlatforms(lc)).forEach((p) => have.add(p));
+    } catch {
+      /* Guild down → fall back to ledger only */
+    }
+    const socials = await prisma.socialVerification.findMany({ where: { address: lc, verified: true } });
+    socials.forEach((s) => have.add(s.platform));
+    const missing = cfg.socialsRequired.filter((p) => !have.has(p));
+    if (missing.length) {
+      return NextResponse.json({ error: "socials_required", missing, verify: guildJoinUrl() }, { status: 403 });
+    }
+  }
   let payToken: "free" | "USDC" = "free";
   let amountPaid: string | undefined;
   let paymentTx: string | undefined;
@@ -99,7 +118,9 @@ export async function POST(req: NextRequest) {
   try {
     const result = await mintAvatar({
       wallet: lc, tier, baseId, layers: layers as never,
-      payToken, amountPaid, paymentTx, idempotencyKey: `${lc}:${baseId}:${nonce}`,
+      payToken, amountPaid, paymentTx,
+      agentId: isVerifiedAgent ? agentId : undefined,
+      idempotencyKey: `${lc}:${baseId}:${nonce}`,
     });
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {

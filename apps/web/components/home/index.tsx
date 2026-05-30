@@ -4,7 +4,6 @@ import React from "react";
 import { useSearchParams } from "next/navigation";
 import { NotConnectedHome } from "@/components/not-connected";
 import TradeIsland from "@/components/trade-island";
-import { KawaiiGateMount } from "@/components/kawaii/kawaii-gate-mount";
 import { useBufiIsConnected } from "@/lib/session";
 import "@/css/trade-island/index.css";
 
@@ -41,14 +40,10 @@ export const HomeContent: React.FC = () => {
     process.env.NEXT_PUBLIC_BENTO_E2E === "1" &&
     searchParams?.get("force-island") === "1";
 
+  // Two home states. The NFT gate is NOT a separate view anymore — it's the
+  // island's "identity" tab (default when no Punk; other tabs locked until
+  // minted). The island mounts once, so there's no layout-swap race condition.
   if (!isConnectedAnyPath && !forceIsland) return <NotConnectedHome />;
 
-  // Additive: the Kawaii invite gate self-gates (renders only when connected +
-  // no Kawaii Punk, fails open on error) so it never blocks the existing UX.
-  return (
-    <>
-      <TradeIsland />
-      <KawaiiGateMount />
-    </>
-  );
+  return <TradeIsland />;
 };

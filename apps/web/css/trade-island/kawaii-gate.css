@@ -1,0 +1,1263 @@
+/* ─────────────────────────────────────────────────────────────
+   Kawaii Punks · Token Gate — bold drop-poster edition
+   Dramatic gradient hero + floating campaign poster + collaged
+   torn stickers. Big bubble logo crowns the mint side.
+   ───────────────────────────────────────────────────────────── */
+
+.kg-root {
+  position: fixed; inset: 0;
+  z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  overflow: auto;
+  font-family: 'Nunito', system-ui, sans-serif;
+  background:
+    radial-gradient(50% 50% at 12% 14%, #ff7ad9 0%, transparent 55%),
+    radial-gradient(50% 55% at 90% 18%, #9b6bff 0%, transparent 55%),
+    radial-gradient(55% 60% at 85% 90%, #6fd8ff 0%, transparent 50%),
+    radial-gradient(55% 60% at 8% 92%, #ff8ad0 0%, transparent 55%),
+    #d9a8ff;
+  animation: kg-fade .3s ease-out;
+}
+@keyframes kg-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Card shell */
+.kg-card {
+  width: 100%;
+  max-width: 1000px;
+  max-height: calc(100vh - 40px);
+  border-radius: 26px;
+  box-shadow:
+    0 2px 4px rgba(60, 20, 110, .12),
+    0 30px 80px rgba(60, 20, 110, .42),
+    inset 0 0 0 1px rgba(255,255,255,.55);
+  display: grid;
+  grid-template-columns: 45% 55%;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+  position: relative;
+  background: #faf4ff;
+}
+
+/* ── LEFT: dramatic poster hero ───────────────────────────── */
+
+.kg-poster {
+  position: relative;
+  padding: 0;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 80% at 50% 12%, #7b4bd4 0%, #5a2fa8 42%, #3a1b78 100%);
+}
+/* sparkle field */
+.kg-poster::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    radial-gradient(2px 2px at 18% 22%, rgba(255,255,255,.9) 50%, transparent 51%),
+    radial-gradient(2px 2px at 76% 16%, rgba(255,255,255,.7) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 62% 64%, rgba(255,255,255,.8) 50%, transparent 51%),
+    radial-gradient(2px 2px at 30% 80%, rgba(255,255,255,.6) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 88% 72%, rgba(255,255,255,.7) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 44% 36%, rgba(255,255,255,.5) 50%, transparent 51%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.kg-poster-stage {
+  position: absolute;
+  inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2;
+}
+.kg-poster-glow {
+  position: absolute;
+  width: 80%; height: 70%;
+  top: 14%; left: 10%;
+  background: radial-gradient(circle, rgba(255,140,230,.55) 0%, transparent 70%);
+  filter: blur(30px);
+  z-index: 0;
+}
+.kg-poster-img {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  z-index: 1;
+}
+@keyframes kg-float {
+  0%, 100% { transform: rotate(-2deg) translateY(0); }
+  50%       { transform: rotate(-2deg) translateY(-7px); }
+}
+
+/* torn-paper stickers collaged over the poster */
+.kg-sticker-drop {
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 38%;
+  max-width: 158px;
+  transform: rotate(7deg);
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,.4));
+  z-index: 4;
+  pointer-events: none;
+}
+.kg-sticker-arc {
+  position: absolute;
+  bottom: 30px; left: 6px;
+  width: 28%;
+  max-width: 118px;
+  transform: rotate(-10deg);
+  filter: drop-shadow(0 8px 16px rgba(120,20,90,.4));
+  z-index: 4;
+  pointer-events: none;
+}
+
+.kg-tagline {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  z-index: 3;
+  text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #ffd7f5;
+  padding: 26px 12px 12px;
+  background: linear-gradient(180deg, transparent, rgba(30, 12, 70, .55));
+}
+.kg-tagline .own { color: #ffe27a; }
+
+/* Kawaii Punks logo (no BU.FI) crowning the left hero */
+.kg-kawaii-logo {
+  position: absolute;
+  top: 18px; left: 50%;
+  transform: translateX(-50%);
+  width: 56%; max-width: 190px;
+  z-index: 4;
+  filter: drop-shadow(0 6px 16px rgba(20, 6, 60, .5));
+  pointer-events: none;
+}
+
+/* left view toggle (Poster / Your Punk) */
+.kg-left-toggle {
+  position: absolute;
+  top: 14px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: inline-flex;
+  background: rgba(30, 12, 70, .42);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 999px;
+  padding: 3px;
+}
+.kg-left-toggle button {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px; font-weight: 800;
+  letter-spacing: .04em;
+  padding: 5px 12px;
+  border-radius: 999px;
+  color: rgba(255,255,255,.7);
+  border: 0; background: transparent;
+  cursor: pointer;
+}
+.kg-left-toggle button.active {
+  background: #fff;
+  color: #6b2fb0;
+}
+.kg-left-toggle button.locked { opacity: .5; cursor: not-allowed; }
+
+/* ── Post-mint solo dashboard ─────────────────────────────── */
+.kg-card.solo { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+.kg-solo-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 18px;
+  background: #2e2350;
+  z-index: 2;
+}
+.kg-solo-logo { height: 30px; width: auto; }
+.kg-solo-net {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; font-weight: 800;
+  color: #b6f0d4; letter-spacing: .04em;
+}
+.kg-solo-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; font-weight: 800;
+  color: #fff; background: rgba(255,255,255,.14);
+  padding: 4px 10px; border-radius: 999px;
+  letter-spacing: .03em;
+}
+.kg-solo-enter { margin-left: auto; padding: 9px 16px; font-size: 13px; }
+.kg-solo-body {
+  position: relative;
+  min-height: 0;
+  background: radial-gradient(120% 80% at 50% 12%, #7b4bd4 0%, #5a2fa8 42%, #3a1b78 100%);
+  overflow: hidden;
+}
+.kg-one { font-weight: 800; color: #7b4bd4; }
+
+/* embedded inside the island Identity tab (not fullscreen) — NO inner bg
+   (blends with the island surface; the card carries its own background). */
+.kg-root.embedded {
+  position: absolute;
+  z-index: 5;
+  padding: 0;
+  border-radius: inherit;
+  background: transparent;
+}
+.kg-root.embedded .kg-card { max-height: 100%; height: 100%; box-shadow: none; }
+
+/* tab lock styling */
+.island-tab.tab-locked { opacity: .5; cursor: not-allowed; }
+.island-tab .tab-lock { font-size: 10px; margin-left: 2px; }
+
+/* live base preview on the hero */
+.kg-punk-preview {
+  position: relative;
+  z-index: 2;
+  width: 78%;
+  max-width: 300px;
+  aspect-ratio: 1;
+  border-radius: 26px;
+  overflow: hidden;
+  background:
+    radial-gradient(80% 70% at 50% 28%, #fff 0%, #f0e6ff 70%, #e2d0ff 100%);
+  box-shadow:
+    0 20px 44px rgba(20, 6, 60, .5),
+    inset 0 0 0 3px rgba(255,255,255,.65);
+  transform: rotate(-2deg);
+  animation: kg-float 6s ease-in-out infinite;
+}
+.kg-punk-preview img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.kg-punk-tag {
+  position: absolute;
+  bottom: 10px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(30, 12, 70, .62);
+  color: #fff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px; font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 4px 11px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* ── In-gate virtual customizer ───────────────────────────── */
+.kg-cust {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex; flex-direction: column;
+}
+.kg-cust-stage {
+  position: relative;
+  height: 46%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.kg-cust-stage::after {
+  content: '';
+  position: absolute;
+  bottom: 14%; left: 50%;
+  transform: translateX(-50%);
+  width: 46%; height: 16px;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,.4) 0%, transparent 70%);
+  filter: blur(4px);
+}
+.kg-cust-av {
+  position: relative;
+  width: 62%;
+  max-width: 220px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(70% 70% at 50% 30%, rgba(255,255,255,.95), rgba(240,228,255,.6));
+  box-shadow: 0 16px 40px rgba(20, 6, 60, .42), inset 0 0 0 3px rgba(255,255,255,.6);
+  z-index: 1;
+}
+.kg-cust-av img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.kg-cust-badge {
+  position: absolute;
+  top: 46px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(30, 12, 70, .5);
+  backdrop-filter: blur(6px);
+  color: #ffd7f5;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; font-weight: 800;
+  letter-spacing: .05em;
+  padding: 4px 11px;
+  border-radius: 999px;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.kg-cust-panel {
+  flex: 1;
+  min-height: 0;
+  background: linear-gradient(180deg, #ffffff, #f6eeff);
+  border-radius: 22px 22px 0 0;
+  margin: 0 8px;
+  padding: 12px 14px 14px;
+  display: flex; flex-direction: column;
+  gap: 9px;
+  box-shadow: 0 -8px 24px rgba(20, 6, 60, .22);
+}
+.kg-cust-head { display: flex; align-items: baseline; justify-content: space-between; }
+.kg-cust-title { font-weight: 900; font-size: 14px; color: #2e2350; letter-spacing: -0.01em; }
+.kg-cust-hint { font-size: 9.5px; font-weight: 800; color: #9a6aff; }
+.kg-cust-cats {
+  display: flex; gap: 5px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.kg-cust-cats::-webkit-scrollbar { display: none; }
+.kg-cust-cats button {
+  flex-shrink: 0;
+  font-size: 11px; font-weight: 800;
+  padding: 6px 11px;
+  border-radius: 999px;
+  color: #8a7ab0;
+  background: #f1ecfa;
+  border: 0; cursor: pointer;
+  white-space: nowrap;
+}
+.kg-cust-cats button.active { background: #2e2350; color: #fff; }
+.kg-cust-grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+  align-content: start;
+  scrollbar-width: thin;
+}
+.kg-cust-tile {
+  position: relative;
+  display: flex; flex-direction: column;
+  background: #fff;
+  border: 1.5px solid #ece2ff;
+  border-radius: 11px;
+  overflow: hidden;
+  cursor: pointer;
+  padding: 0;
+  transition: border-color .12s, transform .12s;
+}
+.kg-cust-tile:hover { border-color: #c8b0ff; transform: translateY(-1px); }
+.kg-cust-tile.on { border-color: #8a6aff; box-shadow: 0 0 0 2px #ddd0f5; }
+.kg-cust-tile.locked { cursor: not-allowed; }
+.kg-cust-tile.locked:hover { transform: none; border-color: #ece2ff; }
+.kg-cust-pic {
+  position: relative;
+  aspect-ratio: 1;
+  background: radial-gradient(70% 70% at 50% 35%, #fff, #f0e6ff);
+}
+.kg-cust-pic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.kg-cust-tile.locked .kg-cust-pic img { filter: grayscale(1) brightness(.9) opacity(.32); }
+.kg-cust-lock {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: #9a8ac0;
+}
+.kg-cust-tick {
+  position: absolute; top: 4px; right: 4px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #8a6aff; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.kg-cust-cap {
+  padding: 4px 5px 5px;
+  font-size: 8px; font-weight: 800;
+  color: #6a5a92;
+  text-align: center;
+  line-height: 1.15;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.kg-cust-tile.locked .kg-cust-cap { color: #b0a2d0; text-transform: uppercase; letter-spacing: .03em; font-size: 7.5px; font-family: 'JetBrains Mono', monospace; }
+.kg-cust-tile.none { background: #faf6ff; align-items: center; justify-content: center; padding: 0; }
+.kg-cust-tile.none .none-x { flex: 1; display: flex; align-items: center; justify-content: center; color: #b0a2d0; }
+
+/* ── RIGHT: mint side ─────────────────────────────────────── */
+
+.kg-panel {
+  padding: 12px 22px 10px;
+  display: flex; flex-direction: column;
+  gap: 4px;
+  overflow: auto;
+  min-height: 0;
+  position: relative;
+  background: #fffdff;
+}
+/* washi-tape pinned-paper frame overlay */
+.kg-panel-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+  z-index: 0;
+  opacity: .7;
+}
+.kg-panel > *:not(.kg-panel-frame) { position: relative; z-index: 1; }
+
+/* big bubble logo crown */
+.kg-logo-crown {
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+  margin-top: 2px;
+}
+.kg-logo-crown img {
+  height: 40px; width: auto;
+  display: block;
+  filter: drop-shadow(0 4px 10px rgba(110, 70, 200, .28));
+}
+.kg-net {
+  position: absolute;
+  top: 0; right: 0;
+  display: inline-flex;
+  background: #ece0ff;
+  border-radius: 999px;
+  padding: 3px;
+}
+.kg-net button {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px; font-weight: 800;
+  letter-spacing: .04em;
+  padding: 5px 10px;
+  border-radius: 999px;
+  color: #8a7ab0;
+  border: 0; background: transparent;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 3px;
+}
+.kg-net button.active {
+  background: #fff; color: #5b3a96;
+  box-shadow: 0 1px 3px rgba(80,40,140,.18);
+}
+.kg-net button .soon { font-size: 7px; opacity: .55; }
+.kg-net button .live { font-size: 7.5px; color: #2bbd7e; font-weight: 800; }
+.kg-net button:not(.active) .live { opacity: .6; }
+
+.kg-pay { display: flex; flex-direction: column; gap: 7px; }
+.kg-pay-head { display: flex; align-items: baseline; justify-content: space-between; }
+.kg-pay-hint {
+  font-size: 10px; font-weight: 800;
+  color: #d6398f;
+  background: #ffe7f3;
+  padding: 3px 9px;
+  border-radius: 6px;
+  letter-spacing: .02em;
+}
+.kg-pay-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.kg-pay-opt {
+  position: relative;
+  display: flex; flex-direction: column;
+  gap: 5px;
+  padding: 8px 10px 8px;
+  background: #fff;
+  border: 1.5px solid #e8dcff;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color .15s, transform .12s, box-shadow .15s;
+  text-align: left;
+  overflow: hidden;
+}
+.kg-pay-opt:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(120,70,200,.12); }
+.kg-pay-opt.jpyc.active {
+  border-color: #ff5fb0;
+  box-shadow: 0 0 0 3px #ffe0ef, 0 8px 22px rgba(255,95,176,.22);
+}
+.kg-pay-opt.usdc.active {
+  border-color: #3fa9f5;
+  box-shadow: 0 0 0 3px #dcefff, 0 8px 22px rgba(63,169,245,.18);
+}
+/* corner ribbon */
+.kg-pay-ribbon {
+  position: absolute;
+  top: 9px; right: -28px;
+  transform: rotate(38deg);
+  background: linear-gradient(135deg, #ff7ad0, #d6398f);
+  color: #fff;
+  font-size: 9px; font-weight: 900;
+  letter-spacing: .06em;
+  padding: 3px 30px;
+  box-shadow: 0 2px 6px rgba(214,57,143,.4);
+}
+.pay-row { display: flex; align-items: center; gap: 9px; }
+.pay-ic {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-weight: 900; font-size: 14px;
+  flex-shrink: 0;
+  box-shadow: 0 3px 8px rgba(0,0,0,.12);
+}
+.pay-ic.usdc { background: linear-gradient(135deg, #3fa9f5, #2b7fd4); }
+.pay-ic.jpyc { background: linear-gradient(135deg, #ff7ad0, #d6398f); }
+.pay-meta { display: flex; flex-direction: column; min-width: 0; }
+.pay-name { font-weight: 900; font-size: 15px; color: #2e2350; letter-spacing: -0.01em; line-height: 1.1; }
+.pay-sub { font-size: 9px; font-weight: 700; color: #9a8ac0; letter-spacing: .01em; }
+
+.pay-price-row { display: flex; align-items: baseline; gap: 7px; }
+.pay-yen {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 900; font-size: 19px;
+  color: #2e2350; letter-spacing: -0.02em; line-height: 1;
+}
+.kg-pay-opt.jpyc.active .pay-yen { color: #d6398f; }
+.kg-pay-opt.usdc.active .pay-yen { color: #2b7fd4; }
+.pay-usd { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: #9a8ac0; }
+
+.pay-save {
+  align-self: flex-start;
+  font-size: 8.5px; font-weight: 900;
+  letter-spacing: .04em;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: #ffe7f3; color: #d6398f;
+}
+.pay-save.plain { background: #f1ecfa; color: #9a8ac0; font-weight: 800; }
+
+.kg-bal {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 10.5px; color: #8a7ab0; font-weight: 600; line-height: 1.4;
+  padding-left: 2px;
+}
+.kg-bal-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #3ec07f;
+  box-shadow: 0 0 0 3px rgba(62,192,127,.18);
+  flex-shrink: 0;
+}
+.kg-bal strong { color: #1f9d6b; font-family: 'JetBrains Mono', monospace; font-weight: 800; }
+
+/* power-up loop teaser */
+.kg-powerloop {
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 7px 11px;
+  background: linear-gradient(135deg, #f3ecff, #fff0fb);
+  border: 1px solid #ecdcff;
+  border-radius: 11px;
+}
+.kg-powerloop-head { display: flex; align-items: baseline; justify-content: space-between; }
+.kg-pl-title { font-weight: 900; font-size: 12.5px; color: #5a2fa8; letter-spacing: -0.01em; }
+.kg-pl-sub { font-size: 9.5px; font-weight: 800; color: #b07aff; text-transform: uppercase; letter-spacing: .04em; }
+.kg-pl-gauge { height: 6px; background: #e7d8ff; border-radius: 999px; overflow: hidden; }
+.kg-pl-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #8a6aff, #ff7ad0);
+  border-radius: 999px;
+}
+.kg-pl-steps { display: flex; align-items: center; gap: 4px; }
+.kg-pl-step {
+  flex: 1;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px; font-weight: 800;
+  text-align: center;
+  padding: 3px 2px;
+  border-radius: 5px;
+  background: #fff;
+  color: #b0a2d0;
+  border: 1px solid #ecdcff;
+  white-space: nowrap;
+}
+.kg-pl-step.on { background: #2e2350; color: #fff; border-color: #2e2350; }
+
+/* gacha badge */
+.kg-gacha {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; font-weight: 800;
+  color: #d6398f;
+  background: #ffe7f3;
+  padding: 2px 7px;
+  border-radius: 5px;
+  margin-left: 4px;
+  letter-spacing: .04em;
+}
+
+/* reserved drop avatars (named, link X) */
+.kg-legends {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+}
+.kg-legend {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1.5px solid #e8dcff;
+  background: radial-gradient(70% 70% at 50% 35%, #fff, #f0e6ff);
+  display: flex; flex-direction: column;
+}
+.kg-legend > img { width: 100%; height: 30px; object-fit: cover; }
+.kg-legend-tag {
+  position: absolute; top: 4px; left: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 6.5px; font-weight: 800; letter-spacing: .08em;
+  color: #fff; background: rgba(46,35,80,.78);
+  padding: 1px 5px; border-radius: 4px;
+}
+.kg-legend-x {
+  display: block;
+  text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px; font-weight: 800;
+  color: #7b4bd4;
+  padding: 2px 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  border-top: 1px solid #ecdcff;
+  text-decoration: none;
+}
+.kg-legend-x:hover { background: #f3ecff; color: #5a2fa8; }
+
+/* testnet note */
+.kg-testnote {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, #e8f9f1, #eafbff);
+  border: 1.5px solid #b8ebd4;
+  border-radius: 13px;
+  font-size: 11.5px; font-weight: 600;
+  color: #2a6a52; line-height: 1.45;
+}
+.kg-testnote strong { color: #1f7a4d; }
+.kg-testnote-ic { font-size: 17px; flex-shrink: 0; }
+
+.kg-beta-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  align-self: center;
+  white-space: nowrap;
+  background: linear-gradient(135deg, #ffe1f3, #ece0ff);
+  color: #8a3fb0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; font-weight: 800;
+  letter-spacing: .04em;
+  padding: 3px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(180,120,220,.25);
+}
+
+.kg-slogan {
+  text-align: center;
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: -0.02em;
+  color: #c5379e;
+  line-height: 1.1;
+  margin: 0;
+}
+.kg-slogan .scratch {
+  color: #7b4bd4;
+  text-decoration: underline;
+  text-decoration-color: #ff9ed6;
+  text-decoration-thickness: 3px;
+  text-underline-offset: 2px;
+}
+.kg-desc {
+  text-align: center;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: #6a5a92;
+  font-weight: 600;
+  margin: -2px 0 0;
+}
+
+.kg-label {
+  font-weight: 800;
+  font-size: 11px;
+  color: #4a3a72;
+  letter-spacing: .02em;
+}
+
+/* follow — inline chips */
+.kg-follows {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.kg-follows.two { grid-template-columns: repeat(2, 1fr); }
+.kg-follow {
+  display: flex; flex-direction: row; align-items: center; justify-content: center;
+  gap: 7px;
+  padding: 6px 8px;
+  background: #fff;
+  border: 1.5px solid #e8dcff;
+  border-radius: 11px;
+  cursor: pointer;
+  transition: border-color .15s, transform .12s, box-shadow .15s;
+  position: relative;
+}
+.kg-follow:hover { border-color: #c8b0ff; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(120,70,200,.14); }
+.kg-follow.done { border-color: #6fdca0; background: #f1fdf7; }
+.kg-follow .brand-ic {
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+.kg-follow .name {
+  font-weight: 800; font-size: 12px;
+  color: #3a2f5e;
+}
+.kg-follow .state {
+  position: absolute; top: 7px; right: 7px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  border: 2px solid #ddd0f5;
+  display: flex; align-items: center; justify-content: center;
+  color: transparent;
+  transition: all .15s;
+}
+.kg-follow.done .state { background: #3ec07f; border-color: #3ec07f; color: white; }
+
+/* USDC */
+.kg-usdc {
+  background: #fff;
+  border: 1.5px solid #e8dcff;
+  border-radius: 13px;
+  padding: 12px 14px;
+  display: flex; flex-direction: column;
+  gap: 9px;
+}
+.kg-usdc-top { display: flex; align-items: center; gap: 9px; }
+.kg-usdc-ic {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3fa9f5, #2b7fd4);
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-weight: 900; font-size: 13px;
+  flex-shrink: 0;
+}
+.kg-usdc-label { font-weight: 800; font-size: 12px; color: #4a3a72; white-space: nowrap; }
+.kg-usdc-val {
+  margin-left: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 800; font-size: 13px;
+  color: #1f9d6b;
+}
+.kg-usdc-val .needed { color: #8a7ab0; font-weight: 700; }
+.kg-usdc-bar {
+  height: 7px;
+  background: #ece0ff;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.kg-usdc-bar .fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3ec07f, #5fd6a8);
+  border-radius: 999px;
+}
+.kg-usdc-note { font-size: 10px; color: #8a7ab0; line-height: 1.4; font-weight: 600; }
+
+/* base picker */
+.kg-bases-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px;
+}
+.kg-bases-row .kg-label { white-space: nowrap; }
+.kg-reserved-note {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; font-weight: 700;
+  letter-spacing: .04em;
+  color: #a690d8;
+  display: flex; align-items: center; gap: 5px;
+  white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+  min-width: 0;
+}
+.kg-reserved-note img { width: 12px; height: 12px; opacity: .6; }
+.kg-bases {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+.kg-base {
+  position: relative;
+  height: 42px;
+  background: linear-gradient(180deg, #ffffff, #f3ecff);
+  border: 2px solid #e8dcff;
+  border-radius: 11px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color .12s, transform .12s, box-shadow .12s;
+  padding: 0;
+}
+.kg-base:hover { border-color: #c8b0ff; transform: translateY(-3px); }
+.kg-base.active {
+  border-color: #8a6aff;
+  box-shadow: 0 0 0 3px #ddd0f5, 0 6px 16px rgba(138,106,255,.3);
+  transform: translateY(-3px);
+}
+.kg-base img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.kg-base .pick-tick {
+  position: absolute; bottom: 4px; right: 4px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #8a6aff; color: white;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 6px rgba(138,106,255,.5);
+}
+
+/* mint button */
+.kg-mint {
+  display: flex; align-items: center; justify-content: center;
+  gap: 9px;
+  white-space: nowrap;
+  padding: 11px 22px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #8a6aff 0%, #b07aff 50%, #ff7ad0 100%);
+  background-size: 200% 100%;
+  color: white;
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  border: 0;
+  cursor: pointer;
+  box-shadow: 0 5px 16px rgba(138, 106, 255, .4);
+  transition: transform .12s, box-shadow .12s, background-position .4s, opacity .12s;
+  margin-top: 1px;
+}
+.kg-mint:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(138, 106, 255, .55); background-position: 100% 0; }
+.kg-mint:disabled { background: #ddd2f0; cursor: not-allowed; box-shadow: none; }
+.kg-mint .arrow {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.25);
+  display: flex; align-items: center; justify-content: center;
+}
+
+.kg-altlink {
+  text-align: center;
+  font-size: 11px;
+  color: #8a7ab0;
+  font-weight: 600;
+}
+.kg-altlink a {
+  color: #7b4bd4; font-weight: 800;
+  text-decoration: underline;
+  text-decoration-color: #c8b0ff;
+  cursor: pointer;
+}
+
+/* close */
+.kg-close {
+  position: absolute;
+  top: 14px; right: 14px;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.7);
+  display: flex; align-items: center; justify-content: center;
+  color: #8a7ab0;
+  z-index: 6;
+  border: 0; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(60,20,110,.15);
+}
+.kg-close:hover { background: #fff; color: #5b3a96; }
+
+/* ── Minting / success ────────────────────────────────────── */
+
+.kg-minting {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(255,255,255,.97), rgba(245,236,255,.97));
+  backdrop-filter: blur(8px);
+  z-index: 12;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 16px; text-align: center;
+  padding: 32px; border-radius: 26px;
+  animation: kg-fade .25s ease-out;
+}
+.kg-minting .mint-av {
+  width: 160px; height: 160px;
+  border-radius: 22px;
+  overflow: hidden;
+  position: relative;
+  background: linear-gradient(180deg,#c8b8ff,#a78dff);
+  box-shadow: 0 18px 44px rgba(138, 106, 255, .42);
+  transform: rotate(-2deg);
+}
+.kg-minting .mint-av img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.kg-minting h2 { font-weight: 900; font-size: 26px; color: #3a2f5e; letter-spacing: -0.02em; margin: 0; }
+.kg-minting .sub { font-size: 13px; color: #6b4ba8; font-weight: 600; max-width: 36ch; line-height: 1.5; }
+.kg-minting .progress { width: 260px; height: 6px; background: #ece0ff; border-radius: 999px; overflow: hidden; }
+.kg-minting .progress .fill { height: 100%; background: linear-gradient(90deg, #8a6aff, #ff7ad0); border-radius: 999px; }
+.kg-minting .status { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: .06em; color: #8a7ab0; text-transform: uppercase; }
+.kg-minting .url { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7b4bd4; background: #f1e9ff; padding: 6px 14px; border-radius: 999px; }
+.kg-minting .check-circle { width: 62px; height: 62px; border-radius: 50%; background: #3ec07f; color: white; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 22px rgba(62,192,127,.4); }
+
+/* ── Responsive ───────────────────────────────────────────── */
+
+@media (max-width: 880px) {
+  .kg-card { grid-template-columns: 1fr; max-width: 440px; }
+  .kg-poster { padding: 20px 18px 14px; }
+  .kg-poster-stage { min-height: 240px; }
+  .kg-logo-crown img { height: 64px; }
+  .kg-net { position: static; margin-left: 10px; }
+  .kg-logo-crown { gap: 10px; }
+}
+@media (max-width: 480px) {
+  .kg-root { padding: 10px; }
+  .kg-follows { grid-template-columns: repeat(3, 1fr); }
+  .kg-panel { padding: 18px; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Compact overrides for the EMBEDDED gate (dynamic-island Identity
+   tab body ≈ 500px). Keeps the standalone design values intact;
+   shaves the mint panel so the Mint CTA + footer fit without scroll.
+   ───────────────────────────────────────────────────────────── */
+.kg-root.embedded .kg-panel { padding: 7px 16px 7px; gap: 4px; }
+.kg-root.embedded .kg-logo-crown { margin-top: 0; }
+.kg-root.embedded .kg-logo-crown img { height: 30px; }
+.kg-root.embedded .kg-net button { padding: 4px 8px; font-size: 9px; }
+.kg-root.embedded .kg-beta-chip { padding: 2px 9px; font-size: 8.5px; }
+.kg-root.embedded .kg-slogan { font-size: 12px; }
+.kg-root.embedded .kg-label { font-size: 10.5px; }
+.kg-root.embedded .kg-follow { padding: 5px 8px; border-radius: 10px; }
+.kg-root.embedded .kg-follow .brand-ic { width: 20px; height: 20px; }
+.kg-root.embedded .kg-follow .name { font-size: 11.5px; }
+.kg-root.embedded .kg-pay { gap: 5px; }
+.kg-root.embedded .kg-pay-opt { padding: 5px 9px; gap: 3px; border-radius: 11px; }
+.kg-root.embedded .pay-ic { width: 22px; height: 22px; font-size: 12px; }
+.kg-root.embedded .pay-name { font-size: 13px; }
+.kg-root.embedded .pay-sub { font-size: 8.5px; }
+.kg-root.embedded .pay-yen { font-size: 17px; }
+.kg-root.embedded .kg-bal { font-size: 10px; }
+.kg-root.embedded .kg-testnote { padding: 8px 11px; font-size: 10.5px; }
+.kg-root.embedded .kg-powerloop { padding: 5px 10px; gap: 3px; }
+.kg-root.embedded .kg-pl-title { font-size: 11.5px; }
+.kg-root.embedded .kg-bases { gap: 5px; }
+.kg-root.embedded .kg-base { height: 30px; border-radius: 9px; }
+.kg-root.embedded .kg-legends { gap: 5px; }
+.kg-root.embedded .kg-legend > img { height: 20px; }
+.kg-root.embedded .kg-legend-x { font-size: 7.5px; padding: 2px 1px; }
+.kg-root.embedded .kg-mint { padding: 8px 18px; font-size: 13px; border-radius: 12px; }
+.kg-root.embedded .kg-mint .arrow { width: 22px; height: 22px; }
+.kg-root.embedded .kg-altlink { font-size: 10px; }
+
+/* Whitelisted = Free Mint: scratch the list price, show ¥0/$0 + FREE badge. */
+.pay-yen.scratch { text-decoration: line-through; text-decoration-color: #ff5fb0; text-decoration-thickness: 2px; opacity: .5; }
+.pay-free {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 900; font-size: 19px; line-height: 1;
+  color: #1f9d6b; letter-spacing: -0.02em;
+}
+.kg-pay-opt.jpyc.active .pay-free, .kg-pay-opt.usdc.active .pay-free { color: #1f9d6b; }
+.pay-save.free { background: #d5f5e3; color: #1f7a4d; }
+.kg-pay.free .kg-pay-hint { background: #d5f5e3; color: #1f7a4d; }
+.kg-root.embedded .pay-free { font-size: 17px; }
+
+/* Real token icons in the pay cards (replaces the ¥/$ glyph circles). */
+.pay-ic-img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex-shrink: 0; display: block; box-shadow: 0 3px 8px rgba(0,0,0,.12); }
+.kg-root.embedded .pay-ic-img { width: 22px; height: 22px; }
+
+/* Base picker = scrollable grid (show all bases), fills the space freed by
+   removing the power-loop + reserved legends. */
+.kg-bases.scroll { align-content: start; }
+.kg-root.embedded .kg-bases.scroll {
+  flex: 1 1 auto;
+  min-height: 96px;
+  max-height: 230px;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
+}
+.kg-root.embedded .kg-bases.scroll::-webkit-scrollbar { width: 6px; }
+.kg-root.embedded .kg-bases.scroll::-webkit-scrollbar-thumb { background: #d8c8ff; border-radius: 999px; }
+.kg-reserved-note { font-variant-numeric: tabular-nums; }
+
+/* ═══════════════════════════════════════════════════════════════
+   v3 — rectangular NFT frame, white/clean surface, central avatar,
+   base + background as first customizer items. Overrides the design
+   defaults above (later cascade wins at equal specificity).
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Rectangular NFT frame — no roundedness */
+.kg-card { border-radius: 0; }
+.kg-root.embedded .kg-card { border-radius: 0; box-shadow: none; }
+
+/* Left panel: white & clean (purple gradient + sparkle field + glow gone).
+   In Poster mode the campaign image still fills it; in Your Kawaii Punk mode
+   the transparent avatar merges into the chosen background. */
+.kg-poster { background: #ffffff; }
+.kg-poster::before { display: none; }
+.kg-poster-glow { display: none; }
+
+/* Light toggle (was white-on-dark) */
+.kg-left-toggle { background: #f3eefb; border-color: #e8dcff; }
+.kg-left-toggle button { color: #8a7ab0; }
+.kg-left-toggle button.active { background: #2e2350; color: #fff; }
+
+/* Tagline reads on white (poster mode only) */
+.kg-tagline { color: #8a7ab0; background: linear-gradient(180deg, transparent, rgba(240,232,255,.7)); }
+.kg-tagline .own { color: #c5379e; }
+
+/* Stage = clean, central, taller; avatar = rectangle merging into bg */
+.kg-cust { gap: 0; }
+.kg-cust-stage { height: 50%; }
+.kg-cust-stage::after { display: none; }
+.kg-cust-av {
+  width: auto; aspect-ratio: 1; height: 86%; max-width: 80%;
+  border-radius: 0;            /* NFT rectangle */
+  background: transparent;     /* let the stage bg (chosen color) show */
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.06);
+}
+.kg-cust-panel { background: #fff; box-shadow: 0 -6px 18px rgba(20,6,60,.08); border-radius: 0; }
+
+/* Background swatch tiles */
+.kg-cust-tile.bg .kg-cust-pic { aspect-ratio: 1; }
+.kg-cust-tile.bg .kg-cust-pic { box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
+.kg-cust-tile.locked { opacity: .85; }
+.kg-cust-lock {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: #9a8ac0; background: rgba(255,255,255,.35);
+}
+.kg-cust-cats button.locked { opacity: .5; }
+
+/* Solo (post-mint) = single column, no poster tab (already structural). */
+.kg-card.solo { border-radius: 0; }
+.kg-solo-body { background: #ffffff; }
+
+/* ── v4 — rebalance: the customizer is the star, give it the width ──
+   Lean mint panel was eating 55% and sitting half-empty. Flip it. */
+.kg-root.embedded .kg-card { grid-template-columns: 58% 42%; }
+.kg-root.embedded .kg-cust-grid { grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.kg-root.embedded .kg-cust-stage { height: 46%; }
+.kg-root.embedded .kg-cust-av { height: 90%; max-width: 84%; }
+.kg-root.embedded .kg-cust-panel { padding: 12px 16px 14px; }
+.kg-root.embedded .kg-cust-cats button { font-size: 11.5px; padding: 6px 12px; }
+/* Mint panel: center the lean content so it isn't top-stacked with a big gap */
+.kg-root.embedded .kg-panel { justify-content: center; gap: 8px; }
+
+/* ── v5 — poster proportions + bigger crown logo ── */
+/* Poster art: contained + framed (not full-bleed cover) so it's better
+   proportioned and reads as a poster, with breathing room. */
+.kg-root.embedded .kg-poster-img {
+  inset: auto; position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 82%; height: auto; max-height: 82%;
+  object-fit: contain;
+  border-radius: 14px;
+  box-shadow: 0 14px 34px rgba(60, 20, 110, .28);
+}
+/* Bigger Kawaii Punks × BU.FI crown logo on the mint side */
+.kg-root.embedded .kg-logo-crown img { height: 46px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Emil polish — custom easing, ease-out entrances, staggered tiles,
+   press feedback, hover gating, reduced-motion. Transform/opacity
+   only (GPU); all UI motion < 300ms.
+   ═══════════════════════════════════════════════════════════════ */
+.kg-root.embedded { --kg-ease-out: cubic-bezier(0.23, 1, 0.32, 1); }
+
+/* Stage entrances (remount on Poster ↔ Your Kawaii Punk) — fade + slight scale */
+.kg-root.embedded .kg-cust { animation: kg-stage-in 260ms var(--kg-ease-out); }
+@keyframes kg-stage-in { from { opacity: 0; transform: scale(0.985); } to { opacity: 1; transform: scale(1); } }
+.kg-root.embedded .kg-poster-img { animation: kg-poster-in 300ms var(--kg-ease-out); }
+@keyframes kg-poster-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* Category grid: fade-up on switch (keyed remount) + staggered tiles */
+.kg-cust-grid { animation: kg-fade-up 220ms var(--kg-ease-out); }
+@keyframes kg-fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.kg-cust-grid .kg-cust-tile { animation: kg-tile-in 220ms var(--kg-ease-out) both; }
+@keyframes kg-tile-in { from { opacity: 0; transform: translateY(7px) scale(0.97); } to { opacity: 1; transform: none; } }
+.kg-cust-grid .kg-cust-tile:nth-child(1) { animation-delay: 0ms; }
+.kg-cust-grid .kg-cust-tile:nth-child(2) { animation-delay: 26ms; }
+.kg-cust-grid .kg-cust-tile:nth-child(3) { animation-delay: 52ms; }
+.kg-cust-grid .kg-cust-tile:nth-child(4) { animation-delay: 78ms; }
+.kg-cust-grid .kg-cust-tile:nth-child(5) { animation-delay: 104ms; }
+.kg-cust-grid .kg-cust-tile:nth-child(6) { animation-delay: 130ms; }
+.kg-cust-grid .kg-cust-tile:nth-child(7) { animation-delay: 150ms; }
+.kg-cust-grid .kg-cust-tile:nth-child(n+8) { animation-delay: 165ms; }
+
+/* Press feedback — instant, responsive (scale on :active) */
+.kg-mint, .kg-base, .kg-cust-tile, .kg-follow, .kg-pay-opt,
+.kg-left-toggle button, .kg-net button, .kg-cust-cats button, .kg-solo-enter {
+  transition: transform 140ms var(--kg-ease-out), border-color 150ms ease, box-shadow 160ms ease, background 160ms ease, color 150ms ease;
+}
+.kg-mint:not(:disabled):active,
+.kg-cust-tile:active, .kg-pay-opt:active, .kg-follow:active,
+.kg-cust-cats button:active, .kg-left-toggle button:active, .kg-net button:active { transform: scale(0.97); }
+
+/* Hover lifts only on true hover/pointer devices */
+@media (hover: hover) and (pointer: fine) {
+  .kg-cust-tile:hover { transform: translateY(-2px); }
+  .kg-cust-cats button:hover:not(.active) { background: #e9e1fb; }
+}
+
+/* Reduced motion: keep fades, drop movement */
+@media (prefers-reduced-motion: reduce) {
+  .kg-root.embedded .kg-cust,
+  .kg-root.embedded .kg-poster-img,
+  .kg-cust-grid,
+  .kg-cust-grid .kg-cust-tile { animation: kg-fade-only 160ms ease both; }
+  @keyframes kg-fade-only { from { opacity: 0; } to { opacity: 1; } }
+  .kg-mint:active, .kg-cust-tile:active, .kg-pay-opt:active, .kg-follow:active,
+  .kg-cust-cats button:active, .kg-cust-tile:hover { transform: none; }
+}
+
+/* ═══ v6 — square thumbnails, clean colorless stage, no borders ═══ */
+/* Poster image: no shadow */
+.kg-root.embedded .kg-poster-img { box-shadow: none; }
+/* Stage(s): no colour by default — merge into the clean panel.
+   (Background swatches still tint the avatar stage when chosen.) */
+.kg-poster-stage { background: transparent; }
+/* Avatar merges into the background — no frame/border at all */
+.kg-root.embedded .kg-cust-av { box-shadow: none; }
+
+/* Every customizer thumbnail is a perfect SQUARE showing the full image;
+   the caption (when present) overlays the bottom. The whole grid scrolls. */
+.kg-root.embedded .kg-cust-grid .kg-cust-tile { aspect-ratio: 1 / 1; }
+.kg-root.embedded .kg-cust-grid .kg-cust-pic {
+  position: absolute; inset: 0; aspect-ratio: auto; border-radius: 0;
+}
+.kg-root.embedded .kg-cust-grid .kg-cust-pic img { object-fit: cover; }
+.kg-root.embedded .kg-cust-grid .kg-cust-cap {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: rgba(255,255,255,.82);
+  backdrop-filter: blur(2px);
+  padding: 2px 4px;
+}
+.kg-root.embedded .kg-cust-grid .kg-cust-tile.none { aspect-ratio: 1 / 1; }
+
+/* ═══ v7 — paginated 4×2 carousel; no panel shadow ═══ */
+.kg-cust-panel { box-shadow: none; }
+
+/* ◀ [grid] ▶ — horizontal, chevrons vertically centered */
+.kg-cust-carousel { flex: 1; min-height: 0; display: flex; align-items: center; gap: 8px; }
+.kg-cust-nav {
+  flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: #f1ecfa; color: #6b2fb0; border: 1px solid #e8dcff; cursor: pointer;
+  transition: transform 140ms var(--kg-ease-out), background 150ms ease, opacity 150ms ease;
+}
+.kg-cust-nav:hover:not(:disabled) { background: #e7ddfb; }
+.kg-cust-nav:active:not(:disabled) { transform: scale(0.9); }
+.kg-cust-nav:disabled { opacity: .3; cursor: not-allowed; }
+
+/* Grid = one fixed 4×2 page that fills the carousel center (no scroll now) */
+.kg-root.embedded .kg-cust-grid {
+  flex: 1; min-height: 0; height: 100%;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 8px;
+  overflow: hidden;
+  align-content: stretch;
+}
+/* Keep tiles square (width-driven), centered in their row */
+.kg-root.embedded .kg-cust-grid .kg-cust-tile { align-self: center; justify-self: stretch; aspect-ratio: 1 / 1; }
+
+/* ═══ v8 — fit the full 4×2 page (no clipped 2nd row) + panel padding-y ═══ */
+/* Give the grid more height + vertical breathing room */
+.kg-root.embedded .kg-cust-stage { height: 40%; }
+.kg-root.embedded .kg-cust-panel { padding: 14px 16px 16px; gap: 8px; }
+/* Tiles size to the SMALLER of row-height / column-width → always square AND
+   both rows fit (height-driven first, capped by column width). */
+.kg-root.embedded .kg-cust-grid .kg-cust-tile {
+  aspect-ratio: 1 / 1;
+  height: 100%; width: auto; max-width: 100%;
+  align-self: center; justify-self: center;
+}
+
+/* ═══ v9 — avatar flush to the stage bottom + x-padding (square NFT proportion) ═══ */
+.kg-root.embedded .kg-cust-stage {
+  align-items: flex-end;     /* image sits at the bottom — no bottom padding */
+  justify-content: center;
+  padding: 6px 10% 0;        /* x-padding frames the fixed square NFT; flush bottom */
+}
+.kg-root.embedded .kg-cust-av {
+  height: 100%; width: auto; max-width: 100%;
+  aspect-ratio: 1 / 1;       /* square = the NFT's fixed dimensions */
+}
+.kg-root.embedded .kg-cust-av img { object-fit: contain; object-position: bottom; }
+
+/* ═══ v10 — panel header (big logo + net top-right), no panel x-pad, clean poster ═══ */
+/* Net toggle pinned to the top-right of the panel */
+.kg-root.embedded .kg-net { position: absolute; top: 10px; right: 12px; z-index: 4; margin: 0; }
+/* Big logo (≈4×), top-centered */
+.kg-root.embedded .kg-panel { padding-left: 0; padding-right: 0; justify-content: flex-start; }
+.kg-root.embedded .kg-logo-crown { margin: 4px 0 2px; }
+.kg-root.embedded .kg-logo-crown img { height: 132px; }
+/* Inner sections keep a little inset even though the panel itself has no x-pad,
+   so cards/buttons don't butt the divider — but the logo/net span full width. */
+.kg-root.embedded .kg-panel > *:not(.kg-logo-crown):not(.kg-net) { padding-left: 16px; padding-right: 16px; }
+
+/* Poster stage: no bg colour, no shadows anywhere (clean) */
+.kg-poster-stage { background: transparent; box-shadow: none; }
+.kg-root.embedded .kg-poster-img { box-shadow: none; }
+.kg-root.embedded .kg-sticker-drop, .kg-root.embedded .kg-sticker-arc { filter: none; }
+/* Left toggle starts at the LEFT (not centered) so it clears the poster logo */
+.kg-root.embedded .kg-left-toggle { left: 12px; transform: none; }
+
+/* ═══ v11 — chain pips in the net toggle (avax+arc / arc), no "live" ═══ */
+.kg-net-chains { display: inline-flex; align-items: center; margin-right: 5px; }
+.kg-net-chains .kg-chain-pip:not(:first-child) { margin-left: -5px; }
+.kg-chain-pip {
+  width: 15px; height: 15px; border-radius: 50%;
+  background: #fff; display: inline-flex; align-items: center; justify-content: center;
+  overflow: hidden; flex-shrink: 0;
+}
+.kg-chain-pip img { width: 66%; height: 66%; object-fit: contain; display: block; }
+.kg-root.embedded .kg-net button { display: inline-flex; align-items: center; gap: 0; padding: 4px 9px; }
+
+/* ═══ v12 — full-width gate, 2-col stage (desc · avatar), dark mode ═══ */
+/* Full width: fill the dynamic-island identity tab (1240), not capped at 1000 */
+.kg-root.embedded .kg-card { max-width: none; width: 100%; }
+
+/* Stage = 2 columns: item description (left) · avatar on the right */
+.kg-root.embedded .kg-cust-stage {
+  display: grid; grid-template-columns: 1fr 1fr;
+  align-items: end; gap: 12px; padding: 8px 16px 0;
+}
+.kg-cust-desc { align-self: center; display: flex; flex-direction: column; gap: 4px; padding: 0 4px 16px 8px; }
+.kg-cust-desc-cat { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: #b07aff; }
+.kg-cust-desc-name { font-size: 17px; font-weight: 900; letter-spacing: -.01em; color: #2e2350; line-height: 1.15; }
+.kg-cust-desc-sub { font-size: 11.5px; font-weight: 600; color: #8a7ab0; line-height: 1.35; }
+.kg-root.embedded .kg-cust-av { justify-self: end; align-self: end; height: 96%; width: auto; max-width: 100%; }
+
+/* ── Dark mode (island [data-theme="dark"]) ── */
+[data-theme="dark"] .kg-card,
+[data-theme="dark"] .kg-panel { background: #16112e; }
+[data-theme="dark"] .kg-poster { background: #110d24; }
+[data-theme="dark"] .kg-cust-panel { background: #110d24; }
+[data-theme="dark"] .kg-solo-body { background: #110d24; }
+[data-theme="dark"] .kg-cust-title,
+[data-theme="dark"] .kg-cust-desc-name,
+[data-theme="dark"] .pay-name,
+[data-theme="dark"] .pay-yen { color: #ece6ff; }
+[data-theme="dark"] .kg-cust-desc-sub,
+[data-theme="dark"] .kg-bal,
+[data-theme="dark"] .pay-sub,
+[data-theme="dark"] .kg-cust-cap,
+[data-theme="dark"] .kg-altlink { color: #a99cce; }
+[data-theme="dark"] .kg-label { color: #cdbff2; }
+[data-theme="dark"] .kg-cust-tile,
+[data-theme="dark"] .kg-pay-opt,
+[data-theme="dark"] .kg-follow { background: #211a3d; border-color: #352c57; }
+[data-theme="dark"] .kg-cust-pic { background: radial-gradient(70% 70% at 50% 35%, #2a2147, #1a1430); }
+[data-theme="dark"] .kg-cust-cats button,
+[data-theme="dark"] .kg-left-toggle,
+[data-theme="dark"] .kg-net,
+[data-theme="dark"] .kg-cust-nav { background: #211a3d; color: #b9a8e0; border-color: #352c57; }
+[data-theme="dark"] .kg-cust-cats button.active,
+[data-theme="dark"] .kg-left-toggle button.active,
+[data-theme="dark"] .kg-net button.active { background: #6b5bff; color: #fff; }
+[data-theme="dark"] .kg-follow .name { color: #ece6ff; }
+[data-theme="dark"] .kg-chain-pip { background: #efeaff; }
+[data-theme="dark"] .kg-testnote { background: linear-gradient(135deg,#13302a,#102a30); border-color:#1f5a48; color:#9fe6c8; }

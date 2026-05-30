@@ -1,5 +1,6 @@
 import { readdirSync, existsSync } from "node:fs";
 import { join, basename } from "node:path";
+import { KAWAII_LAYER_ORDER } from "./config";
 
 /**
  * Kawaii avatar layer catalog + z-order. Assets live in KAWAII_LAYERS_DIR
@@ -10,27 +11,8 @@ import { join, basename } from "node:path";
 export const LAYERS_DIR =
   process.env.KAWAII_LAYERS_DIR || join(process.cwd(), "../../../nft-kawaii/layers");
 
-/** Bottom → top compositing order. */
-export const LAYER_ORDER = [
-  "background",
-  "hair_back",
-  "base",
-  "ears",
-  "outerwear_details",
-  "tops",
-  "neckwear",
-  "face_marks",
-  "eyes",
-  "brows",
-  "eyeglasses",
-  "hair_front",
-  "head_accessories",
-  "jewelry",
-  "handhelds",
-  "companions",
-  "special",
-  "fx",
-] as const;
+/** Bottom → top compositing order (canonical list in config.ts, node-free). */
+export const LAYER_ORDER = KAWAII_LAYER_ORDER;
 
 export type LayerCategory = (typeof LAYER_ORDER)[number];
 

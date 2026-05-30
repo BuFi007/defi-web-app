@@ -64,6 +64,7 @@ model Mint {
   paymentTx String?  @unique // on-chain payment tx (dedup — a tx pays for one mint)
   recipient String?  // earnings recipient (agent SCA) for paid mints
   ipfsCid   String?
+  agentId   String?  // ERC-8004 identity (the "agent badge") linked to an agentic Punk; null for human mints
   createdAt DateTime @default(now())
 
   @@index([address])

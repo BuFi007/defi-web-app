@@ -58,12 +58,12 @@ const spotQuote = route
     mcp: {
       title: "Spot FX Quote",
       description:
-        "Get a live spot quote for buying FX tokens (EURC, JPYC, MXNB) with USDC. Returns the Pyth oracle price and estimated output amount. Use this before bufi_spot_buy to preview the trade.",
+        "Get a live spot quote for buying FX tokens (EURC, JPYC, MXNB) with USDC. Returns the Pyth oracle price and estimated output amount. Use this before post__api_spot_buy to preview the trade.",
     },
   })
   .output(
     // `price` is the raw Pyth price as a string (apply `expo` to scale); null when
-    // the feed has no fresh update. Pair with bufi_spot_buy for expectedOut.
+    // the feed has no fresh update. Pair with post__api_spot_buy for expectedOut.
     z.object({
       symbol: z.string(),
       amountUsdc: z.string(),

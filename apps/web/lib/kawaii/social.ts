@@ -8,10 +8,19 @@ import { prisma } from "../prisma";
  *
  * REQUIRED ENV to activate (none are committed):
  *   APP_URL                      e.g. https://fx.bu.finance (OAuth redirect base)
- *   DISCORD_CLIENT_ID / DISCORD_CLIENT_SECRET / DISCORD_GUILD_ID (membership check)
- *   X_CLIENT_ID / X_CLIENT_SECRET / X_FOLLOW_TARGET_ID (follow check, needs follows.read)
- *   TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID (getChatMember check)
+ *   DISCORD_CLIENT_ID / DISCORD_CLIENT_SECRET   (+ DISCORD_GUILD_ID for a free join check)
+ *   X_CLIENT_ID / X_CLIENT_SECRET               (ownership/connect check — FREE)
+ *   TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID       (free getChatMember join check)
  *   (state HMAC reuses KAWAII_ATTEST_SECRET)
+ *
+ * COST MODEL (all-free default): Discord-join + Telegram-join are real membership
+ * checks at $0 (their APIs are free). X is "connect/own a handle" only — also $0,
+ * since the free X app gets `users.read tweet.read` (no `follows.read`). The hard
+ * "must FOLLOW @bufi" check is the ONLY paid path: it needs X API Basic
+ * (~$100/mo) + `follows.read` + `X_FOLLOW_TARGET_ID`. Leave that env UNSET and the
+ * callback (social/[platform]/callback) skips the follow lookup → free ownership
+ * verify. Set it later if the community grows and the spend is justified — no code
+ * change, just add the scope back here + the env var.
  */
 export type Platform = "discord" | "telegram" | "x";
 
@@ -26,7 +35,9 @@ export const OAUTH_PROVIDERS = {
   x: {
     authorizeUrl: "https://twitter.com/i/oauth2/authorize",
     tokenUrl: "https://api.twitter.com/2/oauth2/token",
-    scope: "users.read tweet.read follows.read",
+    // FREE tier: ownership/connect only. To enforce a real follow, add
+    // "follows.read" back + set X_FOLLOW_TARGET_ID (needs paid X API Basic).
+    scope: process.env.X_FOLLOW_TARGET_ID ? "users.read tweet.read follows.read" : "users.read tweet.read",
     clientId: () => process.env.X_CLIENT_ID,
     clientSecret: () => process.env.X_CLIENT_SECRET,
   },

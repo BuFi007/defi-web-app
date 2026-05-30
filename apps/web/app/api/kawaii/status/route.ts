@@ -9,6 +9,18 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const wallet = req.nextUrl.searchParams.get("wallet");
   if (!wallet || !isAddress(wallet)) return NextResponse.json({ error: "bad wallet" }, { status: 400 });
-  const mint = await prisma.mint.findFirst({ where: { address: wallet.toLowerCase() }, orderBy: { createdAt: "desc" } });
-  return NextResponse.json({ hasNft: !!mint, tier: mint?.tier ?? null });
+  const lc = wallet.toLowerCase();
+  const [mint, wl] = await Promise.all([
+    prisma.mint.findFirst({ where: { address: lc }, orderBy: { createdAt: "desc" } }),
+    prisma.gateWhitelist.findUnique({ where: { address: lc } }),
+  ]);
+  return NextResponse.json({
+    hasNft: !!mint,
+    tier: mint?.tier ?? null,
+    baseId: mint?.baseId ?? null,
+    tokenId: mint?.tokenId ?? null,
+    agentId: mint?.agentId ?? null, // ERC-8004 badge → render the AGENT corner stamp
+    mintedAt: mint?.createdAt ?? null,
+    whitelisted: !!wl, // whitelist waives PAYMENT only (socials still required) → Free Mint
+  });
 }

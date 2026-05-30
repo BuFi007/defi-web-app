@@ -58,7 +58,7 @@ const discoverTraders = route
         totalDiscovered: traderMap.size,
         chainId: ARC_CHAIN_ID,
         reputationRegistry: REPUTATION_REGISTRY,
-        note: "Check each trader's reputation via bufi_reputation_score before copying. Leaders with ERC-8183 bonds have skin in the game.",
+        note: "Check each trader's reputation via get__api_reputation_score_agentId before copying. Leaders with ERC-8183 bonds have skin in the game.",
       }),
     );
   });
@@ -78,7 +78,7 @@ const copyTrader = route
     mcp: {
       title: "Copy a Trader",
       description:
-        "Start copy-trading a leader. Your agent will mirror the leader's perp positions with configurable size cap and leverage cap. Optionally filter to specific symbols. Checks the leader's ERC-8004 reputation before enabling. Use bufi_discover_traders to find leaders.",
+        "Start copy-trading a leader. Your agent will mirror the leader's perp positions with configurable size cap and leverage cap. Optionally filter to specific symbols. Checks the leader's ERC-8004 reputation before enabling. Use get__api_copy_discover to find leaders.",
     },
   })
   .handle(async ({ body }) => {
@@ -107,11 +107,11 @@ const copyTrader = route
         chainId: ARC_CHAIN_ID,
         status: "active",
         how: {
-          step1: "Agent polls leader's positions via bufi_positions",
-          step2: "On new position detected, mirror via bufi_trade_prepare + bufi_trade_execute",
+          step1: "Agent polls leader's positions via get__api_positions_address",
+          step2: "On new position detected, mirror via post__api_trade_prepare + post__api_trade_execute",
           step3: "Size = min(leader_size * ratio, maxSizeUsdc)",
           step4: "Leverage = min(leader_leverage, leverageCap)",
-          step5: "On leader close, mirror close via bufi_close_prepare",
+          step5: "On leader close, mirror close via post__api_close_prepare",
         },
         note: "The copy-trading agent runs as an MCP client loop. This tool registers the intent — the agent must poll and mirror positions.",
       }),
@@ -164,7 +164,7 @@ const copyStatus = route
       following: [],
       totalMirroredPositions: 0,
       chainId: ARC_CHAIN_ID,
-      note: "No active copy-trading relationships. Use bufi_copy_trader to start following a leader.",
+      note: "No active copy-trading relationships. Use post__api_copy_follow to start following a leader.",
     });
   });
 
@@ -199,13 +199,13 @@ const leaderProfile = route
         reputation: {
           registryAddress: REPUTATION_REGISTRY,
           identityRegistryAddress: IDENTITY_REGISTRY,
-          note: "Query bufi_reputation_score with the leader's agentId for onchain score.",
+          note: "Query get__api_reputation_score_agentId with the leader's agentId for onchain score.",
         },
         bond: {
-          note: "Query bufi_list_bonds to check if this leader has an active ERC-8183 performance bond.",
+          note: "Query get__api_bonds to check if this leader has an active ERC-8183 performance bond.",
         },
         ghostMode: {
-          note: "If the leader trades in Ghost Mode, their PnL is verified via ZK proof (bufi_ghost_pnl) without revealing positions.",
+          note: "If the leader trades in Ghost Mode, their PnL is verified via ZK proof (post__api_ghost_pnl) without revealing positions.",
         },
         chainId: ARC_CHAIN_ID,
       }),

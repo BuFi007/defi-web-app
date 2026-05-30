@@ -103,7 +103,7 @@ const borrowAction = route
     mcp: {
       title: "Borrow Against Collateral",
       description:
-        "Borrow FX tokens against USDC collateral. Use bufi_borrow_preview first to check health factor. x402: $0.001.",
+        "Borrow FX tokens against USDC collateral. Use post__api_lending_borrow_preview first to check health factor. x402: $0.001.",
     },
   })
   .handle(async ({ body }) => {

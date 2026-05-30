@@ -1,0 +1,68 @@
+{
+  "network": "mainnet",
+  "description": "AssetRegistry source-of-truth for mainnet deployments. Arc + Avalanche are hubs; Avalanche is the EURC liquidity source; Ethereum is general liquidity; Polygon is the JPYC liquidity source. Kaia mainnet (8217) intentionally excluded — not a supported chain.",
+  "chains": {
+    "arc-mainnet": {
+      "chainId": null,
+      "chainIdNote": "Arc mainnet chainId TBD — fill in once Circle announces the canonical network ID. Block deploys until populated.",
+      "role": "hub",
+      "rpcUrl": "TBD",
+      "cctpDomain": null,
+      "explorer": "TBD",
+      "nativeGasToken": "USDC"
+    },
+    "avalanche-mainnet": {
+      "chainId": 43114,
+      "role": "hub",
+      "liquiditySources": ["EURC"],
+      "rpcUrl": "https://api.avax.network/ext/bc/C/rpc",
+      "cctpDomain": 1,
+      "explorer": "https://snowtrace.io",
+      "nativeGasToken": "AVAX"
+    },
+    "ethereum-mainnet": {
+      "chainId": 1,
+      "role": "liquidity-source",
+      "rpcUrl": "https://ethereum-rpc.publicnode.com",
+      "cctpDomain": 0,
+      "explorer": "https://etherscan.io",
+      "nativeGasToken": "ETH"
+    },
+    "polygon-mainnet": {
+      "chainId": 137,
+      "role": "liquidity-source",
+      "liquiditySources": ["JPYC"],
+      "rpcUrl": "https://polygon-rpc.com",
+      "cctpDomain": 7,
+      "explorer": "https://polygonscan.com",
+      "nativeGasToken": "POL"
+    }
+  },
+  "assets": {
+    "USDC": {
+      "symbol": "USDC",
+      "decimals": 6,
+      "addresses": {
+        "43114": "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
+        "1": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "137": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359"
+      }
+    },
+    "EURC": {
+      "symbol": "EURC",
+      "decimals": 6,
+      "addresses": {
+        "43114": "0xC891EB4cbdEFf6e073e859e987815Ed1505c2ACD",
+        "1": "0x1aBaEA1f7C830bD89Acc67eC4af516284b1bC33c"
+      }
+    },
+    "JPYC": {
+      "symbol": "JPYC",
+      "decimals": 18,
+      "addresses": {
+        "1": "0x2370f9d504c7a6E775bf6E14B3F12846b594cD53",
+        "137": "0x431D5dfF03120AFA4bDf332c61A6e1766eF37BDB"
+      }
+    }
+  }
+}

@@ -129,6 +129,8 @@ export function AiDocs() {
           <span aria-hidden>·</span>
           <FootLink href="https://mcp.bu.finance/openapi.json" ext>openapi.json</FootLink>
           <span aria-hidden>·</span>
+          <FootLink href="/ai/reference">API reference</FootLink>
+          <span aria-hidden>·</span>
           <FootLink href="/protocol">{t("liveConsole")}</FootLink>
         </div>
       </Plane>

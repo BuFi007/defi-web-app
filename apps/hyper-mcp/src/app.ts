@@ -55,6 +55,7 @@ import fxswap from "./routes/fxswap.ts";
 import registryRoutes from "./routes/registry.ts";
 import perpsExtra from "./routes/perps.ts";
 import lendingExec from "./routes/lending-exec.ts";
+import kawaii from "./routes/kawaii.ts";
 
 // Defined before llmsTxt so the Connect section renders the real deployed URL
 // (BUFI_MCP_URL on prod = https://mcp.bu.finance) instead of a hardcoded localhost.
@@ -454,7 +455,8 @@ const hyper = new Hyper()
   .use(fxswap)
   .use(registryRoutes)
   .use(perpsExtra)
-  .use(lendingExec);
+  .use(lendingExec)
+  .use(kawaii);
 
 // JWT auth is opt-in: when BUFI_JWT_SECRET is set, agents authenticate
 // via `Authorization: Bearer <token>` and get ctx.user with { sub, scope }.

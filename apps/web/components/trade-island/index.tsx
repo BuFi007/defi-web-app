@@ -37,6 +37,9 @@ import { ArcadeRoom } from "./multiplayer";
 import { MobileTrade } from "./mobile-trade";
 import { MarketPicker } from "./market-picker";
 import { StablecoinBalances } from "@/components/stablecoin-balances";
+import { KawaiiIdentity } from "@/components/kawaii/kawaii-identity";
+import { useKawaiiBeta } from "@/lib/kawaii/use-kawaii-beta";
+import { useIslandTab } from "@/lib/kawaii/island-tab-store";
 import { usePositions, useTrades } from "@/lib/perps/hooks";
 import type { PerpsPositionDto, PerpsTradeDto } from "@/lib/perps/client";
 import { safeBigInt, e18ToNumber } from "@/lib/perps/units";
@@ -1098,6 +1101,7 @@ function TradeIslandHeader({
   setMarketSym,
   arcade,
   setArcade,
+  hasNft,
 }: {
   tab: string;
   setTab: (id: string) => void;
@@ -1105,6 +1109,7 @@ function TradeIslandHeader({
   setMarketSym: (s: string) => void;
   arcade: boolean;
   setArcade: (v: boolean) => void;
+  hasNft: boolean | null;
 }) {
   const t = useScopedI18n('TradeIsland');
   // Live position count drives the tab pill; mock orders + mock positions are
@@ -1121,6 +1126,7 @@ function TradeIslandHeader({
   };
 
   const tabs: TabDef[] = [
+    { id: "identity", label: "Identity", icon: "sparkle" },
     { id: "loan", label: t("loanBorrow"), icon: "vault" },
     { id: "trade", label: t("trade"), icon: "candle" },
     {
@@ -1132,6 +1138,9 @@ function TradeIslandHeader({
     { id: "leaders", label: t("leaderboard"), icon: "trophy" },
     { id: "history", label: t("history"), icon: "doc" },
   ];
+
+  // Arcade lives on the (locked) Trade tab → disable its toggle pre-mint.
+  const arcadeLocked = hasNft === false;
 
   const liveTotalPnl = (livePositions ?? []).reduce(
     (s, p) => s + (p.unrealizedPnlUsdc ? Number(p.unrealizedPnlUsdc) : 0),
@@ -1150,21 +1159,29 @@ function TradeIslandHeader({
         </div>
       )}
       <div className="island-tabs">
-        {tabs.map((td) => (
-          <button
-            key={td.id}
-            className={"island-tab " + (tab === td.id ? "active" : "")}
-            onClick={() => {
-              setTab(td.id);
-              if (td.id !== "trade") setArcade(false);
-            }}
-            title={TAB_HINTS[td.id]}
-          >
-            <Icon name={td.icon} size={14} />
-            <span>{td.label}</span>
-            {td.count != null && <span className="tab-pill">{td.count}</span>}
-          </button>
-        ))}
+        {tabs.map((td) => {
+          // Every tab except "identity" is LOCKED until a Kawaii Punk is minted.
+          const tabLocked = hasNft === false && td.id !== "identity";
+          return (
+            <button
+              key={td.id}
+              className={"island-tab " + (tab === td.id ? "active" : "")}
+              disabled={tabLocked}
+              style={tabLocked ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+              onClick={() => {
+                if (tabLocked) return;
+                setTab(td.id);
+                if (td.id !== "trade") setArcade(false);
+              }}
+              title={tabLocked ? "Mint your Kawaii Punk to unlock" : TAB_HINTS[td.id]}
+            >
+              <Icon name={td.icon} size={14} />
+              <span>{td.label}</span>
+              {tabLocked && <span aria-hidden>🔒</span>}
+              {td.count != null && !tabLocked && <span className="tab-pill">{td.count}</span>}
+            </button>
+          );
+        })}
       </div>
       <div className="island-summary">
         <StablecoinBalances />
@@ -1179,15 +1196,21 @@ function TradeIslandHeader({
             actually renders. Previously the button only existed on the
             Trade tab, which made it impossible to drop into arcade from
             Loan / Positions / etc. */}
+        {/* Arcade is gated too: Arcade lives on the Trade tab, which is locked
+            until a Punk is minted — so the toggle is disabled pre-mint. */}
         <button
           className={"island-collapse mode-switch " + (arcade ? "arcade" : "")}
+          disabled={arcadeLocked}
+          style={arcadeLocked ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
           onClick={() => {
+            if (arcadeLocked) return;
             const next = !arcade;
             setArcade(next);
             if (next && tab !== "trade") setTab("trade");
           }}
-          title={arcade ? "Back to Pro Mode" : "Enter Arcade Mode"}
+          title={arcadeLocked ? "Mint your Kawaii Punk to unlock" : arcade ? "Back to Pro Mode" : "Enter Arcade Mode"}
         >
+          {arcadeLocked && <span aria-hidden>🔒</span>}
           <span className="mode-label">{arcade ? "PRO" : "ARCADE"}</span>
           <span className="mode-glyph">{arcade ? "⊞" : "✦"}</span>
         </button>
@@ -1197,7 +1220,26 @@ function TradeIslandHeader({
 }
 
 export default function TradeIsland() {
-  const [tab, setTab] = useState("trade");
+  // NFT-gate state. The "identity" tab is the gate: default when no Punk, with
+  // every other tab LOCKED until one is minted. hasNft===null (loading) fails
+  // open per the optimistic seenHolder hint so a returning holder never flashes.
+  const { hasNft, mint: kawaiiMint, catalog, refetch: refetchKawaii } = useKawaiiBeta();
+  const { tab: storedTab, seenHolder, setTab: setStoredTab, setSeenHolder } = useIslandTab();
+  const locked = hasNft === false; // others locked only when we KNOW there's no Punk
+  // Remember holder status across refreshes (optimistic restore, avoids flash).
+  useEffect(() => {
+    if (hasNft === true && !seenHolder) setSeenHolder(true);
+    if (hasNft === false && seenHolder) setSeenHolder(false);
+  }, [hasNft, seenHolder, setSeenHolder]);
+  // Effective tab: non-holders are forced to the (locked) identity gate; holders
+  // — incl. optimistically-restored returning holders — land on their saved tab.
+  const tab = locked ? "identity" : hasNft === null && !seenHolder ? "identity" : storedTab;
+  // Wrapped setter: blocks locked tabs, persists the choice for next refresh.
+  const setTab = (id: string) => {
+    if (locked && id !== "identity") return; // can't leave the gate until minted
+    setStoredTab(id);
+  };
+  const selectTab = setTab;
   const [marketSym, setMarketSym] = useState("EUR/USD");
   const [arcade, setArcade] = useState(false);
   const [loanIntent, setLoanIntent] = useState<LoanTabIntent | null>(null);
@@ -1299,6 +1341,7 @@ export default function TradeIsland() {
   // full canvas (1440); lobby / countdown / round-end shrink toward
   // the centre to match the actual content density.
   const ISLAND_MAX_WIDTH: Record<string, number> = {
+    identity: 1240, // the Kawaii gate / minter (two-panel poster + minter)
     trade: 1440, // full 3-column trading canvas
     positions: 1140, // table + summary cards
     loan: 1100, // markets table + ActionCard, narrower per user request
@@ -1336,11 +1379,12 @@ export default function TradeIsland() {
     >
       <TradeIslandHeader
         tab={tab}
-        setTab={setTab}
+        setTab={selectTab}
         market={market}
         setMarketSym={setMarketSym}
         arcade={arcade}
         setArcade={setArcade}
+        hasNft={hasNft}
       />
 
       <div
@@ -1362,6 +1406,11 @@ export default function TradeIsland() {
               minHeight: 0,
             }}
           >
+            {tab === "identity" && (
+              catalog
+                ? <KawaiiIdentity catalog={catalog} hasNft={hasNft} mint={kawaiiMint} refresh={refetchKawaii} />
+                : <EmptyState lottie="process" title="Loading your identity…" />
+            )}
             {tab === "trade" && !arcade && (
               <TradeTab
                 market={market}

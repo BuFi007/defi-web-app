@@ -10,6 +10,7 @@ function toUuid(s: string): string {
 }
 import { prisma } from "../prisma";
 import { KAWAII_GATE, RESERVED_BASES, RESERVED_BASE_IDS, KAWAII_NEW_TOKEN_ID } from "./config";
+import { resolveAgentBadge, type ReputationSummary } from "./erc8004";
 import { composeAvatar, type AvatarSelection } from "./compose";
 import { resolveLayerPath } from "./layers";
 import { pinImagePng, pinMetadataJson, toTokenUri } from "./pin";
@@ -23,12 +24,13 @@ export class MintError extends Error {
 
 export interface MintInput {
   wallet: string; // session-resolved `to` (never from request body)
-  tier: keyof typeof KAWAII_GATE; // "testnet" (mainnet later)
+  tier: "testnet"; // mainnet mint (Avax) not live yet — testnet-only for now
   baseId: string; // reserved key OR open base filename
   layers?: AvatarSelection["layers"];
   payToken: "free" | "USDC" | "JPYC"; // determined by the route (whitelist/payment), not the client
   amountPaid?: string;
   paymentTx?: string; // verified on-chain payment tx (dedup)
+  agentId?: string; // ERC-8004 agentId the minter claims — VERIFIED on-chain (ownerOf) before linking
   idempotencyKey: string;
 }
 
@@ -50,7 +52,7 @@ function env(k: string): string {
  */
 export async function mintAvatar(input: MintInput) {
   const cfg = KAWAII_GATE[input.tier];
-  if (!cfg) throw new MintError(400, `unknown tier ${input.tier}`);
+  if (!cfg || input.tier !== "testnet") throw new MintError(400, `unsupported tier ${input.tier}`);
   const wallet = input.wallet.toLowerCase();
 
   // ---- 1. Resolve base + RESERVED GATE ----
@@ -102,7 +104,17 @@ export async function mintAvatar(input: MintInput) {
   } as Parameters<typeof circle.createContractExecutionTransaction>[0]);
   const txId = (res.data as { id?: string })?.id;
 
-  // ---- 4. Record (tokenId resolved later via event monitor) ----
+  // ---- 4. Agent badge — link the ERC-8004 identity to an agentic Punk ----
+  // The agent self-registers its identity via the MCP `reputation/register`
+  // tool (it owns it). Here we only VERIFY the minter controls the claimed
+  // agentId, then attach it + read reputation. Never mint identity server-side.
+  let badge: { agentId: string; reputation: ReputationSummary } | null = null;
+  if (input.agentId) {
+    badge = await resolveAgentBadge(wallet, BigInt(input.agentId));
+    if (!badge) throw new MintError(403, `wallet does not own ERC-8004 agentId ${input.agentId}`);
+  }
+
+  // ---- 5. Record (tokenId resolved later via event monitor) ----
   await prisma.mint.create({
     data: {
       address: wallet,
@@ -115,8 +127,9 @@ export async function mintAvatar(input: MintInput) {
       paymentTx: input.paymentTx,
       recipient: cfg.earningsRecipient,
       ipfsCid: metaCid,
+      agentId: badge?.agentId ?? null,
     },
   });
 
-  return { txId, ipfsCid: metaCid, imageCid, uri, reserved: isReserved };
+  return { txId, ipfsCid: metaCid, imageCid, uri, reserved: isReserved, badge };
 }

@@ -11,6 +11,8 @@ const prisma = new PrismaClient();
 // Append rows here. First = owner (for testing). Tower/Arc/Avax beta testers go below.
 const WHITELIST: Array<{ address: string; tier?: "testnet" | "mainnet" | "both"; source?: string; note?: string }> = [
   { address: "0xcA02Be6cDBb806d4a327FC92E094D1A44EC37445", tier: "both", source: "owner", note: "founder / first whitelist" },
+  { address: "0x0862fc730cd52f68d01bae4b957be503e8d983a2", tier: "both", source: "team", note: "william" },
+  { address: "0xffdB0DfD58457326d40E82F3B3a9401083A39E83", tier: "testnet", source: "team", note: "e2e test wallet" },
   // { address: "0x...", tier: "both", source: "tower", note: "Tower Exchange top trader" },
 ];
 

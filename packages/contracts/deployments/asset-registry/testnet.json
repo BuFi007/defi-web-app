@@ -1,0 +1,82 @@
+{
+  "network": "testnet",
+  "description": "AssetRegistry source-of-truth for testnet deployments. Hubs run AssetRegistry + lending; spokes feed deposits via CCTP and JPYC. Kaia / Kairos intentionally excluded — not a supported chain.",
+  "chains": {
+    "arc-testnet": {
+      "chainId": 5042002,
+      "role": "hub",
+      "rpcUrl": "https://rpc.testnet.arc.network",
+      "cctpDomain": 26,
+      "explorer": "https://explorer.testnet.arc.network",
+      "nativeGasToken": "USDC"
+    },
+    "avalanche-fuji": {
+      "chainId": 43113,
+      "role": "hub",
+      "rpcUrl": "https://api.avax-test.network/ext/bc/C/rpc",
+      "cctpDomain": 1,
+      "explorer": "https://testnet.snowtrace.io",
+      "nativeGasToken": "AVAX"
+    },
+    "sepolia": {
+      "chainId": 11155111,
+      "role": "spoke",
+      "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+      "cctpDomain": 0,
+      "explorer": "https://sepolia.etherscan.io",
+      "nativeGasToken": "ETH"
+    },
+    "polygon-amoy": {
+      "chainId": 80002,
+      "role": "spoke",
+      "rpcUrl": "https://rpc-amoy.polygon.technology",
+      "cctpDomain": 7,
+      "explorer": "https://amoy.polygonscan.com",
+      "nativeGasToken": "POL"
+    }
+  },
+  "assets": {
+    "USDC": {
+      "symbol": "USDC",
+      "decimals": 6,
+      "addresses": {
+        "5042002": "0x3600000000000000000000000000000000000000",
+        "43113": "0x5425890298aed601595a70AB815c96711a31Bc65",
+        "11155111": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+        "80002": "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582"
+      }
+    },
+    "EURC": {
+      "symbol": "EURC",
+      "decimals": 6,
+      "addresses": {
+        "5042002": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
+        "43113": "0xC891EB4cbdEFf6e073e859e987815Ed1505c2ACD"
+      }
+    },
+    "JPYC": {
+      "symbol": "JPYC",
+      "decimals": 18,
+      "addresses": {
+        "5042002": "0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29",
+        "43113": "0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29",
+        "11155111": "0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29",
+        "80002": "0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29"
+      }
+    },
+    "MXNB": {
+      "symbol": "MXNB",
+      "decimals": 6,
+      "addresses": {
+        "5042002": "0x836F73Fbc370A9329Ba4957E47912DfDBA6BA461"
+      }
+    },
+    "AUDF": {
+      "symbol": "AUDF",
+      "decimals": 6,
+      "addresses": {
+        "5042002": "0xd2a530170D71a9Cfe1651Fb468E2B98F7Ed7456b"
+      }
+    }
+  }
+}

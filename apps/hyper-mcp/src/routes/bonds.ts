@@ -78,7 +78,7 @@ const stakeAlongside = route
       },
       chainId: ARC_CHAIN_ID,
       status: "pending_deposit",
-      recommendation: "Check the leader's reputation via bufi_reputation_score before staking. Leaders with score > 80 and > 10 feedback events have proven track records.",
+      recommendation: "Check the leader's reputation via get__api_reputation_score_agentId before staking. Leaders with score > 80 and > 10 feedback events have proven track records.",
     });
   });
 
@@ -103,7 +103,7 @@ const evaluatePerformance = route
       evaluation: {
         method: "oracle-verified on-chain PnL",
         ghostModeSupported: true,
-        ghostModeMethod: "ZK proof of PnL via bufi_ghost_pnl — proves performance without revealing positions",
+        ghostModeMethod: "ZK proof of PnL via post__api_ghost_pnl — proves performance without revealing positions",
         oracleSource: "Pyth Network forex feeds + on-chain settlement events",
       },
       chainId: ARC_CHAIN_ID,
@@ -126,7 +126,7 @@ const listBonds = route
       bonds: [],
       total: 0,
       chainId: ARC_CHAIN_ID,
-      note: "No active bonds yet. Create one via bufi_create_trading_bond to start the copy-trading marketplace.",
+      note: "No active bonds yet. Create one via post__api_bonds_create to start the copy-trading marketplace.",
     });
   });
 

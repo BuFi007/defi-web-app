@@ -149,7 +149,7 @@ const registerIdentity = route
         registered: true,
         registryAddress: IDENTITY_REGISTRY,
         chainId: ARC_CHAIN_ID,
-        note: "Identity already registered. Use bufi_reputation_score to check your score.",
+        note: "Identity already registered. Use get__api_reputation_score_agentId to check your score.",
       });
     }
 

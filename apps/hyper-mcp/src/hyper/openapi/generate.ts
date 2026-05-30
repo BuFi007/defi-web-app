@@ -25,6 +25,7 @@ export interface OpenAPIDoc {
 interface OpenAPIOperation {
   readonly operationId?: string
   readonly summary?: string
+  readonly description?: string
   readonly tags?: readonly string[]
   readonly deprecated?: boolean
   readonly parameters?: readonly OpenAPIParam[]
@@ -77,7 +78,7 @@ function toOpenApiPath(path: string): string {
 function buildOperation(r: Route, converters: readonly SchemaConverter[]): OpenAPIOperation {
   const parameters: OpenAPIParam[] = []
   for (const match of r.path.matchAll(PATH_PARAM)) {
-    parameters.push({ name: match[1]!, in: "path", required: true })
+    parameters.push({ name: match[1]!, in: "path", required: true, schema: { type: "string" } })
   }
   if (r.query) {
     const conv = firstConverter(converters, r.query)
@@ -154,8 +155,15 @@ function buildOperation(r: Route, converters: readonly SchemaConverter[]): OpenA
     typeof meta.deprecated === "object" && meta.deprecated?.sunset
       ? meta.deprecated.sunset
       : undefined
+  // Project the route's MCP annotation (title/description) into the OpenAPI
+  // operation. Without this, every operation ships summary/description-less —
+  // the rich prose lives only in the MCP tools/list manifest, leaving an
+  // OpenAPI-only consumer with no semantic guidance. Same source of truth.
+  const mcpMeta = meta.mcp as { title?: string; description?: string } | undefined
   return {
     ...(meta.name !== undefined && { operationId: meta.name }),
+    ...(mcpMeta?.title !== undefined && { summary: mcpMeta.title }),
+    ...(mcpMeta?.description !== undefined && { description: mcpMeta.description }),
     ...(meta.tags !== undefined && { tags: meta.tags }),
     ...(deprecated && { deprecated: true }),
     ...(parameters.length > 0 && { parameters }),

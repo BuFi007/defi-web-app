@@ -906,7 +906,7 @@ export function ChartCard({
         </div>
       )}
       <Dialog open={expanded} onOpenChange={setExpanded}>
-        <DialogContent size="full" className="p-0 h-[90vh] flex flex-col">
+        <DialogContent size="full" className="p-0 h-[90vh] flex flex-col" hideCloseButton>
           <DialogTitle className="sr-only">{market.sym} chart</DialogTitle>
           <div className="card chart-card" style={{ height: "100%", border: 0, boxShadow: "none" }}>
             {headerInner}
