@@ -16,6 +16,7 @@ import {
 } from "@bufi/location/stable-tokens";
 import type { Token } from "@/lib/types";
 import { useI18n } from "@/locales/client";
+import { ghostRegistry } from "@/lib/ghost/registry";
 
 import { SPOKE_CHAINS, type SpokeChain } from "./deployments";
 
@@ -167,6 +168,57 @@ const TokenBalanceRow: React.FC<{
   );
 };
 
+// Ghost (private) balance — the shielded "Ghost Mode" trade balance users
+// deposit into and trade/lend/borrow from privately. Provider-agnostic BY
+// DESIGN: it binds to whichever PrivateBalanceProvider we settle on (so the UI
+// is never hard-coupled to a vendor). Returns null until the provider is wired
+// (Phase 0 of GHOST_PRIVATE_WALLET_GOAL.md). Never fabricate a number here —
+// show the slot + a deposit affordance instead.
+const usePrivateBalance = (
+  address: Address | undefined,
+  chainId: number,
+): { usdEquivalent: number | null; available: boolean } => {
+  const [state, setState] = useState<{ usdEquivalent: number | null; available: boolean }>({
+    usdEquivalent: null,
+    available: false,
+  });
+  useEffect(() => {
+    if (!address) {
+      setState({ usdEquivalent: null, available: false });
+      return;
+    }
+    let cancelled = false;
+    const provider = ghostRegistry().forChain(chainId);
+    // Real providers need an ensureAccess + signer flow ("Connect Ghost"); the
+    // read-only dev provider exposes getBalancesByAddress so the slot lights up
+    // without signing. Once the Hinkal/own adapter lands, gate on access here.
+    const readable = provider as unknown as {
+      getBalancesByAddress?: (
+        c: number,
+        a: Address,
+      ) => Promise<Array<{ usdEquivalent: number | null }>>;
+    } | null;
+    if (!readable?.getBalancesByAddress) {
+      setState({ usdEquivalent: null, available: false });
+      return;
+    }
+    readable
+      .getBalancesByAddress(chainId, address)
+      .then((bals) => {
+        if (cancelled) return;
+        const usd = bals.reduce((s, b) => s + (b.usdEquivalent ?? 0), 0);
+        setState({ usdEquivalent: usd, available: true });
+      })
+      .catch(() => {
+        if (!cancelled) setState({ usdEquivalent: null, available: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [address, chainId]);
+  return state;
+};
+
 export const StablecoinBalances: React.FC = () => {
   const t = useI18n();
   const { address, isConnected } = useAccount();
@@ -177,6 +229,9 @@ export const StablecoinBalances: React.FC = () => {
 
   const activeChain =
     SPOKE_CHAINS.find((c) => c.chainId === activeChainId) ?? SPOKE_CHAINS[0];
+
+  // Shielded "Ghost" balance for the active chain (private trade balance).
+  const ghost = usePrivateBalance(address, activeChainId);
 
   // Single fetch pass covers every chain × every stable. The popover
   // renders only the active chain's rows; the trigger pill sums every
@@ -507,6 +562,44 @@ export const StablecoinBalances: React.FC = () => {
                       <div className="acct-island-head-l">
                         <span className="acct-l">Stablecoin FX Wallet</span>
                         <span className="mono acct-v">{triggerValue}</span>
+                        {/* Ghost (private) balance slot. Binds to the
+                            PrivateBalanceProvider; shows a deposit affordance
+                            until a shielded balance exists. */}
+                        <span
+                          className="mono"
+                          style={{
+                            marginTop: 3,
+                            fontSize: 11,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            color: "#9e84ff",
+                          }}
+                          title="Ghost balance — your private, shielded trade balance. Deposit to trade, lend, and borrow privately."
+                        >
+                          <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true">
+                            <path
+                              d="M6 1.4a3.1 3.1 0 0 0-3.1 3.1v6l1.25-1.05 1.05 1.05.8-1.05.8 1.05 1.05-1.05L9.1 10.5v-6A3.1 3.1 0 0 0 6 1.4Z"
+                              fill="currentColor"
+                              opacity="0.92"
+                            />
+                            <circle cx="4.9" cy="4.9" r="0.7" fill="#241a3d" />
+                            <circle cx="7.1" cy="4.9" r="0.7" fill="#241a3d" />
+                          </svg>
+                          <span style={{ opacity: 0.75, letterSpacing: "0.02em" }}>Ghost</span>
+                          {ghost.available && ghost.usdEquivalent != null ? (
+                            <span>
+                              ≈{" "}
+                              <AnimatedNumber
+                                value={ghost.usdEquivalent}
+                                maximumFractionDigits={2}
+                                minimumFractionDigits={2}
+                              />
+                            </span>
+                          ) : (
+                            <span style={{ opacity: 0.8 }}>•••• · Deposit</span>
+                          )}
+                        </span>
                       </div>
                       <div className="acct-island-head-r">
                         <span

@@ -273,6 +273,53 @@ describe("leaderboard", () => {
   });
 });
 
+// ── Ghost Wallet — per-chain shielded trade balance (private trading) ──
+
+describe("ghost wallet", () => {
+  const TRADER = "0xb79e4987bc58057a322cd9bcface4944dd6a6cc7";
+
+  test("balance returns the model, NOT a fabricated number", async () => {
+    const res = await post("/api/ghost-wallet/balance", { trader: TRADER });
+    expect(res.status).toBe(200);
+    const b = await res.json();
+    expect(b.available).toBe(false);
+    expect(b.shieldedTokens).toContain("USDC");
+    expect(b.privacyNotice.doesNotHide).toContain("position");
+  });
+
+  test("deposit returns a shield prepare shape with atomic amount", async () => {
+    const res = await post("/api/ghost-wallet/deposit", { token: "USDC", amount: "100", trader: TRADER });
+    const b = await res.json();
+    expect(b.prepare.kind).toBe("shield");
+    expect(b.amountAtomic).toBe("100000000");
+    expect(b.prepare.approval.token).toBe("0x3600000000000000000000000000000000000000");
+  });
+
+  test("withdraw returns an unshield prepare shape to a fresh recipient", async () => {
+    const res = await post("/api/ghost-wallet/withdraw", {
+      token: "EURC", amount: "10", recipient: "0x1111111111111111111111111111111111111111", trader: TRADER,
+    });
+    const b = await res.json();
+    expect(b.prepare.kind).toBe("unshield");
+    expect(b.recipient).toBe("0x1111111111111111111111111111111111111111");
+  });
+
+  test("trade wraps a perp as a shielded execution funded from USDC margin", async () => {
+    const res = await post("/api/ghost-wallet/trade", {
+      symbol: "EURC/USDC", side: "long", sizeUsdc: "50", leverage: 5, trader: TRADER,
+    });
+    const b = await res.json();
+    expect(b.prepare.kind).toBe("execute");
+    expect(b.prepare.shieldedAction.funding[0].amount).toBe("50000000");
+    expect(b.prepare.shieldedAction.executor).toContain("detached");
+  });
+
+  test("deposit rejects an unsupported token (schema enum)", async () => {
+    const res = await post("/api/ghost-wallet/deposit", { token: "MXNB", amount: "100", trader: TRADER });
+    expect(res.status).toBe(400);
+  });
+});
+
 // ── Ghost mode — denomination enforcement (amount-privacy lever) ──
 
 describe("ghost denominations", () => {

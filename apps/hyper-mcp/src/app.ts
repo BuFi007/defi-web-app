@@ -55,6 +55,7 @@ import fxswap from "./routes/fxswap.ts";
 import registryRoutes from "./routes/registry.ts";
 import perpsExtra from "./routes/perps.ts";
 import lendingExec from "./routes/lending-exec.ts";
+import ghostWallet from "./routes/ghost-wallet.ts";
 import kawaii from "./routes/kawaii.ts";
 
 // Defined before llmsTxt so the Connect section renders the real deployed URL
@@ -456,6 +457,7 @@ const hyper = new Hyper()
   .use(registryRoutes)
   .use(perpsExtra)
   .use(lendingExec)
+  .use(ghostWallet)
   .use(kawaii);
 
 // JWT auth is opt-in: when BUFI_JWT_SECRET is set, agents authenticate
