@@ -110,8 +110,38 @@ Targets on Arc (sub-second finality): **p50 < 1.5s, p99 < 3s** end-to-end per pr
      `/v1/relayExecute` HTTP endpoint (thin wrapper over `contractsService.relayExecute`).
 3. **Resolution index** — viewing-key-scoped executor→user map (private "my positions"); the
    `resolveOwnedExecutions` impl.
+   **Plan (ready to build):** today the Morpho supply runs onBehalf a `recipient` we pass — for real
+   privacy that recipient must be a STEALTH address the user controls but that's unlinkable to their
+   main wallet, AND the user must be able to find their positions again. Design:
+   - `lib/ghost/stealth.ts` — derive deterministic per-trade recipients from the user's viewing key:
+     `recipient_i = privateKeyToAddress(keccak(viewKey, chainId, i))`. Fresh per trade (unlinkable),
+     fully regenerable from one key.
+   - `resolveOwnedExecutions(signer, chainId)` = regenerate the user's stealth addresses + query each
+     protocol (Morpho `position`, perp `marginOf`) for non-zero state → the owned positions. Private,
+     key-scoped, no on-chain memo needed. (Optional later: emit an encrypted memo in the `Executed`
+     event for faster scanning.)
+   - First move: `stealth.ts` + a unit test (derive → addresses are deterministic + distinct), then
+     wire it into the provider's `prepareExecute` (recipient) + `resolveOwnedExecutions`.
 4. **`BufiOwnStackProvider`** — implement the interface; flip `createGhostRegistry` to route
    Arc execution → own-stack (balance/transfer can stay Hinkal or move too, per the interface).
+   **Plan (ready to build):**
+   - **Core engine first** — extract the proven `b5-execute` logic into a reusable
+     `proveAndBuildRelayExecute({ note, adapterId, recipient, adapterData })` in `privacy-prover`
+     (binary-search leaf reconstruction + tuple-encode `ExecutionRelayData` + `snarkjs.fullProve` +
+     return `{ withdrawal, proof, scope }`). This is the shared engine the provider, relayer, and MCP use.
+   - **Relayer** — add `POST /v1/relayExecute` to `relayer-privacy` (thin wrapper over the SDK
+     `contractsService.relayExecute` I already added) + dedicated key/nonce-lane.
+   - **`BufiOwnStackProvider`** (`apps/web/lib/ghost/bufi-ownstack-provider.ts`) implementing the
+     interface: `ensureAccess` = derive viewing+spending keys from a signature (our pool is open/ASP-gated,
+     no access token); `prepareShield` = `entrypoint.deposit(asset, denomination, precommitment)` (gated);
+     `getBalances` = the user's notes via LeafInserted reconstruction + owned-secret match;
+     `prepareExecute` = `proveAndBuildRelayExecute` → relayer submit; `resolveOwnedExecutions` = Phase 3 stealth scan.
+   - **Note store** — a client-side per-deposit note record (nullifier/secret/label/commitment) so the
+     user can spend + read balances. Keyed to the spending key.
+   - **Flip the registry** — `createGhostRegistry("live")` routes Arc → `BufiOwnStackProvider`; the web
+     Ghost slot + MCP `ghost_wallet_*` tools then run against our own stack, no call-site changes.
+   - Sequencing: engine → relayer endpoint → provider (`ensureAccess`/`prepareShield`/`getBalances` first,
+     then `prepareExecute`) → stealth/resolution → registry flip.
 5. **Perf hardening** — hit p50<1.5s/p99<3s; ship the session tier.
 
 ## Acceptance
