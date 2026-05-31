@@ -5,10 +5,9 @@ import { arcTestnet } from "viem/chains";
 import { prisma } from "../prisma";
 import { KAWAII_GATE, RESERVED_BASES, RESERVED_BASE_IDS } from "./config";
 import { composeAvatar, selectionKey, type AvatarSelection } from "./compose";
-import { resolveLayerPath, type LayerCategory } from "./layers";
+import { resolveLayerPath } from "./layers";
 import { pinImagePng, pinMetadataJson, toTokenUri } from "./pin";
 import { buildMetadata } from "./metadata";
-import { nftFileOf } from "./item-meta";
 import { MintError } from "./mint-service";
 
 /** Circle requires a UUID-format idempotencyKey; derive one deterministically. */
@@ -61,17 +60,11 @@ export async function updateAvatar(input: UpdateInput) {
     baseFile = input.baseId;
   }
 
-  // ---- 2. Re-compose with NFT variants + re-pin ----
-  // The composite that goes on-chain uses each item's `nft` asset (the smaller,
-  // position-correct layer); metadata attributes keep the canonical menu names.
-  const nftLayers: Partial<Record<LayerCategory, string>> = {};
-  for (const [cat, file] of Object.entries(input.layers ?? {})) {
-    if (file) nftLayers[cat as LayerCategory] = nftFileOf(cat, file);
-  }
-  const nftSelection: AvatarSelection = { base: nftFileOf("base", baseFile), layers: nftLayers };
+  // ---- 2. Re-compose with positioned NFT variants + re-pin ----
+  // composeAvatar defaults traits to their positioned variant; the base is the
+  // full-body image. metadata attributes keep the canonical selection.
   const canonical: AvatarSelection = { base: baseFile, layers: input.layers };
-
-  const png = await composeAvatar(nftSelection);
+  const png = await composeAvatar(canonical, { traitVariant: "nft" });
   const imageCid = await pinImagePng(png);
   const metadata = buildMetadata({
     baseId: input.baseId,

@@ -18,7 +18,10 @@ const CANVAS = 1254;
  * Composite the selected layers (bottom → top per LAYER_ORDER) into a single
  * PNG buffer. Server-side only. Throws if the base is missing/invalid.
  */
-export async function composeAvatar(sel: AvatarSelection): Promise<Buffer> {
+export async function composeAvatar(sel: AvatarSelection, opts?: { traitVariant?: "menu" | "nft" }): Promise<Buffer> {
+  // Traits composite their POSITIONED variant (falls back to the product-shot);
+  // the base is a full-body image, always rendered as-is.
+  const traitVariant = opts?.traitVariant ?? "nft";
   const basePath = resolveLayerPath("base", sel.base);
   if (!basePath) throw new Error(`invalid base: ${sel.base}`);
 
@@ -27,14 +30,14 @@ export async function composeAvatar(sel: AvatarSelection): Promise<Buffer> {
     if (cat === "base") continue;
     const chosen = sel.layers?.[cat];
     if (!chosen) continue;
-    const p = resolveLayerPath(cat, chosen);
+    const p = resolveLayerPath(cat, chosen, traitVariant);
     if (!p) continue; // silently skip unknown — never composite unvalidated input
     overlays.push({ input: readFileSync(p), top: 0, left: 0 });
   }
 
   // Base is the bottom-most visible layer (after an optional background, which
   // if selected is composited first by being earlier in LAYER_ORDER → prepend).
-  const bgPath = sel.layers?.background ? resolveLayerPath("background", sel.layers.background) : null;
+  const bgPath = sel.layers?.background ? resolveLayerPath("background", sel.layers.background, traitVariant) : null;
   const bottom = bgPath ? readFileSync(bgPath) : readFileSync(basePath);
   const ordered = bgPath ? [{ input: readFileSync(basePath), top: 0, left: 0 }, ...overlays] : overlays;
 

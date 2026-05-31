@@ -10,7 +10,7 @@ import {
   KAWAII_TRAIT_TIERS,
 } from "@/lib/kawaii/config";
 import { useScopedI18n, useCurrentLocale } from "@/locales/client";
-import { itemMeta, nftFileOf } from "@/lib/kawaii/item-meta";
+import { itemMeta } from "@/lib/kawaii/item-meta";
 
 // Category key → i18n key (labels live in the Kawaii namespace, all 6 locales).
 const CAT_TKEY: Record<string, string> = {
@@ -54,7 +54,9 @@ const A = {
 // Real stablecoin token icons (shared with the trade-island token chips).
 const TOKEN_ICON = { jpyc: "/assets/stable-tokens/jpyc_token_icon.png", usdc: "/assets/stable-tokens/usdc_token_icon.svg" } as const;
 
-const layerSrc = (cat: string, file: string) => `/api/kawaii/layer?cat=${cat}&file=${encodeURIComponent(file)}`;
+// variant "nft" pulls the positioned layer (avatar/upload); default = product-shot (picker).
+const layerSrc = (cat: string, file: string, variant: "menu" | "nft" = "menu") =>
+  `/api/kawaii/layer?cat=${cat}&file=${encodeURIComponent(file)}${variant === "nft" ? "&variant=nft" : ""}`;
 const fileLabel = (f: string) => {
   const b = f.replace(/\.png$/i, "").replace(/[_-]+/g, " ").trim();
   return b.charAt(0).toUpperCase() + b.slice(1);
@@ -401,10 +403,10 @@ function KGCustomizer({ catalog, base, setBase, bg, setBg, equip, setEquip, powe
             behind the transparent base, not the whole stage. */}
         <div className={"kg-cust-av" + (preview ? " previewing" : "")} style={{ background: bg || "transparent" }}>
           {layers.map((l) => (
-            // Avatar composites the NFT variant (position-correct layer that goes
-            // into the minted Punk), not the big menu product-shot.
+            // Avatar composites the POSITIONED variant for traits (the layer that
+            // goes into the minted Punk); the base renders as its full-body image.
             // eslint-disable-next-line @next/next/no-img-element
-            <img key={l.cat} src={layerSrc(l.cat, nftFileOf(l.cat, l.file))} alt="" />
+            <img key={l.cat} src={layerSrc(l.cat, l.file, l.cat === "base" ? "menu" : "nft")} alt="" />
           ))}
           {preview && (
             <span className="kg-av-lock"><LockGlyph /> {t("lockedPreview")}</span>
