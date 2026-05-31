@@ -78,7 +78,17 @@ Targets on Arc (sub-second finality): **p50 < 1.5s, p99 < 3s** end-to-end per pr
      `snarkjs.groth16.fullProve` → `relayExecute`; near-verbatim from the proven `b5-withdraw`,
      same circuit/verifier → no new ceremony) + SDK `contractsService.relayExecute` (+ ABI),
      used by the relayer + script + provider.
-   - ⏳ **Live on-chain round-trip (runbook)** — a deliberate, gated ops sequence:
+   - 🟡 **Live on Arc (2026-05-31) — executor deployed + live; end-to-end proof gated on indexer.**
+     Done live: impl upgraded to the `relayExecute` version (`0xA9c4B2D0db74F34ABCF3478d2460973Bc2E3520d`,
+     denominations persisted); `FxMorphoSupplyAdapter` (`0x98A23BdCf0A35bDd678CB00B2dDF8dE108980C95`)
+     deployed + registered at id 1; snarkjs + canonical circuits set up; a 1 USDC denomination deposit
+     landed in the live USDC pool; the server-side prover generated a valid 8-signal Groth16 proof.
+     **Blocker (infra, not design):** the live USDC pool has 5 leaves; a valid withdraw proof needs the
+     pool's real merkle tree, but 4 leaves are deep in history and the free-tier drpc RPC caps `getLogs`
+     at 10k blocks → reconstruction needs the Ponder indexer or an archive RPC (the production relayer
+     has this; the b5 single-leaf harness was a virgin-pool shortcut). `relayExecute` reverts at
+     `pool.withdraw`'s `_isKnownRoot` until the real tree is supplied.
+   - ⏳ **Runbook (for an indexer/archive-RPC env):**
      1. Upgrade the live Arc entrypoint impl to the `relayExecute` version (UUPS `upgradeToAndCall`,
         owner key — same as the denomination upgrade; storage-safe, denominations persist).
      2. Deploy `FxMorphoSupplyAdapter` on Arc + `registerExecutionAdapter(1, adapter)` (owner).
