@@ -56,9 +56,14 @@ Targets on Arc (sub-second finality): **p50 < 1.5s, p99 < 3s** end-to-end per pr
 5. **Arc-native** — sub-second blocks + USDC-as-gas; finality is not the bottleneck, proving is.
 
 ## Phases
-0. **Design spike** — generalize `relayCrossCurrency` → `relayExecute(adapterId, calldata)`
-   reading an adapter registry; PoC Morpho-supply adapter we register; prove a
-   shielded-note → Morpho-supply atomic on Arc testnet (reuse deployed verifier; no ceremony).
+0. ✅ **DONE (contract layer, 2026-05-31)** — `relayExecute` + owner-controlled adapter registry
+   shipped in `FxPrivacyEntrypoint` (fx-telarana `6086d74`); `IFxExecutionAdapter` +
+   `FxMorphoSupplyAdapter`. Proven in unit tests (MockVerifier/MockMorpho): shielded-note →
+   Morpho-supply atomic, fee skim, unregistered-adapter + zero-recipient reverts, owner-gated
+   registration. FxPrivacyEntrypoint suite 27/27. NO new circuit (deployed verifier reused;
+   adapter+calldata bound into the proof context — confirmed). Live on-chain proof-gen round-trip
+   deferred to Phase 2 (prover). Remaining design follow-up: generalize for a *settle-back* result
+   (borrow/swap) is coded but only the supply path is tested.
 1. **Registry + adapters** — `registerAdapter` (owner-gated) + Morpho + `TelaranaFxOrderSettlement`
    + spot adapters, with per-adapter selector allowlists + measured-delta safety (mirror
    relayCrossCurrency's adapter trust boundary). fx-telarana 42-test suite + Ponder/SDK.
