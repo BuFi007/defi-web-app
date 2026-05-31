@@ -40,8 +40,9 @@ A trade hides three independent things; we hit two:
 - ✅ **MockProvider + registry** — `mock-provider.ts` (in-memory, full interface) + `registry.ts` (the only place a concrete provider is named). 5/5 unit tests pass.
 - ✅ **Web wallet wiring** — `usePrivateBalance` in `stablecoin-balances/index.tsx` reads the registry; the Ghost slot shows the (mock) shielded balance, else "Deposit".
 - ✅ **MCP tools** — `apps/hyper-mcp/src/routes/ghost-wallet.ts`: `ghost_wallet_balance` (model, no fake number), `deposit` (shield), `withdraw` (unshield), `trade` (shielded execution wrapping a perp). Prepare-only, registered, 5/5 tests, boot-checked.
-- ✅ **HinkalProvider skeleton** — `hinkal-provider.ts`, every method mapped to desk-v1 `@bu/private-transfer-core`, throws `notWired()` until the dep + Phase 0 land.
-- ⏳ **Phase 0/1 live** — needs wallet/key + Hinkal access on Arc (below).
+- ✅ **HinkalProvider body** — `hinkal-provider.ts`, real implementation against the Phase-0-validated API (`prepareEthersHinkal` + `getTotalBalance`/`deposit`/`actionPrivateWallet`). Dynamic-imports `@hinkal/common` so the build stays green without the dep; needs `bun add @hinkal/common` + an ethers-v6 signer to run live.
+- ✅ **Phase 0 — PASSED LIVE on Arc (2026-05-31).** Spike `desk-v1/scripts/hinkal-arc-spike.ts`: `getSupportedChains` includes 5042002, token registry syncs (USDC/EURC), `getTotalBalance` reads, deposit Groth16 proof (18 signals), **1 USDC shield landed on-chain** (tx `0x7035cc16…` → Hinkal `0x92c4…BA01`), post-shield shielded balance = 1 USDC. Learnings: use Hinkal's bundled **ethers v6** (v5 → "expected signer"); `checkAccessToken(Arc)` = `undefined` (no gating, open testnet); reads need `updateTokensListBefore=true`.
+- ⏳ **Phase 1 live** — one `externalAction`/`actionPrivateWallet` → Morpho supply from the shielded balance (the execution path; submit() body written, needs a live spike to validate `ops` encoding).
 
 ## Phased plan
 
