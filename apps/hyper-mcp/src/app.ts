@@ -52,6 +52,8 @@ import oracle from "./routes/oracle.ts";
 import vault from "./routes/vault.ts";
 import hedge from "./routes/hedge.ts";
 import fxswap from "./routes/fxswap.ts";
+import ramp from "./routes/ramp.ts";
+import p2p from "./routes/p2p.ts";
 import registryRoutes from "./routes/registry.ts";
 import perpsExtra from "./routes/perps.ts";
 import lendingExec from "./routes/lending-exec.ts";
@@ -79,6 +81,14 @@ const llmsTxt = `# BUFI HYPER — Trading Infrastructure for AI Agents
 1. post__api_close_prepare(symbol="EURC/USDC", side="long", sizeUsdc="5", trader="0x...")
    → returns { order: { digest, typedData, reduceOnly: true } }
 2. post__api_trade_execute(..., reduceOnly=true, signature)
+
+## Live Price Stream (SSE)
+Server-Sent Events feed of mark prices. Use the slash-free query form — the path form
+with a URL-encoded slash (EURC%2FUSDC) is dropped by the CDN edge in production:
+   GET /api/stream/prices?base=EURC&quote=USDC      (also accepts ?symbol=EURC-USDC)
+Emits "event: price" frames every ~2s carrying { markPrice (E18), ts, oracleStaleSeconds }.
+An unknown symbol yields an "event: error" frame listing the valid symbols.
+This is not an MCP tool — MCP/poll clients should call get__api_oracle_price(base, quote).
 
 ## Spot Buy (1 call)
 post__api_spot_buy(symbol="EURC", trader="0x...", amountUsdc="100")
@@ -297,9 +307,10 @@ in the quick flows above.
 - get__api_leaderboard -> ranked traders (Nansen-compatible shape; count field total_traders)
 - get__api_copy_discover -> leaders open for mirroring (count field totalDiscovered)
 - get__api_copy_leader/{address} -> one leader's stats
-- post__api_copy_follow(follower="0x...", leader="0x...", sizeCapUsdc, leverageCap, symbols?)
+- post__api_copy_follow(follower="0x...", leader="0x...", maxSizeUsdc, leverageCap, symbols?)
   -> activates server-side mirroring of the leader's perp positions. This is a LIVE
   mutation, NOT a prepare — there is no dry-run; calling it starts mirroring.
+  (field is maxSizeUsdc, a string; leader must have trading history or follow is rejected)
 - post__api_copy_unfollow(follower, leader) -> stop mirroring
 - get__api_copy_status/{follower} -> your active relationships
 Performance bonds (ERC-8183): a leader locks USDC, slashed proportionally if PnL
@@ -454,6 +465,8 @@ const hyper = new Hyper()
   .use(vault)
   .use(hedge)
   .use(fxswap)
+  .use(ramp)
+  .use(p2p)
   .use(registryRoutes)
   .use(perpsExtra)
   .use(lendingExec)

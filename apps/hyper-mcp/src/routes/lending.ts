@@ -1,8 +1,9 @@
-import { Hyper, ok, route } from "@hyper/core";
+import { Hyper, badRequest, ok, route } from "@hyper/core";
 import { z } from "zod";
 import { telaranaService, jsonSafe } from "../services.ts";
 import { listMarkets } from "@bufi/fx-telarana";
 import { ARC_CHAIN_ID, zAddress, zAmount, generateDeadlineAndNonce } from "../shared.ts";
+import { invalidAddressBody, isEvmAddress } from "./_addr.ts";
 
 const zMarketId = z.string().min(1);
 
@@ -12,12 +13,19 @@ const lendingMarkets = route
     mcp: {
       title: "Lending Markets",
       description:
-        "List available lending/borrowing pools on Arc. Shows supply APY, borrow APY, total supplied, total borrowed, utilization, and collateral requirements.",
+        "List available lending/borrowing pools across both hubs (Arc 5042002 + Fuji 43113). Shows supply APY, borrow APY, total supplied, total borrowed, utilization, and collateral requirements. Each market carries `hubChainId` and `prepareSupported`: the supply/borrow/repay/withdraw *-prepare endpoints resolve ONLY Arc Morpho markets, so `prepareSupported` is true only for markets whose `hubChainId` is Arc (5042002). Filter on `prepareSupported` before calling a prepare endpoint.",
     },
   })
   .handle(async () => {
     const markets = await listMarkets();
-    return ok(jsonSafe({ markets }));
+    // prepareSupported mirrors the *-prepare path, which resolves marketIds
+    // ONLY against Arc Morpho (see lending-exec.ts). hubChainId comes straight
+    // from the existing market data — no extra on-chain call needed.
+    const annotated = markets.map((m) => ({
+      ...m,
+      prepareSupported: m.hubChainId === ARC_CHAIN_ID,
+    }));
+    return ok(jsonSafe({ markets: annotated }));
   });
 
 const lendingPositions = route
@@ -31,7 +39,7 @@ const lendingPositions = route
   })
   .handle(async (ctx) => {
     const address = (ctx.params as Record<string, string>).address ?? "";
-    if (!address) return ok({ address: "", positions: [] });
+    if (!isEvmAddress(address)) return badRequest(invalidAddressBody(address));
     const positions = await telaranaService.positionsFor(address);
     return ok(jsonSafe({ address, positions }));
   });
