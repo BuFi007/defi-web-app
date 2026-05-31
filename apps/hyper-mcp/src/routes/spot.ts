@@ -58,16 +58,24 @@ const spotQuote = route
     mcp: {
       title: "Spot FX Quote",
       description:
-        "Get a live spot quote for buying FX tokens (EURC, JPYC, MXNB) with USDC. Returns the Pyth oracle price and estimated output amount. Use this before post__api_spot_buy to preview the trade.",
+        "Get a live spot quote for buying FX tokens (EURC, JPYC, MXNB) with USDC. Returns the Pyth oracle price (raw integer + its `expo` scale + a human `priceHuman` USD-per-token rate) AND `expectedOut` — the human-readable amount of the FX token that `amountUsdc` buys at this price (the same value post__api_spot_buy computes). Spot has zero protocol fee/spread beyond gas + the x402 charge (feeBps: 0). Use this before post__api_spot_buy to preview the trade.",
     },
   })
   .output(
-    // `price` is the raw Pyth price as a string (apply `expo` to scale); null when
-    // the feed has no fresh update. Pair with post__api_spot_buy for expectedOut.
+    // `price` is the raw Pyth price integer as a string; multiply by 10**expo to get
+    // the human USD-per-token rate (also returned as `priceHuman`). Both are null when
+    // the feed has no fresh update. `expectedOut` is the FX token `amountUsdc` buys at
+    // this price, matching post__api_spot_buy. `feeBps` is the protocol fee/spread on
+    // the spot path: always 0 (see `feeNote`); the only charges are gas + x402.
     z.object({
       symbol: z.string(),
       amountUsdc: z.string(),
       price: z.string().nullable(),
+      priceExpo: z.number().nullable(),
+      priceHuman: z.string().nullable(),
+      expectedOut: z.string().nullable(),
+      feeBps: z.number(),
+      feeNote: z.string(),
       oracleStaleSeconds: z.number().nullable(),
       maxStaleSeconds: z.number(),
       priceStale: z.boolean().nullable(),
@@ -80,10 +88,34 @@ const spotQuote = route
     const latest = await hermes.latestPriceUpdates([route.pythFeedId]);
     const price = latest.prices[0];
     const ageSeconds = price ? Math.floor(Date.now() / 1000) - price.price.publish_time : null;
+
+    // Reuse the tested spot money math so the quote's `expectedOut` matches what
+    // post__api_spot_buy returns. expectedOut is atomic FX-token units (6 dp); render
+    // human by dividing by 10**SPOT_TOKEN_DECIMALS. priceHuman = raw * 10**expo.
+    let priceHuman: string | null = null;
+    let expectedOut: string | null = null;
+    if (price) {
+      priceHuman = (Number(price.price.price) * 10 ** price.price.expo).toString();
+      const quoted = quoteSpotOut({
+        amountUsdc: body.amountUsdc,
+        priceRaw: price.price.price,
+        expo: price.price.expo,
+        tokenDecimals: SPOT_TOKEN_DECIMALS,
+        usdcDecimals: USDC_DECIMALS,
+      });
+      expectedOut = (Number(quoted.expectedOut) / 10 ** SPOT_TOKEN_DECIMALS).toString();
+    }
+
     return ok(jsonSafe({
       symbol: body.symbol,
       amountUsdc: body.amountUsdc,
       price: price?.price.price ?? null,
+      priceExpo: price?.price.expo ?? null,
+      priceHuman,
+      expectedOut,
+      feeBps: 0,
+      feeNote:
+        "Spot path has no protocol fee or spread; minAmountOut differs from expectedOut only by your slippage tolerance. Costs are gas on Fuji + the x402 charge ($0.001).",
       oracleStaleSeconds: ageSeconds,
       maxStaleSeconds: SPOT_MAX_STALE_SECONDS,
       priceStale: ageSeconds === null ? null : ageSeconds > SPOT_MAX_STALE_SECONDS,

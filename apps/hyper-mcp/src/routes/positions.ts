@@ -1,5 +1,6 @@
-import { Hyper, ok, route } from "@hyper/core";
+import { Hyper, badRequest, ok, route } from "@hyper/core";
 import { perpsService, jsonSafe } from "../services.ts";
+import { invalidAddressBody, isEvmAddress } from "./_addr.ts";
 
 const positions = route
   .get("/positions/:address")
@@ -12,7 +13,7 @@ const positions = route
   })
   .handle(async (ctx) => {
     const address = (ctx.params as Record<string, string>).address ?? "";
-    if (!address) return ok({ address: "", positions: [] });
+    if (!isEvmAddress(address)) return badRequest(invalidAddressBody(address));
     const list = await perpsService.listPositions(address);
     return ok(jsonSafe({ address, positions: list }));
   });

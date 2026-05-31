@@ -1,4 +1,4 @@
-import { Hyper, ok, route } from "@hyper/core";
+import { Hyper, badRequest, ok, route } from "@hyper/core";
 import { z } from "zod";
 import { createPublicClient, http, fallback, parseUnits } from "viem";
 import { ARC, contractAddress } from "../registry/index.ts";
@@ -53,6 +53,31 @@ const OUT = z.object({
   chainId: z.number(), note: z.string().optional(), error: z.string().optional(),
 });
 
+/** 400 body for a marketId the prepare path can't resolve. Mirrors the repo's
+ *  status/code/message/why/fix error shape (see routes/_addr.ts). Names the
+ *  chain prepare resolves on (Arc 5042002) so the caller can filter, rather
+ *  than circularly pointing back at the list the id came from. */
+function unsupportedMarketBody(action: string, marketId: string) {
+  return {
+    status: 400,
+    code: "MARKET_NOT_PREPARABLE" as const,
+    message: `marketId ${JSON.stringify(marketId)} does not resolve on any Arc Morpho (chainId ${ARC.chainId}). The ${action}-prepare endpoints resolve ONLY Arc markets; Fuji (43113) marketIds from /api/lending/markets are not preparable here.`,
+    why: "idToMarketParams returned no market for this id on either Arc MorphoBlue deployment. /api/lending/markets lists markets across both hubs (Arc + Fuji), but prepare is Arc-only.",
+    fix: "Call GET /api/lending/markets and pick a marketId whose `hubChainId` is 5042002 (Arc) — equivalently one with `prepareSupported: true` — then retry.",
+  };
+}
+
+/** 400 body for an unparseable amount string. */
+function badAmountBody(action: string, amount: string, decimals: number) {
+  return {
+    status: 400,
+    code: "BAD_AMOUNT" as const,
+    message: `Could not parse amount ${JSON.stringify(amount)} for ${action} (loanToken has ${decimals} decimals).`,
+    why: "parseUnits(amount, decimals) threw — the amount was not a valid decimal string for this token.",
+    fix: "Pass a non-negative decimal string (e.g. \"10.5\") with at most the token's decimal places.",
+  };
+}
+
 function mk(action: string, fn: string, opts: { needsApprove?: boolean; receiver?: boolean }) {
   return route
     .post(`/lending/${action}-prepare`)
@@ -61,10 +86,10 @@ function mk(action: string, fn: string, opts: { needsApprove?: boolean; receiver
     .output(OUT)
     .handle(async ({ body }) => {
       const m = await resolveMarket(body.marketId as `0x${string}`);
-      if (!m) return ok({ action, marketId: body.marketId, chainId: ARC.chainId, error: "marketId not found on any Arc Morpho (check /api/lending/markets for ids)" });
+      if (!m) return badRequest(unsupportedMarketBody(action, body.marketId));
       const dec = await loanDecimals(m.loanToken);
       let atomic: bigint;
-      try { atomic = parseUnits(body.amount, dec); } catch { return ok({ action, marketId: body.marketId, chainId: ARC.chainId, error: "bad amount" }); }
+      try { atomic = parseUnits(body.amount, dec); } catch { return badRequest(badAmountBody(action, body.amount, dec)); }
       const recv = (body as { receiver?: string }).receiver ?? body.trader;
       const args = opts.receiver
         ? { marketParams: marketParamsObj(m), assets: atomic.toString(), shares: "0", onBehalf: body.trader, receiver: recv }

@@ -55,21 +55,42 @@ export function mcpServer(app: HyperApp, cfg: McpServerConfig = {}): McpServer {
       query?: Record<string, unknown>
       body?: unknown
     }
-    // The MCP arg envelope wraps the request payload under a top-level `body`
-    // object. A common mistake is passing the body fields flat at the top level,
-    // which otherwise surfaces as an opaque root-level "Required" validation
-    // error. Detect that case and name the `body` wrapper explicitly.
-    const expectsBody = !!(tool as { inputSchema?: { properties?: Record<string, unknown> } })
-      .inputSchema?.properties?.body
-    if (expectsBody && input.body === undefined) {
-      const stray = Object.keys((args ?? {}) as Record<string, unknown>).filter(
-        (k) => k !== "params" && k !== "query" && k !== "body",
-      )
+    // The MCP arg envelope nests request fields under a top-level wrapper:
+    // `body` for POST payloads, `query` for query-string params, `params` for
+    // path params (e.g. {"params": { "address": "0x…" }}). A common mistake is
+    // passing those fields flat at the top level, which otherwise surfaces as an
+    // opaque "Required" error or — worse for path params — a silently-dropped
+    // arg. Detect that and name the exact wrapper(s) the tool expects.
+    const toolProps =
+      (tool as { inputSchema?: { properties?: Record<string, unknown> } }).inputSchema
+        ?.properties ?? {}
+    const envelopes = (["body", "query", "params"] as const).filter((k) => toolProps[k])
+    const providedEnvelope =
+      input.body !== undefined || input.query !== undefined || input.params !== undefined
+    const stray = Object.keys((args ?? {}) as Record<string, unknown>).filter(
+      (k) => k !== "params" && k !== "query" && k !== "body",
+    )
+    // Body is treated as required (POST tools need a payload). query/params only
+    // trip the guard when the caller passed stray flat fields, so an argument-less
+    // call the route/schema would handle isn't rejected here.
+    if (
+      envelopes.length > 0 &&
+      !providedEnvelope &&
+      (envelopes.includes("body") || stray.length > 0)
+    ) {
+      const list = envelopes.map((e) => `"${e}"`).join(" / ")
+      const primary = envelopes.includes("body") ? "body" : (envelopes[0] as string)
+      const primaryLabel =
+        primary === "params"
+          ? '"params" (path parameters)'
+          : primary === "query"
+            ? '"query" (query-string fields)'
+            : '"body"'
       throw rpcError(
         -32602,
         stray.length > 0
-          ? `Tool "${name}" expects the request payload wrapped under a top-level "body" object — e.g. {"body": { ... }}. You passed ${JSON.stringify(stray)} at the top level; move those fields under "body".`
-          : `Tool "${name}" requires a top-level "body" object containing the request payload — e.g. {"body": { ... }}.`,
+          ? `Tool "${name}" expects its arguments nested under ${list} — e.g. {"${primary}": { ... }}. You passed ${JSON.stringify(stray)} at the top level; move those fields under ${primaryLabel}.`
+          : `Tool "${name}" requires a top-level ${list} object containing the request arguments — e.g. {"${primary}": { ... }}.`,
       )
     }
     const result = await app.invoke({

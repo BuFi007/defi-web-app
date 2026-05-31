@@ -1,5 +1,6 @@
-import { Hyper, ok, route } from "@hyper/core";
+import { Hyper, badRequest, ok, route } from "@hyper/core";
 import { perpsService, telaranaService, jsonSafe } from "../services.ts";
+import { invalidAddressBody, isEvmAddress } from "./_addr.ts";
 
 // One read for a wallet's holdings across products, replacing the
 // perp/lending fan-out an agent previously had to know to do itself.
@@ -16,7 +17,7 @@ const portfolio = route
   })
   .handle(async (ctx) => {
     const address = (ctx.params as Record<string, string>).address ?? "";
-    if (!address) return ok({ address: "", perp: [], lending: [] });
+    if (!isEvmAddress(address)) return badRequest(invalidAddressBody(address));
 
     const [perp, lending] = await Promise.all([
       perpsService.listPositions(address).catch((e) => ({ error: String((e as Error).message ?? e) })),

@@ -1,13 +1,48 @@
-import { Hyper, ok, route } from "@hyper/core";
+import { Hyper, ok, route, badRequest } from "@hyper/core";
 import { z } from "zod";
 import { cache } from "@hyper/cache";
 import { perpsService, tradingDb, jsonSafe } from "../services.ts";
-import { ARC_CHAIN_ID, zAddress, zAmount, zSymbol } from "../shared.ts";
+import { ARC_CHAIN_ID, zAddress, zAmount } from "../shared.ts";
 import {
   IDENTITY_REGISTRY,
   REPUTATION_REGISTRY,
   getReputation,
 } from "../erc8004.ts";
+
+// Copy-trading market set. Mirrors the live perp markets (shared.ts
+// PERP_SYMBOLS) PLUS QCAD/USDC, which is a live market not yet in the shared
+// perps enum (G12). Bare-token forms are accepted as aliases so callers can
+// pass `EURC` or `EURC/USDC`.
+const COPY_SYMBOLS = [
+  "EURC/USDC",
+  "JPYC/USDC",
+  "MXNB/USDC",
+  "CIRBTC/USDC",
+  "AUDF/USDC",
+  "QCAD/USDC",
+] as const;
+const zCopySymbol = z.enum(COPY_SYMBOLS);
+
+const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+
+/**
+ * Process-memory store for copy-trading relationships. There is no DB-backed
+ * copy store in services.ts (only perpsIntents/receipts), and the existing
+ * in-file pattern for ephemeral aggregates is a module-level Map (see
+ * leaderboard.ts). Keyed by follower address (lowercased).
+ *
+ * NOTE (flag for parent): this persists only for the lifetime of the process
+ * and is not shared across instances. If durable cross-instance copy state is
+ * required, a shared store belongs in services.ts / tradingDb.
+ */
+interface CopyRelationship {
+  leader: string;
+  maxSizeUsdc: string;
+  leverageCap: number;
+  symbols: string[] | "all";
+  createdAt: number;
+}
+const copyStore = new Map<string, Map<string, CopyRelationship>>();
 
 const discoverTraders = route
   .get("/copy/discover")
@@ -70,7 +105,7 @@ const copyTrader = route
       follower: zAddress,
       leader: zAddress,
       maxSizeUsdc: zAmount,
-      symbols: z.array(zSymbol).optional(),
+      symbols: z.array(zCopySymbol).optional(),
       leverageCap: z.number().int().min(1).max(50).default(5),
     }),
   )
@@ -78,12 +113,28 @@ const copyTrader = route
     mcp: {
       title: "Copy a Trader",
       description:
-        "Start copy-trading a leader. Your agent will mirror the leader's perp positions with configurable size cap and leverage cap. Optionally filter to specific symbols. Checks the leader's ERC-8004 reputation before enabling. Use get__api_copy_discover to find leaders.",
+        "Start copy-trading a leader. Your agent will mirror the leader's perp positions with configurable size cap and leverage cap. Optionally filter to specific symbols (EURC/USDC, JPYC/USDC, MXNB/USDC, CIRBTC/USDC, AUDF/USDC, QCAD/USDC). Checks that the leader has trading history and their ERC-8004 reputation before enabling. Use get__api_copy_discover to find leaders.",
     },
   })
   .handle(async ({ body }) => {
     if (body.follower.toLowerCase() === body.leader.toLowerCase()) {
-      return ok({ error: "Cannot copy yourself" });
+      return badRequest({ code: "invalid_leader", error: "Cannot copy yourself" });
+    }
+
+    // Leader-existence guard: a leader must have at least one filled perp
+    // intent (the same source discover/leaderProfile read from). Reject unknown
+    // leaders so follow can't register against a non-existent trader.
+    const leaderAddr = body.leader.toLowerCase();
+    const intents = await tradingDb.perpsIntents.list({ status: "filled" });
+    const leaderTrades = intents.filter(
+      (i) => i.trader.toLowerCase() === leaderAddr,
+    ).length;
+    if (leaderTrades === 0) {
+      return badRequest({
+        code: "unknown_leader",
+        error:
+          "Leader has no trading history and cannot be copied. Use get__api_copy_discover to find copyable leaders.",
+      });
     }
 
     let reputation = null;
@@ -91,6 +142,23 @@ const copyTrader = route
       const rep = await getReputation(BigInt(0));
       reputation = rep;
     } catch {}
+
+    // Persist the relationship so a subsequent GET /copy/status/:follower
+    // reflects it (G10). Keyed follower -> leader.
+    const followerAddr = body.follower.toLowerCase();
+    const symbols: string[] | "all" = body.symbols ?? "all";
+    let followerRels = copyStore.get(followerAddr);
+    if (!followerRels) {
+      followerRels = new Map<string, CopyRelationship>();
+      copyStore.set(followerAddr, followerRels);
+    }
+    followerRels.set(leaderAddr, {
+      leader: body.leader,
+      maxSizeUsdc: body.maxSizeUsdc,
+      leverageCap: body.leverageCap,
+      symbols,
+      createdAt: Date.now(),
+    });
 
     return ok(
       jsonSafe({
@@ -100,10 +168,11 @@ const copyTrader = route
         config: {
           maxSizeUsdc: body.maxSizeUsdc,
           leverageCap: body.leverageCap,
-          symbols: body.symbols ?? "all",
+          symbols,
           mirrorMode: "proportional",
         },
         leaderReputation: reputation,
+        leaderTrades,
         chainId: ARC_CHAIN_ID,
         status: "active",
         how: {
@@ -135,11 +204,21 @@ const stopCopy = route
     },
   })
   .handle(async ({ body }) => {
+    // Remove the persisted relationship so status no longer reports it (G10).
+    const followerAddr = body.follower.toLowerCase();
+    const leaderAddr = body.leader.toLowerCase();
+    const followerRels = copyStore.get(followerAddr);
+    const wasFollowing = followerRels?.delete(leaderAddr) ?? false;
+    if (followerRels && followerRels.size === 0) {
+      copyStore.delete(followerAddr);
+    }
+
     return ok({
       action: "copy_unfollow",
       follower: body.follower,
       leader: body.leader,
       closePositions: body.closePositions,
+      wasFollowing,
       status: "unfollowed",
       note: body.closePositions
         ? "All mirrored positions will be closed via reduce-only orders."
@@ -157,14 +236,35 @@ const copyStatus = route
     },
   })
   .handle(async (ctx) => {
-    const follower =
-      ((ctx.params as Record<string, string>).follower ?? "").toLowerCase();
+    const raw = (ctx.params as Record<string, string>).follower ?? "";
+    if (!ADDRESS_RE.test(raw)) {
+      return badRequest({
+        code: "invalid_address",
+        error: "follower must be a valid 0x-prefixed 40-hex-char address",
+      });
+    }
+    const follower = raw.toLowerCase();
+
+    const followerRels = copyStore.get(follower);
+    const following = followerRels
+      ? Array.from(followerRels.values()).map((rel) => ({
+          leader: rel.leader,
+          maxSizeUsdc: rel.maxSizeUsdc,
+          leverageCap: rel.leverageCap,
+          symbols: rel.symbols,
+          since: rel.createdAt,
+        }))
+      : [];
+
     return ok({
       follower,
-      following: [],
+      following,
       totalMirroredPositions: 0,
       chainId: ARC_CHAIN_ID,
-      note: "No active copy-trading relationships. Use post__api_copy_follow to start following a leader.",
+      note:
+        following.length === 0
+          ? "No active copy-trading relationships. Use post__api_copy_follow to start following a leader."
+          : "Active copy-trading relationships. Each follower agent polls and mirrors its leaders' positions.",
     });
   });
 
@@ -179,8 +279,14 @@ const leaderProfile = route
     },
   })
   .handle(async (ctx) => {
-    const address =
-      ((ctx.params as Record<string, string>).address ?? "").toLowerCase();
+    const rawAddr = (ctx.params as Record<string, string>).address ?? "";
+    if (!ADDRESS_RE.test(rawAddr)) {
+      return badRequest({
+        code: "invalid_address",
+        error: "address must be a valid 0x-prefixed 40-hex-char address",
+      });
+    }
+    const address = rawAddr.toLowerCase();
 
     const intents = await tradingDb.perpsIntents.list({ status: "filled" });
     const leaderIntents = intents.filter(
