@@ -78,7 +78,17 @@ Targets on Arc (sub-second finality): **p50 < 1.5s, p99 < 3s** end-to-end per pr
      `snarkjs.groth16.fullProve` → `relayExecute`; near-verbatim from the proven `b5-withdraw`,
      same circuit/verifier → no new ceremony) + SDK `contractsService.relayExecute` (+ ABI),
      used by the relayer + script + provider.
-   - 🟡 **Live on Arc (2026-05-31) — executor deployed + live; end-to-end proof gated on indexer.**
+   - ✅ **LIVE + GREEN on Arc (2026-05-31).** Full private-execution round-trip landed on-chain:
+     shielded note (FxPrivacyPool) → `relayExecute` (our router) → registered `FxMorphoSupplyAdapter`
+     → Morpho supply onBehalf the recipient, executor = entrypoint (detached from the user), REAL
+     Groth16 proof vs the deployed `WithdrawalVerifier` (no new ceremony). tx
+     `0x228281957bc83b3b539d0258aeaa9469cf3b1a6fb42de503c7674a1bc6eaadbf` (block 44909525, status 1);
+     Morpho `position(M2, deployer)` = 2e12 supply shares from 1 USDC. Leaf reconstruction needed NO
+     indexer — binary-search `currentTreeSize()` by block + `LeafInserted` rebuild on the plain RPC.
+     Two close fixes: (a) encode `ExecutionRelayData` (dynamic bytes field → dynamic tuple) as ONE
+     tuple so on-chain `abi.decode` finds the leading offset; (b) fresh deposit per run (nullifier
+     is single-use). The earlier `NativeAssetNotAccepted` diagnosis was wrong — it was the decode.
+   - (historical) earlier-this-day status — executor deployed; e2e was thought gated on an indexer:
      Done live: impl upgraded to the `relayExecute` version (`0xA9c4B2D0db74F34ABCF3478d2460973Bc2E3520d`,
      denominations persisted); `FxMorphoSupplyAdapter` (`0x98A23BdCf0A35bDd678CB00B2dDF8dE108980C95`)
      deployed + registered at id 1; snarkjs + canonical circuits set up; a 1 USDC denomination deposit
