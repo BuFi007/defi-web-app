@@ -64,9 +64,14 @@ Targets on Arc (sub-second finality): **p50 < 1.5s, p99 < 3s** end-to-end per pr
    adapter+calldata bound into the proof context — confirmed). Live on-chain proof-gen round-trip
    deferred to Phase 2 (prover). Remaining design follow-up: generalize for a *settle-back* result
    (borrow/swap) is coded but only the supply path is tested.
-1. **Registry + adapters** — `registerAdapter` (owner-gated) + Morpho + `TelaranaFxOrderSettlement`
-   + spot adapters, with per-adapter selector allowlists + measured-delta safety (mirror
-   relayCrossCurrency's adapter trust boundary). fx-telarana 42-test suite + Ponder/SDK.
+1. ✅ **DONE (2026-05-31)** — adapters: `FxMorphoSupplyAdapter` (Phase 0), **`FxPerpMarginAdapter`**
+   (private perp = fund the detached executor's margin via `FxMarginAccount.depositMargin`; the
+   perp is a CLOB so a position isn't one on-chain call — we fund margin privately, the executor
+   trades from it), **`FxSpotSwapAdapter`** (swap via the protocol swap adapter, settle-back to the
+   recipient). All caller-gated to the entrypoint. **Selector-allowlist note:** we DON'T pass
+   arbitrary calldata to arbitrary targets — each adapter is a purpose-built, owner-registered
+   contract doing one vetted action, which IS the allowlist (safer than selector-gating raw calls).
+   FxPrivacyEntrypoint suite 29/29 (perp-margin + spot-swap from a shielded note proven).
 2. **Relayer + prover** — server-side proving + dedicated relayer key-pool/nonce-lanes; perf bench.
 3. **Resolution index** — viewing-key-scoped executor→user map (private "my positions"); the
    `resolveOwnedExecutions` impl.
