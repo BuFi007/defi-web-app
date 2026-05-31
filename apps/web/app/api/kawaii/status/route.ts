@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
     baseId: mint?.baseId ?? null,
     tokenId: mint?.tokenId ?? null,
     agentId: mint?.agentId ?? null, // ERC-8004 badge → render the AGENT corner stamp
+    ipfsCid: mint?.ipfsCid ?? null, // live metadata CID → "View on IPFS" deep link
     mintedAt: mint?.createdAt ?? null,
     whitelisted: !!wl, // whitelist waives PAYMENT only (socials still required) → Free Mint
   });

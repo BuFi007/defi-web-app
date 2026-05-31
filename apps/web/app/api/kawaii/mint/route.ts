@@ -5,7 +5,6 @@ import { KAWAII_GATE, RESERVED_BASES } from "@/lib/kawaii/config";
 import { mintAvatar, MintError } from "@/lib/kawaii/mint-service";
 import { verifyUsdcPaymentArc } from "@/lib/kawaii/payment";
 import { ownerOfAgent } from "@/lib/kawaii/erc8004";
-import { getGuildVerifiedPlatforms, guildJoinUrl } from "@/lib/kawaii/guild";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -60,34 +59,15 @@ export async function POST(req: NextRequest) {
   const tier = "testnet" as const;
   const cfg = KAWAII_GATE[tier];
 
-  // ---- Agent vs human verification ----
-  // Humans verify socials (X + Discord via Guild). AGENTS verify by owning an
-  // ERC-8004 identity (the badge): an agent with an on-chain identity it
-  // controls is "verified" and skips the social gate — agents can't do Discord/X
-  // follows, their identity IS their proof. Ownership is checked on-chain.
+  // Agent badge: an ERC-8004 identity the wallet owns on-chain links to the Punk.
   const isVerifiedAgent = !!agentId && /^\d+$/.test(agentId) && (await ownerOfAgent(BigInt(agentId)))?.toLowerCase() === lc;
 
   const wl = await prisma.gateWhitelist.findUnique({ where: { address: lc } });
   const reserved = baseId in RESERVED_BASES;
 
-  // Social gate — required for everyone EXCEPT verified agents (an ERC-8004
-  // identity the wallet controls IS the proof; agents can't do X/Discord).
-  // Whitelisted wallets still prove socials — whitelist only waives PAYMENT.
-  // Humans prove X + Discord via Guild.xyz (free oracle); legacy OAuth honored too.
-  if (!isVerifiedAgent) {
-    const have = new Set<string>();
-    try {
-      (await getGuildVerifiedPlatforms(lc)).forEach((p) => have.add(p));
-    } catch {
-      /* Guild down → fall back to ledger only */
-    }
-    const socials = await prisma.socialVerification.findMany({ where: { address: lc, verified: true } });
-    socials.forEach((s) => have.add(s.platform));
-    const missing = cfg.socialsRequired.filter((p) => !have.has(p));
-    if (missing.length) {
-      return NextResponse.json({ error: "socials_required", missing, verify: guildJoinUrl() }, { status: 403 });
-    }
-  }
+  // NO social gate — minting is open. Auth is the wallet signature; access is
+  // gated only by whitelist (free) or USDC payment on Arc. (Guild/X/Discord
+  // verification was removed: too much friction and unreliable validation.)
   let payToken: "free" | "USDC" = "free";
   let amountPaid: string | undefined;
   let paymentTx: string | undefined;

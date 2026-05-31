@@ -18,6 +18,7 @@ export type KawaiiMint = {
   baseId: string | null;
   tokenId: string | null;
   agentId: string | null; // ERC-8004 badge (agentic Punk) | null for humans
+  ipfsCid: string | null; // live metadata CID → "View on IPFS"
   mintedAt: string | null;
 };
 
@@ -41,7 +42,7 @@ export function useKawaiiBeta() {
       .then((r) => r.json())
       .then((d) => {
         setHasNft(!!d.hasNft);
-        setMint(d.hasNft ? { tier: d.tier, baseId: d.baseId, tokenId: d.tokenId, agentId: d.agentId, mintedAt: d.mintedAt } : null);
+        setMint(d.hasNft ? { tier: d.tier, baseId: d.baseId, tokenId: d.tokenId, agentId: d.agentId, ipfsCid: d.ipfsCid, mintedAt: d.mintedAt } : null);
       })
       .catch(() => setHasNft(true)); // fail-open: a status hiccup never gates the app
     fetch(`/api/kawaii/catalog`)

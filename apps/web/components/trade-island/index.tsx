@@ -129,6 +129,10 @@ function resolveDisplayName(
   return "Anonymous";
 }
 
+// Compose a Kawaii Punk layer URL (same endpoint the identity tab uses).
+const kawaiiLayer = (cat: string, file: string) =>
+  `/api/kawaii/layer?cat=${cat}&file=${encodeURIComponent(file)}`;
+
 type LeaderPeriod = "24h" | "7d" | "30d" | "all";
 
 // PERIOD_LABELS moved inside LeadersTab to use i18n hook.
@@ -150,7 +154,7 @@ function periodSinceUnixSec(period: LeaderPeriod): number | null {
   }
 }
 
-function LeadersTab() {
+function LeadersTab({ onUpgrade }: { onUpgrade: () => void }) {
   const t = useScopedI18n('TradeIsland');
   const PERIOD_LABELS: Record<LeaderPeriod, string> = {
     "24h": t("period24h"),
@@ -174,9 +178,15 @@ function LeadersTab() {
   // current snapshot from /perps/positions since open positions don't
   // carry a timestamp.
   const { address } = useAccount();
+  const { hasNft, mint } = useKawaiiBeta();
   const { data: livePositions, isLoading } = usePositions();
   const { data: liveTrades } = useTrades();
   const [period, setPeriod] = useState<LeaderPeriod>("30d");
+
+  // Kawaii Punk contest: only MAINNET Punks are entered into the leaderboard.
+  // (Testnet Punks are play-only and accrue no standings.)
+  const isMainnetPunk = !!hasNft && (mint?.tier === "mainnet" || mint?.tier === "both");
+  const punkBase = mint?.baseId && !mint.baseId.includes("/") ? mint.baseId : null;
 
   const positions = livePositions ?? [];
   const trades = liveTrades ?? [];
@@ -234,6 +244,51 @@ function LeadersTab() {
           </button>
         ))}
       </div>
+
+      {/* Kawaii Punk leaderboard banner — Mainnet Punks compete for the prize.
+          Holders see they're in; everyone else gets an Upgrade CTA (never a
+          "you're excluded" message). */}
+      <div
+        style={{
+          display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+          margin: "0 0 10px", padding: "8px 12px", borderRadius: 12,
+          background: "linear-gradient(90deg, #f3ecff, #fbeffa)",
+          border: "1px solid #e8dcff",
+          fontSize: 12, fontWeight: 700, color: "var(--ink-2)",
+        }}
+      >
+        <span style={{ fontSize: 14 }}>🏆</span>
+        <span>
+          Kawaii Punk leaderboard — <strong style={{ color: "#7b4bd4" }}>Mainnet</strong> Punks
+          compete for the prize.
+        </span>
+        {address && (isMainnetPunk ? (
+          <span
+            style={{
+              marginLeft: "auto", fontSize: 10.5, fontWeight: 800,
+              padding: "2px 9px", borderRadius: 999,
+              background: "#ece0ff", color: "#7b4bd4",
+            }}
+          >
+            YOUR PUNK #{mint?.tokenId ?? ""} IS IN
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={onUpgrade}
+            style={{
+              marginLeft: "auto", fontSize: 11, fontWeight: 800,
+              padding: "5px 12px", borderRadius: 999, cursor: "pointer",
+              border: "none", color: "#fff",
+              background: "linear-gradient(135deg, #8a6aff, #ff7ad0)",
+              boxShadow: "0 3px 10px rgba(138,106,255,.35)",
+            }}
+          >
+            Upgrade to enter →
+          </button>
+        ))}
+      </div>
+
       {!address && (
         <EmptyState
           lottie="green-man"
@@ -273,15 +328,45 @@ function LeadersTab() {
                 <span className="rank-badge rank-1">1</span>
               </td>
               <td>
-                <div style={{ fontWeight: 800 }}>{displayName}</div>
-                <div
-                  style={{
-                    fontSize: 10.5,
-                    color: "var(--ink-3)",
-                    fontWeight: 700,
-                  }}
-                >
-                  {address ? truncateAddress(address, 6) : "—"}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {isMainnetPunk && punkBase && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={kawaiiLayer("base", punkBase)}
+                      alt=""
+                      width={30}
+                      height={30}
+                      style={{
+                        borderRadius: "50%", objectFit: "cover", flexShrink: 0,
+                        background: "#f0e6ff",
+                        boxShadow: "0 0 0 2px #7b4bd4",
+                      }}
+                    />
+                  )}
+                  <div>
+                    <div style={{ fontWeight: 800, display: "flex", alignItems: "center", gap: 6 }}>
+                      {displayName}
+                      {isMainnetPunk && (
+                        <span
+                          style={{
+                            fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 999,
+                            background: "#ece0ff", color: "#7b4bd4",
+                          }}
+                        >
+                          PUNK #{mint?.tokenId ?? ""}
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 10.5,
+                        color: "var(--ink-3)",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {address ? truncateAddress(address, 6) : "—"}
+                    </div>
+                  </div>
                 </div>
               </td>
               <td className="mono">{positions.length}</td>
@@ -1242,6 +1327,9 @@ export default function TradeIsland() {
   const selectTab = setTab;
   const [marketSym, setMarketSym] = useState("EUR/USD");
   const [arcade, setArcade] = useState(false);
+  // "Upgrade to enter the leaderboard" → force the Identity tab back to the
+  // (mainnet) mint view even for a wallet that already holds a testnet Punk.
+  const [upgradeMint, setUpgradeMint] = useState(false);
   const [loanIntent, setLoanIntent] = useState<LoanTabIntent | null>(null);
   const [activeLoanMarket, setActiveLoanMarket] = useState<{ loan: string; coll: string; supply: number | null; borrow: number | null } | null>(null);
   const [liveMark, setLiveMark] = useState<number | null>(null);
@@ -1408,7 +1496,7 @@ export default function TradeIsland() {
           >
             {tab === "identity" && (
               catalog
-                ? <KawaiiIdentity catalog={catalog} hasNft={hasNft} mint={kawaiiMint} refresh={refetchKawaii} />
+                ? <KawaiiIdentity catalog={catalog} hasNft={hasNft} mint={kawaiiMint} forceMint={upgradeMint} refresh={() => { refetchKawaii(); setUpgradeMint(false); }} />
                 : <EmptyState lottie="process" title="Loading your identity…" />
             )}
             {tab === "trade" && !arcade && (
@@ -1427,7 +1515,7 @@ export default function TradeIsland() {
             )}
             {tab === "positions" && <PositionsOnlyTab onLoanAction={navigateToLoan} />}
             {tab === "loan" && <LoanTab initialIntent={loanIntent} onActiveMarketChange={setActiveLoanMarket} />}
-            {tab === "leaders" && <LeadersTab />}
+            {tab === "leaders" && <LeadersTab onUpgrade={() => { setUpgradeMint(true); setTab("identity"); }} />}
             {tab === "history" && <HistoryTab />}
           </motion.div>
         </AnimatePresence>

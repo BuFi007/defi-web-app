@@ -16,8 +16,8 @@ export default function KawaiiPreview() {
   return (
     <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "linear-gradient(135deg,#c9b8ff,#e9d8ff,#bfe3ff)", padding: 16 }}>
       {/* Mimics the island identity-tab body: width 1240, realistic body height. */}
-      <div style={{ position: "relative", width: 1240, height: 500, borderRadius: 26, overflow: "hidden", boxShadow: "0 30px 80px rgba(60,20,110,.35)", background: "#fff" }}>
-        <div className="identity-tab" style={{ position: "relative", height: "100%", minHeight: 460, flex: 1, padding: 0, margin: 0, maxWidth: "none", gap: 0, overflow: "hidden" }}>
+      <div style={{ position: "relative", width: 1240, height: 440, borderRadius: 26, overflow: "hidden", boxShadow: "0 30px 80px rgba(60,20,110,.35)", background: "#fff" }}>
+        <div className="identity-tab" style={{ position: "relative", height: "100%", minHeight: 380, flex: 1, padding: 10, margin: 0, maxWidth: "none", gap: 0, overflow: "hidden" }}>
           {catalog ? <KawaiiGate catalog={catalog} embedded /> : <p style={{ padding: 32 }}>loading catalog…</p>}
         </div>
       </div>

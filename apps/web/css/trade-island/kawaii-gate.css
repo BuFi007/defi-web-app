@@ -124,8 +124,8 @@
   letter-spacing: .08em;
   text-transform: uppercase;
   color: #ffd7f5;
-  padding: 26px 12px 12px;
-  background: linear-gradient(180deg, transparent, rgba(30, 12, 70, .55));
+  padding: 14px 12px 12px;
+  background: none;
 }
 .kg-tagline .own { color: #ffe27a; }
 
@@ -1001,7 +1001,7 @@
 .kg-left-toggle button.active { background: #2e2350; color: #fff; }
 
 /* Tagline reads on white (poster mode only) */
-.kg-tagline { color: #8a7ab0; background: linear-gradient(180deg, transparent, rgba(240,232,255,.7)); }
+.kg-tagline { color: #8a7ab0; background: none; }
 .kg-tagline .own { color: #c5379e; }
 
 /* Stage = clean, central, taller; avatar = rectangle merging into bg */
@@ -1034,6 +1034,13 @@
 /* ── v4 — rebalance: the customizer is the star, give it the width ──
    Lean mint panel was eating 55% and sitting half-empty. Flip it. */
 .kg-root.embedded .kg-card { grid-template-columns: 58% 42%; }
+/* Post-mint solo dashboard must stay SINGLE column (the 2-col embedded rule
+   above out-specifies the base `.kg-card.solo`, which left the customizer
+   squished into column 2 with empty space). Higher specificity wins it back. */
+.kg-root.embedded .kg-card.solo {
+  grid-template-columns: 1fr;
+  grid-template-rows: minmax(0, 1fr);
+}
 .kg-root.embedded .kg-cust-grid { grid-template-columns: repeat(5, 1fr); gap: 8px; }
 .kg-root.embedded .kg-cust-stage { height: 46%; }
 .kg-root.embedded .kg-cust-av { height: 90%; max-width: 84%; }
@@ -1196,7 +1203,9 @@
 .kg-root.embedded .kg-logo-crown img { height: 132px; }
 /* Inner sections keep a little inset even though the panel itself has no x-pad,
    so cards/buttons don't butt the divider — but the logo/net span full width. */
-.kg-root.embedded .kg-panel > *:not(.kg-logo-crown):not(.kg-net) { padding-left: 16px; padding-right: 16px; }
+.kg-root.embedded .kg-panel > *:not(.kg-logo-crown):not(.kg-net):not(.kg-mint) { padding-left: 16px; padding-right: 16px; }
+/* Simple Mint button: inset from the panel edges (x-margin) + own padding */
+.kg-root.embedded .kg-mint { margin: 2px 16px 0; padding: 12px 28px; }
 
 /* Poster stage: no bg colour, no shadows anywhere (clean) */
 .kg-poster-stage { background: transparent; box-shadow: none; }
@@ -1261,3 +1270,296 @@
 [data-theme="dark"] .kg-follow .name { color: #ece6ff; }
 [data-theme="dark"] .kg-chain-pip { background: #efeaff; }
 [data-theme="dark"] .kg-testnote { background: linear-gradient(135deg,#13302a,#102a30); border-color:#1f5a48; color:#9fe6c8; }
+
+/* ═══ v14 — locked items are previewable (read + render), never mintable ═══ */
+/* Locked tiles are now clickable (tap to preview), not disabled */
+.kg-root.embedded .kg-cust-tile.locked { cursor: pointer; }
+.kg-root.embedded .kg-cust-tile.locked:hover { transform: translateY(-2px); border-color: #c8b0ff; }
+/* Previewing a locked item: dashed lavender ring (distinct from the solid
+   "equipped" ring) + the image reads at full opacity so you can see it. */
+.kg-root.embedded .kg-cust-tile.previewing { border-color: #b07aff; border-style: dashed; box-shadow: 0 0 0 2px #ecdcff; }
+.kg-root.embedded .kg-cust-tile.previewing .kg-cust-pic img { filter: none; }
+.kg-root.embedded .kg-cust-tile.previewing .kg-cust-tick { background: #b07aff; }
+
+/* ═══ v15 — item description text + locked-preview lock badge on the avatar ═══ */
+.kg-cust-desc-body { font-size: 12px; line-height: 1.45; color: #6a5a92; font-weight: 600; margin-top: 2px; }
+[data-theme="dark"] .kg-cust-desc-body { color: #b9a8e0; }
+
+/* Lock badge over the avatar (right) while a locked item is previewed */
+.kg-root.embedded .kg-cust-av.previewing { box-shadow: inset 0 0 0 2px #b07aff80; }
+.kg-av-lock {
+  position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(46, 35, 80, .82); color: #fff;
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 800; letter-spacing: .04em;
+  padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+  backdrop-filter: blur(4px); z-index: 3;
+}
+
+/* ═══ v16 — respect the space: clear the toggle, fit the customizer ═══ */
+/* Push the customizer below the absolute "Poster / Your Kawaii Punk" toggle */
+.kg-root.embedded .kg-poster-stage .kg-cust { padding-top: 46px; }
+/* Description sits at the top of its column (doesn't center up under the toggle) */
+.kg-root.embedded .kg-cust-desc { align-self: start; }
+/* Trim the stage so the 4×2 carousel always has room (no bottom overflow) */
+.kg-root.embedded .kg-poster-stage .kg-cust-stage { height: 36%; }
+
+/* ═══ v17 — ultra-clean seam: identical white panels, no shadow/border ═══ */
+.kg-root.embedded .kg-card,
+.kg-root.embedded .kg-poster,
+.kg-root.embedded .kg-panel { background: #fff; box-shadow: none; border: 0; }
+[data-theme="dark"] .kg-root.embedded .kg-card,
+[data-theme="dark"] .kg-root.embedded .kg-panel { background: #16112e; }
+[data-theme="dark"] .kg-root.embedded .kg-poster { background: #110d24; }
+
+/* ═══ v18 — social check removed; pay-save badge inline (right) in the price row ═══ */
+.kg-pay-opt .pay-price-row { display: flex; align-items: baseline; gap: 7px; }
+.kg-pay-opt .pay-price-row .pay-save { margin-left: auto; align-self: center; }
+
+/* ═══ v19 — simple Mint button: flat solid, clear x-padding, no shadows ═══ */
+.kg-root.embedded .kg-mint {
+  background: #8a6aff;          /* simple solid (no multi-stop gradient) */
+  background-size: auto;
+  box-shadow: none;
+  padding: 12px 28px;          /* clear horizontal padding */
+}
+.kg-root.embedded .kg-mint:hover:not(:disabled) { background: #7a5cff; box-shadow: none; transform: none; background-position: 0 0; }
+.kg-root.embedded .kg-mint:disabled { background: #ddd2f0; box-shadow: none; }
+.kg-root.embedded .kg-mint .arrow { background: rgba(255,255,255,.22); box-shadow: none; }
+[data-theme="dark"] .kg-root.embedded .kg-mint:disabled { background: #2a2147; color: #6a5a92; }
+
+/* ═══ v20 — extra poster decorations: Spooky FX text + StableFX logo ═══ */
+.kg-deco-fx, .kg-deco-stablefx {
+  position: absolute; z-index: 4; pointer-events: none; filter: none;
+}
+.kg-deco-fx {           /* "WE MAKE SPOOKY FOREX…" — top-left, below the toggle */
+  top: 50px; left: 2px;
+  width: 30%; max-width: 220px;
+  transform: rotate(-7deg);
+}
+.kg-deco-stablefx {     /* "Decentralized StableFX" logo — bottom-right */
+  bottom: 12px; right: 2px;
+  width: 42%; max-width: 280px;
+  transform: rotate(4deg);
+}
+
+/* ═══ v21 — balanced/zen poster decorations + split Arc·USDC ═══
+   Two matched diagonals: wordmark art (top-left ↔ bottom-right) and torn
+   stickers (top-right ↔ bottom-left), symmetric insets + sizes. */
+.kg-root.embedded .kg-deco-fx,
+.kg-root.embedded .kg-deco-stablefx,
+.kg-root.embedded .kg-sticker-drop,
+.kg-root.embedded .kg-arc-group { position: absolute; z-index: 4; pointer-events: none; filter: none; }
+
+/* Diagonal A — campaign wordmarks (matched size) */
+.kg-root.embedded .kg-deco-fx        { top: 108px; left: 10px;  width: 26%; max-width: 192px; transform: rotate(-6deg); }
+.kg-root.embedded .kg-deco-stablefx  { bottom: 30px; right: 10px; width: 26%; max-width: 192px; transform: rotate(4deg); }
+
+/* Diagonal B — torn stickers (matched size) */
+.kg-root.embedded .kg-sticker-drop   { top: 12px;  right: 10px; width: 21%; max-width: 124px; transform: rotate(6deg); bottom: auto; left: auto; }
+.kg-root.embedded .kg-arc-group      { bottom: 30px; left: 10px; width: 21%; max-width: 124px; transform: rotate(-8deg); }
+.kg-root.embedded .kg-arc-group .kg-sticker-arc  { position: static; width: 100%; max-width: none; transform: none; filter: none; display: block; }
+.kg-root.embedded .kg-arc-group .kg-sticker-usdc { position: absolute; top: -9%; right: -6%; width: 34%; filter: none; }
+
+/* ════════════════════════════════════════════════════════════════
+   v22 — awwwards baseline: staggered clip-reveal entrance, spring
+   mouse-parallax, gated hover lift, one-shot glitch on the poster
+   card, 3D coin-flip. Wrapper (.kg-deco) owns parallax + resting
+   rotation (JS sets --kg-px/--kg-py, no transition); inner <img>
+   owns entrance + hover (CSS transition). Transform/opacity only.
+   ════════════════════════════════════════════════════════════════ */
+
+/* Wrapper: parallax translate (per-corner --kg-depth) + static rotation.
+   No transition — the rAF lerp in kawaii-gate.tsx is the smoothing. */
+.kg-root.embedded .kg-deco {
+  transform: translate3d(
+    calc(var(--kg-px, 0) * var(--kg-depth, 12) * 1px),
+    calc(var(--kg-py, 0) * var(--kg-depth, 12) * 1px), 0)
+    rotate(var(--kg-rot, 0deg));
+  will-change: transform;
+  pointer-events: auto;
+}
+/* arc-group needs depth for the 3D coin flip to read */
+.kg-root.embedded .kg-arc-group { perspective: 620px; }
+
+/* Inner art: entrance (scale + fade, staggered) — rotation lives on the
+   wrapper so the keyframe is pure scale. `backwards` holds the from-state
+   during the delay; no `forwards`, so hover takes over once it settles. */
+.kg-root.embedded .kg-deco > img:not(.kg-sticker-usdc) {
+  display: block; width: 100%; height: auto;
+  animation: kg-deco-in 420ms var(--kg-ease-out) var(--kg-deco-delay, 0ms) backwards;
+}
+@keyframes kg-deco-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Hover lift — fine-pointer only. Subtle. Higher specificity (+ :hover) beats
+   the v21 `transform: none` on the arc sticker. */
+@media (hover: hover) and (pointer: fine) {
+  .kg-root.embedded .kg-deco > img:not(.kg-sticker-usdc) {
+    transition: transform 200ms var(--kg-ease-out), filter 200ms ease;
+  }
+  .kg-root.embedded .kg-deco:hover > img:not(.kg-sticker-usdc),
+  .kg-root.embedded .kg-arc-group:hover .kg-sticker-arc {
+    transform: scale(1.04) translateY(-3px);
+    filter: drop-shadow(0 8px 14px rgba(60, 20, 110, .26));
+  }
+}
+
+/* USDC coin — gentle 3D entrance flip (once) + spin on group hover. */
+.kg-root.embedded .kg-arc-group .kg-sticker-usdc {
+  transform-origin: 50% 50%;
+  backface-visibility: visible;
+  animation: kg-coin-in 720ms var(--kg-ease-out) 180ms backwards;
+}
+@keyframes kg-coin-in {
+  from { opacity: 0; transform: rotateY(-360deg) scale(0.85); }
+  to   { opacity: 1; transform: rotateY(0deg) scale(1); }
+}
+@media (hover: hover) and (pointer: fine) {
+  .kg-root.embedded .kg-arc-group:hover .kg-sticker-usdc {
+    animation: kg-coin-spin 780ms var(--kg-ease-out);
+  }
+}
+@keyframes kg-coin-spin {
+  from { transform: rotateY(0deg); }
+  to   { transform: rotateY(360deg); }
+}
+
+/* Poster card — the hero. MOST parallax travel (highest depth) so it has the
+   strongest relief / pops out the furthest above the corner art. Entrance
+   settle, then ONE gentle glitch burst (RGB split via drop-shadow + clip-slice
+   jitter). The animations own transform while playing; after they finish (no
+   `forwards`) the resting transform below — with parallax — applies. */
+.kg-root.embedded .kg-poster-img {
+  transform: translate(calc(-50% + var(--kg-px, 0) * 18px), calc(-50% + var(--kg-py, 0) * 18px));
+  will-change: transform;
+  animation:
+    kg-poster-in 300ms var(--kg-ease-out),
+    kg-glitch-once 520ms 300ms linear;
+}
+/* Kawaii Punks crown logo (top-center) — gentle parallax, keeps its -50% center */
+.kg-root.embedded .kg-kawaii-logo {
+  transform: translate(calc(-50% + var(--kg-px, 0) * 7px), calc(var(--kg-py, 0) * 7px));
+  will-change: transform;
+}
+/* Right-panel "Kawaii Punks × BU.FI" crown logo — gentle parallax too */
+.kg-root.embedded .kg-logo-crown img {
+  transform: translate(calc(var(--kg-px, 0) * 9px), calc(var(--kg-py, 0) * 9px));
+  will-change: transform;
+}
+
+/* Hover lift for the parallax-driven poster + crown logo. Uses the independent
+   `scale:` property (not `transform`), so the transition smooths the hover WITHOUT
+   lagging the rAF parallax that lives in `transform`. Scale keeps center → stays
+   put. Fine-pointer only. */
+@media (hover: hover) and (pointer: fine) {
+  .kg-root.embedded .kg-poster-img,
+  .kg-root.embedded .kg-logo-crown img {
+    transition: scale 240ms var(--kg-ease-out), filter 240ms ease;
+    cursor: pointer;
+  }
+  .kg-root.embedded .kg-poster-img:hover {
+    scale: 1.035;
+    filter: drop-shadow(0 14px 28px rgba(60, 20, 110, .32));
+  }
+  .kg-root.embedded .kg-logo-crown img:hover { scale: 1.06; }
+}
+@keyframes kg-glitch-once {
+  0%, 33%, 100% { transform: translate(-50%, -50%); clip-path: inset(0 0 0 0); filter: none; }
+  6%  { transform: translate(calc(-50% - 3px), -50%); clip-path: inset(10% 0 78% 0);
+        filter: drop-shadow(-2px 0 0 rgba(0,255,255,.5)) drop-shadow(2px 0 0 rgba(255,0,200,.5)); }
+  12% { transform: translate(calc(-50% + 3px), -50%); clip-path: inset(70% 0 12% 0);
+        filter: drop-shadow(2px 0 0 rgba(0,255,255,.42)) drop-shadow(-2px 0 0 rgba(255,0,200,.42)); }
+  18% { transform: translate(-50%, -50%); clip-path: inset(0 0 0 0); filter: none; }
+  25% { transform: translate(calc(-50% - 2px), -50%); clip-path: inset(44% 0 42% 0);
+        filter: drop-shadow(-1px 0 0 rgba(0,255,255,.4)) drop-shadow(1px 0 0 rgba(255,0,200,.4)); }
+}
+
+/* Reduced motion — kill movement/glitch/parallax, keep simple fades.
+   Placed last so it wins over the v22 rules above. */
+@media (prefers-reduced-motion: reduce) {
+  .kg-root.embedded .kg-deco { transform: rotate(var(--kg-rot, 0deg)); }
+  .kg-root.embedded .kg-deco > img,
+  .kg-root.embedded .kg-arc-group .kg-sticker-usdc {
+    animation: kg-fade-only 200ms ease both;
+  }
+  .kg-root.embedded .kg-poster-img { animation: kg-fade-only 200ms ease both; }
+  .kg-root.embedded .kg-deco:hover > img:not(.kg-sticker-usdc),
+  .kg-root.embedded .kg-arc-group:hover .kg-sticker-arc,
+  .kg-root.embedded .kg-arc-group:hover .kg-sticker-usdc { transform: none; animation: none; }
+  .kg-root.embedded .kg-poster-img:hover,
+  .kg-root.embedded .kg-logo-crown img:hover { scale: none; filter: none; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   v23 — per-item rarity chip + post-mint Save/Reset/View-live actions
+   (bottom-right of the avatar stage). item-map.json drives the names
+   + descriptions; these controls let a holder update their Punk.
+   ════════════════════════════════════════════════════════════════ */
+.kg-cust-desc-name { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.kg-rar {
+  font-style: normal; font-family: 'JetBrains Mono', monospace;
+  font-size: 8.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 999px;
+}
+.kg-rar.legendary { background: #fff1c2; color: #9a6b00; }
+.kg-rar.rare { background: #e6ddff; color: #6b2fb0; }
+.kg-rar.common { background: #eef0f4; color: #6b7280; }
+
+.kg-cust-actions {
+  position: absolute; right: 12px; bottom: 10px; z-index: 5;
+  display: flex; align-items: center; gap: 6px;
+}
+.kg-act {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .03em;
+  padding: 6px 12px; border-radius: 999px; cursor: pointer;
+  border: 1px solid transparent; text-decoration: none; line-height: 1;
+  transition: transform 140ms var(--kg-ease-out, ease), background 150ms ease, opacity 150ms ease;
+}
+.kg-act:active:not(:disabled) { transform: scale(0.96); }
+.kg-act.view { background: #fff; color: #6b2fb0; border-color: #e8dcff; }
+.kg-act.reset { background: #f1ecfa; color: #6b2fb0; }
+.kg-act.save { background: linear-gradient(135deg, #8a6aff, #ff7ad0); color: #fff; box-shadow: 0 3px 10px rgba(138,106,255,.3); }
+.kg-act:disabled { opacity: .4; cursor: default; box-shadow: none; }
+@media (hover: hover) and (pointer: fine) {
+  .kg-act.view:hover { background: #f6f1ff; }
+  .kg-act.reset:hover:not(:disabled) { background: #e7ddfb; }
+}
+[data-theme="dark"] .kg-act.view { background: #1b1533; color: #d9c9ff; border-color: #2c2350; }
+[data-theme="dark"] .kg-act.reset { background: #1b1533; color: #d9c9ff; }
+[data-theme="dark"] .kg-rar.common { background: #241d40; color: #9a8cc4; }
+
+/* ════════════════════════════════════════════════════════════════
+   v24 — mythical-creature origin badge (bases). item-map.json carries
+   per-base { creature, country, flag, scope, region }; this renders the
+   flag + place + (regional/global) reach under the base name.
+   ════════════════════════════════════════════════════════════════ */
+.kg-cust-origin {
+  display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin: -2px 0 2px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .02em;
+  color: var(--ink-2, #4a4566);
+}
+.kg-flag { font-size: 14px; line-height: 1; }
+.kg-origin-place { color: #6b2fb0; }
+.kg-origin-region {
+  font-style: normal;
+  font-size: 8.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 999px;
+  background: #ece0ff; color: #6b2fb0;
+}
+[data-theme="dark"] .kg-cust-origin { color: #c9bce8; }
+[data-theme="dark"] .kg-origin-place { color: #d9c9ff; }
+[data-theme="dark"] .kg-origin-region { background: #241d40; color: #d9c9ff; }
+
+/* v25 — Save status message next to the post-mint actions */
+.kg-act-msg {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px; font-weight: 700; letter-spacing: .02em;
+  color: var(--ink-3, #8a82a6);
+  max-width: 180px; text-align: right; line-height: 1.2;
+}
