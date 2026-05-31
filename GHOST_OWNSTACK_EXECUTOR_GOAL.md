@@ -73,6 +73,21 @@ Targets on Arc (sub-second finality): **p50 < 1.5s, p99 < 3s** end-to-end per pr
    contract doing one vetted action, which IS the allowlist (safer than selector-gating raw calls).
    FxPrivacyEntrypoint suite 29/29 (perp-margin + spot-swap from a shielded note proven).
 2. **Relayer + prover** — server-side proving + dedicated relayer key-pool/nonce-lanes; perf bench.
+   - ✅ **Software (2026-05-31, fx-telarana `4224805`)** — `privacy-prover/scripts/b5-execute.ts`
+     (deposit-state → ASP root → context over the ExecutionRelayData blob →
+     `snarkjs.groth16.fullProve` → `relayExecute`; near-verbatim from the proven `b5-withdraw`,
+     same circuit/verifier → no new ceremony) + SDK `contractsService.relayExecute` (+ ABI),
+     used by the relayer + script + provider.
+   - ⏳ **Live on-chain round-trip (runbook)** — a deliberate, gated ops sequence:
+     1. Upgrade the live Arc entrypoint impl to the `relayExecute` version (UUPS `upgradeToAndCall`,
+        owner key — same as the denomination upgrade; storage-safe, denominations persist).
+     2. Deploy `FxMorphoSupplyAdapter` on Arc + `registerExecutionAdapter(1, adapter)` (owner).
+     3. `bun add snarkjs` + `fetch-circuits.sh` (withdraw.wasm/.zkey from `discovery/.../build/withdraw`).
+     4. `b5-deposit` a denomination (e.g. 100 USDC) into the live USDC FxPrivacyPool.
+     5. `EXEC_ADAPTER_ID=1 EXEC_ADAPTER_DATA=<abi MarketParams> b5-execute` → Morpho supply lands
+        from the shielded note via `relayExecute`, REAL Groth16 proof against the deployed verifier.
+   - ⏳ **Throughput** — dedicated relayer key-pool + parallel nonce lanes (not the BurnIntent EOA),
+     `/v1/relayExecute` HTTP endpoint (thin wrapper over `contractsService.relayExecute`).
 3. **Resolution index** — viewing-key-scoped executor→user map (private "my positions"); the
    `resolveOwnedExecutions` impl.
 4. **`BufiOwnStackProvider`** — implement the interface; flip `createGhostRegistry` to route
